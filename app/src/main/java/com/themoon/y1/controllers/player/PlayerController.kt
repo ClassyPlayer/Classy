@@ -479,6 +479,7 @@ class PlayerController(
         when (keyCode) {
             KeyEvent.KEYCODE_DPAD_CENTER, 23, KeyEvent.KEYCODE_ENTER -> {
                 if (event.repeatCount == 0) {
+                    MainActivity.instance?.isLongPressConsumed = false
                     event.startTracking()
                 }
                 return true
@@ -507,6 +508,12 @@ class PlayerController(
 
     override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
         if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == 23 || keyCode == KeyEvent.KEYCODE_ENTER) {
+            val main = MainActivity.instance
+            if (main != null && main.isLongPressConsumed) {
+                // The hold opened the Now Playing menu, so skip the short-press action
+                main.isLongPressConsumed = false
+                return true
+            }
             if ((event.flags and KeyEvent.FLAG_CANCELED_LONG_PRESS) == 0) {
                 val prefs = activity.getSharedPreferences("AppPrefs", Activity.MODE_PRIVATE)
                 if (!prefs.getBoolean("double_click_favorite", true)) {
@@ -544,6 +551,17 @@ class PlayerController(
     }
 
     override fun onKeyLongPress(keyCode: Int, event: KeyEvent): Boolean {
+        if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == 23 || keyCode == KeyEvent.KEYCODE_ENTER) {
+            val main = MainActivity.instance
+            if (main != null && main.currentPlaylist.isNotEmpty() && main.currentIndex in main.currentPlaylist.indices) {
+                clickFeedback()
+                main.isLongPressConsumed = true
+                doubleClickHandler.removeCallbacks(singleClickRunnable)
+                lastCenterUpTime = 0
+                showContextMenu()
+                return true
+            }
+        }
         if (keyCode == KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE || keyCode == 85 || keyCode == 86 || keyCode == 126 || keyCode == 127) {
             val main = MainActivity.instance
             if (main != null && main.currentPlaylist.isNotEmpty() && main.currentIndex in main.currentPlaylist.indices) {
