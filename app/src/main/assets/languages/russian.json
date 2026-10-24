@@ -720,5 +720,6 @@
   "Pairing failed: device not found. Put it in pairing mode": "Сопряжение не удалось: устройство не найдено. Переведите его в режим сопряжения",
   "Pairing failed: a scan was running. Try again": "Сопряжение не удалось: шло сканирование. Повторите попытку",
   "Pairing failed: no answer (timeout)": "Сопряжение не удалось: нет ответа (тайм-аут)",
-  "Pairing failed: too many attempts. Wait, then try again": "Сопряжение не удалось: слишком много попыток. Подождите и повторите"
+  "Pairing failed: too many attempts. Wait, then try again": "Сопряжение не удалось: слишком много попыток. Подождите и повторите",
+  "Add to Playlist": "Добавить в плейлист"
 }
