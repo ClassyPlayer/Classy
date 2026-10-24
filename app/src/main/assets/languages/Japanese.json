@@ -721,5 +721,7 @@
   "Pairing failed: a scan was running. Try again": "ペアリング失敗: スキャン中でした。もう一度お試しください",
   "Pairing failed: no answer (timeout)": "ペアリング失敗: 応答がありません (タイムアウト)",
   "Pairing failed: too many attempts. Wait, then try again": "ペアリング失敗: 試行回数が多すぎます。しばらく待ってからもう一度お試しください",
-  "Add to Playlist": "プレイリストに追加"
+  "Add to Playlist": "プレイリストに追加",
+  "Show Spectrum": "スペクトラムを表示",
+  "Hide Spectrum": "スペクトラムを隠す"
 }
