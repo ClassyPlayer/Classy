@@ -416,19 +416,6 @@ class EqualizerController(
         return true
     }
 
-    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
-        if (keyCode == KeyEvent.KEYCODE_BACK) {
-            if (isGraphicEqOpen || isProfileSelectorOpen) {
-                buildEqualizerSettingsUI()
-                return true
-            }
-            onNavigateBack()
-            return true
-        }
-
-        return false
-    }
-
     override fun onBackPressed(): Boolean {
         if (isGraphicEqOpen || isProfileSelectorOpen) {
             buildEqualizerSettingsUI()
