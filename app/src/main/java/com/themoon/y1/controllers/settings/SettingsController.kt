@@ -1568,6 +1568,7 @@ class SettingsController(
             }
             containerSettingsItems.addView(row)
         }
+        containerSettingsItems.getChildAt(0)?.requestFocus()
     }
 
     private fun buildMusicMenuVisibilitySettingsUI() {
@@ -1625,6 +1626,7 @@ class SettingsController(
             }
             containerSettingsItems.addView(row)
         }
+        containerSettingsItems.getChildAt(0)?.requestFocus()
     }
 
     private fun sortMenuElements(buttons: ArrayList<ThemeManager.MenuElement>) {
