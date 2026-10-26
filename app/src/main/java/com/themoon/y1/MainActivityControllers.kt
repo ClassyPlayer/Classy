@@ -211,8 +211,6 @@ internal fun MainActivity.initControllers() {
         clickFeedback = { clickFeedback() },
         onAdjustVolume = { adjustVolume(it) },
         onTogglePlayback = { com.themoon.y1.managers.AudioSources.app.playPauseKey() },
-        onNextTrack = { AudioPlayerManager.getInstance().nextTrack() },
-        onPreviousTrack = { AudioPlayerManager.getInstance().prevTrack() },
         onNavigateBack = { NavigationManager.getInstance().popBackStack() },
         onBrowseAlbum = { album ->
             changeScreen(MainActivity.STATE_BROWSER)
