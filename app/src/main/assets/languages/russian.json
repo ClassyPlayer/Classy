@@ -723,5 +723,7 @@
   "Pairing failed: too many attempts. Wait, then try again": "Сопряжение не удалось: слишком много попыток. Подождите и повторите",
   "Add to Playlist": "Добавить в плейлист",
   "Show Spectrum": "Показать спектр",
-  "Hide Spectrum": "Скрыть спектр"
+  "Hide Spectrum": "Скрыть спектр",
+  "Show Total Time": "Показать общее время",
+  "Show Remaining Time": "Показать оставшееся время"
 }

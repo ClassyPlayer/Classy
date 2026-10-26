@@ -1613,6 +1613,7 @@ class SettingsController(
                 .remove("sound_check_enabled")
                 .remove("video_stretch_fill")
                 .remove("album_tilt_enabled")
+                .remove("show_total_time")
                 .remove("backlight_timer_index")
                 .remove(com.themoon.y1.managers.ClickVolume.PREF)
                 .remove("screen_off_control")

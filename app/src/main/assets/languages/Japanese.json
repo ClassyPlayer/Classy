@@ -723,5 +723,7 @@
   "Pairing failed: too many attempts. Wait, then try again": "ペアリング失敗: 試行回数が多すぎます。しばらく待ってからもう一度お試しください",
   "Add to Playlist": "プレイリストに追加",
   "Show Spectrum": "スペクトラムを表示",
-  "Hide Spectrum": "スペクトラムを隠す"
+  "Hide Spectrum": "スペクトラムを隠す",
+  "Show Total Time": "合計時間を表示",
+  "Show Remaining Time": "残り時間を表示"
 }
