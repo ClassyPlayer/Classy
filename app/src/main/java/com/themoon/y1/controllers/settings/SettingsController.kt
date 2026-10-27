@@ -110,7 +110,7 @@ class SettingsController(
     companion object {
         /** Backlight Timer is the one screen timer: it also sets Android's SCREEN_OFF_TIMEOUT (see BacklightTimer). */
         val BACKLIGHT_TIMER_LABELS = com.themoon.y1.managers.BacklightTimer.LABELS
-        val VIBE_STRENGTH_NAMES = arrayOf("Weak", "Normal (Vibe)", "Strong")
+        val VIBE_STRENGTH_NAMES = com.themoon.y1.managers.ButtonVibration.LABELS
 
         // Common IANA zones covering the main UTC offsets, short enough to scroll with the wheel
         val TIME_ZONE_IDS = arrayOf(
@@ -578,7 +578,7 @@ class SettingsController(
                 Settings.System.putInt(
                     activity.contentResolver,
                     Settings.System.HAPTIC_FEEDBACK_ENABLED,
-                    if (isVibrationEnabled) 1 else 0
+                    0 // always off, as in MainActivity: else Android also vibrates on each key press
                 )
             } catch (_: Exception) {}
         }

@@ -522,7 +522,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
             return
         }
         if (isVibrationEnabled) {
-            vibrator.vibrate((vibrationStrengthLevel * 15).toLong())
+            vibrator.vibrate(com.themoon.y1.managers.ButtonVibration.lengthMs(vibrationStrengthLevel))
         }
         if (isSoundEffectEnabled) {
             // Settings → Click Volume: a level of its own, not the music volume (see ClickVolume).
@@ -1097,7 +1097,9 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
                 Settings.System.putInt(
                     contentResolver,
                     Settings.System.HAPTIC_FEEDBACK_ENABLED,
-                    if (isVibrationEnabled) 1 else 0
+                    // Always off: else Android also vibrates on each key press, before our vibration on the
+                    // release. Our vibration (clickFeedback) does not read this setting.
+                    0
                 )
             } else {
                 if (!isScreenOffControlEnabled) {
