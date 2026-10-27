@@ -725,5 +725,7 @@
   "Show Spectrum": "スペクトラムを表示",
   "Hide Spectrum": "スペクトラムを隠す",
   "Show Total Time": "合計時間を表示",
-  "Show Remaining Time": "残り時間を表示"
+  "Show Remaining Time": "残り時間を表示",
+  "Spectrum": "スペクトラム",
+  "Total Time": "合計時間"
 }

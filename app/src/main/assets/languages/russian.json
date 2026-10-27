@@ -725,5 +725,7 @@
   "Show Spectrum": "Показать спектр",
   "Hide Spectrum": "Скрыть спектр",
   "Show Total Time": "Показать общее время",
-  "Show Remaining Time": "Показать оставшееся время"
+  "Show Remaining Time": "Показать оставшееся время",
+  "Spectrum": "Спектр",
+  "Total Time": "Общее время"
 }
