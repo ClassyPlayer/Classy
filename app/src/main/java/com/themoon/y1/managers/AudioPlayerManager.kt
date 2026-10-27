@@ -560,6 +560,7 @@ class AudioPlayerManager private constructor() {
         if (isUsingLegacyPlayer && legacyPlayer != null) {
             val player = legacyPlayer ?: return
             if (player.isPlaying) {
+                if (AudioOutputLossManager.ignoresPause()) return
                 isPlayingActive = false
                 saveAudiobookBookmarkIfNeeded()
                 player.pause()
@@ -577,6 +578,7 @@ class AudioPlayerManager private constructor() {
         } else if (exoPlayer != null) {
             val player = exoPlayer ?: return
             if (player.playWhenReady) {
+                if (AudioOutputLossManager.ignoresPause()) return
                 isPlayingActive = false
                 saveAudiobookBookmarkIfNeeded()
                 player.playWhenReady = false
