@@ -202,9 +202,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     val isOnScreen: Boolean
         get() = isActivityVisible && !isScreenSleeping
 
-    var backTargetForUtility: Int = STATE_SETTINGS
     var isPendingUpdateCheckAfterWifi: Boolean = false
-    var lastSettingsFocusIndex: Int = 0
     val eqPresetNames: ArrayList<String> = ArrayList()
 
     var isCustomScanning: Boolean = false
@@ -643,8 +641,6 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     /** The Power screen (Restart, Power Off). Back goes to the screen that was open before. */
     fun showPowerMenu() {
         wakeFromFakeScreenOff()
-        // From Settings, Back comes back into the open group (SettingsController.onEnter)
-        if (NavigationManager.getInstance().currentState is ScreenState.Settings) backTargetForUtility = STATE_SETTINGS
         changeScreen(ScreenState.Settings(SettingsSubMode.Power))
     }
 
