@@ -160,6 +160,8 @@ class BrowserController(
             when (val mode = state.mode) {
                 is BrowserMode.Root -> {
                     isAudiobookLibraryMode = false
+                    // Opened going down: the first row. Back from a deeper screen selects its row (NavigationManager).
+                    lastBrowserFocusText = ""
                     buildFileBrowserUI()
                 }
                 is BrowserMode.Folder -> {
