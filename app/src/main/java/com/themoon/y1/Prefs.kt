@@ -145,8 +145,6 @@ object Prefs {
     val THEME_NAME = add(PrefKey("app_theme_name", PrefGroup.APPEARANCE))
     val CURRENT_THEME_NAME = add(StringPref("current_theme_name", "Classic Light", PrefGroup.APPEARANCE))
     val THEME_INDEX = add(PrefKey("app_theme_index", PrefGroup.APPEARANCE))
-    /** The main menu background: an image path, "THEME_DEFAULT" (the theme's image) or no key (none). */
-    val BACKGROUND = add(PrefKey("bg_path", PrefGroup.APPEARANCE))
     /** Reset does not remove it: [AutoThemeManager.reset] turns Auto off and selects the default theme. */
     val AUTO_THEME = add(BoolPref(AutoThemeManager.PREF_KEY, false, PrefGroup.APPEARANCE))
     val TOGGLE_STYLE = add(StringPref(ToggleStyle.PREF_KEY, ToggleStyle.TEXT, PrefGroup.APPEARANCE, resettable = true))
