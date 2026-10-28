@@ -173,6 +173,69 @@ class BackSelectionTest {
         assertEquals(ScreenState.MainMenu, nav.previousState())
     }
 
+    private fun folder(path: String) = music(BrowserMode.Folder(java.io.File(path)))
+
+    private fun browserThrough(start: String): RowKey {
+        val row = RowKey("Folders", 12, 40)
+        nav.navigateTo(ScreenState.MainMenu)
+        nav.navigateTo(music(BrowserMode.Root))
+        browser.row = row
+        nav.navigateTo(folder(start))
+        return row
+    }
+
+    @Test
+    fun eachFolderLevelIsAnEntryAndBackSelectsTheRowThatOpenedIt() {
+        val foldersRow = browserThrough("/storage/sdcard1/Music")
+        browser.row = RowKey("Queen", 3, 60)
+        nav.navigateTo(folder("/storage/sdcard1/Music/Queen"))
+        browser.row = RowKey("Greatest Hits", 1, 20)
+        nav.navigateTo(folder("/storage/sdcard1/Music/Queen/Greatest Hits"))
+        // ".." opens the parent with the row of the folder selected, and Back comes back to the ".." row
+        browser.row = RowKey("..", 0, 0)
+        nav.navigateTo(folder("/storage/sdcard1/Music/Queen"), row = RowKey("Greatest Hits", 0))
+        assertEquals(RowKey("Greatest Hits", 0), browser.selected.last())
+
+        nav.popBackStack()
+        assertEquals(folder("/storage/sdcard1/Music/Queen/Greatest Hits"), nav.currentState)
+        assertEquals(RowKey("..", 0, 0), browser.selected.last())
+        nav.popBackStack()
+        assertEquals(folder("/storage/sdcard1/Music/Queen"), nav.currentState)
+        assertEquals(RowKey("Greatest Hits", 1, 20), browser.selected.last())
+        nav.popBackStack()
+        assertEquals(folder("/storage/sdcard1/Music"), nav.currentState)
+        assertEquals(RowKey("Queen", 3, 60), browser.selected.last())
+        nav.popBackStack()
+        assertEquals(music(BrowserMode.Root), nav.currentState)
+        assertEquals(foldersRow, browser.selected.last())
+    }
+
+    @Test
+    fun aHeldBackLeavesAllFolderLevelsAtOnce() {
+        val foldersRow = browserThrough("/storage/sdcard1/Music")
+        browser.row = RowKey("Queen", 3, 60)
+        nav.navigateTo(folder("/storage/sdcard1/Music/Queen"))
+        browser.row = RowKey("..", 0, 0)
+        nav.navigateTo(folder("/storage/sdcard1/Music"), row = RowKey("Queen", 0))
+        assertTrue(folder("/storage").isFolderLevel)
+        assertFalse(music(BrowserMode.Root).isFolderLevel)
+
+        assertTrue(nav.popBackStackTo { !it.isFolderLevel })
+        assertEquals(music(BrowserMode.Root), nav.currentState)
+        assertEquals(foldersRow, browser.selected.last())
+    }
+
+    @Test
+    fun anEmptyStartFolderGivesItsPlaceToItsParent() {
+        val foldersRow = browserThrough("/storage/sdcard1/Music")
+        // The empty row of a start folder: the parent takes its place, so Back goes out of Folders
+        nav.navigateTo(folder("/storage/sdcard1"), addToBackStack = false, row = RowKey("Music", 0))
+        assertEquals(music(BrowserMode.Root), nav.previousState())
+        nav.popBackStack()
+        assertEquals(music(BrowserMode.Root), nav.currentState)
+        assertEquals(foldersRow, browser.selected.last())
+    }
+
     @Test
     fun aScreenThatTakesThePlaceOfAnotherAddsNoEntry() {
         // Music -> Search -> keyboard (here Storage); the result list takes the place of the keyboard

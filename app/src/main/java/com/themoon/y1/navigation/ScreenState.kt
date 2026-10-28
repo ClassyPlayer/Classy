@@ -37,6 +37,10 @@ sealed interface ScreenState {
     data object Jellyfin : ScreenState
 }
 
+/** A level of the folder browser: the file tree of Folders, or of the background picker of Settings. */
+val ScreenState.isFolderLevel: Boolean
+    get() = this is ScreenState.Browser && mode is BrowserMode.Folder
+
 /**
  * Browser navigation modes for music library, file tree, playlists, and podcasts.
  */

@@ -46,8 +46,9 @@ class NavigationManager private constructor() {
         controllerMap[stateClass] = controller
     }
 
-    fun navigateTo(newState: ScreenState, addToBackStack: Boolean = true) {
-        navigate(newState, addToBackStack, null)
+    /** Opens [newState]. [row]: the row to select in it in place of its first row (a folder list that opens going up). */
+    fun navigateTo(newState: ScreenState, addToBackStack: Boolean = true, row: RowKey? = null) {
+        navigate(newState, addToBackStack, row)
     }
 
     /**
@@ -68,7 +69,7 @@ class NavigationManager private constructor() {
             if (back == null) back = backStack.lastOrNull { it.state is ScreenState.MainMenu }?.row
             backStack.clear()
         } else if (previous != null && addToBackStack) {
-            backStack.push(BackEntry(activeController?.backState(previous) ?: previous, activeController?.selectedRow()))
+            backStack.push(BackEntry(previous, activeController?.selectedRow()))
         }
 
         activeController?.onExit()
