@@ -256,7 +256,6 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     lateinit var layoutVideosMode: View
     lateinit var layoutVideoPlayerMode: View
 
-    var ivMainBg: ImageView? = null
     lateinit var ivAlbumArt: ImageView
     var ivAlbumReflection: ImageView? = null
     lateinit var ivPauseOverlay: ImageView
@@ -476,7 +475,6 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
         } catch (_: Exception) {}
 
         updateStatusBarClock()
-        updateMainMenuBackground()
         changeScreen(STATE_MENU)
         applyTheme()
         com.themoon.y1.managers.AutoThemeManager.start(this)
@@ -916,7 +914,6 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
 
     fun applyGaussianBlur(original: Bitmap?): Bitmap? = ImageEffects.applyGaussianBlur(this, original)
 
-    fun updateMainMenuBackground() = updateMainMenuBackgroundInternal()
     fun applyTheme() = applyThemeInternal()
     fun applyCachedCoverArt(imagePath: String) = applyCachedCoverArtInternal(imagePath)
     fun fetchRandomIdleCoverAsync() = fetchRandomIdleCoverAsyncInternal()
