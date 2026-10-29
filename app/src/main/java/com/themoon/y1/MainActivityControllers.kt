@@ -212,7 +212,7 @@ internal fun MainActivity.initControllers() {
         rootView = layoutPlayerMode as ViewGroup,
         clickFeedback = { clickFeedback() },
         onAdjustVolume = { adjustVolume(it) },
-        onTogglePlayback = { AudioPlayerManager.getInstance().playOrPauseMusic() },
+        onTogglePlayback = { com.themoon.y1.managers.AudioSources.app.playPauseKey() },
         onNextTrack = { AudioPlayerManager.getInstance().nextTrack() },
         onPreviousTrack = { AudioPlayerManager.getInstance().prevTrack() },
         onNavigateBack = { NavigationManager.getInstance().popBackStack() },
