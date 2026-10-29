@@ -19,10 +19,20 @@ import com.themoon.y1.navigation.SettingsSubMode
  */
 object ActionScreens {
 
-    /** [checked] not null: a choice row, with the check mark when true (as the Language list). */
-    class Action(val label: String, val checked: Boolean?, val run: () -> Unit) {
-        constructor(label: String, run: () -> Unit) : this(label, null, run)
-    }
+    /**
+     * [checked] not null: a choice row, with the check mark when true (as the Language list).
+     * [opensList]: the row opens a deeper list over this screen; it has a chevron, and the screen stays under the
+     * list, so Back comes back to it.
+     * [closes] false: the row does not close the screen before its action, because the action goes to another
+     * screen itself.
+     */
+    class Action(
+        val label: String,
+        val checked: Boolean? = null,
+        val opensList: Boolean = false,
+        val closes: Boolean = !opensList,
+        val run: () -> Unit
+    )
 
     /**
      * [selectAction] false: no row is selected when the screen opens, and the first wheel step selects the first
@@ -68,14 +78,17 @@ object ActionScreens {
         specs.remove(key)
     }
 
-    /** Back closes the screen, then runs [Spec.onCancel]. A row closes the screen, then runs its action. */
+    /**
+     * Back closes the screen, then runs [Spec.onCancel]. A row closes the screen, then runs its action (not a row
+     * with [Action.closes] false).
+     */
     fun cancel(spec: Spec?, close: () -> Unit) {
         close()
         spec?.onCancel?.invoke()
     }
 
     fun choose(action: Action, close: () -> Unit) {
-        close()
+        if (action.closes) close()
         action.run()
     }
 
@@ -127,15 +140,15 @@ object ActionScreens {
 
     /**
      * [spec] as a list ([ListSpec]): an info row ([RowLook.INFO]: the wheel skips it) for each info line, then a row
-     * for each action: a choice row with the tick column when [Action.checked] is not null. A row closes the screen
-     * ([close]), then does its action ([choose]).
+     * for each action: a choice row with the tick column when [Action.checked] is not null, else a row with a
+     * chevron when the action opens a list. A row closes the screen ([close]), then does its action ([choose]).
      */
     fun list(spec: Spec, close: () -> Unit): ListSpec = ListSpec(
         spec.title,
         spec.info.map { RowSpec(it, RowLook.INFO) } + spec.actions.map { action ->
             val onClick = { choose(action, close) }
             val checked = action.checked
-            if (checked == null) RowSpec(action.label, RowLook.VALUE, value = "", onClick = onClick)
+            if (checked == null) RowSpec(action.label, RowLook.VALUE, value = if (action.opensList) "〉" else "", onClick = onClick)
             else RowSpec(action.label, RowLook.CHOICE, checked = checked, onClick = onClick)
         },
         focus = if (spec.selectAction) Focus.FIRST else Focus.NONE
@@ -152,6 +165,6 @@ fun confirmScreen(
 ): ActionScreens.Spec = ActionScreens.Spec(
     title = title,
     info = if (info.isEmpty()) emptyList() else listOf(info),
-    actions = listOf(ActionScreens.Action(actionLabel, onConfirm)),
+    actions = listOf(ActionScreens.Action(actionLabel, run = onConfirm)),
     selectAction = selectAction
 )
