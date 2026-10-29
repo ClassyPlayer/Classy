@@ -187,7 +187,6 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     var isScreenSleeping: Boolean = false
     var isLongPressConsumed: Boolean = false
     var isMediaLongPressConsumed: Boolean = false
-    var activePlayer: Int = 0
 
     var isFakeScreenOff: Boolean = false
     var backTargetForUtility: Int = STATE_SETTINGS

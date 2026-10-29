@@ -1414,7 +1414,7 @@ class SettingsController(
         btnOff.gravity = Gravity.CENTER
         btnOff.setOnClickListener {
             clickFeedback()
-            setVolumeLimit(-1)
+            mainActivity?.setVolumeLimit(-1)
             buildSettingsUI()
         }
         containerSettingsItems.addView(btnOff)
@@ -1426,7 +1426,7 @@ class SettingsController(
             btn.gravity = Gravity.CENTER
             btn.setOnClickListener {
                 clickFeedback()
-                setVolumeLimit(level)
+                mainActivity?.setVolumeLimit(level)
                 buildSettingsUI()
             }
             containerSettingsItems.addView(btn)
@@ -1434,11 +1434,6 @@ class SettingsController(
         }
 
         focusBtn?.requestFocus() ?: containerSettingsItems.getChildAt(0)?.requestFocus()
-    }
-
-    private fun setVolumeLimit(limitStep: Int) {
-        prefs.edit().putInt(com.themoon.y1.managers.VolumeSteps.PREF_LIMIT, limitStep).commit()
-        mainActivity?.setVolumeLimit(limitStep)
     }
 
     private fun buildLegalSettingsUI() {
