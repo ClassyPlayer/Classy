@@ -70,16 +70,32 @@ InniClassic is an iPod Classic-style launcher and media player for Innioasis Y1 
 
 Two installation methods are available depending on whether you want a full ROM install or an APK update.
 
-### Method 1: Innioasis Updater (recommended)
+With your Y1/Y2 disconnected from the computer and properly charged to avoid soft-bricks, follow one of these methods:
 
-Prebuilt firmware packages with InniClassic preinstalled as the default system launcher are available on [Releases](https://github.com/JonaszPotoniec/inniclassic-y2/releases):
-- Innioasis Y2: `rom_y2.zip` (Android 4.4.2 KitKat)
-- Innioasis Y1: `rom_y1_type_a.zip` or `rom_y1_type_b.zip` depending on hardware revision
+### Method 1: Innioasis Updater CE (recommended, Windows, Linux and macOS)
 
-To flash via the updater:
-1. Download the archive matching your device from [Releases](https://github.com/JonaszPotoniec/inniclassic-y2/releases) and ensure it is named `rom.zip` (required by the updater tool).
-2. Open the [Innioasis Updater](https://www.innioasis.com/pages/download), choose `rom.zip` as the local firmware package, and follow the on-screen steps.
-3. Once the flashing process completes and the player restarts, InniClassic starts automatically.
+To install via Innioasis Updater CE:
+1. Open [Updater CE](https://innioasis.app/guide.html) (Available on Windows, macOS and Linux)
+2. Choose your model, select Inniclassic as your software and follow the on-screen steps.
+3. Once the install process completes and the player restarts, Inniclassic starts automatically.
+
+### Method 2: Innioasis [Universal Flash Tool](https://www.innioais.com/pages/support-center) (Windows and Apple Silicon macOS only - Intel Macs are not supported.)
+
+1. From [Releases](https://github.com/JonaszPotoniec/inniclassic-y2/releases), get a copy of the correct rom*.zip for your device (e.g rom.zip for Y1, rom_y2.zip for Y2 and rom_type_b.zip for Y1s sold between 2024-2025 with firmware earlier than 2.0)) 
+2. Select the .zip file in the tool and click "Start flash"
+   
+### Method 3: SP Flash Tool (Windows and Linux only)
+SP Flash tool is included with [Updater CE](https://innioasis.app/guide.htm), or available as a standalone app for [Windows](https://androidfilehost.com/?fid=14943124697586360708)or [Linux](https://xiaomitools.com/download/sp-flash-tool-v5-2032-for-linux))
+
+
+1. From [Releases](https://github.com/JonaszPotoniec/inniclassic-y2/releases), get a copy of the correct rom*.zip for your device (e.g rom.zip for Y1, rom_y2.zip for Y2 and rom_type_b.zip for Y1s sold between 2024-2025 with firmware earlier than 2.0)) 
+2. Select the .zip file in the tool and click "Start flash"
+3. Launch SP Flash Tool
+4. Browse for the [MTK_AllInOne_DA.bin](https://innioasis.app/MTK_AllInOne_DA.bin) file in the "DA" slot. (Often in the same folder as the Flash Tool)
+5. In the "scatter" slot, please browse for the MT6572_Android_Scatter.txt(Y1) or MT6582_Android_Scatter.txt (Y2)
+6. Click Download.
+7. Connect your Y1
+8. The firmware download to your device should begin.
 
 > [!WARNING]
 > Keep the device connected and powered until the update finishes. Do not unplug the cable during the flash.
