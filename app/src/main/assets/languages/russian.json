@@ -722,10 +722,6 @@
   "Pairing failed: no answer (timeout)": "Сопряжение не удалось: нет ответа (тайм-аут)",
   "Pairing failed: too many attempts. Wait, then try again": "Сопряжение не удалось: слишком много попыток. Подождите и повторите",
   "Add to Playlist": "Добавить в плейлист",
-  "Show Spectrum": "Показать спектр",
-  "Hide Spectrum": "Скрыть спектр",
-  "Show Total Time": "Показать общее время",
-  "Show Remaining Time": "Показать оставшееся время",
   "Spectrum": "Спектр",
   "Total Time": "Общее время",
   "Lyrics Keep Screen On": "Экран вкл. при тексте песни"
