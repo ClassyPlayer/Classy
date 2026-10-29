@@ -276,10 +276,13 @@ class FmRadioController(
                 val p = progress
                 val f = fakeFreq
                 activity.runOnUiThread {
-                    updateLoadingProgress(
-                        p,
-                        String.format(Locale.US, localize("Scanning FM Frequencies...\nSearching around %.1f MHz"), f)
-                    )
+                    // The scan can end before this step runs: its end hid the layer, and an update would show it again
+                    if (isRadioScanning) {
+                        updateLoadingProgress(
+                            p,
+                            String.format(Locale.US, localize("Scanning FM Frequencies...\nSearching around %.1f MHz"), f)
+                        )
+                    }
                 }
                 try {
                     Thread.sleep(70)
