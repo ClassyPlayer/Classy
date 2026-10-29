@@ -120,12 +120,14 @@ class AudioPlayerManager private constructor() {
     fun getMasterVolume(): Float = currentMasterVolume
 
     fun applyMasterVolume() {
+        // Play On: a speaker plays the track, the Y2 plays it with no sound
+        val volume = if (com.themoon.y1.cast.CastManager.isActive) 0f else currentMasterVolume
         try {
-            exoPlayer?.volume = currentMasterVolume
+            exoPlayer?.volume = volume
         } catch (ignored: Throwable) {}
 
         try {
-            legacyPlayer?.setVolume(currentMasterVolume, currentMasterVolume)
+            legacyPlayer?.setVolume(volume, volume)
         } catch (ignored: Throwable) {}
     }
 
@@ -225,7 +227,10 @@ class AudioPlayerManager private constructor() {
             addListener(object : Player.EventListener {
                 override fun onPlayerStateChanged(playWhenReady: Boolean, playbackState: Int) {
                     isPlayingActive = playWhenReady && (playbackState == Player.STATE_READY || playbackState == Player.STATE_BUFFERING)
-                    if (isPlayingActive) AudioSources.app.musicStarts()
+                    if (isPlayingActive) {
+                        AudioSources.app.musicStarts()
+                        com.themoon.y1.cast.CastManager.onLocalPlay()
+                    }
                     if (playbackState == Player.STATE_READY && !isUsingLegacyPlayer) {
                         if (playWhenReady) {
                             startPeriodicPositionSaver()
@@ -586,6 +591,7 @@ class AudioPlayerManager private constructor() {
                 AudioSources.app.musicStarts()
                 isPlayingActive = true
                 player.start()
+                com.themoon.y1.cast.CastManager.onLocalPlay()
                 startPeriodicPositionSaver()
                 MainActivity.instance?.isPausedByHand = false
                 savePlaybackPositionOnly(sync = false)
@@ -938,6 +944,7 @@ class AudioPlayerManager private constructor() {
                 if (!main.isPausedByHand) {
                     AudioSources.app.musicStarts()
                     player.start()
+                    com.themoon.y1.cast.CastManager.onLocalPlay()
                     startPeriodicPositionSaver()
                 } else {
                     stopPeriodicPositionSaver()
