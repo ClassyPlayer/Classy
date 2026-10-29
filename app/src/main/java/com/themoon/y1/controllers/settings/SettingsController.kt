@@ -209,7 +209,6 @@ class SettingsController(
 
     override fun onBackPressed(): Boolean {
         if (isActionScreen) {
-            clickFeedback()
             ActionScreens.cancel((actionPage as? SettingsSubMode.Action)?.let { ActionScreens.spec(it.key) }) { onNavigateBack() }
             return true
         }
@@ -220,7 +219,6 @@ class SettingsController(
         if (currentSettingsDepth == 0 && groupPages.isOpen) {
             lastSettingsFocusIndex = groupPages.close() ?: 0
             buildSettingsUI()
-            clickFeedback()
             return true
         }
         if (currentSettingsDepth == 0) {
@@ -228,15 +226,12 @@ class SettingsController(
             return true
         } else if (currentSettingsDepth == 1) {
             buildSettingsUI()
-            clickFeedback()
             return true
         } else if (currentSettingsDepth == 2) {
             buildDateTimeUI()
-            clickFeedback()
             return true
         }
         buildSettingsUI()
-        clickFeedback()
         return true
     }
 

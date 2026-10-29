@@ -1166,7 +1166,6 @@ class BrowserController(
     }
 
     override fun onBackPressed(): Boolean {
-        clickFeedback()
         val mode = currentBrowserMode
         when (mode) {
             is BrowserMode.Root, is BrowserMode.Audiobooks -> {

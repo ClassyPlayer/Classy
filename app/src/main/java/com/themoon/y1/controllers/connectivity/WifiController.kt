@@ -34,7 +34,6 @@ class WifiController(
     private val clickFeedback: () -> Unit,
     private val onConnectToSavedNetwork: (ssid: String, netId: Int) -> Unit,
     private val onOpenWifiKeyboard: (ssid: String, isOpen: Boolean) -> Unit,
-    private val onNavigateBack: () -> Unit,
     private val localize: (String) -> String
 ) : ScreenController {
 
@@ -255,11 +254,6 @@ class WifiController(
             return onWheel(delta, event)
         }
         return false
-    }
-
-    override fun onBackPressed(): Boolean {
-        onNavigateBack()
-        return true
     }
 
     companion object {
