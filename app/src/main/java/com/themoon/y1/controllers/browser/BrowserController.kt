@@ -1,5 +1,6 @@
 package com.themoon.y1.controllers.browser
 
+import com.themoon.y1.Prefs
 import com.themoon.y1.navigation.RowFocus
 import android.app.Activity
 import android.content.Context
@@ -826,7 +827,7 @@ class BrowserController(
                 b.setOnClickListener {
                     clickFeedback()
                     try {
-                        AppPrefs.get(activity).edit().putString("bg_path", img.absolutePath).commit()
+                        AppPrefs.get(activity).edit().putString(Prefs.BACKGROUND.key, img.absolutePath).commit()
                         MainActivity.instance?.updateMainMenuBackground()
                     } catch (e: Exception) {
                     }
@@ -1308,8 +1309,7 @@ class BrowserController(
         if (list != null && list.visibility == View.VISIBLE) {
             val totalCount = list.count
             if (totalCount <= 0) return true
-            val isLoopScrollOn = activity.getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
-                .getBoolean("loop_scroll_on", true)
+            val isLoopScrollOn = Prefs.LOOP_SCROLL.get(AppPrefs.get(activity))
 
             val curFocused = list.findFocus()
             if (curFocused != null) {

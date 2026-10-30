@@ -385,10 +385,10 @@ internal fun MainActivity.initControllers() {
             NavigationManager.getInstance().navigateTo(ScreenState.Browser(BrowserMode.Songs("SEARCH", keyword)), addToBackStack = false)
         },
         onSubmitLastFmUsername = { username ->
-            prefs.edit().putString("lastfm_username", username).apply()
+            prefs.edit().putString(Prefs.LASTFM_USERNAME.key, username).apply()
         },
         onSubmitLastFmPassword = { password ->
-            prefs.edit().putString("lastfm_password", password).apply()
+            prefs.edit().putString(Prefs.LASTFM_PASSWORD.key, password).apply()
             NavigationManager.getInstance().popBackStack()
         },
         onSubmitJellyfinServerUrl = { url ->
@@ -552,11 +552,11 @@ internal fun MainActivity.initControllers() {
             startMediaLibraryScan()
         },
         onApplyThemeBackground = {
-            prefs.edit().putString("bg_path", "THEME_DEFAULT").apply()
+            prefs.edit().putString(Prefs.BACKGROUND.key, "THEME_DEFAULT").apply()
             updateMainMenuBackground()
         },
         onClearCustomBackground = {
-            prefs.edit().remove("bg_path").apply()
+            prefs.edit().remove(Prefs.BACKGROUND.key).apply()
             updateMainMenuBackground()
         },
         onPickBackgroundFromStorage = {
