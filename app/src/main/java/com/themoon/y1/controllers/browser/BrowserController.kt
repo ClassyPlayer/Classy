@@ -5,7 +5,6 @@ import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
-import android.widget.HorizontalScrollView
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ListView
@@ -35,7 +34,6 @@ import com.themoon.y1.navigation.NavigationManager
 import com.themoon.y1.navigation.RowKey
 import com.themoon.y1.navigation.ScreenState
 import com.themoon.y1.navigation.isFolderLevel
-import com.themoon.y1.views.AlphabetIndexBar
 import com.themoon.y1.views.ListItemViewFactory
 import com.themoon.y1.views.Notice
 import java.io.File
@@ -58,8 +56,6 @@ class BrowserController(
     private val activity: Activity,
     override val rootView: ViewGroup,
     private val listVirtualSongs: ListView?,
-    private val hzIndexScroll: HorizontalScrollView?,
-    private val layoutIndexContainer: LinearLayout?,
     private val clickFeedback: () -> Unit,
     private val onNavigateToScreen: (ScreenState) -> Unit,
     private val onNavigateBackToMenu: () -> Unit,
@@ -88,16 +84,6 @@ class BrowserController(
         override fun show(letter: String) { MainActivity.instance?.showJumpLetter(letter) }
         override fun hide() { MainActivity.instance?.hideFastScrollLetter() }
     })
-
-    private val alphabetIndexBarHelper = if (hzIndexScroll != null && layoutIndexContainer != null) {
-        AlphabetIndexBar(
-            activity,
-            hzIndexScroll,
-            layoutIndexContainer,
-            listVirtualSongs,
-            clickFeedback
-        )
-    } else null
 
     var currentBrowserMode: BrowserMode = BrowserMode.Root
     var isAudiobookLibraryMode: Boolean = false
@@ -224,7 +210,6 @@ class BrowserController(
 
     override fun onExit() {
         screen.clear()
-        hzIndexScroll?.visibility = View.GONE
         isAudiobookLibraryMode = false
     }
 
@@ -442,7 +427,6 @@ class BrowserController(
         val albumList = type == "ALBUM" || type == "GENRE_ALBUM"
         show(ListSpec(catTitle, adapter = CategoryListAdapter(categories, type, isAudiobookLibraryMode, albumArtists = albumArtists),
             empty = localize(if (albumList) "No albums found." else "No results found."), letters = true))
-        alphabetIndexBarHelper?.build(categories)
     }
 
     fun buildVirtualSongs() {
@@ -553,7 +537,6 @@ class BrowserController(
 
         show(ListSpec(songsTitle, adapter = SongListAdapter(displaySongs),
             empty = localize(if (virtualQueryType == "SEARCH") "No results found." else "No Songs"), letters = true))
-        alphabetIndexBarHelper?.build(displaySongs.map { it.title })
     }
 
     fun buildVirtualSongsForFavorites() {
