@@ -496,7 +496,7 @@ internal fun MainActivity.initControllers() {
             }
         },
         onOpenEqualizer = { changeScreen(ScreenState.Equalizer) },
-        onOpenJellyfin = { changeScreen(ScreenState.Jellyfin) },
+        onOpenJellyfin = { changeScreen(ScreenState.Jellyfin()) },
         onOpenUpdateCheck = { otaUpdateManager?.checkForUpdates() },
         onClearCacheConfirmed = {
             MediaLibraryManager.getInstance().musicLibrary.clear()
