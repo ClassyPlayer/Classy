@@ -1,5 +1,6 @@
 package com.themoon.y1.controllers.settings
 
+import com.themoon.y1.lists.ListScreen
 import com.themoon.y1.navigation.RowFocus
 import android.app.Activity
 import android.content.Context
@@ -98,6 +99,7 @@ class SettingsController(
     private var isUiActive = false
     /** The open action screen (Power, or a screen in place of a dialog: ActionScreen.kt), or null. Back goes to the screen before it. */
     private var actionPage: SettingsSubMode? = null
+    private val actionList = ListScreen(containerSettingsItems, clickFeedback = clickFeedback)
     private val isActionScreen: Boolean get() = actionPage != null
 
     // Temporary variables for Date/Time picker
@@ -219,10 +221,11 @@ class SettingsController(
 
     override fun onRefreshUI() {
         val shownAction = actionPage
-        if (shownAction != null) {
-            onEnter(ScreenState.Settings(shownAction))
-        } else if (currentSettingsDepth == 0) {
-            buildSettingsUI()
+        when {
+            // The same action screen again (new info rows): buildActionUI keeps the selected row; onEnter would not
+            shownAction is SettingsSubMode.Action -> buildActionUI(shownAction, ActionScreens.spec(shownAction.key))
+            shownAction != null -> buildPowerUI()
+            currentSettingsDepth == 0 -> buildSettingsUI()
         }
     }
 
@@ -909,34 +912,20 @@ class SettingsController(
      * A row closes the screen (Back), then does its action. A screen whose content is gone (an old entry) closes.
      */
     private fun buildActionUI(page: SettingsSubMode, spec: ActionScreens.Spec?) {
+        // The same screen again (new info rows of a progress screen, a theme change): the selected row stays
+        val again = actionPage == page
         actionPage = page
         settingsSubMode = 0
         currentSettingsDepth = 1
-        containerSettingsItems.removeAllViews()
         if (spec == null) {
+            actionList.clear()
             containerSettingsItems.post { if (actionPage == page) onNavigateBack() }
             return
         }
-        for (line in spec.info) containerSettingsItems.addView(ActionScreens.infoRow(activity, line))
-        var firstAction: View? = null
-        for (action in spec.actions) {
-            val row = createSettingRow(action.label, "")
-            row.setOnClickListener {
-                clickFeedback()
-                ActionScreens.choose(action) { onNavigateBack() }
-            }
-            containerSettingsItems.addView(row)
-            if (firstAction == null) firstAction = row
-        }
+        val list = ActionScreens.list(spec) { onNavigateBack() }
+        if (again) actionList.update(list) else actionList.show(list)
+        // The Settings title code (a sub-screen title after the depth change) writes the title: after it
         groupPages.showTitle(mainActivity?.tvStatusBarTitle, containerSettingsItems, spec.title)
-        (containerSettingsItems.parent as? ScrollView)?.scrollTo(0, 0)
-        if (spec.selectAction && firstAction != null) {
-            firstAction.post { firstAction.requestFocus() }
-        } else {
-            // No row selected: the list itself has the focus, and the first wheel step selects the first action
-            containerSettingsItems.isFocusable = true
-            containerSettingsItems.post { containerSettingsItems.requestFocus() }
-        }
     }
 
     private fun buildLanguageSelectorUI() {
