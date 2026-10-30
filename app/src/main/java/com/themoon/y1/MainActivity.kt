@@ -1143,7 +1143,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     }
 
     private fun updateStatusBarTitle() {
-        tvStatusBarTitle?.text = when (currentScreenState) {
+        tvStatusBarTitle?.text = NavigationManager.getInstance().activeController?.title() ?: when (currentScreenState) {
             STATE_MENU -> t("iPod")
             STATE_BROWSER -> if (::browserController.isInitialized) browserController.getCurrentBrowserTitle() else t("Music")
             STATE_PLAYER -> t("Now Playing")
@@ -1165,7 +1165,6 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
                 }
             }
             STATE_EQUALIZER -> t("Equalizer")
-            STATE_FM_RADIO -> if (::fmRadioController.isInitialized) fmRadioController.title() else t("Radio")
             STATE_JELLYFIN -> t("Jellyfin")
             else -> t("iPod")
         }
