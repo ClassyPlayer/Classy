@@ -85,7 +85,7 @@ To install via Innioasis Updater CE:
 2. Select the .zip file in the tool and click "Start flash"
    
 ### Method 3: SP Flash Tool (Windows and Linux only)
-SP Flash tool is included with [Updater CE](https://innioasis.app/guide.htm), or available as a standalone app for [Windows](https://androidfilehost.com/?fid=14943124697586360708)or [Linux](https://xiaomitools.com/download/sp-flash-tool-v5-2032-for-linux))
+SP Flash tool is included with [Updater CE](https://innioasis.app/guide.html), or available as a standalone app for [Windows](https://androidfilehost.com/?fid=14943124697586360708)or [Linux](https://xiaomitools.com/download/sp-flash-tool-v5-2032-for-linux))
 
 
 1. From [Releases](https://github.com/JonaszPotoniec/inniclassic-y2/releases), get a copy of the correct rom*.zip for your device (e.g rom.zip for Y1, rom_y2.zip for Y2 and rom_type_b.zip for Y1s sold between 2024-2025 with firmware earlier than 2.0)) 
