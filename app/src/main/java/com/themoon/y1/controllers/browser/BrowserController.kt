@@ -112,6 +112,33 @@ class BrowserController(
     private var browserCoverPaneSetUp: Boolean = false
     private val uiHandler = Handler(Looper.getMainLooper())
 
+    data class FolderHistoryEntry(val folder: File, val focusText: String)
+    val folderHistory = ArrayList<FolderHistoryEntry>()
+    private var isBackLongPressConsumed: Boolean = false
+    private val longPressBackRunnable = Runnable {
+        if (isFolderBrowserActive()) {
+            isBackLongPressConsumed = true
+            clickFeedback()
+            exitFolderSelection()
+        }
+    }
+
+    fun isFolderBrowserActive(): Boolean =
+        isPickingBackground || currentBrowserMode is BrowserMode.Folder
+
+    fun exitFolderSelection() {
+        folderHistory.clear()
+        uiHandler.removeCallbacks(longPressBackRunnable)
+        if (isPickingBackground) {
+            isPickingBackground = false
+            onNavigateToScreen(ScreenState.Settings())
+        } else {
+            currentBrowserMode = if (isAudiobookLibraryMode) BrowserMode.Audiobooks else BrowserMode.Root
+            lastBrowserFocusText = localize("Folders")
+            buildFileBrowserUI()
+        }
+    }
+
     private val letterMode = LetterJump.Mode()
     private val letterIdleTask = Runnable { endLetterJump() }
     private var rowLettersKey: Any? = null
@@ -206,6 +233,9 @@ class BrowserController(
     }
 
     override fun onExit() {
+        uiHandler.removeCallbacks(longPressBackRunnable)
+        isBackLongPressConsumed = false
+        folderHistory.clear()
         hideBrowserCoverPane()
         endLetterJump()
         hzIndexScroll?.visibility = View.GONE
@@ -679,9 +709,36 @@ class BrowserController(
     fun buildFolderBrowserUI() {
         hideBrowserCoverPane()
         containerBrowserItems.removeAllViews()
-        val folderTitle = "${localize("Path")}: ${StoragePaths.toDisplayPath(currentFolder.absolutePath)}"
+        val rawDisplayPath = StoragePaths.toDisplayPath(currentFolder.absolutePath)
+        val folderTitle = if (currentFolder.absolutePath == StoragePaths.STORAGE_DIR) {
+            localize("Storage")
+        } else if (currentFolder.absolutePath == StoragePaths.SECONDARY_PATH || currentFolder.absolutePath.startsWith("${StoragePaths.SECONDARY_PATH}/")) {
+            "${localize("Path")}: [SD] $rawDisplayPath"
+        } else {
+            "${localize("Path")}: $rawDisplayPath"
+        }
         updateHeaderTitle(folderTitle)
         val files = currentFolder.listFiles()
+
+        val isTop = StoragePaths.isTopStorageRoot(currentFolder)
+        val canGoUp = !isTop && currentFolder.parentFile != null
+
+        if (canGoUp) {
+            val bUp = createListButtonWithIcon("\uE2C7", "..", null)
+            bUp.setOnClickListener {
+                clickFeedback()
+                val exitedName = currentFolder.name
+                val parent = currentFolder.parentFile
+                if (parent != null) {
+                    folderHistory.add(FolderHistoryEntry(currentFolder, ".."))
+                    currentFolder = parent
+                    currentBrowserMode = BrowserMode.Folder(parent)
+                    lastBrowserFocusText = exitedName
+                    buildFileBrowserUI()
+                }
+            }
+            containerBrowserItems.addView(bUp)
+        }
 
         if (files == null || files.isEmpty()) {
             val emptyMsg = if (files == null) {
@@ -695,25 +752,26 @@ class BrowserController(
                 background = createButtonBackground(ThemeManager.getListButtonNormalBg())
                 setOnClickListener {
                     clickFeedback()
-                    if (currentFolder.absolutePath == StoragePaths.getPrimaryRoot().absolutePath ||
-                        StoragePaths.isAnyStorageRoot(currentFolder.absolutePath) ||
-                        StoragePaths.isVideosRoot(currentFolder.absolutePath) ||
-                        StoragePaths.isAudiobooksRoot(currentFolder.absolutePath)
-                    ) {
-                        if (isPickingBackground) {
-                            isPickingBackground = false
-                            onNavigateToScreen(ScreenState.Settings())
-                        } else {
-                            currentBrowserMode = BrowserMode.Root
-                            buildFileBrowserUI()
-                        }
+                    if (folderHistory.isNotEmpty()) {
+                        val prev = folderHistory.removeAt(folderHistory.size - 1)
+                        currentFolder = prev.folder
+                        currentBrowserMode = BrowserMode.Folder(prev.folder)
+                        lastBrowserFocusText = prev.focusText
+                        buildFileBrowserUI()
+                    } else if (isTop) {
+                        exitFolderSelection()
                     } else {
-                        currentFolder = currentFolder.parentFile ?: StoragePaths.getPrimaryRoot()
+                        val exitedName = currentFolder.name
+                        val parent = currentFolder.parentFile ?: StoragePaths.getTopStorageRoot()
+                        currentFolder = parent
+                        currentBrowserMode = BrowserMode.Folder(parent)
+                        lastBrowserFocusText = exitedName
                         buildFileBrowserUI()
                     }
                 }
             }
             containerBrowserItems.addView(btnEmpty)
+            finishFolderBrowserUIRender()
             return
         }
 
@@ -723,6 +781,15 @@ class BrowserController(
         val imageFiles = ArrayList<File>()
 
         for (f in files) {
+            if (f.name.startsWith(".")) continue
+            if (isTop) {
+                if (f.isDirectory && !f.name.equals("emulated", ignoreCase = true) && !f.name.equals("media_rw", ignoreCase = true)) {
+                    if (f.exists()) {
+                        folders.add(f)
+                    }
+                }
+                continue
+            }
             when {
                 f.isDirectory -> folders.add(f)
                 isPickingBackground && isImageFile(f) -> imageFiles.add(f)
@@ -731,45 +798,74 @@ class BrowserController(
             }
         }
 
-        val fileSorter = Comparator<File> { f1, f2 -> f1.name.compareTo(f2.name, ignoreCase = true) }
+        val fileSorter = Comparator<File> { f1, f2 ->
+            if (isTop) {
+                val p1 = f1.absolutePath
+                val p2 = f2.absolutePath
+                val isPri1 = p1 == StoragePaths.PRIMARY_PATH || p1 == StoragePaths.getPrimaryRoot().absolutePath
+                val isPri2 = p2 == StoragePaths.PRIMARY_PATH || p2 == StoragePaths.getPrimaryRoot().absolutePath
+                val isSec1 = p1 == StoragePaths.SECONDARY_PATH
+                val isSec2 = p2 == StoragePaths.SECONDARY_PATH
+                when {
+                    isPri1 && !isPri2 -> -1
+                    !isPri1 && isPri2 -> 1
+                    isSec1 && !isSec2 -> -1
+                    !isSec1 && isSec2 -> 1
+                    else -> f1.name.compareTo(f2.name, ignoreCase = true)
+                }
+            } else {
+                f1.name.compareTo(f2.name, ignoreCase = true)
+            }
+        }
         Collections.sort(folders, fileSorter)
         Collections.sort(audioFiles, fileSorter)
         Collections.sort(apkFiles, fileSorter)
         Collections.sort(imageFiles, fileSorter)
 
-        if (!isPickingBackground && (audioFiles.isNotEmpty() || folders.isNotEmpty())) {
-            val btnPlayAll = Button(activity).apply {
-                text = "▶ ${localize("Play All")}"
-                setTextColor(0xFFFFFFFF.toInt())
-                typeface = ThemeManager.getCustomFontBold()
-                background = createButtonBackground(ThemeManager.getListButtonNormalBg())
-                setOnClickListener {
-                    clickFeedback()
-                    val allAudio = ArrayList<File>()
-                    showLoadingPopup()
-                    Thread {
-                        collectAudioFilesAsFile(currentFolder, allAudio)
-                        Collections.sort(allAudio, fileSorter)
-                        activity.runOnUiThread {
-                            MainActivity.instance?.dismissLoadingOverlay()
-                            if (allAudio.isEmpty()) {
-                                Toast.makeText(activity, localize("No audio files found in subfolders."), Toast.LENGTH_SHORT).show()
-                            } else {
-                                AudioPlayerManager.getInstance().playTrackList(allAudio, 0)
-                                onNavigateToScreen(ScreenState.Player)
-                            }
+        if (!isPickingBackground && !isTop && !StoragePaths.isAnyStorageRoot(currentFolder) && (audioFiles.isNotEmpty() || folders.isNotEmpty())) {
+            val btnPlayAll = createListButtonWithIcon("\uE037", "▶ ${localize("Play All")}", null)
+            btnPlayAll.setOnClickListener {
+                clickFeedback()
+                val allAudio = ArrayList<File>()
+                showLoadingPopup()
+                Thread {
+                    collectAudioFilesAsFile(currentFolder, allAudio)
+                    Collections.sort(allAudio, fileSorter)
+                    activity.runOnUiThread {
+                        MainActivity.instance?.dismissLoadingOverlay()
+                        if (allAudio.isEmpty()) {
+                            Toast.makeText(activity, localize("No audio files found in subfolders."), Toast.LENGTH_SHORT).show()
+                        } else {
+                            AudioPlayerManager.getInstance().playTrackList(allAudio, 0)
+                            onNavigateToScreen(ScreenState.Player)
                         }
-                    }.start()
-                }
+                    }
+                }.start()
             }
             containerBrowserItems.addView(btnPlayAll)
         }
 
         for (folder in folders) {
-            val b = createListButtonWithIcon("\uE2C7", folder.name, null)
+            val label = if (isTop) {
+                when {
+                    folder.name == "sdcard0" || folder.absolutePath == StoragePaths.PRIMARY_PATH || folder.absolutePath == StoragePaths.getPrimaryRoot().absolutePath ->
+                        localize("Internal Storage")
+                    folder.name == "sdcard1" || folder.absolutePath == StoragePaths.SECONDARY_PATH ->
+                        localize("SD Card")
+                    folder.name.equals("usbotg", ignoreCase = true) ->
+                        localize("USB Drive")
+                    else -> folder.name
+                }
+            } else {
+                folder.name
+            }
+            val b = createListButtonWithIcon("\uE2C7", label, null)
             b.setOnClickListener {
                 clickFeedback()
+                folderHistory.add(FolderHistoryEntry(currentFolder, folder.name))
                 currentFolder = folder
+                currentBrowserMode = BrowserMode.Folder(folder)
+                lastBrowserFocusText = ""
                 buildFileBrowserUI()
             }
             containerBrowserItems.addView(b)
@@ -875,6 +971,8 @@ class BrowserController(
                     curPlaylist[curIndex].name
                 } else ""
 
+                var matched = false
+                val isTop = StoragePaths.isTopStorageRoot(currentFolder)
                 if (lastBrowserFocusText.isNotEmpty() || playingFileName.isNotEmpty()) {
                     for (i in 0 until containerBrowserItems.childCount) {
                         val v = containerBrowserItems.getChildAt(i)
@@ -890,16 +988,29 @@ class BrowserController(
                             cleanItemText = cleanItemText.substring(0, cleanItemText.indexOf("  ⏱")).trim()
                         }
 
-                        if (lastBrowserFocusText.isNotEmpty() && cleanItemText == lastBrowserFocusText) {
+                        val isVolumeMatch = isTop && (
+                            ((lastBrowserFocusText == "sdcard0" || lastBrowserFocusText == StoragePaths.PRIMARY_PATH) && cleanItemText == localize("Internal Storage")) ||
+                            ((lastBrowserFocusText == "sdcard1" || lastBrowserFocusText == StoragePaths.SECONDARY_PATH) && cleanItemText == localize("SD Card")) ||
+                            (lastBrowserFocusText.equals("usbotg", ignoreCase = true) && cleanItemText == localize("USB Drive"))
+                        )
+
+                        if (isVolumeMatch || (lastBrowserFocusText.isNotEmpty() && (cleanItemText == lastBrowserFocusText || cleanItemText.startsWith("$lastBrowserFocusText ")))) {
                             v.requestFocus()
                             sv.scrollTo(0, v.top)
+                            matched = true
                             break
                         } else if (lastBrowserFocusText.isEmpty() && playingFileName.isNotEmpty() && cleanItemText == playingFileName) {
                             v.requestFocus()
                             sv.scrollTo(0, v.top)
+                            matched = true
                             break
                         }
                     }
+                }
+                if (!matched && containerBrowserItems.childCount > 0) {
+                    val v = containerBrowserItems.getChildAt(0)
+                    v.requestFocus()
+                    sv.scrollTo(0, v.top)
                 }
             }
         })
@@ -1116,8 +1227,11 @@ class BrowserController(
                 buildVirtualSongsForFavorites()
             }
             "folders" -> {
-                currentBrowserMode = BrowserMode.Folder(StoragePaths.getPrimaryRoot())
-                currentFolder = StoragePaths.getPrimaryRoot()
+                folderHistory.clear()
+                val startDir = StoragePaths.getDefaultMusicDir()
+                currentBrowserMode = BrowserMode.Folder(startDir)
+                currentFolder = startDir
+                lastBrowserFocusText = ""
                 buildFileBrowserUI()
             }
             "search" -> onSearchRequested()
@@ -1174,26 +1288,14 @@ class BrowserController(
                 return true
             }
             is BrowserMode.Folder -> {
-                val isAtFolderRoot = if (isAudiobookLibraryMode) {
-                    currentFolder.absolutePath == StoragePaths.getAudiobooksDir().absolutePath
+                if (folderHistory.isEmpty()) {
+                    exitFolderSelection()
                 } else {
-                    currentFolder.absolutePath == StoragePaths.getPrimaryRoot().absolutePath
-                }
-                if (isAtFolderRoot || StoragePaths.isAnyStorageRoot(currentFolder.absolutePath)) {
-                    currentBrowserMode = if (isAudiobookLibraryMode) BrowserMode.Audiobooks else BrowserMode.Root
-                    lastBrowserFocusText = localize("Folders")
+                    val prev = folderHistory.removeAt(folderHistory.size - 1)
+                    currentFolder = prev.folder
+                    currentBrowserMode = BrowserMode.Folder(prev.folder)
+                    lastBrowserFocusText = prev.focusText
                     buildFileBrowserUI()
-                } else {
-                    val exitedName = currentFolder.name
-                    val parent = currentFolder.parentFile
-                    if (parent == null) {
-                        isAudiobookLibraryMode = false
-                        onNavigateBackToMenu()
-                    } else {
-                        currentFolder = parent
-                        lastBrowserFocusText = exitedName
-                        buildFileBrowserUI()
-                    }
                 }
                 return true
             }
@@ -1394,13 +1496,45 @@ class BrowserController(
     }
 
     /** In letter mode, a centre press only ends it; Back and Play/Pause end it and then work as usual. */
-    override fun dispatchKeyEvent(event: KeyEvent): Boolean =
-        when (letterMode.onKey(event.keyCode, event.action == KeyEvent.ACTION_DOWN, event.repeatCount)) {
-            LetterJump.Press.PASS -> false
-            LetterJump.Press.DROP -> true
-            LetterJump.Press.END -> { endLetterJump(); true }
-            LetterJump.Press.END_AND_PASS -> { endLetterJump(); false }
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        val letterPress = letterMode.onKey(event.keyCode, event.action == KeyEvent.ACTION_DOWN, event.repeatCount)
+        when (letterPress) {
+            LetterJump.Press.DROP -> return true
+            LetterJump.Press.END -> { endLetterJump(); return true }
+            LetterJump.Press.END_AND_PASS -> endLetterJump()
+            LetterJump.Press.PASS -> {}
         }
+
+        val isBackKey = event.keyCode == KeyEvent.KEYCODE_BACK || event.keyCode == 19 || event.keyCode == 4
+        if (isBackKey && (isFolderBrowserActive() || isBackLongPressConsumed)) {
+            val action = event.action
+            if (action == KeyEvent.ACTION_DOWN) {
+                val isLongPressEvent = (event.flags and KeyEvent.FLAG_LONG_PRESS) != 0 || (event.eventTime - event.downTime) >= 450L
+                if (event.repeatCount == 0) {
+                    isBackLongPressConsumed = false
+                    uiHandler.removeCallbacks(longPressBackRunnable)
+                    uiHandler.postDelayed(longPressBackRunnable, 450L)
+                } else if (!isBackLongPressConsumed && isLongPressEvent) {
+                    uiHandler.removeCallbacks(longPressBackRunnable)
+                    isBackLongPressConsumed = true
+                    clickFeedback()
+                    exitFolderSelection()
+                }
+                return true
+            } else if (action == KeyEvent.ACTION_UP) {
+                uiHandler.removeCallbacks(longPressBackRunnable)
+                val wasLongPress = isBackLongPressConsumed || (event.flags and KeyEvent.FLAG_CANCELED_LONG_PRESS) != 0
+                if (wasLongPress) {
+                    isBackLongPressConsumed = false
+                    return true
+                }
+                onBackPressed()
+                return true
+            }
+        }
+
+        return false
+    }
 
     /** The text of a ListView row: a category name or a song title; null for "All Songs" and other special rows. */
     private fun listRowText(item: Any?): String? = when (item) {
