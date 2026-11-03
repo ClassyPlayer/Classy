@@ -747,6 +747,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
                 if (count > 0 && mgr.migrationContext?.isMediaRescanRequested == true) {
                     runOnUiThread {
                         scanVideos()
+                        startMediaLibraryScan()
                     }
                 }
             } catch (e: Exception) {

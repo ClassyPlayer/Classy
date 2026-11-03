@@ -135,6 +135,18 @@ class MigrationManagerTest {
         assertTrue(context.isMediaRescanRequested)
     }
 
+    @Test
+    fun testMigration006PopulateTrackTimestampsRegistersAndRequestsRescan() {
+        val m6 = Migration006PopulateTrackTimestamps()
+        assertEquals(6, m6.version)
+        assertEquals("006_populate_track_timestamps", m6.id)
+
+        val context = MigrationContext(null, mockPrefs, mockPrefs, 0)
+        assertFalse(context.isMediaRescanRequested)
+        m6.migrate(context)
+        assertTrue(context.isMediaRescanRequested)
+    }
+
     // In-memory SharedPreferences for isolated JVM testing
     private class MockSharedPreferences : SharedPreferences {
         private val map = mutableMapOf<String, Any?>()
