@@ -98,7 +98,10 @@ class BrowserController(
     var isAudiobookLibraryMode: Boolean = false
     var isPickingBackground: Boolean = false
 
-    var currentFolder: File = StoragePaths.getPrimaryRoot()
+    val folderHistory = FolderHistory(StoragePaths.getPrimaryRoot())
+    var currentFolder: File
+        get() = folderHistory.currentFolder
+        set(value) { folderHistory.currentFolder = value }
     var virtualQueryType: String = "ALL"
     var virtualQueryValue: String = ""
     /** Album artist of the album that virtualQueryValue names; empty matches any artist. */
@@ -113,8 +116,6 @@ class BrowserController(
     private var browserCoverPaneSetUp: Boolean = false
     private val uiHandler = Handler(Looper.getMainLooper())
 
-    data class FolderHistoryEntry(val folder: File, val focusText: String)
-    val folderHistory = ArrayList<FolderHistoryEntry>()
     private var isBackLongPressConsumed: Boolean = false
     private val longPressBackRunnable = Runnable {
         if (isFolderBrowserActive()) {
@@ -728,13 +729,11 @@ class BrowserController(
             val bUp = createListButtonWithIcon("\uE2C7", "..", null)
             bUp.setOnClickListener {
                 clickFeedback()
-                val exitedName = currentFolder.name
                 val parent = currentFolder.parentFile
                 if (parent != null) {
-                    folderHistory.add(FolderHistoryEntry(currentFolder, ".."))
-                    currentFolder = parent
+                    val exitedName = folderHistory.up(parent)
                     currentBrowserMode = BrowserMode.Folder(parent)
-                    lastBrowserFocusText = exitedName
+                    lastBrowserFocusText = exitedName ?: ""
                     buildFileBrowserUI()
                 }
             }
@@ -753,9 +752,8 @@ class BrowserController(
                 background = createButtonBackground(ThemeManager.getListButtonNormalBg())
                 setOnClickListener {
                     clickFeedback()
-                    if (folderHistory.isNotEmpty()) {
-                        val prev = folderHistory.removeAt(folderHistory.size - 1)
-                        currentFolder = prev.folder
+                    val prev = folderHistory.back()
+                    if (prev != null) {
                         currentBrowserMode = BrowserMode.Folder(prev.folder)
                         lastBrowserFocusText = prev.focusText
                         buildFileBrowserUI()
@@ -863,8 +861,7 @@ class BrowserController(
             val b = createListButtonWithIcon("\uE2C7", label, null)
             b.setOnClickListener {
                 clickFeedback()
-                folderHistory.add(FolderHistoryEntry(currentFolder, folder.name))
-                currentFolder = folder
+                folderHistory.enter(folder)
                 currentBrowserMode = BrowserMode.Folder(folder)
                 lastBrowserFocusText = ""
                 buildFileBrowserUI()
@@ -1228,10 +1225,9 @@ class BrowserController(
                 buildVirtualSongsForFavorites()
             }
             "folders" -> {
-                folderHistory.clear()
                 val startDir = StoragePaths.getDefaultMusicDir()
+                folderHistory.reset(startDir)
                 currentBrowserMode = BrowserMode.Folder(startDir)
-                currentFolder = startDir
                 lastBrowserFocusText = ""
                 buildFileBrowserUI()
             }
@@ -1288,11 +1284,10 @@ class BrowserController(
                 return true
             }
             is BrowserMode.Folder -> {
-                if (folderHistory.isEmpty()) {
+                val prev = folderHistory.back()
+                if (prev == null) {
                     exitFolderSelection()
                 } else {
-                    val prev = folderHistory.removeAt(folderHistory.size - 1)
-                    currentFolder = prev.folder
                     currentBrowserMode = BrowserMode.Folder(prev.folder)
                     lastBrowserFocusText = prev.focusText
                     buildFileBrowserUI()
@@ -1528,6 +1523,7 @@ class BrowserController(
                     isBackLongPressConsumed = false
                     return true
                 }
+                clickFeedback()
                 onBackPressed()
                 return true
             }
