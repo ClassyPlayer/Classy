@@ -128,7 +128,7 @@ def scan_folder(local_root: Path, device_root: str):
 
             try:
                 st = local_path.stat()
-                date_modified = int(st.st_mtime * 1000)
+                date_modified = int(st.st_mtime) * 1000
                 file_size = st.st_size
             except Exception:
                 date_modified = 0

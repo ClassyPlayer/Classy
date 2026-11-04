@@ -398,10 +398,16 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
             android.util.Log.i("InniClassic", "Secondary storage not ready yet at onCreate, will load library once mounted")
             playbackRestored = AudioPlayerManager.getInstance().restoreLastPlaybackState(this)
         } else {
-            runMigrationsAsync()
-            loadLibraryCache {
-                if (!playbackRestored) {
-                    playbackRestored = AudioPlayerManager.getInstance().restoreLastPlaybackState(this)
+            runMigrationsAsync {
+                loadLibraryCache {
+                    if (!playbackRestored) {
+                        playbackRestored = AudioPlayerManager.getInstance().restoreLastPlaybackState(this)
+                    }
+                    val mgr = com.themoon.y1.migrations.MigrationManager.getInstance(applicationContext)
+                    if (mgr.isPendingMediaRescan() && !isCustomScanning) {
+                        scanVideos()
+                        startMediaLibraryScan()
+                    }
                 }
             }
         }
@@ -410,11 +416,11 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
             setListener(object : ExternalSdMountMonitor.Listener {
                 override fun onSecondaryStorageReady() {
                     StoragePaths.invalidate()
-                    runMigrationsAsync()
-                    scanVideos()
-                    runOnUiThread {
+                    runMigrationsAsync {
+                        scanVideos()
                         val onLibraryReady = {
-                            if (customLibrary.isEmpty() && !isCustomScanning) {
+                            val mgr = com.themoon.y1.migrations.MigrationManager.getInstance(applicationContext)
+                            if ((customLibrary.isEmpty() || mgr.isPendingMediaRescan()) && !isCustomScanning) {
                                 startMediaLibraryScan()
                             }
                             if (!playbackRestored || isPendingRestorePlayback || currentPlaylist.isEmpty()) {
@@ -937,7 +943,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     fun rebuildUniqueAlbumList() = rebuildUniqueAlbumListInternal()
     fun scanVideos() = scanVideosInternal()
 
-    fun runMigrationsAsync() {
+    fun runMigrationsAsync(onComplete: (() -> Unit)? = null) {
         Thread({
             try {
                 val mgr = com.themoon.y1.migrations.MigrationManager.getInstance(applicationContext)
@@ -946,11 +952,12 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
                 if (count > 0 && mgr.migrationContext?.isMediaRescanRequested == true) {
                     runOnUiThread {
                         scanVideos()
-                        startMediaLibraryScan()
                     }
                 }
             } catch (e: Exception) {
                 android.util.Log.e("InniClassic", "Error applying migrations", e)
+            } finally {
+                onComplete?.let { runOnUiThread { it() } }
             }
         }, "y1-migrations").start()
     }

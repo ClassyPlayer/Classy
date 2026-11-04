@@ -113,7 +113,7 @@ class MediaLibraryCacheTest {
 
     @Test
     fun scanDirectorySkipsUnchangedFilesAndUpdatesModifiedFilesInPlace() {
-        val tempDir = java.io.File(System.getProperty("java.io.tmpdir"), "inniclassic_test_" + System.currentTimeMillis())
+        val tempDir = java.io.File(System.getProperty("java.io.tmpdir"), "inniclassic_test_" + System.currentTimeMillis()).canonicalFile
         tempDir.mkdirs()
         try {
             val audioFile = java.io.File(tempDir, "track.mp3")
@@ -158,7 +158,23 @@ class MediaLibraryCacheTest {
             assertEquals(1, targetList.size)
             assertTrue(initialItem === targetList[0])
 
-            // 3. File modified on disk (new size and modified timestamp)
+            // 3. Modification timestamp within 2-second tolerance: should fast-forward and retain instance
+            audioFile.setLastModified(audioFile.lastModified() + 1500L)
+            scanned = mlm.scanDirectory(
+                folder = tempDir,
+                targetList = targetList,
+                existingMap = existingMap,
+                blacklist = emptySet(),
+                startScanned = 0,
+                total = 1,
+                isAudiobook = false,
+                listener = null
+            )
+            assertEquals(1, scanned)
+            assertEquals(1, targetList.size)
+            assertTrue(initialItem === targetList[0])
+
+            // 4. File modified on disk (new size and modified timestamp beyond 2 seconds)
             val newBytes = ByteArray(4096) { 2 }
             audioFile.writeBytes(newBytes)
             audioFile.setLastModified(2000000000000L)

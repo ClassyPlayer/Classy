@@ -147,6 +147,10 @@ class MediaLibraryManager private constructor() {
                 rebuildUniqueAlbumList()
                 AlbumCoverManager.getInstance().pregenerateThumbnails(uniqueAlbumList)
 
+                try {
+                    com.themoon.y1.migrations.MigrationManager.getInstance(context).clearPendingMediaRescan()
+                } catch (_: Throwable) {}
+
                 listener?.onComplete(musicLibrary.size, audiobookLibrary.size)
             } catch (t: Throwable) {
                 Log.e(tag, "Scan error: ${t.message}", t)
@@ -370,7 +374,7 @@ class MediaLibraryManager private constructor() {
 
                 if (existingItem != null &&
                     existingItem.dateModified > 0L &&
-                    existingItem.dateModified == currentModified &&
+                    Math.abs(existingItem.dateModified - currentModified) <= 2000L &&
                     existingItem.fileSize == currentSize
                 ) {
                     scanned++
@@ -385,6 +389,7 @@ class MediaLibraryManager private constructor() {
                 if (existingItem != null) {
                     val oldAlbum = existingItem.album
                     val oldPath = existingItem.file.absolutePath
+                    val oldModified = existingItem.dateModified
                     existingItem.file = f
                     existingItem.title = meta.title
                     existingItem.artist = meta.artist
@@ -402,11 +407,13 @@ class MediaLibraryManager private constructor() {
                     }
                     trackNumberMap[f.absolutePath] = meta.trackNum
 
-                    val oldAlbumKey = AlbumCoverManager.getAlbumKey(f, oldAlbum)
-                    AlbumCoverManager.getInstance().invalidateAlbum(oldAlbumKey)
-                    if (oldAlbum != meta.album) {
-                        val newAlbumKey = AlbumCoverManager.getAlbumKey(f, meta.album)
-                        AlbumCoverManager.getInstance().invalidateAlbum(newAlbumKey)
+                    if (oldModified > 0L) {
+                        val oldAlbumKey = AlbumCoverManager.getAlbumKey(f, oldAlbum)
+                        AlbumCoverManager.getInstance().invalidateAlbum(oldAlbumKey)
+                        if (oldAlbum != meta.album) {
+                            val newAlbumKey = AlbumCoverManager.getAlbumKey(f, meta.album)
+                            AlbumCoverManager.getInstance().invalidateAlbum(newAlbumKey)
+                        }
                     }
                 } else {
                     val song = SongItem(f, meta.title, meta.artist, meta.album, meta.year, meta.genre, meta.albumArtist, meta.composer)

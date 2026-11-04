@@ -542,7 +542,7 @@ class AlbumCoverManager private constructor() {
             return inst!!
         }
         fun getAlbumKey(file: File?, album: String?): String {
-            val parent = if (file?.parentFile != null) file.parentFile.absolutePath else ""
+            val parent = file?.parentFile?.absolutePath ?: ""
             val safeAlbum = album ?: "Unknown Album"
             return "$parent - $safeAlbum"
         }
