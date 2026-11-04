@@ -69,6 +69,7 @@ import com.themoon.y1.controllers.videos.VideoPlayerController
 import com.themoon.y1.managers.AssetInstaller
 import com.themoon.y1.managers.AudioPlayerManager
 import com.themoon.y1.managers.BluetoothAvrcpManager
+import com.themoon.y1.managers.BluetoothPairingAgent
 import com.themoon.y1.managers.ExternalSdMountMonitor
 import com.themoon.y1.managers.FmRadioManager
 import com.themoon.y1.managers.LanguageManager
@@ -80,6 +81,14 @@ import com.themoon.y1.managers.PowerMenuInterceptor
 import com.themoon.y1.managers.UsbMassStorageController
 import com.themoon.y1.managers.UsbStorageUiManager
 import com.themoon.y1.managers.VirtualVolumeManager
+import com.themoon.y1.managers.AudioOutput
+import com.themoon.y1.managers.ClickVolume
+import com.themoon.y1.managers.SafeVolumeBypasser
+import com.themoon.y1.managers.VolumeCurves
+import com.themoon.y1.managers.VolumeMemory
+import com.themoon.y1.managers.VolumeSplit
+import com.themoon.y1.managers.VolumeSteps
+import com.themoon.y1.managers.VolumeStore
 import com.themoon.y1.models.SongItem
 import com.themoon.y1.models.TvSeries
 import com.themoon.y1.models.VideoItem
@@ -130,7 +139,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
         const val BROWSER_FAVORITES = 5
         const val BROWSER_PODCASTS = 6
 
-        const val VIRTUAL_VOLUME_STEPS = 30
+        const val VIRTUAL_VOLUME_STEPS = VolumeSteps.STEPS
 
         var instance: MainActivity? = null
 
@@ -177,19 +186,25 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     var currentVirtualVolume: Int = -1
     var lastTargetVolume: Int = -1
     var isScreenSleeping: Boolean = false
+        set(value) {
+            field = value
+            refreshVisualizerCapture()
+        }
     var isLongPressConsumed: Boolean = false
     var isMediaLongPressConsumed: Boolean = false
-    var activePlayer: Int = 0
 
     var isFakeScreenOff: Boolean = false
+
+    /** True from onResume to onStop: no other app or activity covers the screen. */
+    private var isActivityVisible: Boolean = false
+
+    /** The user can see this activity: it is not behind another one, and the screen is not off or blanked. */
+    val isOnScreen: Boolean
+        get() = isActivityVisible && !isScreenSleeping
+
     var backTargetForUtility: Int = STATE_SETTINGS
     var isPendingUpdateCheckAfterWifi: Boolean = false
     var lastSettingsFocusIndex: Int = 0
-    var currentEqPresetIndex: Int = 0
-    var currentEqProfile: String = "preset_0"
-    var currentBassBoostStep: Int = 0
-    var currentVirtualizerStep: Int = 0
-    var currentCrossfeedStep: Int = 0
     val eqPresetNames: ArrayList<String> = ArrayList()
 
     var isCustomScanning: Boolean = false
@@ -211,14 +226,18 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     var displayedPlayerPath: String? = null
     var nowPlayingBottomState: Int = 0
     var pendingSeekChanged: Boolean = false
-    var isVisualizerShowing: Boolean = false
+    /** Spectrum in place of the album art on Now Playing (Settings → Spectrum), kept in AppPrefs. */
+    var isVisualizerShowing: Boolean
+        get() = ::prefs.isInitialized && prefs.getBoolean(com.themoon.y1.controllers.player.NowPlayingSpectrum.PREF, false)
+        set(value) {
+            prefs.edit().putBoolean(com.themoon.y1.controllers.player.NowPlayingSpectrum.PREF, value).apply()
+        }
     var audioVisualizer: Visualizer? = null
     var equalizer: Equalizer? = null
     var bassBoost: BassBoost? = null
     var virtualizer: Virtualizer? = null
     var loudnessEnhancer: LoudnessEnhancer? = null
     var currentAudioSessionId: Int = -1
-    val customBandLevels = IntArray(32)
 
     private var usbStateReceiverReady: Boolean = false
     internal val rootFolder: File by lazy { StoragePaths.getPrimaryRoot() }
@@ -298,13 +317,14 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     var otaUpdateManager: OtaUpdateManager? = null
     var externalSdMountMonitor: ExternalSdMountMonitor? = null
     private var powerMenuInterceptor: PowerMenuInterceptor? = null
+    private var pairingAgent: BluetoothPairingAgent? = null
     var powerBacklightManager: PowerBacklightManager? = null
 
     internal val usbStorageManager by lazy {
         UsbStorageUiManager(
             activity = this,
             getExternalSdMountMonitor = { externalSdMountMonitor },
-            isFmRadioActive = { activePlayer == 1 },
+            isFmRadioActive = { FmRadioManager.getInstance(this).isPowerUp },
             stopFmRadio = { FmRadioManager.getInstance(this).powerDown() },
             localize = { t(it) },
             clickFeedback = { clickFeedback() },
@@ -365,6 +385,13 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
 
         AudioPlayerManager.getInstance().initPlayer(applicationContext)
         BluetoothAvrcpManager.getInstance(this).init()
+        restoreVolumeForOutput(force = true)
+        AndroidVolumeChangeReceiver.register(applicationContext)
+        com.themoon.y1.managers.ClickSound.load()
+        FmRadioManager.getInstance(this).apply {
+            volumeGate = { ready -> runOnUiThread { prepareVolumeForFm(ready) } }
+            onPoweredDown = { runOnUiThread { leaveFmVolume() } }
+        }
 
         var playbackRestored = false
         if (ExternalSdMountMonitor.hasSecondarySlot() && !ExternalSdMountMonitor.isSecondaryReady()) {
@@ -417,6 +444,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
         registerReceivers()
         // A long press of the Power button shows our Power screen, not Android's power menu
         powerMenuInterceptor = PowerMenuInterceptor(this) { showPowerMenu() }.also { it.register() }
+        com.themoon.y1.managers.CellRadioManager.start(this)
 
         try {
             val initBattery = registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
@@ -464,6 +492,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
 
     override fun onResume() {
         super.onResume()
+        isActivityVisible = true
         isScreenSleeping = false
         powerBacklightManager?.resetTimer()
         updateScreenOffFeedback(true)
@@ -478,7 +507,29 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
 
     override fun onStop() {
         super.onStop()
+        isActivityVisible = false
+        refreshVisualizerCapture()
         AudioPlayerManager.getInstance().savePlaybackState(sync = true)
+    }
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        // After a boot the window is in touch mode until the first key, so requestFocus() does nothing
+        // and the first screen shows no selected row. Leave touch mode before the first layout.
+        val decor = window.decorView
+        if (decor.isInTouchMode) decor.requestFocusFromTouch()
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        // At a device boot the window can get focus in touch mode again (after onAttachedToWindow), which
+        // clears the selected row. Then leave touch mode and let the screen select its row again.
+        // Only in touch mode with no focus, so a row that the user selected keeps the focus.
+        val decor = window.decorView
+        if (hasFocus && decor.isInTouchMode && currentFocus == null) {
+            decor.requestFocusFromTouch()
+            getActiveScreenController()?.onRefreshUI()
+        }
     }
 
     fun t(key: String): String = LanguageManager.getInstance(this).t(key)
@@ -494,10 +545,16 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
             return
         }
         if (isVibrationEnabled) {
-            vibrator.vibrate((vibrationStrengthLevel * 15).toLong())
+            com.themoon.y1.managers.ButtonVibration.vibrate(vibrator, vibrationStrengthLevel)
         }
         if (isSoundEffectEnabled) {
-            audioManager.playSoundEffect(AudioManager.FX_KEY_CLICK)
+            // Settings → Click Volume: a level of its own, not the music volume (see ClickVolume).
+            val level = prefs.getInt(ClickVolume.PREF, ClickVolume.DEFAULT)
+            val output = currentAudioOutput ?: AudioOutput.SPEAKER
+            // Our own click on STREAM_MUSIC: STREAM_SYSTEM stays muted, because the ROM clicks there on each press (see ClickSound)
+            com.themoon.y1.managers.ClickSound.play(
+                ClickVolume.clickGain(level, output, currentVirtualVolume.coerceAtLeast(0))
+            )
         }
     }
 
@@ -509,7 +566,6 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
             STATE_SETTINGS -> ScreenState.Settings()
             STATE_BLUETOOTH -> ScreenState.Bluetooth
             STATE_WIFI -> ScreenState.Wifi
-            STATE_WIFI_KEYBOARD -> ScreenState.WifiKeyboard("")
             STATE_BRIGHTNESS -> ScreenState.Brightness
             STATE_STORAGE -> ScreenState.Storage
             STATE_WEBSERVER -> ScreenState.WebServer
@@ -629,15 +685,8 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
 
     @Suppress("DEPRECATION")
     override fun onBackPressed() {
-        val active = getActiveScreenController()
-        if (active?.onBackPressed() == true) {
-            return
-        }
-        if (NavigationManager.getInstance().navigateBack()) {
-            return
-        }
-        clickFeedback()
-        // Never call super.onBackPressed() because MainActivity is the HOME launcher.
+        // The router acts on Back; never call super.onBackPressed() because MainActivity is the HOME launcher.
+        InputRouter.getInstance().goBack(getActiveScreenController())
     }
 
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
@@ -645,36 +694,183 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
         return super.dispatchTouchEvent(event)
     }
 
+    /** The volume step of each output, in AppPrefs (see [VolumeSteps]). */
+    private val volumeMemory: VolumeMemory by lazy {
+        VolumeMemory(object : VolumeStore {
+            override fun contains(key: String) = prefs.contains(key)
+            override fun getInt(key: String, default: Int) = prefs.getInt(key, default)
+            override fun putInt(key: String, value: Int) {
+                prefs.edit().putInt(key, value).apply()
+            }
+        }).also { it.migrate() }
+    }
+
+    /** The output of the current volume step; null before the first [restoreVolumeForOutput]. */
+    var currentAudioOutput: AudioOutput? = null
+    private val audioOutputHandler = Handler(Looper.getMainLooper())
+    private val audioOutputCheckTask = Runnable { restoreVolumeForOutput() }
+
+    fun detectAudioOutput(): AudioOutput = try {
+        @Suppress("DEPRECATION")
+        AudioOutput.current(audioManager.isWiredHeadsetOn, audioManager.isBluetoothA2dpOn)
+    } catch (_: Exception) {
+        AudioOutput.SPEAKER
+    }
+
+    /**
+     * Sets the saved step of the output that plays now, when the output changed (or always with [force]).
+     * Each output keeps its own step, as Android does with its index.
+     */
+    fun restoreVolumeForOutput(force: Boolean = false) {
+        val output = detectAudioOutput()
+        if (!force && output == currentAudioOutput) return
+        currentAudioOutput = output
+        volumeLimitMax = volumeMemory.limitStep()
+        val step = volumeMemory.stepFor(output) { audioManager.getStreamVolume(AudioManager.STREAM_MUSIC) }
+        applyVolumeStep(step, output, showOverlay = false)
+    }
+
+    /** After a plug or A2DP event, checks the output again a few times: Android changes the route with a delay. */
+    fun scheduleAudioOutputCheck() {
+        audioOutputHandler.removeCallbacks(audioOutputCheckTask)
+        for (delayMs in longArrayOf(300L, 1200L, 3000L)) {
+            audioOutputHandler.postDelayed(audioOutputCheckTask, delayMs)
+        }
+    }
+
     override fun adjustVolume(isUp: Boolean) {
-        val maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-        if (currentVirtualVolume < 0) {
-            val curSys = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
-            currentVirtualVolume = VirtualVolumeManager.systemToVirtualVolume(curSys, maxVol, currentVirtualVolume)
-        }
-        val target = if (isUp) {
-            (currentVirtualVolume + 1).coerceAtMost(VIRTUAL_VOLUME_STEPS)
-        } else {
-            (currentVirtualVolume - 1).coerceAtLeast(0)
-        }
-        setVolumeLevel(AudioManager.STREAM_MUSIC, target, maxVol)
+        restoreVolumeForOutput()
+        val current = currentVirtualVolume.coerceAtLeast(0)
+        val target = if (isUp) current + 1 else current - 1
+        setVolumeLevel(VolumeSteps.clamp(target, volumeLimitMax))
         clickFeedback()
     }
 
-    fun setVolumeLevel(targetVirtualVol: Int) {
-        val maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-        setVolumeLevel(AudioManager.STREAM_MUSIC, targetVirtualVol, maxVol)
+    /**
+     * With the screen off, Android gets the volume keys (only while music plays) and moves the music index. Each push
+     * then changes our step by one, as with the screen on, and the index goes back to the top
+     * ([VolumeSteps.stepFromIndexChange]). Screen-Off Control does not apply: Android acts on these keys in any case.
+     */
+    fun onAndroidVolumeChange(prevIndex: Int, newIndex: Int) {
+        if (volumeSplit() != VolumeSplit.SOFTWARE || lastTargetVolume < 0) return
+        val maxIndex = try { audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC) } catch (_: Exception) { return }
+        val delta = VolumeSteps.stepFromIndexChange(prevIndex, newIndex, lastTargetVolume, maxIndex)
+        if (delta == 0) return
+        android.util.Log.d("VolumeKeys", "Android volume key (screen off): music index $prevIndex -> $newIndex, one step " +
+            if (delta > 0) "up" else "down")
+        adjustVolume(delta > 0)
     }
 
-    fun setVolumeLevel(stream: Int, targetVirtualVol: Int, sysMaxVol: Int) {
-        currentVirtualVolume = targetVirtualVol
-        val gain = VirtualVolumeManager.virtualToSoftwareGain(targetVirtualVol)
-        VirtualVolumeManager.getInstance().setMasterGain(gain)
-        val sysTarget = VirtualVolumeManager.virtualToSystemVolume(targetVirtualVol, sysMaxVol)
-        lastTargetVolume = sysTarget
-        try {
-            audioManager.setStreamVolume(stream, sysTarget, 0)
-        } catch (_: Exception) {}
-        showDynamicVolumeOverlay(currentVirtualVolume, VIRTUAL_VOLUME_STEPS)
+    /** Android's music index changes (hidden AudioManager.VOLUME_CHANGED_ACTION). Registered once for the process. */
+    private object AndroidVolumeChangeReceiver : BroadcastReceiver() {
+        private var registered = false
+
+        fun register(context: Context) {
+            if (registered) return
+            registered = true
+            context.registerReceiver(this, IntentFilter("android.media.VOLUME_CHANGED_ACTION"))
+        }
+
+        override fun onReceive(context: Context, intent: Intent) {
+            if (intent.getIntExtra("android.media.EXTRA_VOLUME_STREAM_TYPE", -1) != AudioManager.STREAM_MUSIC) return
+            val prev = intent.getIntExtra("android.media.EXTRA_PREV_VOLUME_STREAM_VALUE", -1)
+            val now = intent.getIntExtra("android.media.EXTRA_VOLUME_STREAM_VALUE", -1)
+            if (prev < 0 || now < 0) return
+            instance?.onAndroidVolumeChange(prev, now)
+        }
+    }
+
+    fun setVolumeLevel(targetVirtualVol: Int, showOverlay: Boolean = true) {
+        val output = currentAudioOutput ?: detectAudioOutput().also { currentAudioOutput = it }
+        applyVolumeStep(targetVirtualVol, output, showOverlay)
+    }
+
+    /** Sets the Volume Limit (a step; -1 = off) and lowers the volume to it when necessary. */
+    fun setVolumeLimit(limitStep: Int) {
+        volumeLimitMax = limitStep
+        prefs.edit().putInt(VolumeSteps.PREF_LIMIT, limitStep).apply()
+        if (limitStep > 0 && currentVirtualVolume > limitStep) {
+            setVolumeLevel(limitStep, showOverlay = false)
+        }
+    }
+
+    private val volumeIndexHandler = Handler(Looper.getMainLooper())
+    private var lastVolumeIndexWriteMs = 0L
+
+    /**
+     * Music uses [VolumeSplit.SOFTWARE]: the Android index stays at the top, so the button click and other system
+     * sounds do not change with the music volume. FM radio uses [VolumeSplit.INDEX] while it is on.
+     */
+    private var fmVolumeMode = false
+    private val fmVolumeHandler = Handler(Looper.getMainLooper())
+
+    private fun volumeSplit(): VolumeSplit = if (fmVolumeMode) VolumeSplit.INDEX else VolumeSplit.SOFTWARE
+
+    /**
+     * Before the FM audio starts: lowers the index to the index split of the current step (one index at a time),
+     * then runs [ready]. The FM audio may not go through the player gain, so it starts only at the lower index.
+     */
+    fun prepareVolumeForFm(ready: Runnable) {
+        fmVolumeMode = true
+        val output = currentAudioOutput ?: detectAudioOutput().also { currentAudioOutput = it }
+        val ms = applyVolumeStep(currentVirtualVolume.coerceAtLeast(0), output, showOverlay = false)
+        fmVolumeHandler.removeCallbacksAndMessages(null)
+        fmVolumeHandler.postDelayed(ready, ms + 50L)
+    }
+
+    /** FM radio is off: back to the software split (the gain first, then the index goes up). */
+    fun leaveFmVolume() {
+        fmVolumeHandler.removeCallbacksAndMessages(null)
+        if (!fmVolumeMode) return
+        fmVolumeMode = false
+        val output = currentAudioOutput ?: detectAudioOutput().also { currentAudioOutput = it }
+        applyVolumeStep(currentVirtualVolume.coerceAtLeast(0), output, showOverlay = false)
+    }
+
+    /** Sets one index and gain of a [VolumeSteps.indexSchedule]. Lowers the louder of the two first, so no short peak comes between them. */
+    private fun writeVolumeChange(change: VolumeSteps.IndexChange) {
+        val current = try { audioManager.getStreamVolume(AudioManager.STREAM_MUSIC) } catch (_: Exception) { -1 }
+        if (change.index < current &&
+            android.os.SystemClock.uptimeMillis() - lastVolumeIndexWriteMs < VolumeSteps.MIN_DECREASE_GAP_MS
+        ) {
+            // The main thread was busy and the writes came late, too close together: plan again from this index.
+            val output = currentAudioOutput ?: return
+            applyVolumeStep(currentVirtualVolume.coerceAtLeast(0), output, showOverlay = false)
+            return
+        }
+        val gainFirst = change.index > current
+        if (gainFirst) VirtualVolumeManager.getInstance().setMasterGain(change.gain)
+        if (change.index != current) {
+            try {
+                SafeVolumeBypasser.setStreamVolumeWithBypass(this, audioManager, AudioManager.STREAM_MUSIC, change.index, 0)
+            } catch (_: Exception) {}
+            lastVolumeIndexWriteMs = android.os.SystemClock.uptimeMillis()
+        }
+        if (!gainFirst) VirtualVolumeManager.getInstance().setMasterGain(change.gain)
+    }
+
+    /** Sets [step] for [output]. Returns the time (ms) until the last index write of the plan. */
+    private fun applyVolumeStep(step: Int, output: AudioOutput, showOverlay: Boolean): Long {
+        val target = step.coerceIn(0, VIRTUAL_VOLUME_STEPS)
+        currentVirtualVolume = target
+        volumeMemory.save(output, target)
+        val sysMaxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+        val curve = VolumeCurves.forOutput(output)
+        val split = volumeSplit()
+        val setting = VolumeSteps.settingFor(target, curve, sysMaxVol, split)
+        lastTargetVolume = setting.index
+        val fromIndex = try { audioManager.getStreamVolume(AudioManager.STREAM_MUSIC) } catch (_: Exception) { 0 }
+        val plan = VolumeSteps.indexSchedule(
+            fromIndex, target, curve, sysMaxVol, android.os.SystemClock.uptimeMillis() - lastVolumeIndexWriteMs, split
+        )
+        volumeIndexHandler.removeCallbacksAndMessages(null)
+        var atMs = 0L
+        for (change in plan) {
+            atMs += change.delayMs
+            if (atMs == 0L) writeVolumeChange(change) else volumeIndexHandler.postDelayed({ writeVolumeChange(change) }, atMs)
+        }
+        if (showOverlay) showDynamicVolumeOverlay(currentVirtualVolume, VIRTUAL_VOLUME_STEPS)
+        return atMs
     }
 
     fun showDynamicVolumeOverlay(currentVol: Int, maxVol: Int) {
@@ -701,12 +897,12 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     fun sendBluetoothMetaToCar() {
         if (currentPlaylist.isNotEmpty() && currentIndex in currentPlaylist.indices) {
             val file = currentPlaylist[currentIndex]
-            val song = customLibrary.firstOrNull { it.file.absolutePath == file.absolutePath }
+            val song = com.themoon.y1.managers.LibrarySongs.songByPath(file.absolutePath)
             val title = song?.title ?: file.nameWithoutExtension
             val artist = song?.artist ?: t("Unknown Artist")
             val album = song?.album ?: t("Unknown Album")
             val bmp = (ivAlbumArt.drawable as? BitmapDrawable)?.bitmap
-            BluetoothAvrcpManager.getInstance(this).updateMetadata(title, artist, album, bmp)
+            BluetoothAvrcpManager.getInstance(this).updateMetadata(file.absolutePath, title, artist, album, bmp)
         }
     }
 
@@ -732,6 +928,9 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     fun fetchRandomIdleCoverAsync() = fetchRandomIdleCoverAsyncInternal()
     fun setupVisualizer() = setupVisualizerInternal()
     fun toggleVisualizer() = toggleVisualizerInternal()
+    fun refreshVisualizerCapture() {
+        if (::playerController.isInitialized) playerController.refreshVisualizerCapture()
+    }
     fun rebootAudioEngine() = rebootAudioEngineInternal()
     fun loadLibraryCache(onLoaded: ((Boolean) -> Unit)? = null) = loadLibraryCacheInternal(onLoaded)
     fun startMediaLibraryScan() = startMediaLibraryScanInternal()
@@ -904,16 +1103,22 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     fun updateScreenOffFeedback(screenOn: Boolean) {
         try {
             if (screenOn) {
-                setSystemSoundsMuted(!isSoundEffectEnabled)
+                // Always muted: the ROM plays Android's click on STREAM_SYSTEM on each key press (see ClickSound)
+                setSystemSoundsMuted(true)
                 Settings.System.putInt(
                     contentResolver,
                     Settings.System.SOUND_EFFECTS_ENABLED,
-                    if (isSoundEffectEnabled) 1 else 0
+                    // Always off: else Android also plays its own view click (default gain, -6 dB) on each
+                    // performClick and list item click, with ours and much louder. Our click (clickFeedback:
+                    // ClickSound) does not read this setting, so Button Sound still works.
+                    0
                 )
                 Settings.System.putInt(
                     contentResolver,
                     Settings.System.HAPTIC_FEEDBACK_ENABLED,
-                    if (isVibrationEnabled) 1 else 0
+                    // Always off: else Android also vibrates on each key press, before our vibration on the
+                    // release. Our vibration (clickFeedback) does not read this setting.
+                    0
                 )
             } else {
                 if (!isScreenOffControlEnabled) {
@@ -1074,6 +1279,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
                     if (state == 1) {
                         updateStatusBarHeadphone()
                     }
+                    scheduleAudioOutputCheck()
                 }
                 BluetoothAdapter.ACTION_STATE_CHANGED -> {
                     val state = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.ERROR)
@@ -1123,7 +1329,9 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
                     val bondState = intent.getIntExtra(BluetoothDevice.EXTRA_BOND_STATE, BluetoothDevice.ERROR)
                     if (bondState == BluetoothDevice.BOND_BONDED) {
                         val device = intent.getParcelableExtra<BluetoothDevice>(BluetoothDevice.EXTRA_DEVICE)
-                        if (device != null) {
+                        // Connect audio only when the Y2 started the pairing. A car that started it
+                        // connects its profiles itself; a second connection at the same time fails.
+                        if (device != null && bluetoothController.takeY2BondRequest(device)) {
                             bluetoothController.connectBluetoothAudio(device)
                         }
                     }
@@ -1145,6 +1353,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
                     }
                     if (profileState == BluetoothProfile.STATE_CONNECTED || profileState == BluetoothProfile.STATE_DISCONNECTED) {
                         bluetoothController.isBtConnectingState = false
+                        scheduleAudioOutputCheck()
                         if (NavigationManager.getInstance().currentState is ScreenState.Bluetooth || currentScreenState == STATE_BLUETOOTH) {
                             window.decorView.postDelayed({
                                 bluetoothController.startBluetoothScan()
@@ -1154,17 +1363,6 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
                 }
                 BluetoothDevice.ACTION_ACL_DISCONNECTED -> {
                     bluetoothController.clearTargetDeviceForAudio()
-                }
-                "android.bluetooth.device.action.PAIRING_REQUEST" -> {
-                    val pairingDevice = intent.getParcelableExtra<BluetoothDevice>(BluetoothDevice.EXTRA_DEVICE)
-                    if (pairingDevice != null) {
-                        try {
-                            val confirmMethod = pairingDevice.javaClass.getMethod("setPairingConfirmation", Boolean::class.javaPrimitiveType)
-                            confirmMethod.invoke(pairingDevice, true)
-                        } catch (e: Exception) {
-                            e.printStackTrace()
-                        }
-                    }
                 }
                 WifiManager.WIFI_STATE_CHANGED_ACTION -> {
                     val state = intent.getIntExtra(WifiManager.EXTRA_WIFI_STATE, WifiManager.WIFI_STATE_UNKNOWN)
@@ -1262,7 +1460,6 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
             addAction(BluetoothDevice.ACTION_BOND_STATE_CHANGED)
             addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED)
             addAction("android.bluetooth.a2dp.profile.action.CONNECTION_STATE_CHANGED")
-            addAction("android.bluetooth.device.action.PAIRING_REQUEST")
             addAction(WifiManager.WIFI_STATE_CHANGED_ACTION)
             addAction(WifiManager.SCAN_RESULTS_AVAILABLE_ACTION)
             addAction(WifiManager.NETWORK_STATE_CHANGED_ACTION)
@@ -1278,6 +1475,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
             addAction("com.themoon.y1.RESCAN_LIBRARY")
         }
         registerReceiver(systemStatusReceiver, filter)
+        pairingAgent = BluetoothPairingAgent(this, ::t).also { it.register() }
     }
 
     override fun onDestroy() {
@@ -1288,10 +1486,12 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
             unregisterReceiver(systemStatusReceiver)
         } catch (_: Exception) {}
         powerMenuInterceptor?.unregister()
+        com.themoon.y1.managers.CellRadioManager.stop(this)
         externalSdMountMonitor?.stop()
         audioVisualizer?.release()
         audioVisualizer = null
         AudioPlayerManager.getInstance().releasePlayer()
+        pairingAgent?.unregister()
         NavigationManager.getInstance().reset()
         instance = null
     }
@@ -1311,21 +1511,27 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
             if (!isScreenOn) {
                 val isScreenOffCtrl = instance?.isScreenOffControlEnabled
                     ?: AppPrefs.get(context).getBoolean("screen_off_control", false)
-                if (!isScreenOffCtrl) {
+                // Media keys from a remote (car, Bluetooth headphones, wired headset) always act
+                val keys = com.themoon.y1.navigation.RemoteMediaKeys
+                val device = keys.deviceName(event)
+                android.util.Log.w("MediaButton", KeyEvent.keyCodeToString(event.keyCode) + " from " + (device ?: "unknown device") +
+                    " with the screen off: " + keys.screenOffDecision(event.keyCode, device, isScreenOffCtrl))
+                if (!keys.actsWithScreenOff(event.keyCode, device, isScreenOffCtrl)) {
                     return
                 }
             }
 
             val am = AudioPlayerManager.getInstance()
             when (event.keyCode) {
-                KeyEvent.KEYCODE_MEDIA_PLAY, KeyEvent.KEYCODE_MEDIA_PAUSE, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, 85 -> {
-                    am.playOrPauseMusic()
+                KeyEvent.KEYCODE_MEDIA_PLAY, KeyEvent.KEYCODE_MEDIA_PAUSE, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, 85,
+                KeyEvent.KEYCODE_HEADSETHOOK -> {
+                    com.themoon.y1.managers.AudioSources.app.playPauseKey()
                 }
                 KeyEvent.KEYCODE_MEDIA_NEXT, 87 -> {
-                    am.nextTrack()
+                    com.themoon.y1.managers.AudioSources.app.skipKey(true)
                 }
                 KeyEvent.KEYCODE_MEDIA_PREVIOUS, 88 -> {
-                    am.prevTrack()
+                    com.themoon.y1.managers.AudioSources.app.skipKey(false)
                 }
             }
         }
