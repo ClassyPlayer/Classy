@@ -719,5 +719,6 @@
   "Pairing failed: a scan was running. Try again": "配对失败: 正在扫描。请重试",
   "Pairing failed: no answer (timeout)": "配对失败: 无响应 (超时)",
   "Pairing failed: too many attempts. Wait, then try again": "配对失败: 尝试次数过多。请稍候再试",
-  "Battery empty": "电量耗尽"
+  "Battery empty": "电量耗尽",
+  "Tuner": "调谐器"
 }
