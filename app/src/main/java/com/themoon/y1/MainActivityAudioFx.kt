@@ -13,7 +13,7 @@ internal fun MainActivity.setupVisualizerInternal() {
         val current = audioVisualizer
         if (current != null && session != 0 && session == visualizerSession) {
             // Same session (a track change): keep the visualizer, as a new one is a slow call to the audio server
-            if (isVisualizerShowing && !current.enabled) current.enabled = true
+            refreshVisualizerCapture()
             return
         }
         current?.apply {
@@ -30,8 +30,8 @@ internal fun MainActivity.setupVisualizerInternal() {
                     (getActiveScreenController() as? PlayerController)?.updateVisualizer(fft)
                 }
             }, Visualizer.getMaxCaptureRate() / 2, false, true)
-            if (isVisualizerShowing) setEnabled(true)
         }
+        refreshVisualizerCapture()
     } catch (_: Exception) {}
 }
 

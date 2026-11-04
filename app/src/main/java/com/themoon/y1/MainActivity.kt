@@ -186,10 +186,22 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     var currentVirtualVolume: Int = -1
     var lastTargetVolume: Int = -1
     var isScreenSleeping: Boolean = false
+        set(value) {
+            field = value
+            refreshVisualizerCapture()
+        }
     var isLongPressConsumed: Boolean = false
     var isMediaLongPressConsumed: Boolean = false
 
     var isFakeScreenOff: Boolean = false
+
+    /** True from onResume to onStop: no other app or activity covers the screen. */
+    private var isActivityVisible: Boolean = false
+
+    /** The user can see this activity: it is not behind another one, and the screen is not off or blanked. */
+    val isOnScreen: Boolean
+        get() = isActivityVisible && !isScreenSleeping
+
     var backTargetForUtility: Int = STATE_SETTINGS
     var isPendingUpdateCheckAfterWifi: Boolean = false
     var lastSettingsFocusIndex: Int = 0
@@ -480,6 +492,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
 
     override fun onResume() {
         super.onResume()
+        isActivityVisible = true
         isScreenSleeping = false
         powerBacklightManager?.resetTimer()
         updateScreenOffFeedback(true)
@@ -494,6 +507,8 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
 
     override fun onStop() {
         super.onStop()
+        isActivityVisible = false
+        refreshVisualizerCapture()
         AudioPlayerManager.getInstance().savePlaybackState(sync = true)
     }
 
@@ -913,6 +928,9 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     fun fetchRandomIdleCoverAsync() = fetchRandomIdleCoverAsyncInternal()
     fun setupVisualizer() = setupVisualizerInternal()
     fun toggleVisualizer() = toggleVisualizerInternal()
+    fun refreshVisualizerCapture() {
+        if (::playerController.isInitialized) playerController.refreshVisualizerCapture()
+    }
     fun rebootAudioEngine() = rebootAudioEngineInternal()
     fun loadLibraryCache(onLoaded: ((Boolean) -> Unit)? = null) = loadLibraryCacheInternal(onLoaded)
     fun startMediaLibraryScan() = startMediaLibraryScanInternal()

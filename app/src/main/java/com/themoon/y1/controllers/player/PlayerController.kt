@@ -198,6 +198,7 @@ class PlayerController(
         progressHandler.removeCallbacks(updateProgressTask)
         layoutPlayerMode.visibility = View.GONE
         resetBottomState()
+        refreshVisualizerCapture()
     }
 
     /** Now Playing always opens in the default state (Progress); a pending seek is discarded. */
@@ -423,6 +424,7 @@ class PlayerController(
         } else {
             lyricsOverlayController.hide()
         }
+        refreshVisualizerState()
     }
 
     private fun updateShuffleRepeatScrubLabels() {
@@ -563,8 +565,25 @@ class PlayerController(
         }
         visualizerView.visibility = if (showSpectrum) View.VISIBLE else View.GONE
         visualizerApplied = isOn
+        refreshVisualizerCapture()
+    }
+
+    /**
+     * Starts or stops the audio capture of the visualizer, and so its thread. Runs at each change of a condition
+     * of [NowPlayingSpectrum.shouldCapture], and when the player gets a visualizer. Keeps the Visualizer object:
+     * only a new audio session makes a new one.
+     */
+    fun refreshVisualizerCapture() {
+        val main = MainActivity.instance ?: return
+        val visualizer = main.audioVisualizer ?: return
+        val capture = NowPlayingSpectrum.shouldCapture(
+            spectrumOn = main.isVisualizerShowing,
+            nowPlayingShown = layoutPlayerMode.visibility == View.VISIBLE,
+            lyricsShowing = lyricsOverlayController.isShowing(),
+            onScreen = main.isOnScreen
+        )
         try {
-            main.audioVisualizer?.setEnabled(showSpectrum)
+            if (visualizer.enabled != capture) visualizer.enabled = capture
         } catch (_: Exception) {}
     }
 
@@ -731,6 +750,7 @@ class PlayerController(
         }
         if (lyricsOverlayController.hasLyrics && lyricsOverlayController.lyricScrollView.visibility == View.VISIBLE) {
             lyricsOverlayController.hide()
+            refreshVisualizerState()
             return true
         }
         onNavigateBack()

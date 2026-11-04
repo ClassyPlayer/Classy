@@ -14,4 +14,11 @@ object NowPlayingTime {
 object NowPlayingSpectrum {
     /** AppPrefs key: true shows the spectrum. Default false (album art). */
     const val PREF = "show_spectrum"
+
+    /**
+     * The audio capture runs only while the spectrum is really visible, as the capture thread uses battery.
+     * [onScreen]: the app shows and the screen is not off or blanked.
+     */
+    fun shouldCapture(spectrumOn: Boolean, nowPlayingShown: Boolean, lyricsShowing: Boolean, onScreen: Boolean): Boolean =
+        spectrumOn && nowPlayingShown && !lyricsShowing && onScreen
 }
