@@ -726,7 +726,7 @@ class BrowserController(
         val canGoUp = !isTop && currentFolder.parentFile != null
 
         if (canGoUp) {
-            val bUp = createListButtonWithIcon("\uE2C7", "..", null)
+            val bUp = createListButtonWithIcon("\uE2C7", "..", null).apply { tag = "UP" }
             bUp.setOnClickListener {
                 clickFeedback()
                 val parent = currentFolder.parentFile
@@ -747,6 +747,7 @@ class BrowserController(
                 "📂 ${localize("Empty Folder (Tap to go back)")}"
             }
             val btnEmpty = Button(activity).apply {
+                tag = "EMPTY"
                 text = emptyMsg
                 setTextColor(0xFFFF5555.toInt())
                 background = createButtonBackground(ThemeManager.getListButtonNormalBg())
@@ -822,7 +823,7 @@ class BrowserController(
         Collections.sort(imageFiles, fileSorter)
 
         if (!isPickingBackground && !isTop && !StoragePaths.isAnyStorageRoot(currentFolder) && (audioFiles.isNotEmpty() || folders.isNotEmpty())) {
-            val btnPlayAll = createListButtonWithIcon("\uE037", "▶ ${localize("Play All")}", null)
+            val btnPlayAll = createListButtonWithIcon("\uE037", "▶ ${localize("Play All")}", null).apply { tag = "PLAY_ALL" }
             btnPlayAll.setOnClickListener {
                 clickFeedback()
                 val allAudio = ArrayList<File>()
@@ -858,7 +859,7 @@ class BrowserController(
             } else {
                 folder.name
             }
-            val b = createListButtonWithIcon("\uE2C7", label, null)
+            val b = createListButtonWithIcon("\uE2C7", label, null).apply { tag = "FOLDER" }
             b.setOnClickListener {
                 clickFeedback()
                 folderHistory.enter(folder)
@@ -871,7 +872,7 @@ class BrowserController(
 
         if (isPickingBackground) {
             for (img in imageFiles) {
-                val b = createListButtonWithIcon("\uE410", img.name, null)
+                val b = createListButtonWithIcon("\uE410", img.name, null).apply { tag = "IMAGE" }
                 b.setOnClickListener {
                     clickFeedback()
                     try {
@@ -889,6 +890,7 @@ class BrowserController(
         } else {
             for (apk in apkFiles) {
                 val b = Button(activity).apply {
+                    tag = "APK"
                     text = "📦 [${localize("INSTALL")}] ${apk.name}"
                     setTextColor(0xFF00FFFF.toInt())
                     background = createButtonBackground(ThemeManager.getListButtonNormalBg())
@@ -919,7 +921,7 @@ class BrowserController(
 
     private fun buildFolderAudioRow(audio: File): View {
         val iconCode = if (isAudiobookLibraryMode || currentBrowserMode is BrowserMode.Audiobooks) "\uE310" else "\uE405"
-        val b = createListButtonWithIcon(iconCode, audio.name, null)
+        val b = createListButtonWithIcon(iconCode, audio.name, null).apply { tag = "AUDIO" }
 
         if (isAudiobookLibraryMode || currentBrowserMode is BrowserMode.Audiobooks) {
             val prefs = AppPrefs.get(activity)
@@ -948,12 +950,34 @@ class BrowserController(
         return b
     }
 
+    private fun findDefaultFolderFocusView(): View? {
+        val count = containerBrowserItems.childCount
+        if (count == 0) return null
+        for (i in 0 until count) {
+            val child = containerBrowserItems.getChildAt(i)
+            if (child.tag == "FOLDER") return child
+        }
+        for (i in 0 until count) {
+            val child = containerBrowserItems.getChildAt(i)
+            val tag = child.tag
+            if (tag == "AUDIO" || tag == "APK" || tag == "IMAGE") return child
+        }
+        for (i in 0 until count) {
+            val child = containerBrowserItems.getChildAt(i)
+            if (child.isFocusable && child.visibility == View.VISIBLE) return child
+        }
+        return containerBrowserItems.getChildAt(0)
+    }
+
     private fun finishFolderBrowserUIRender() {
-        if (containerBrowserItems.childCount > 0) {
+        val sv = scrollViewBrowser ?: return
+        if (lastBrowserFocusText.isEmpty()) {
+            findDefaultFolderFocusView()?.requestFocus()
+            sv.scrollTo(0, 0)
+        } else if (containerBrowserItems.childCount > 0) {
             containerBrowserItems.getChildAt(0).requestFocus()
         }
 
-        val sv = scrollViewBrowser ?: return
         sv.viewTreeObserver.addOnGlobalLayoutListener(object : ViewTreeObserver.OnGlobalLayoutListener {
             override fun onGlobalLayout() {
                 if (Build.VERSION.SDK_INT >= 16) {
@@ -1005,10 +1029,13 @@ class BrowserController(
                         }
                     }
                 }
-                if (!matched && containerBrowserItems.childCount > 0) {
-                    val v = containerBrowserItems.getChildAt(0)
-                    v.requestFocus()
-                    sv.scrollTo(0, v.top)
+                if (!matched) {
+                    val v = findDefaultFolderFocusView()
+                    if (v != null) {
+                        v.requestFocus()
+                        sv.scrollTo(0, 0)
+                        sv.post { sv.scrollTo(0, 0) }
+                    }
                 }
             }
         })
