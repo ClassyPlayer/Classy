@@ -425,6 +425,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
         registerReceivers()
         // A long press of the Power button shows our Power screen, not Android's power menu
         powerMenuInterceptor = PowerMenuInterceptor(this) { showPowerMenu() }.also { it.register() }
+        com.themoon.y1.managers.CellRadioManager.start(this)
 
         try {
             val initBattery = registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
@@ -1469,6 +1470,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
             unregisterReceiver(systemStatusReceiver)
         } catch (_: Exception) {}
         powerMenuInterceptor?.unregister()
+        com.themoon.y1.managers.CellRadioManager.stop(this)
         externalSdMountMonitor?.stop()
         audioVisualizer?.release()
         audioVisualizer = null
