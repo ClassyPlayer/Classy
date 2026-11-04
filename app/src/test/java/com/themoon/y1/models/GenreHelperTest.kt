@@ -2,6 +2,7 @@ package com.themoon.y1.models
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -69,6 +70,9 @@ class GenreHelperTest {
         assertEquals(listOf("Singer/Songwriter"), GenreHelper.parseGenres("Singer/Songwriter"))
         assertEquals(listOf("Singer/Songwriter"), GenreHelper.parseGenres("singer/songwriter"))
         assertEquals(listOf("Singer/Songwriter"), GenreHelper.parseGenres("Singer / Songwriter"))
+        assertEquals(listOf("Singer/Songwriter"), GenreHelper.parseGenres("Singer, Songwriter"))
+        assertEquals(listOf("Singer/Songwriter"), GenreHelper.parseGenres("Singer,Songwriter"))
+        assertEquals(listOf("Singer/Songwriter"), GenreHelper.parseGenres("singer, songwriter"))
     }
 
     @Test
@@ -76,6 +80,23 @@ class GenreHelperTest {
         assertEquals(listOf("Singer/Songwriter", "Folk"), GenreHelper.parseGenres("Singer/Songwriter; Folk"))
         assertEquals(listOf("Folk", "Singer/Songwriter"), GenreHelper.parseGenres("Folk / Singer/Songwriter"))
         assertEquals(listOf("Acoustic", "Singer/Songwriter", "Indie"), GenreHelper.parseGenres("Acoustic, Singer/Songwriter; Indie"))
+        assertEquals(listOf("Indie Singer/Songwriter"), GenreHelper.parseGenres("Indie Singer/Songwriter"))
+        assertEquals(listOf("Indie Singer/Songwriter", "Folk"), GenreHelper.parseGenres("Indie Singer/Songwriter; Folk"))
+        assertEquals(listOf("Singer/Songwriter", "Folk"), GenreHelper.parseGenres("Singer, Songwriter, Folk"))
+        assertEquals(listOf("Folk", "Singer/Songwriter"), GenreHelper.parseGenres("Folk, Singer, Songwriter"))
+        assertEquals(listOf("Indie Singer/Songwriter"), GenreHelper.parseGenres("Indie Singer, Songwriter"))
+    }
+
+    @Test
+    fun parseGenres_caching_returnsSameListInstance() {
+        GenreHelper.clearCache()
+        val first = GenreHelper.parseGenres("Ambient; Techno")
+        val second = GenreHelper.parseGenres("Ambient; Techno")
+        assertSame(first, second)
+
+        val unknownFirst = GenreHelper.parseGenres(null)
+        val unknownSecond = GenreHelper.parseGenres("")
+        assertSame(unknownFirst, unknownSecond)
     }
 
     @Test
