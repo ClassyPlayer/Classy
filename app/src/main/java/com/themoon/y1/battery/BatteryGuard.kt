@@ -15,11 +15,12 @@ import com.themoon.y1.DeviceModel
 import com.themoon.y1.controllers.settings.DateTimeSync
 import com.themoon.y1.managers.AudioPlayerManager
 import com.themoon.y1.managers.FmRadioManager
+import com.themoon.y1.managers.PowerMenu
 import java.io.File
 
 /**
- * The battery level that the app shows ([BatteryGuardLogic]), on the Y2 only ([DeviceModel.isY2]); on other devices
- * [percent] is the gauge.
+ * The battery level that the app shows, and the shutdown before the battery is empty ([BatteryGuardLogic]), on the
+ * Y2 only ([DeviceModel.isY2]); on other devices [percent] is the gauge and nothing shuts down.
  *
  * Samples: each battery broadcast, and a 30 s timer on the main thread. The timer has no wake lock, so it runs only
  * while the CPU is awake and never wakes the Y2. Use [percent] wherever the app shows the battery level, and
@@ -28,11 +29,15 @@ import java.io.File
 object BatteryGuard {
     private const val TAG = "BatteryGuard"
     private const val TICK_MS = 30_000L
+    /** The "Battery empty" notice shows this long before the shutdown; a charger in this time stops it. */
+    private const val NOTICE_MS = 5_000L
     private const val PREFS = "battery_guard"
 
     interface Listener {
         /** The shown level changed. */
         fun onLevelChanged() {}
+        /** The battery is empty: the Y2 turns off in [NOTICE_MS] unless a charger comes. */
+        fun onEmpty() {}
     }
 
     private val main = Handler(Looper.getMainLooper())
@@ -41,6 +46,7 @@ object BatteryGuard {
     private val logic = BatteryGuardLogic()
     private var lastIntent: Intent? = null
     private var cpuLast: LongArray? = null
+    private var shutdownStarted = false
 
     fun start(context: Context) {
         if (app != null || !DeviceModel.isY2(Build.MODEL)) return
@@ -116,11 +122,13 @@ object BatteryGuard {
         val load = BatteryGuardLogic.Load(screenOn, isPlaying(), cpuPercent(), DateTimeSync.isWifiConnected(c))
         val mV = intent.getIntExtra(BatteryManager.EXTRA_VOLTAGE, 0)
         val changed = logic.onSample(SystemClock.elapsedRealtime(), mV, gaugePercent(intent), charging, load)
+        if (charging) shutdownStarted = false
         if (changed) {
-            Log.i(TAG, "shown=${logic.shown} mV=$mV charging=$charging")
+            Log.i(TAG, "shown=${logic.shown} mV=$mV charging=$charging shutdownDue=${logic.shutdownDue}")
             save(c)
             for (l in ArrayList(listeners)) l.onLevelChanged()
         }
+        if (logic.shutdownDue && !shutdownStarted && !charging) startShutdown(c)
     }
 
     /** The music or the FM radio plays. */
@@ -139,6 +147,33 @@ object BatteryGuard {
         else (100 * ((total - last[0]) - (idle - last[1])) / (total - last[0])).toInt().coerceIn(0, 100)
     } catch (_: Throwable) {
         0
+    }
+
+    /**
+     * The battery is empty: the "Battery empty" notice (it turns the screen on), then after [NOTICE_MS] the music
+     * pauses, the playback state and the queue are saved, and Android shuts down (the Power Off of the Power screen,
+     * which also does the dry run of `debug.y1.power_dry_run`).
+     */
+    private fun startShutdown(c: Context) {
+        shutdownStarted = true
+        Log.w(TAG, "Battery empty: shutdown in ${NOTICE_MS / 1000} s")
+        try {
+            @Suppress("DEPRECATION")
+            (c.getSystemService(Context.POWER_SERVICE) as? PowerManager)
+                ?.newWakeLock(PowerManager.SCREEN_BRIGHT_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP, "y1:battery-empty")
+                ?.acquire(NOTICE_MS + 5_000L)
+        } catch (t: Throwable) {
+            Log.w(TAG, "No wake lock: $t")
+        }
+        for (l in ArrayList(listeners)) l.onEmpty()
+        main.postDelayed({
+            val intent = c.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+            if (intent != null && isCharging(intent)) {
+                Log.w(TAG, "Charger connected: no shutdown")
+                return@postDelayed
+            }
+            PowerMenu.run(c, PowerMenu.Action.POWER_OFF) { Log.w(TAG, "Power Off failed") }
+        }, NOTICE_MS)
     }
 
     private fun save(c: Context) {

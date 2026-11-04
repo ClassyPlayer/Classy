@@ -3,7 +3,7 @@ package com.themoon.y1.battery
 import kotlin.math.roundToInt
 
 /**
- * The battery level from the voltage (no Android dependencies, for the unit tests).
+ * The battery level from the voltage, and the shutdown before the cut-off (no Android dependencies, for the unit tests).
  *
  * The Y2 has the MediaTek software fuel gauge (no current sensor while discharging). Its % can stay high while the
  * battery empties: on one Y2 it showed 89 % at 3.78 V, and 69 % 20 min before the Y2 turned off. So:
@@ -17,6 +17,8 @@ import kotlin.math.roundToInt
  * - At the unplug, and at the first start of the app without a saved level, it starts from the gauge and steps down
  *   to the estimate. After the unplug the kernel's voltage (a mean of some minutes) still has the charging voltage in
  *   it, so the estimate is too high and the level waits for it.
+ * - Shutdown: when the median of the raw voltage (no allowance: the kernel's own cut-off is on the raw voltage) is at
+ *   or below [SHUTDOWN_MV] for [SHUTDOWN_HOLD_MS], [shutdownDue] becomes true, one time in each discharge.
  *
  * Times are elapsed real time in ms (with the time in deep sleep).
  */
@@ -31,14 +33,20 @@ class BatteryGuardLogic {
     var charging = false
         private set
 
+    /** True from the time the raw voltage was low for [SHUTDOWN_HOLD_MS] until the next charge. */
+    var shutdownDue = false
+        private set
+
     private class Point(val t: Long, val v: Float)
 
     private val equivalent = ArrayList<Point>()
+    private val raw = ArrayList<Point>()
     private val estimates = ArrayList<Point>()
     private val sags = ArrayList<Point>()
     private var started = false
     private var lastDrop = Long.MIN_VALUE / 2
     private var lastSample = Long.MIN_VALUE / 2
+    private var lowSince = NONE
 
     /**
      * Starts with a level that the app saved before (same boot, discharging), so a restart of the app does not show
@@ -49,16 +57,19 @@ class BatteryGuardLogic {
     }
 
     /**
-     * A battery sample: [mV] the kernel's voltage, [gauge] the gauge level in %. Returns true when [shown] changed.
+     * A battery sample: [mV] the kernel's voltage, [gauge] the gauge level in %. Returns true when [shown] or
+     * [shutdownDue] changed.
      */
     fun onSample(t: Long, mV: Int, gauge: Int, charging: Boolean, load: Load): Boolean {
         val before = shown
+        val dueBefore = shutdownDue
         if (charging) {
             this.charging = true
             started = true
             if (gauge in 0..100) shown = gauge
             clear()
-            return shown != before
+            shutdownDue = false
+            return shown != before || dueBefore
         }
         if (this.charging || !started) {
             // The unplug (or the first sample of the app while discharging): start from the gauge, or from the
@@ -78,6 +89,14 @@ class BatteryGuardLogic {
         lastSample = t
         if (mV < MIN_VALID_MV || mV > MAX_VALID_MV) return shown != before
 
+        add(raw, t, mV.toFloat())
+        if (median(raw) <= SHUTDOWN_MV) {
+            if (lowSince == NONE) lowSince = t
+            if (t - lowSince >= SHUTDOWN_HOLD_MS) shutdownDue = true
+        } else {
+            lowSince = NONE
+        }
+
         // The kernel's voltage is a mean of ~5 min, so it still has the loads of that time in it (screen off: the
         // voltage comes back up in 3-5 min). The allowance is that of the heaviest of them, also of the last sample before
         // that time (after a sleep the voltage can be old). So the estimate can be too high for some minutes, which the
@@ -88,7 +107,7 @@ class BatteryGuardLogic {
 
         // The estimate that was in effect for all of the hold time: a short sag does not count.
         val held = heldEstimate(t)
-        if (held == Float.MAX_VALUE) return shown != before
+        if (held == Float.MAX_VALUE) return shown != before || shutdownDue != dueBefore
         if (shown < 0) shown = held.roundToInt()
         val target = held.roundToInt()
         if (target < shown && t - lastDrop >= STEP_MS) {
@@ -97,7 +116,7 @@ class BatteryGuardLogic {
             shown = maxOf(target, shown - steps)
             lastDrop = t
         }
-        return shown != before
+        return shown != before || shutdownDue != dueBefore
     }
 
     private fun heldEstimate(t: Long): Float {
@@ -128,7 +147,9 @@ class BatteryGuardLogic {
 
     private fun clear() {
         equivalent.clear()
+        raw.clear()
         estimates.clear()
+        lowSince = NONE
         sags.clear()
     }
 
@@ -136,11 +157,22 @@ class BatteryGuardLogic {
         const val WINDOW_MS = 3 * 60_000L
         const val HOLD_MS = 2 * 60_000L
         const val STEP_MS = 30_000L
+        const val SHUTDOWN_HOLD_MS = 2 * 60_000L
         /** After a load change, the voltage settles in 3-5 min (Y2 logs: screen on/off with the CPU awake). */
         const val LOAD_MEAN_MS = 5 * 60_000L
 
+        /** The level of the last notice ("Please charge"); the banner keeps its level (LowBatteryWarnings). */
+        const val LAST_LEVEL = 3
+
+        /**
+         * Shutdown at this raw voltage. The kernel sets the gauge to 0 % at 3.40 V (then Android turns off at once);
+         * on a Y2 the voltage stayed at 3.42-3.43 V for ~8 min before that.
+         */
+        const val SHUTDOWN_MV = 3430
+
         private const val MIN_VALID_MV = 2800
         private const val MAX_VALID_MV = 4500
+        private const val NONE = Long.MIN_VALUE
 
         /** The load of the curve: the screen on, Wi-Fi on, the CPU at 25 %. */
         const val REFERENCE_SAG_MV = 35
