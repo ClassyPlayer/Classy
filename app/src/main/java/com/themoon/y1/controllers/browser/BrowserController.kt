@@ -784,7 +784,8 @@ class BrowserController(
             if (f.name.startsWith(".")) continue
             if (isTop) {
                 if (f.isDirectory && !f.name.equals("emulated", ignoreCase = true) && !f.name.equals("media_rw", ignoreCase = true)) {
-                    if (f.exists()) {
+                    val contents = try { f.listFiles() } catch (_: Exception) { null }
+                    if (contents != null && contents.isNotEmpty()) {
                         folders.add(f)
                     }
                 }
