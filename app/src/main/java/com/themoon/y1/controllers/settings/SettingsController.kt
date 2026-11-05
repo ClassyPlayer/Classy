@@ -260,6 +260,7 @@ class SettingsController(
 
     /** Builds the list of [state]: when it opens going down, and when Back comes back to it (NavigationManager). */
     override fun onEnter(state: ScreenState) {
+        endMenuReorder()
         page = (state as? ScreenState.Settings)?.subMode ?: SettingsSubMode.Root
         isUiActive = true
         actionPage = null
@@ -327,6 +328,7 @@ class SettingsController(
     override fun title(): String? = shownTitle
 
     override fun onExit() {
+        endMenuReorder()
         isUiActive = false
         actionPage = null
         containerSettingsItems.isFocusable = false
@@ -342,13 +344,8 @@ class SettingsController(
         }
     }
 
-    /**
-     * All lists are made again from their route key; the theme change then selects the same row (applyThemeLive).
-     * An Auto theme change can come during the Main Menu Items reorder: end it (and save the order) first,
-     * because the new rows do not contain the moved row.
-     */
+    /** All lists are made again from their route key; the theme change then selects the same row (applyThemeLive). */
     override fun onThemeChanged() {
-        if (isMenuReorderMode) toggleMenuReorderMode()
         onEnter(ScreenState.Settings(page))
     }
 
@@ -847,6 +844,14 @@ class SettingsController(
             it.gravity = Gravity.CENTER_VERTICAL
             tv.layoutParams = it
         }
+    }
+
+    /**
+     * New rows replace the Main Menu Items rows (another page, Power, a theme change): end the reorder and save
+     * the order first. Later, the moved row is not in the list, and a save would read the rows of the other page.
+     */
+    private fun endMenuReorder() {
+        if (isMenuReorderMode) toggleMenuReorderMode()
     }
 
     fun toggleMenuReorderMode() {
