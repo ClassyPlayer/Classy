@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Builds a single-frame MTK "LOGO" boot-splash partition (logo.bin) for the
-Innioasis Y1, showing white text centered on a black background.
+Innioasis Y1, showing the project logo (or custom text) centered on a black background.
 
 Format was reverse-engineered from two real logo.bin samples (Innioasis
 stock firmware and the Rockbox-derived one this project's rom.zip carried
@@ -23,8 +23,12 @@ until now) - see tools/rom_assets/README.md for the full writeup. Summary:
                 real panel resolution, confirmed via successfully decoding
                 both real samples at this exact size)
 
-Usage: python3 build_boot_logo.py "InniClassic" output/logo.bin
+Usage:
+  python3 tools/build_boot_logo.py
+  python3 tools/build_boot_logo.py docs/icons/icon.png tools/rom_assets/logo_classy.bin
+  python3 tools/build_boot_logo.py "Classy" output/logo.bin
 """
+import os
 import struct
 import sys
 import zlib
@@ -35,9 +39,26 @@ W, H = 480, 360
 FONT_PATH = "/usr/share/fonts/liberation/LiberationSans-Bold.ttf"
 FONT_SIZE = 44
 
-# A known-good real logo.bin's first 512 bytes, used as a template for the
-# constant/reserved header region (bytes 0-3, 8-511) - see module docstring.
-REFERENCE_LOGO_BIN = "tools/rom_assets/logo_stock_innioasis.bin"
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+REPO_ROOT = os.path.dirname(SCRIPT_DIR)
+
+DEFAULT_REFERENCE_LOGO = os.path.join(SCRIPT_DIR, "rom_assets", "logo_stock_innioasis.bin")
+DEFAULT_ICON_PATH = os.path.join(REPO_ROOT, "docs", "icons", "icon.png")
+DEFAULT_OUT_PATH = os.path.join(SCRIPT_DIR, "rom_assets", "logo_classy.bin")
+
+
+def render_logo_image(icon_path: str, size: int = 320) -> Image.Image:
+    """Renders a logo image centered on a 480x360 black canvas.
+    A target size of 320px yields a 230px wide wordmark from docs/icons/icon.png,
+    matching the footprint of the previous boot logo while preserving optical centering.
+    """
+    icon = Image.open(icon_path).convert("RGBA")
+    icon_resized = icon.resize((size, size), Image.Resampling.LANCZOS)
+
+    canvas = Image.new("RGB", (W, H), (0, 0, 0))
+    offset = ((W - size) // 2, (H - size) // 2)
+    canvas.paste(icon_resized, offset, icon_resized)
+    return canvas
 
 
 def render_text_image(text: str) -> Image.Image:
@@ -89,13 +110,21 @@ def verify(data: bytes) -> None:
 
 
 if __name__ == "__main__":
-    text = sys.argv[1] if len(sys.argv) > 1 else "InniClassic"
-    out_path = sys.argv[2] if len(sys.argv) > 2 else "logo_out.bin"
+    target = sys.argv[1] if len(sys.argv) > 1 else DEFAULT_ICON_PATH
+    out_path = sys.argv[2] if len(sys.argv) > 2 else DEFAULT_OUT_PATH
+    ref_path = DEFAULT_REFERENCE_LOGO
 
-    img = render_text_image(text)
-    data = build_logo_bin(img, REFERENCE_LOGO_BIN)
+    if os.path.isfile(target):
+        print(f"Rendering boot logo from image: {target}")
+        img = render_logo_image(target, size=320)
+    else:
+        print(f"Rendering boot logo from text: {target!r}")
+        img = render_text_image(target)
+
+    data = build_logo_bin(img, ref_path)
     verify(data)
 
+    os.makedirs(os.path.dirname(os.path.abspath(out_path)), exist_ok=True)
     with open(out_path, "wb") as f:
         f.write(data)
     print(f"Wrote {out_path} ({len(data)} bytes, partition limit is 3145728)")
