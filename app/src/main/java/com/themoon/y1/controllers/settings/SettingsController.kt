@@ -342,8 +342,13 @@ class SettingsController(
         }
     }
 
-    /** All lists are made again from their route key; the theme change then selects the same row (applyThemeLive). */
+    /**
+     * All lists are made again from their route key; the theme change then selects the same row (applyThemeLive).
+     * An Auto theme change can come during the Main Menu Items reorder: end it (and save the order) first,
+     * because the new rows do not contain the moved row.
+     */
     override fun onThemeChanged() {
+        if (isMenuReorderMode) toggleMenuReorderMode()
         onEnter(ScreenState.Settings(page))
     }
 
