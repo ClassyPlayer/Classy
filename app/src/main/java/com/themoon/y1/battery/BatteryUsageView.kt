@@ -8,8 +8,10 @@ import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Shader
 import android.view.View
+import com.themoon.y1.ClockSettings
 import com.themoon.y1.ThemeManager
 import com.themoon.y1.views.BatteryLayout
+import com.themoon.y1.views.ToggleStyle
 import java.text.DateFormatSymbols
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -113,16 +115,11 @@ class BatteryUsageView(
     private val green: Int get() = if (darkTheme) 0xFF30D158.toInt() else 0xFF34C759.toInt()
     private val red: Int get() = if (darkTheme) 0xFFFF453A.toInt() else 0xFFFF3B30.toInt()
     private val blue: Int get() = ThemeManager.getListButtonFocusedBg()
-    /** Screen Off: the blue mixed half with white (lighter in both themes, as the iOS Screen Off bars). */
-    private val lightBlue: Int get() = mix(blue, 0xFFFFFFFF.toInt(), 0.5f)
+    /** Screen Off: the blue (opaque) mixed half with white (lighter in both themes, as the iOS Screen Off bars). */
+    private val lightBlue: Int get() = ToggleStyle.blend(blue or 0xFF000000.toInt(), 0xFFFFFFFF.toInt(), 0.5f)
     private val primary: Int get() = ThemeManager.getTextColorPrimary()
     private val secondary: Int get() = ThemeManager.getTextColorSecondary()
     private fun withAlpha(color: Int, alpha: Float): Int = (color and 0x00FFFFFF) or ((alpha * 255).roundToInt() shl 24)
-
-    private fun mix(a: Int, b: Int, t: Float): Int {
-        fun ch(shift: Int) = (((a shr shift) and 0xFF) * (1 - t) + ((b shr shift) and 0xFF) * t).roundToInt() shl shift
-        return 0xFF000000.toInt() or ch(16) or ch(8) or ch(0)
-    }
 
     private fun px(dp: Int): Int = (dp * d).roundToInt()
     private fun pxf(dp: Float): Float = dp * d
@@ -138,7 +135,6 @@ class BatteryUsageView(
     // --- Drawing ---
 
     override fun onDraw(canvas: Canvas) {
-        if (day == null) refresh()
         val w = width
         // The bars fill whole pixels: the chart width is a multiple of the 48 bars; the chart and its scale are centred
         slot = ((w - 2 * px(PAD) - px(AXIS_WIDTH)) / BatteryHistoryLogic.DAY_SLOTS).coerceAtLeast(1)
@@ -267,7 +263,7 @@ class BatteryUsageView(
 
     /** "Today 19:50", "Yesterday 08:10", or "21 Oct 08:10". */
     private fun whenText(t: Long): String {
-        val time = SimpleDateFormat(if (is24Hour()) "HH:mm" else "h:mm a", Locale.US).format(Date(t))
+        val time = ClockSettings.formatStatusBarTime(Date(t), is24Hour())
         return when (BatteryHistoryLogic.daysAgo(t, now, TimeZone.getDefault())) {
             0 -> localize("Today") + " " + time
             1 -> localize("Yesterday") + " " + time
@@ -275,14 +271,13 @@ class BatteryUsageView(
         }
     }
 
-    /** A chart title (bold) with its capitals centred on [centre]; returns its right end. */
-    private fun drawTitle(canvas: Canvas, title: String, centre: Float): Int {
+    /** A chart title (bold) with its capitals centred on [centre]. */
+    private fun drawTitle(canvas: Canvas, title: String, centre: Float) {
         text.textSize = pxf(TITLE_TEXT)
         text.typeface = ThemeManager.getCustomFontBold()
         text.textAlign = Paint.Align.LEFT
         text.color = primary
         canvas.drawText(title, left.toFloat(), capCentredBaseline(centre), text)
-        return (left + text.measureText(title)).roundToInt()
     }
 
     /** The title of the screen chart: a legend with the totals, "■ Screen On 7h 39m  ■ Screen Off 2h 10m". */
@@ -413,17 +408,17 @@ class BatteryUsageView(
         }
     }
 
-    /** A stacked bar: [on] from the axis in blue, then [off] in light blue; the top part gets the round corners. */
-    private fun stacked(canvas: Canvas, x0: Float, x1: Float, top: Int, bottom: Int, on: Int, off: Int, scale: Float) {
+    /** A stacked bar: [on] from the axis in [color], then [off] in light blue; the top part gets the round corners. */
+    private fun stacked(canvas: Canvas, x0: Float, x1: Float, top: Int, bottom: Int, on: Int, off: Int, scale: Float, color: Int = blue) {
         if (on + off <= 0) return
         val chartH = bottom - top
         val hTotal = maxOf(px(MIN_BAR), (chartH * minOf(1f, (on + off) / scale)).roundToInt())
         val hOn = if (on <= 0) 0 else maxOf(px(MIN_BAR), (chartH * minOf(1f, on / scale)).roundToInt()).coerceAtMost(hTotal)
         val radius = (x1 - x0) / 4f
         if (hOn > 0) {
-            if (hOn == hTotal) bar(canvas, x0, (bottom - hOn).toFloat(), x1, bottom.toFloat(), blue, radius)
+            if (hOn == hTotal) bar(canvas, x0, (bottom - hOn).toFloat(), x1, bottom.toFloat(), color, radius)
             else {
-                fill.color = blue
+                fill.color = color
                 canvas.drawRect(x0, (bottom - hOn).toFloat(), x1, bottom.toFloat(), fill)
             }
         }
@@ -502,19 +497,14 @@ class BatteryUsageView(
         }
     }
 
-    /** One bar a day ([values] of [scale], -1 = no bar); with [stackedOff], the Screen Off part on top. */
+    /** One bar a day ([values] of [scale] in [color], -1 = no bar); with [stackedOff], the Screen Off part on top. */
     private fun drawDayBars(canvas: Canvas, top: Int, bottom: Int, values: IntArray, stackedOff: IntArray?, scale: Float, color: Int) {
         val dayW = (right - left) / values.size.toFloat()
         val barW = (dayW * 0.7f).roundToInt()
         for (i in values.indices) {
             val x0 = (left + dayW * i + (dayW - barW) / 2f).roundToInt().toFloat()
-            if (stackedOff != null) {
-                stacked(canvas, x0, x0 + barW, top, bottom, maxOf(0, values[i]), maxOf(0, stackedOff[i]), scale)
-                continue
-            }
-            if (values[i] <= 0) continue
-            val h = maxOf(px(MIN_BAR), ((bottom - top) * minOf(1f, values[i] / scale)).roundToInt())
-            bar(canvas, x0, (bottom - h).toFloat(), x0 + barW, bottom.toFloat(), color, barW / 4f)
+            val off = if (stackedOff == null) 0 else maxOf(0, stackedOff[i])
+            stacked(canvas, x0, x0 + barW, top, bottom, maxOf(0, values[i]), off, scale, color)
         }
     }
 
