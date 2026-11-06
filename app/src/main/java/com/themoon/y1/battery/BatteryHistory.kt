@@ -92,7 +92,9 @@ object BatteryHistory {
         // A new level of the voltage model can come without a battery broadcast
         BatteryGuard.addListener(object : BatteryGuard.Listener {
             override fun onLevelChanged() {
-                val shown = BatteryGuard.percent(app.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED)))
+                // The last broadcast that the guard has; the sticky broadcast when it has none
+                val shown = BatteryGuard.percent().takeIf { it >= 0 }
+                    ?: BatteryGuard.percent(app.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED)))
                 if (shown >= 0 && shown != level) {
                     level = shown
                     recordNow()
@@ -156,7 +158,7 @@ object BatteryHistory {
         }
         if (kept.size < read.size) rewrite()
         // A new boot: the device was off from the last record (or the shutdown record) to the boot
-        val bootId = bootId()
+        val bootId = kernelBootId().replace("-", "").take(12)
         val lastBoot = kept.lastOrNull { it.kind == BatterySample.Kind.BOOT }
         val bootTime = now - SystemClock.elapsedRealtime()
         val sameBoot = if (bootId.isNotEmpty() && lastBoot?.boot?.isNotEmpty() == true) lastBoot.boot == bootId
@@ -203,12 +205,6 @@ object BatteryHistory {
         } catch (t: Throwable) {
             Log.w(TAG, "Could not write the battery history: $t")
         }
-    }
-
-    private fun bootId(): String = try {
-        File("/proc/sys/kernel/random/boot_id").readText().trim().replace("-", "").take(12)
-    } catch (_: Throwable) {
-        ""
     }
 
     private fun notifyListeners() {
