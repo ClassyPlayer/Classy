@@ -1,11 +1,11 @@
 package com.themoon.y1.cast
 
-import android.content.Context
-import android.net.wifi.WifiManager
 import com.themoon.y1.MainActivity
 import com.themoon.y1.controllers.settings.ActionScreens
+import com.themoon.y1.controllers.settings.DateTimeSync
 import com.themoon.y1.handleMainMenuAction
 import com.themoon.y1.navigation.NavigationManager
+import com.themoon.y1.navigation.ScreenState
 
 /**
  * Main menu → Play On: an iPod-style list of the speakers on the Wi-Fi. "This Y2" plays on the Y2 again. The row
@@ -18,7 +18,7 @@ import com.themoon.y1.navigation.NavigationManager
 object PlayOnMenu {
 
     fun open(main: MainActivity, fromNowPlaying: Boolean = false) {
-        if (!wifiConnected(main)) {
+        if (!DateTimeSync.isWifiConnected(main)) {
             ActionScreens.open(spec(main, CastManager.knownDevices, main.t("The Y2 is not connected to a Wi-Fi network. Main menu → Wi-Fi."), fromNowPlaying))
             return
         }
@@ -56,14 +56,6 @@ object PlayOnMenu {
 
     /** From the main menu: the list closed, Now Playing opens. From the Now Playing menu: Back over the list and the menu. */
     private fun showPlayer(main: MainActivity, fromNowPlaying: Boolean) {
-        if (fromNowPlaying) NavigationManager.getInstance().popBackStack(2) else main.handleMainMenuAction("OPEN_PLAYER")
-    }
-
-    @Suppress("DEPRECATION")
-    private fun wifiConnected(context: Context): Boolean = try {
-        val wm = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
-        wm.isWifiEnabled && (wm.connectionInfo?.networkId ?: -1) != -1
-    } catch (_: Exception) {
-        true
+        if (fromNowPlaying) NavigationManager.getInstance().popBackStackTo { it == ScreenState.Player } else main.handleMainMenuAction("OPEN_PLAYER")
     }
 }

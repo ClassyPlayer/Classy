@@ -12,6 +12,7 @@ import com.themoon.y1.MainActivity
 import com.themoon.y1.R
 import com.themoon.y1.updateStatusBarPlayOn
 import com.themoon.y1.managers.AudioPlayerManager
+import com.themoon.y1.managers.LibrarySongs
 import com.themoon.y1.managers.MediaLibraryManager
 import com.themoon.y1.views.Notice
 import org.json.JSONObject
@@ -264,7 +265,6 @@ object CastManager {
         renderer = link.renderer
         // A new sync loads the track again (new server port), paused or playing as the Y2 is now
         sync = CastSync()
-        lastInfo = null
         volume = link.volume
         volumeTarget = null
         val playing = AudioPlayerManager.getInstance().isPlaying()
@@ -328,8 +328,7 @@ object CastManager {
             updateIdle(local.playing)
             if (idle.state == CastIdle.State.SUSPENDED) return
             val s = session
-            val info = local.trackPath?.let { path -> lastInfo?.takeIf { it.file.absolutePath == path } ?: trackInfo(path) }
-            lastInfo = info
+            val info = local.trackPath?.let { trackInfo(it) }
             workerHandler().post { work(s, local, info) }
             main.postDelayed(this, CastSync.TICK_MS)
         }
@@ -346,11 +345,9 @@ object CastManager {
     /** Title, artist and album of a track (main thread: the library is there). */
     private class TrackInfo(val file: File, val title: String, val artist: String, val album: String)
 
-    private var lastInfo: TrackInfo? = null
-
     private fun trackInfo(path: String): TrackInfo {
         val file = File(path)
-        val song = MainActivity.customLibrary.firstOrNull { it.file.absolutePath == path }
+        val song = LibrarySongs.byPath(path)
         val title = song?.title?.takeIf { it.isNotEmpty() } ?: file.nameWithoutExtension
         val artist = song?.let { if (it.artist.isNotEmpty()) it.artist else it.albumArtist }.orEmpty()
         return TrackInfo(file, title, artist, song?.album.orEmpty())

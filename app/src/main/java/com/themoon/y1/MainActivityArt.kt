@@ -121,9 +121,17 @@ internal fun MainActivity.updateStatusBarWifi(isConnected: Boolean) {
     if (com.themoon.y1.cast.CastManager.isActive) ivStatusWifi?.visibility = android.view.View.GONE
 }
 
+/** The Wi-Fi icon while the Wi-Fi is on: full when connected to a network, else empty. */
+internal fun MainActivity.refreshStatusBarWifi() {
+    val wm = applicationContext.getSystemService(android.content.Context.WIFI_SERVICE) as? android.net.wifi.WifiManager ?: return
+    if (!wm.isWifiEnabled) return
+    ivStatusWifi?.visibility = android.view.View.VISIBLE
+    updateStatusBarWifi(wm.connectionInfo?.let { it.networkId != -1 } == true)
+}
+
 /**
  * Play On: while a speaker plays, its icon in the place of the Wi-Fi icon and the speaker name under "1 of N" on
- * Now Playing. When it stops, the Wi-Fi icon shows again.
+ * Now Playing. When it stops, the Wi-Fi icon shows again. Also refreshes the Wi-Fi icon.
  */
 internal fun MainActivity.updateStatusBarPlayOn() {
     val device = com.themoon.y1.cast.CastManager.device
@@ -135,13 +143,7 @@ internal fun MainActivity.updateStatusBarPlayOn() {
             iv.visibility = android.view.View.GONE
         }
     }
-    val wm = applicationContext.getSystemService(android.content.Context.WIFI_SERVICE) as? android.net.wifi.WifiManager
-    if (device == null && wm != null && wm.isWifiEnabled) {
-        ivStatusWifi?.visibility = android.view.View.VISIBLE
-        updateStatusBarWifi(wm.connectionInfo?.let { it.networkId != -1 } == true)
-    } else if (device != null) {
-        ivStatusWifi?.visibility = android.view.View.GONE
-    }
+    refreshStatusBarWifi()
     findViewById<android.widget.TextView>(R.id.tv_player_play_on)?.let { tv ->
         if (device == null) {
             tv.visibility = android.view.View.GONE
@@ -408,16 +410,8 @@ internal fun MainActivity.applyThemeInternal() {
 
         updateStatusBarBluetooth()
         updateStatusBarHeadphone()
+        // Also the Wi-Fi icon
         updateStatusBarPlayOn()
-
-        val wm = applicationContext.getSystemService(android.content.Context.WIFI_SERVICE) as? android.net.wifi.WifiManager
-        if (wm != null && wm.isWifiEnabled) {
-            val info = wm.connectionInfo
-            val isConnected = info != null && info.networkId != -1
-            updateStatusBarWifi(isConnected)
-        } else {
-            updateStatusBarWifi(false)
-        }
 
         try {
             (layoutSettingsMode as? android.view.ViewGroup)?.let { vg ->

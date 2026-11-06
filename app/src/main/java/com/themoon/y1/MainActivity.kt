@@ -472,13 +472,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
                 ivStatusBluetooth?.visibility = View.VISIBLE
                 queryStatusBarBluetooth()
             }
-            val wm = applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
-            if (wm != null && wm.isWifiEnabled) {
-                ivStatusWifi?.visibility = View.VISIBLE
-                val info = wm.connectionInfo
-                val isConnected = (info != null && info.networkId != -1)
-                updateStatusBarWifi(isConnected)
-            }
+            refreshStatusBarWifi()
         } catch (_: Exception) {}
 
         updateStatusBarClock()
