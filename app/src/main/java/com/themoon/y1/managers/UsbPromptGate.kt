@@ -2,7 +2,7 @@ package com.themoon.y1.managers
 
 /**
  * One USB question for each cable plug. The question shows at a USB connect; after an answer it does not show
- * again until the cable comes out. A USB function change (Connect as Storage, Eject) sends USB connect broadcasts
+ * again until the cable comes out. A USB function change (Disk Mode, Eject) sends USB connect broadcasts
  * again, but it does not cut the power: only a power loss ends the plug.
  */
 class UsbPromptGate {

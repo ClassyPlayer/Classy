@@ -13,7 +13,7 @@ class UsbPromptGateTest {
         val gate = UsbPromptGate()
         gate.onPower(cableOut = false, plugged = usbPlugged)
         assertTrue(gate.shouldAsk())
-        gate.onAnswered() // Connect as Storage
+        gate.onAnswered() // Disk Mode
         assertFalse(gate.shouldAsk()) // the switch to mass storage
         gate.onPower(cableOut = false, plugged = usbPlugged)
         assertFalse(gate.shouldAsk()) // Eject: the switch back to MTP

@@ -60,14 +60,14 @@ class UsbStorageUiManager(
         }
     }
 
-    /** USB cable in: Connect as Storage or Not Now, on a screen of its own. Back is Not Now. */
+    /** USB cable in: Disk Mode or Not Now, on a screen of its own. Back is Not Now. */
     fun showUsbStorageDialog() {
         dismissUsbStorageDialog()
         usbPromptScreen = ActionScreens.open(ActionScreens.Spec(
-            localize("USB Connected"),
-            listOf(localize("Connect this device as USB storage to transfer files to your computer?")),
+            localize("Computer Connected"),
+            listOf(localize("Use the microSD card in Disk Mode?")),
             listOf(
-                ActionScreens.Action(localize("Connect as Storage")) {
+                ActionScreens.Action(localize("Disk Mode")) {
                     usbPromptScreen = null
                     promptGate.onAnswered()
                     startUsbStorage()
@@ -113,7 +113,7 @@ class UsbStorageUiManager(
         }
         if (UsbMassStorageController.hasShareableVolume(activity) == false) {
             // Nothing to share (no card): do not switch the USB function, so the computer keeps MTP.
-            Notice.error(activity, localize("Insert a microSD card to connect as USB storage."))
+            Notice.error(activity, localize("Insert a microSD card for Disk Mode."))
             return
         }
         usbStorageBusy = true
@@ -133,13 +133,14 @@ class UsbStorageUiManager(
                     showUsbStorageOverlay()
                 } else {
                     onShareEnded()
-                    Notice.error(activity, localize("Couldn't connect as USB storage."))
+                    Notice.error(activity, localize("Disk Mode did not start. Try again."))
                 }
             }
         }, "y1-ums-on").start()
     }
 
-    fun stopUsbStorage() {
+    /** Eject. [unplugged]: the cable is already out, so no "OK to disconnect." notice. */
+    fun stopUsbStorage(unplugged: Boolean = false) {
         if (usbStorageBusy) return
         usbStorageBusy = true
         Thread({
@@ -155,6 +156,7 @@ class UsbStorageUiManager(
                 }
                 hideUsbStorageOverlay()
                 onShareEnded()
+                if (!unplugged) Notice.show(activity, localize("OK to disconnect."))
             }
         }, "y1-ums-off").start()
     }
@@ -170,7 +172,7 @@ class UsbStorageUiManager(
         Handler(Looper.getMainLooper()).postDelayed({
             Thread({
                 if (UsbMassStorageController.isEnabled()) {
-                    activity.runOnUiThread { stopUsbStorage() }
+                    activity.runOnUiThread { stopUsbStorage(unplugged = true) }
                 } else {
                     activity.runOnUiThread {
                         hideUsbStorageOverlay()
@@ -218,7 +220,7 @@ class UsbStorageUiManager(
         content.addView(iv)
 
         val tvTitle = TextView(activity).apply {
-            text = localize("Connected")
+            text = localize("Disk Mode")
             setTextColor(ThemeManager.getTextColorPrimary())
             textSize = 22f
             typeface = ThemeManager.getCustomFontBold()
