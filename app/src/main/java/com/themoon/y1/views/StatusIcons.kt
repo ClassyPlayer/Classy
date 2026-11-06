@@ -86,18 +86,17 @@ object StatusIcons {
     /** Rows of the bitmap above and below the [heightPx] box of the round icons (optical overshoot of the rune). */
     fun overshoot(icon: Icon, heightPx: Int): Int = when (icon) {
         Icon.BLUETOOTH -> max(1, (heightPx / 15f).roundToInt())
-        // Rows for the larger, lower Play On icon, the same above and below: the bitmap stays centred
-        Icon.PLAY_ON -> PLAY_ON_GROW + PLAY_ON_DROP
+        // Rows for the larger Play On icon, the same above and below: the bitmap stays centred
+        Icon.PLAY_ON -> PLAY_ON_GROW
         else -> 0
     }
 
     /**
-     * Play On: [PLAY_ON_GROW] px taller than the round icons, and its top [PLAY_ON_DROP] px lower. The flat base of
-     * the triangle and the rings open at the bottom make the icon look high in the box: 1 px larger, the extra
-     * row at the bottom (user checks on the Y2, 2026-10-29: 1 px lower was too low).
+     * Play On: [PLAY_ON_GROW] px taller than the round icons. The flat base of the triangle and the rings open at the
+     * bottom make the icon look high in the box: 1 px larger, the extra row at the bottom (user checks on the Y2,
+     * 2026-10-29: 1 px lower was too low).
      */
     const val PLAY_ON_GROW = 1
-    const val PLAY_ON_DROP = 0
 
     fun bitmapHeight(icon: Icon, heightPx: Int): Int = heightPx + 2 * overshoot(icon, heightPx)
 
@@ -315,7 +314,7 @@ object StatusIcons {
             if (!active) fill.apply { this.shader = null; xfermode = PorterDuffXfermode(PorterDuff.Mode.CLEAR) }
             canvas.drawPath(shape, fill)
         } else if (icon == Icon.PLAY_ON) {
-            drawPlayOn(canvas, w.toFloat(), (h + PLAY_ON_GROW).toFloat(), (overshoot(icon, h) + PLAY_ON_DROP).toFloat(), fill, edge)
+            drawPlayOn(canvas, w.toFloat(), (h + PLAY_ON_GROW).toFloat(), overshoot(icon, h).toFloat(), fill, edge)
         } else {
             drawWifi(canvas, w.toFloat(), h.toFloat(), active, fill, edge)
         }

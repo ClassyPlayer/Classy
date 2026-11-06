@@ -49,7 +49,6 @@ object CastManager {
     private var idle = CastIdle()
     /** True while [resumeLink] tries to connect again. */
     private var resuming = false
-    private var appContext: Context? = null
     private var session = 0
     private var wakeLock: PowerManager.WakeLock? = null
     private var wifiLock: WifiManager.WifiLock? = null
@@ -58,16 +57,11 @@ object CastManager {
     @Volatile private var lastWheelAt = 0L
     private var ticks = 0
     private var lastDevices: List<CastDevice> = emptyList()
-    private var lastSearchAt = 0L
 
     // --- search ---
 
     /** The players found by the last search (empty before the first one). */
     val knownDevices: List<CastDevice> get() = lastDevices
-
-    /** For the test interface: off, active, idle, suspended or resuming. */
-    val linkState: String
-        get() = if (device == null) "off" else if (resuming) "resuming" else idle.state.name.lowercase()
 
     /** Searches in the background and gives the result on the main thread. */
     fun search(done: (List<CastDevice>) -> Unit) {
@@ -75,26 +69,21 @@ object CastManager {
             val found = try { CastDiscovery.discover() } catch (e: Exception) { Log.w(TAG, "search: $e"); emptyList() }
             main.post {
                 lastDevices = found
-                lastSearchAt = SystemClock.uptimeMillis()
                 log("search", JSONObject().put("found", found.joinToString { it.id }))
                 done(found)
             }
         }
     }
 
-    fun searchIsRecent(): Boolean = lastSearchAt > 0 && SystemClock.uptimeMillis() - lastSearchAt < 60_000L
-
     // --- session ---
 
     /** Starts to play on [target] (main thread). Another speaker stops first. */
-    fun start(context: Context, target: CastDevice) {
+    fun start(target: CastDevice) {
         if (device?.id == target.id) {
             resumeLink("menu")
             return
         }
         if (device != null) stop(stopRemote = true, reason = null)
-        val app = context.applicationContext
-        appContext = app
         val s = ++session
         device = target
         sync = CastSync()
@@ -465,7 +454,7 @@ object CastManager {
         if (!on) {
             if (wakeLock != null || wifiLock != null) releaseLocks()
         } else if (wakeLock == null) {
-            acquireLocks(appContext ?: MainActivity.instance?.applicationContext ?: return)
+            acquireLocks(MainActivity.instance?.applicationContext ?: return)
         }
     }
 

@@ -46,7 +46,7 @@ object PlayOnMenu {
         val list = if (current != null && devices.none { it.id == current.id }) listOf(current) + devices else devices
         for (d in list) {
             rows.add(ActionScreens.Action(d.rowLabel, checked = current?.id == d.id, closes = !fromNowPlaying) {
-                CastManager.start(main, d)
+                CastManager.start(d)
                 showPlayer(main, fromNowPlaying)
             })
         }
