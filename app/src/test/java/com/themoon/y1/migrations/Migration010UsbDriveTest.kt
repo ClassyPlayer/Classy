@@ -5,6 +5,7 @@ import com.themoon.y1.migrations.MoveMisplacedPrefsTest.FakePrefs
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class Migration010UsbDriveTest {
@@ -77,5 +78,15 @@ class Migration010UsbDriveTest {
         // Always without a card: the share gives the notice No microSD card.
         assertEquals(UsbDrive.OnPlug.LEND, UsbDrive.onPlug(UsbDrive.ALWAYS, false))
         assertEquals(UsbDrive.OnPlug.ASK, UsbDrive.onPlug(7, true))
+    }
+
+    @Test
+    fun theQuestionSaysMusicWillStopOnlyForMusicFromTheCardThatPlays() {
+        val card = "/storage/sdcard1"
+        assertTrue(UsbDrive.musicStops(true, "/storage/sdcard1/Music/a.mp3", card))
+        assertFalse(UsbDrive.musicStops(false, "/storage/sdcard1/Music/a.mp3", card))
+        assertFalse(UsbDrive.musicStops(true, "/storage/sdcard0/Music/a.mp3", card))
+        assertFalse(UsbDrive.musicStops(true, "/storage/sdcard10/a.mp3", card))
+        assertFalse(UsbDrive.musicStops(true, null, card))
     }
 }

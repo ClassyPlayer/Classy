@@ -43,4 +43,8 @@ object UsbDrive {
         ALWAYS -> OnPlug.LEND
         else -> if (card == false) OnPlug.NOTHING else OnPlug.ASK
     }
+
+    /** The question says "Music will stop." when music from the card ([cardPath]) plays now: the share pauses it. */
+    fun musicStops(playing: Boolean, playingPath: String?, cardPath: String): Boolean =
+        playing && playingPath != null && (playingPath == cardPath || playingPath.startsWith("$cardPath/"))
 }
