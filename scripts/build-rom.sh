@@ -472,15 +472,10 @@ fi
 [ -f "$BASE_DIR/system.img" ] || die "system.img not found after extracting base ROM"
 [ -f "$BASE_DIR/userdata.img" ] || die "userdata.img not found after extracting base ROM"
 
-# Replace boot logo on Y1 builds if logo_classy.bin or logo_inniclassic.bin is present
-if [ "$TYPE" != "y2" ]; then
-    if [ -f "$REPO_ROOT/tools/rom_assets/logo_classy.bin" ]; then
-        echo "==> Applying Classy boot logo (tools/rom_assets/logo_classy.bin)"
-        cp -f "$REPO_ROOT/tools/rom_assets/logo_classy.bin" "$BASE_DIR/logo.bin"
-    elif [ -f "$REPO_ROOT/tools/rom_assets/logo_inniclassic.bin" ]; then
-        echo "==> Applying Classy boot logo (tools/rom_assets/logo_inniclassic.bin)"
-        cp -f "$REPO_ROOT/tools/rom_assets/logo_inniclassic.bin" "$BASE_DIR/logo.bin"
-    fi
+# Replace boot logo on Y1 builds if logo_inniclassic.bin is present
+if [ "$TYPE" != "y2" ] && [ -f "$REPO_ROOT/tools/rom_assets/logo_inniclassic.bin" ]; then
+    echo "==> Applying InniClassic boot logo (tools/rom_assets/logo_inniclassic.bin)"
+    cp -f "$REPO_ROOT/tools/rom_assets/logo_inniclassic.bin" "$BASE_DIR/logo.bin"
 fi
 
 echo "==> Mounting system.img and userdata.img"
