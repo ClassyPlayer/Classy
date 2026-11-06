@@ -208,10 +208,11 @@ class UsbStorageUiManager(
     fun onUsbCableRemovedWhileShared() {
         Handler(Looper.getMainLooper()).postDelayed({
             Thread({
-                // The share can be off already: then only the screen closes
                 if (UsbMassStorageController.isEnabled()) {
                     activity.runOnUiThread { stopUsbStorage(UsbDrive.End.CABLE_OUT) }
                 } else {
+                    // The share is off already (MountService ends it when the computer goes): put back the USB function
+                    UsbMassStorageController.restoreUsbFunction(activity)
                     activity.runOnUiThread { if (isStorageOverlayActive) onShareEnded(UsbDrive.End.CABLE_OUT) }
                 }
             }, "y1-ums-unplug").start()
