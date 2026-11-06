@@ -11,10 +11,10 @@ import java.util.regex.Pattern
  */
 object UsbMassStorageController {
     private const val TAG = "Y1Ums"
+    private const val PREFS_NAME = "usb_storage"
 
-    /** USB functions to put back after eject, or null when this app did not switch them. */
-    @Volatile
-    private var functionsBeforeUms: String? = null
+    /** USB functions to put back after eject; not set when this app did not switch them. */
+    private const val KEY_FUNCTIONS_BEFORE_UMS = "functions_before_ums"
 
     /** A storage volume as MountService reports it (hidden StorageVolume and StorageManager API). */
     data class Volume(val path: String, val allowMassStorage: Boolean, val emulated: Boolean, val state: String?)
@@ -65,11 +65,11 @@ object UsbMassStorageController {
      * default on each unplug, so switch before each share. `svc usb setFunction` keeps adb if it is on.
      * Returns true when MountService reports UMS as connected (polls up to ~5 s).
      */
-    fun ensureMassStorageFunction(): Boolean {
+    fun ensureMassStorageFunction(context: Context): Boolean {
         if (isConnected()) return true
         val restore = functionsToRestore(ExternalSdMountMonitor.readProp("sys.usb.config"))
         if (restore != null) {
-            functionsBeforeUms = restore
+            store(context).edit().putString(KEY_FUNCTIONS_BEFORE_UMS, restore).commit()
             call("svc usb setFunction mass_storage")
         }
         for (i in 0 until 25) {
@@ -83,13 +83,35 @@ object UsbMassStorageController {
         return isConnected()
     }
 
-    /** Puts back the USB functions that were active before [ensureMassStorageFunction] switched them. */
-    fun restoreUsbFunction() {
-        val previous = functionsBeforeUms ?: return
-        functionsBeforeUms = null
+    /**
+     * Puts back the USB functions that were active before [ensureMassStorageFunction] switched them.
+     * The value is in prefs, so this also works when the app was killed and started again during the share.
+     */
+    fun restoreUsbFunction(context: Context) {
+        val prefs = store(context)
+        val target = functionsAfterEject(
+            prefs.getString(KEY_FUNCTIONS_BEFORE_UMS, null),
+            ExternalSdMountMonitor.readProp("sys.usb.config"),
+            ExternalSdMountMonitor.readProp("persist.sys.usb.config")
+        ) ?: return
+        prefs.edit().remove(KEY_FUNCTIONS_BEFORE_UMS).commit()
         // No argument = the default functions (persist.sys.usb.config).
-        call(if (previous.isEmpty()) "svc usb setFunction" else "svc usb setFunction $previous")
+        call(if (target.isEmpty()) "svc usb setFunction" else "svc usb setFunction $target")
     }
+
+    /**
+     * The functions to set after eject: the saved ones, or (nothing saved) the default functions ("") when
+     * mass_storage is on now but is not the default. Null = no switch.
+     */
+    fun functionsAfterEject(saved: String?, usbConfig: String?, defaultConfig: String?): String? {
+        if (saved != null) return saved
+        val now = functionsToRestore(usbConfig)
+        val byDefault = functionsToRestore(defaultConfig)
+        return if (now == null && byDefault != null) "" else null
+    }
+
+    private fun store(context: Context) =
+        context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
     /**
      * Functions to restore for a sys.usb.config value, without adb (svc adds it back when enabled).

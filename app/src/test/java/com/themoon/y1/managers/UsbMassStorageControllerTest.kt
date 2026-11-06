@@ -68,6 +68,28 @@ class UsbMassStorageControllerTest {
     }
 
     @Test
+    fun testFunctionsAfterEject_savedValueWins() {
+        assertEquals("mtp", UsbMassStorageController.functionsAfterEject("mtp", "mass_storage,adb", "mtp,adb"))
+        assertEquals("", UsbMassStorageController.functionsAfterEject("", "mass_storage,adb", "mtp,adb"))
+    }
+
+    @Test
+    fun testFunctionsAfterEject_nothingSavedAfterRestartGoesBackToDefault() {
+        // The app was killed during the share: the Y2 default is mtp,adb, but mass_storage is still on.
+        assertEquals("", UsbMassStorageController.functionsAfterEject(null, "mass_storage,adb", "mtp,adb"))
+        assertEquals("", UsbMassStorageController.functionsAfterEject(null, "mass_storage", "mtp"))
+    }
+
+    @Test
+    fun testFunctionsAfterEject_nothingSavedAndNothingToChange() {
+        // mass_storage is the default (for example the Solar ROM): keep it.
+        assertNull(UsbMassStorageController.functionsAfterEject(null, "mass_storage,adb", "mass_storage,adb"))
+        // mass_storage is not on: no switch.
+        assertNull(UsbMassStorageController.functionsAfterEject(null, "mtp,adb", "mtp,adb"))
+        assertNull(UsbMassStorageController.functionsAfterEject(null, null, null))
+    }
+
+    @Test
     fun testFunctionsToRestore_unknownUsesDefault() {
         assertEquals("", UsbMassStorageController.functionsToRestore(""))
         assertEquals("", UsbMassStorageController.functionsToRestore(null))

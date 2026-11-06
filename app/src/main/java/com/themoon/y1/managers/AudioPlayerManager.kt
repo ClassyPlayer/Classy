@@ -1347,6 +1347,29 @@ class AudioPlayerManager private constructor() {
         currentFileInputStream = null
     }
 
+    /** True while the player is closed for a USB storage share; see [releaseForUsbStorage]. */
+    private var releasedForUsbStorage = false
+
+    /**
+     * Before a USB storage share: saves the queue and the position, and closes the track file.
+     * MountService kills each process that has a file open on the volume that it unmounts for the share.
+     */
+    fun releaseForUsbStorage() {
+        if (exoPlayer == null && legacyPlayer == null) return
+        val main = MainActivity.instance
+        val hasTrack = main != null && main.currentIndex in main.currentPlaylist.indices
+        if (hasTrack) savePlaybackState(sync = true)
+        releasePlayer()
+        releasedForUsbStorage = hasTrack
+    }
+
+    /** After the share: loads the saved track again, paused. When the card is not mounted yet, the mount listener does it. */
+    fun reloadAfterUsbStorage(main: MainActivity) {
+        if (!releasedForUsbStorage) return
+        releasedForUsbStorage = false
+        if (!restoreLastPlaybackState(main)) main.isPendingRestorePlayback = true
+    }
+
     fun extractOpusMetadata(file: File): Array<Any?> = extractOpusMetadata(file, true)
 
     fun extractOpusMetadata(file: File, includeArt: Boolean): Array<Any?> {

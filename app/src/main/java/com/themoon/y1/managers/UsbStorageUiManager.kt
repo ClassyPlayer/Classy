@@ -11,6 +11,7 @@ import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import com.themoon.y1.MainActivity
 import com.themoon.y1.ThemeManager
 import com.themoon.y1.controllers.settings.ActionScreens
 import com.themoon.y1.navigation.NavigationManager
@@ -104,12 +105,14 @@ class UsbStorageUiManager(
         }
         usbStorageBusy = true
         pauseAllPlaybackForUsb()
+        // An open track file on the card makes MountService kill this app during the share.
+        AudioPlayerManager.getInstance().releaseForUsbStorage()
         getExternalSdMountMonitor()?.setSuspended(true)
         Thread({
-            UsbMassStorageController.ensureMassStorageFunction()
+            UsbMassStorageController.ensureMassStorageFunction(activity)
             val ok = UsbMassStorageController.setEnabled(true)
             if (!ok) {
-                UsbMassStorageController.restoreUsbFunction()
+                UsbMassStorageController.restoreUsbFunction(activity)
             }
             activity.runOnUiThread {
                 usbStorageBusy = false
@@ -118,7 +121,7 @@ class UsbStorageUiManager(
                 } else {
                     // The function switch reconnects USB; do not ask again at once.
                     lastUsbDialogShownMs = System.currentTimeMillis()
-                    getExternalSdMountMonitor()?.setSuspended(false)
+                    onShareEnded()
                     Notice.error(activity, localize("Couldn't connect as USB storage."))
                 }
             }
@@ -131,7 +134,7 @@ class UsbStorageUiManager(
         Thread({
             val stillOn = UsbMassStorageController.setEnabled(false)
             if (!stillOn) {
-                UsbMassStorageController.restoreUsbFunction()
+                UsbMassStorageController.restoreUsbFunction(activity)
             }
             activity.runOnUiThread {
                 usbStorageBusy = false
@@ -142,9 +145,16 @@ class UsbStorageUiManager(
                 // The function switch reconnects USB; do not ask again at once.
                 lastUsbDialogShownMs = System.currentTimeMillis()
                 hideUsbStorageOverlay()
-                getExternalSdMountMonitor()?.setSuspended(false)
+                onShareEnded()
             }
         }, "y1-ums-off").start()
+    }
+
+    /** The card is back on the Y2 (or the share failed): watch the card again and load the track again. */
+    private fun onShareEnded() {
+        getExternalSdMountMonitor()?.setSuspended(false)
+        val main = activity as? MainActivity ?: return
+        AudioPlayerManager.getInstance().reloadAfterUsbStorage(main)
     }
 
     fun onUsbCableRemovedWhileShared() {
@@ -155,7 +165,7 @@ class UsbStorageUiManager(
                 } else {
                     activity.runOnUiThread {
                         hideUsbStorageOverlay()
-                        getExternalSdMountMonitor()?.setSuspended(false)
+                        onShareEnded()
                     }
                 }
             }, "y1-ums-unplug").start()
