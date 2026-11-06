@@ -30,6 +30,8 @@ class UsbStorageUiManager(
 ) {
     var usbStorageOverlay: View? = null
         private set
+    /** The selected row under the Disk Mode screen: it is selected again after Eject. */
+    private var focusBeforeOverlay: View? = null
     var usbStorageBusy: Boolean = false
         private set
     /** The key of the USB prompt screen (ActionScreen.kt), or null. */
@@ -197,6 +199,7 @@ class UsbStorageUiManager(
         // Also the share that is still on after an app restart: Eject must not ask again.
         promptGate.onAnswered()
         val root = activity.findViewById<ViewGroup>(android.R.id.content) ?: return
+        focusBeforeOverlay = activity.currentFocus
         val d = activity.resources.displayMetrics.density
 
         val overlay = FrameLayout(activity).apply {
@@ -284,6 +287,9 @@ class UsbStorageUiManager(
             val root = activity.findViewById<ViewGroup>(android.R.id.content)
             root?.removeView(usbStorageOverlay)
             usbStorageOverlay = null
+            // Without this, Android selects another row of the screen under it
+            focusBeforeOverlay?.takeIf { it.isAttachedToWindow }?.requestFocus()
+            focusBeforeOverlay = null
         }
         try {
             activity.window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
