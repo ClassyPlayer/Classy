@@ -168,7 +168,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     val isVibrationEnabled: Boolean get() = setting(Prefs.VIBRATE)
     val vibrationStrengthLevel: Int get() = setting(Prefs.VIBRATE_STRENGTH)
     val isScreenOffControlEnabled: Boolean get() = setting(Prefs.SCREEN_OFF_CONTROL)
-    val usbConnection: Int get() = setting(Prefs.USB_CONNECTION)
+    val usbDrive: Int get() = setting(Prefs.USB_DRIVE)
     val is24HourFormat: Boolean get() = setting(Prefs.CLOCK_24_HOUR)
     val isTimeInTitleBar: Boolean get() = setting(Prefs.TIME_IN_TITLE)
     val isShowBatteryPercentage: Boolean get() = setting(Prefs.BATTERY_PERCENTAGE)
@@ -1416,14 +1416,14 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
                         if (!usbStateReceiverReady) return
                         if (usbStorageManager.isStorageOverlayActive || usbStorageManager.isDialogShowing || usbStorageManager.usbStorageBusy) return
                         // Once for each cable plug: USB function changes send this broadcast again
-                        if (usbStorageManager.promptGate.shouldAsk()) usbStorageManager.onComputerConnected(usbConnection)
+                        if (usbStorageManager.promptGate.shouldAsk()) usbStorageManager.onComputerConnected(usbDrive)
                     } else {
                         usbStorageManager.dismissUsbStorageDialog()
                         if (usbStorageManager.isStorageOverlayActive) {
                             usbStorageManager.onUsbCableRemovedWhileShared()
                         }
                     }
-                    // Settings → Connectivity → Disk Mode shows only while a computer is connected
+                    // Settings → Connectivity → Use as USB Drive shows only while a computer is connected
                     if (NavigationManager.getInstance().currentState is ScreenState.Settings) getActiveScreenController()?.onRefreshUI()
                 }
             }

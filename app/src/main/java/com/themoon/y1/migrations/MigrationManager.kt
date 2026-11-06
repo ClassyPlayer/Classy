@@ -39,7 +39,7 @@ open class MigrationManager {
         registerMigration(Migration005MergeAudiobookBookmarks())
         registerMigration(Migration006PopulateTrackTimestamps())
         registerMigration(Migration008PlayOnMenuItem())
-        registerMigration(Migration010ComputerConnection())
+        registerMigration(Migration010UsbDrive())
     }
 
     /**

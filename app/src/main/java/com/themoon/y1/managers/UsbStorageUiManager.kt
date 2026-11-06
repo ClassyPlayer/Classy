@@ -51,26 +51,19 @@ class UsbStorageUiManager(
         usbPromptScreen = null
     }
 
-    /**
-     * Settings → Connectivity → Disk Mode shows: a computer is connected (the sticky USB_STATE; a charger does not
-     * set it) and a microSD card can be shared (also while it is shared: the row stays, under the Disk Mode screen).
-     */
-    val canStartDiskMode: Boolean
-        get() = isComputerConnected && UsbMassStorageController.hasShareableVolume(activity) == true
-
-    /** A computer is connected: the sticky USB_STATE (a charger does not set it). */
+    /** A computer is connected: the sticky USB_STATE (a charger does not set it). Settings → Connectivity → Use as USB Drive shows then. */
     val isComputerConnected: Boolean
         get() = activity.registerReceiver(null, IntentFilter(USB_STATE))?.getBooleanExtra("connected", false) == true
 
-    /** A cable plug (once for each plug): what Settings → Connectivity → Computer Connection says ([UsbConnection]). */
-    fun onComputerConnected(connection: Int) {
-        when (UsbConnection.onPlug(connection, UsbMassStorageController.hasShareableVolume(activity))) {
-            UsbConnection.OnPlug.ASK -> showUsbStorageDialog()
-            UsbConnection.OnPlug.DISK_MODE -> {
+    /** A cable plug (once for each plug): what Settings → Connectivity → USB Drive says ([UsbDrive]). */
+    fun onComputerConnected(setting: Int) {
+        when (UsbDrive.onPlug(setting, UsbMassStorageController.hasShareableVolume(activity))) {
+            UsbDrive.OnPlug.ASK -> showUsbStorageDialog()
+            UsbDrive.OnPlug.LEND -> {
                 promptGate.onAnswered()
                 startUsbStorage()
             }
-            UsbConnection.OnPlug.NOTHING -> {}
+            UsbDrive.OnPlug.NOTHING -> {}
         }
     }
 

@@ -33,7 +33,7 @@ import com.themoon.y1.managers.VolumeSteps
 import com.themoon.y1.managers.LanguageManager
 import com.themoon.y1.managers.LastFmScrobbler
 import com.themoon.y1.managers.PowerMenu
-import com.themoon.y1.managers.UsbConnection
+import com.themoon.y1.managers.UsbDrive
 import com.themoon.y1.lists.Focus
 import com.themoon.y1.lists.ListSpec
 import com.themoon.y1.lists.RowLook
@@ -224,10 +224,10 @@ class SettingsController(
             action("Bluetooth") { onNavigateToScreen(MainActivity.STATE_BLUETOOTH) },
             action("Wi-Fi") { onNavigateToScreen(MainActivity.STATE_WIFI) },
             action("Web Server") { onNavigateToScreen(MainActivity.STATE_WEBSERVER) },
-            // What a cable plug to a computer does: the question, nothing (MTP), or Disk Mode at once
-            choice("Computer Connection", { localize(UsbConnection.LABELS[usbConnection()]) }) { openPage("ComputerConnection") },
-            // Only while a computer is connected and a microSD card can be shared
-            action("Disk Mode", visible = { mainActivity?.usbStorageManager?.canStartDiskMode == true }) {
+            // What a cable plug to a computer does with the microSD card: the question, a USB drive at once, or nothing
+            choice("USB Drive", { localize(UsbDrive.LABELS[usbDrive()]) }) { openPage("UsbDrive") },
+            // Only while a computer is connected (without a card, the share gives the notice No microSD card.)
+            action("Use as USB Drive", visible = { mainActivity?.usbStorageManager?.isComputerConnected == true }) {
                 mainActivity?.startUsbStorage()
             },
         )),
@@ -311,7 +311,7 @@ class SettingsController(
                 }
                 "TimeZone" -> return timeZoneList()
                 "VolumeLimit" -> return volumeLimitList()
-                "ComputerConnection" -> return computerConnectionList()
+                "UsbDrive" -> return usbDriveList()
                 "Legal" -> return legalSpec()
                 "Update" -> return updateSpec()
                 "MainMenuItems" -> return mainMenuItemsSpec()
@@ -573,13 +573,13 @@ class SettingsController(
         }, view = ::centredRow)
     }
 
-    private fun usbConnection(): Int = UsbConnection.normalize(Prefs.USB_CONNECTION.get(prefs))
+    private fun usbDrive(): Int = UsbDrive.normalize(Prefs.USB_DRIVE.get(prefs))
 
-    /** Computer Connection: Ask, Media Device or Disk Mode. */
-    private fun computerConnectionList(): ListSpec =
-        rows.valueList(localize("Computer Connection"), UsbConnection.LABELS.mapIndexed { value, label ->
-            SettingValue(localize(label), value == usbConnection()) {
-                Prefs.USB_CONNECTION.set(prefs, value)
+    /** USB Drive: Ask, Always or Never. */
+    private fun usbDriveList(): ListSpec =
+        rows.valueList(localize("USB Drive"), UsbDrive.LABELS.mapIndexed { value, label ->
+            SettingValue(localize(label), value == usbDrive()) {
+                Prefs.USB_DRIVE.set(prefs, value)
                 onNavigateBack()
             }
         })
