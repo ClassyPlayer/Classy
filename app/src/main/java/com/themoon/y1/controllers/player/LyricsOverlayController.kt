@@ -188,22 +188,19 @@ class LyricsOverlayController(
         try {
             val pattern = Pattern.compile("\\[(\\d{2}):(\\d{2})\\.(\\d{2,3})\\](.*)")
             val plain = ArrayList<String>()
-            BufferedReader(InputStreamReader(FileInputStream(file), "UTF-8")).use { br ->
-                var line = br.readLine()
-                while (line != null) {
-                    val l = line.removePrefix("\uFEFF")
-                    val m = pattern.matcher(l)
-                    if (m.find()) {
-                        val msStr = m.group(3) ?: "0"
-                        var ms = msStr.toInt()
-                        if (msStr.length == 2) ms *= 10
-                        val totalMs = (m.group(1)!!.toInt() * 60 + m.group(2)!!.toInt()) * 1000 + ms
-                        val text = m.group(4)?.trim() ?: ""
-                        if (text.isNotEmpty()) data.romanised[totalMs] = text
-                    } else {
-                        plain.add(l)
-                    }
-                    line = br.readLine()
+            // split, not readLine: a blank last line ("yī\n" for two lines) stays a line for the pairing
+            for (raw in file.readText(Charsets.UTF_8).split("\n")) {
+                val l = raw.removeSuffix("\r").removePrefix("\uFEFF")
+                val m = pattern.matcher(l)
+                if (m.find()) {
+                    val msStr = m.group(3) ?: "0"
+                    var ms = msStr.toInt()
+                    if (msStr.length == 2) ms *= 10
+                    val totalMs = (m.group(1)!!.toInt() * 60 + m.group(2)!!.toInt()) * 1000 + ms
+                    val text = m.group(4)?.trim() ?: ""
+                    if (text.isNotEmpty()) data.romanised[totalMs] = text
+                } else {
+                    plain.add(l)
                 }
             }
             if (data.romanised.isEmpty() && data.plain != null) data.romanisedPlain = plain.joinToString("\n")
