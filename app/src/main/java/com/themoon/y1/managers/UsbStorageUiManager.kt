@@ -138,9 +138,10 @@ class UsbStorageUiManager(
             return
         }
         usbStorageBusy = true
+        val musicPlayed = AudioPlayerManager.getInstance().isPlaying()
         pauseAllPlaybackForUsb()
         // An open track file on the card makes MountService kill this app during the share.
-        AudioPlayerManager.getInstance().releaseForUsbStorage()
+        AudioPlayerManager.getInstance().releaseForUsbStorage(musicPlayed)
         getExternalSdMountMonitor()?.setSuspended(true)
         Thread({
             UsbMassStorageController.ensureMassStorageFunction(activity)
@@ -153,7 +154,7 @@ class UsbStorageUiManager(
                 if (ok) {
                     showUsbStorageOverlay()
                 } else {
-                    onShareEnded()
+                    onShareEnded(resume = true)
                     Notice.error(activity, localize("Disk Mode did not start. Try again."))
                 }
             }
@@ -176,17 +177,20 @@ class UsbStorageUiManager(
                     return@runOnUiThread
                 }
                 hideUsbStorageOverlay()
-                onShareEnded()
+                onShareEnded(resume = !unplugged)
                 if (!unplugged) Notice.show(activity, localize("OK to disconnect."))
             }
         }, "y1-ums-off").start()
     }
 
-    /** The card is back on the Y2 (or the share failed): watch the card again and load the track again. */
-    private fun onShareEnded() {
+    /**
+     * The card is back on the Y2 (or the share failed): watch the card again and load the track again.
+     * [resume]: play again if the music played before the share.
+     */
+    private fun onShareEnded(resume: Boolean) {
         getExternalSdMountMonitor()?.setSuspended(false)
         val main = activity as? MainActivity ?: return
-        AudioPlayerManager.getInstance().reloadAfterUsbStorage(main)
+        AudioPlayerManager.getInstance().reloadAfterUsbStorage(main, resume)
     }
 
     fun onUsbCableRemovedWhileShared() {
@@ -197,7 +201,7 @@ class UsbStorageUiManager(
                 } else {
                     activity.runOnUiThread {
                         hideUsbStorageOverlay()
-                        onShareEnded()
+                        onShareEnded(resume = false)
                     }
                 }
             }, "y1-ums-unplug").start()

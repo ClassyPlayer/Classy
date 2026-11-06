@@ -1349,12 +1349,16 @@ class AudioPlayerManager private constructor() {
 
     /** True while the player is closed for a USB storage share; see [releaseForUsbStorage]. */
     private var releasedForUsbStorage = false
+    /** Music played when the share started: it plays again after Eject ([reloadAfterUsbStorage]). */
+    private var resumeAfterUsbStorage = false
 
     /**
      * Before a USB storage share: saves the queue and the position, and closes the track file.
      * MountService kills each process that has a file open on the volume that it unmounts for the share.
+     * [wasPlaying]: music played before the share paused it.
      */
-    fun releaseForUsbStorage() {
+    fun releaseForUsbStorage(wasPlaying: Boolean) {
+        resumeAfterUsbStorage = wasPlaying
         if (exoPlayer == null && legacyPlayer == null) return
         val main = MainActivity.instance
         val hasTrack = main != null && main.currentIndex in main.currentPlaylist.indices
@@ -1366,12 +1370,24 @@ class AudioPlayerManager private constructor() {
     /**
      * After the share: loads the saved track again, paused. When the card is not mounted yet, the mount listener does it.
      * Also a queue that the restore loaded incomplete during the share loads again, now with all its files.
+     * [resume]: the music plays again if it played before the share (after Eject; not when the cable came out first).
      */
-    fun reloadAfterUsbStorage(main: MainActivity) {
+    fun reloadAfterUsbStorage(main: MainActivity, resume: Boolean) {
+        resumeAfterUsbStorage = resumeAfterUsbStorage && resume
         val incomplete = incompleteQueueStamp?.let { it == queueStamp(main.currentPlaylist, main.originalPlaylist) } == true
-        if (!releasedForUsbStorage && !incomplete) return
+        if (!releasedForUsbStorage && !incomplete) {
+            resumeAfterUsbStorage = false
+            return
+        }
         releasedForUsbStorage = false
-        if (!restoreLastPlaybackState(main)) main.isPendingRestorePlayback = true
+        if (restoreLastPlaybackState(main)) resumeAfterUsbStorage() else main.isPendingRestorePlayback = true
+    }
+
+    /** Plays the track that [reloadAfterUsbStorage] loaded, if the music played before the share (also after a later restore). */
+    fun resumeAfterUsbStorage() {
+        if (!resumeAfterUsbStorage) return
+        resumeAfterUsbStorage = false
+        if (!isPlaying()) playOrPauseMusic()
     }
 
     fun extractOpusMetadata(file: File): Array<Any?> = extractOpusMetadata(file, true)

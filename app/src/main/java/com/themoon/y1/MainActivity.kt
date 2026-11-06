@@ -418,6 +418,8 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
                             if (!playbackRestored || isPendingRestorePlayback || currentPlaylist.isEmpty()) {
                                 isPendingRestorePlayback = false
                                 playbackRestored = AudioPlayerManager.getInstance().restoreLastPlaybackState(this@MainActivity)
+                                // After Eject, when the card was not mounted yet at the reload
+                                if (playbackRestored) AudioPlayerManager.getInstance().resumeAfterUsbStorage()
                             }
                         }
                         if (customLibrary.isEmpty()) {
