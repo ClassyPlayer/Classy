@@ -7,7 +7,7 @@
 #
 # Type a|b — Y1 stock bases from rockbox-y1.
 # Type y2  — base ROM from y2-test release (Solar Y2 pack), strip Solar
-#            artefacts, install Classy launcher as /system/app/com.themoon.y1.apk,
+#            artefacts, install Classy launcher as /system/priv-app/com.themoon.y1.apk,
 #            pin scripts/Y2.kl (wheel -> DPAD_LEFT/RIGHT), add the stock
 #            Bluetooth.apk + Bluetooth.odex from tools/rom_assets (the base has none) with
 #            the phone profiles (HFP, PBAP, MAP) turned off in the installed Bluetooth.apk,
@@ -266,6 +266,12 @@ strip_solar_artefacts() {
     fi
 }
 
+# Android 4.4 (Y2) grants signature|system permissions (STATUS_BAR, to hide the notification icons and tickers)
+# only to apps in /system/priv-app. Android 4.2 (Y1) has no priv-app: there /system/app gets them.
+launcher_dir() {
+    if [ -d "$1/priv-app" ]; then echo priv-app; else echo app; fi
+}
+
 audit_rom_contents() {
     local base_dir="$1"
     local sys_mount="$2"
@@ -306,23 +312,24 @@ audit_rom_contents() {
         errors=$((errors + 1))
     fi
 
-    if [ ! -f "$sys_mount/app/com.themoon.y1.apk" ]; then
-        echo "audit fail: com.themoon.y1.apk missing from /system/app" >&2
+    local launcher_apk="$sys_mount/$(launcher_dir "$sys_mount")/com.themoon.y1.apk"
+    if [ ! -f "$launcher_apk" ]; then
+        echo "audit fail: com.themoon.y1.apk missing from /system/$(launcher_dir "$sys_mount")" >&2
         errors=$((errors + 1))
     else
-        # Each native library of the APK must be in /system/lib (Android does not unpack them for /system/app)
+        # Each native library of the APK must be in /system/lib (Android does not unpack them for a system APK)
         local so_entry="" so_name=""
         while IFS= read -r so_entry; do
             so_name="$(basename "$so_entry")"
             if [ ! -f "$sys_mount/lib/$so_name" ]; then
                 echo "audit fail: /system/lib/$so_name (native library of com.themoon.y1.apk) missing" >&2
                 errors=$((errors + 1))
-            elif ! unzip -p "$sys_mount/app/com.themoon.y1.apk" "$so_entry" | cmp -s - "$sys_mount/lib/$so_name"; then
+            elif ! unzip -p "$launcher_apk" "$so_entry" | cmp -s - "$sys_mount/lib/$so_name"; then
                 echo "audit fail: /system/lib/$so_name is not the one in com.themoon.y1.apk" >&2
                 errors=$((errors + 1))
             fi
-        done < <(unzip -Z1 "$sys_mount/app/com.themoon.y1.apk" "$LAUNCHER_LIB_ABI_DIR/*.so" 2>/dev/null || true)
-        if [ -z "$(unzip -Z1 "$sys_mount/app/com.themoon.y1.apk" "$LAUNCHER_LIB_ABI_DIR/libvlcjni.so" 2>/dev/null || true)" ]; then
+        done < <(unzip -Z1 "$launcher_apk" "$LAUNCHER_LIB_ABI_DIR/*.so" 2>/dev/null || true)
+        if [ -z "$(unzip -Z1 "$launcher_apk" "$LAUNCHER_LIB_ABI_DIR/libvlcjni.so" 2>/dev/null || true)" ]; then
             echo "audit fail: com.themoon.y1.apk has no $LAUNCHER_LIB_ABI_DIR/libvlcjni.so" >&2
             errors=$((errors + 1))
         fi
@@ -635,13 +642,16 @@ if [ "$TYPE" = "y2" ]; then
     fi
 fi
 
-sudo mkdir -p "$MOUNT_SYS/app" "$MOUNT_SYS/usr/keylayout"
-sudo cp "$LAUNCHER_APK" "$MOUNT_SYS/app/com.themoon.y1.apk"
-sudo chmod 644 "$MOUNT_SYS/app/com.themoon.y1.apk"
-sudo chown root:root "$MOUNT_SYS/app/com.themoon.y1.apk"
+LAUNCHER_DIR="$(launcher_dir "$MOUNT_SYS")"
+echo "==> Installing the launcher as /system/$LAUNCHER_DIR/com.themoon.y1.apk"
+sudo rm -f "$MOUNT_SYS/app/com.themoon.y1.apk" "$MOUNT_SYS/priv-app/com.themoon.y1.apk"
+sudo mkdir -p "$MOUNT_SYS/$LAUNCHER_DIR" "$MOUNT_SYS/usr/keylayout"
+sudo cp "$LAUNCHER_APK" "$MOUNT_SYS/$LAUNCHER_DIR/com.themoon.y1.apk"
+sudo chmod 644 "$MOUNT_SYS/$LAUNCHER_DIR/com.themoon.y1.apk"
+sudo chown root:root "$MOUNT_SYS/$LAUNCHER_DIR/com.themoon.y1.apk"
 
 # Android 4.2/4.4 unpack the native libraries of an APK only for user apps and updated system apps, not for
-# an APK in /system/app: those must be in /system/lib. Without them, LibVLC calls System.exit(1) when a video
+# an APK in /system/app or /system/priv-app: those must be in /system/lib. Without them, LibVLC calls System.exit(1) when a video
 # opens (the app restarts at the main menu), and the ExoPlayer FLAC/Opus/FFmpeg extensions are not available.
 echo "==> Installing the launcher's native libraries in /system/lib"
 LAUNCHER_LIB_DIR="$WORK_DIR/launcher-lib"
