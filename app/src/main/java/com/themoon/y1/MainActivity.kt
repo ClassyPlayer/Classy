@@ -1408,7 +1408,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
                 Intent.ACTION_SHUTDOWN, "android.intent.action.QUICKBOOT_POWEROFF", "com.htc.intent.action.QUICKBOOT_POWEROFF" -> {
                     AudioPlayerManager.getInstance().savePlaybackState(sync = true)
                 }
-                "android.hardware.usb.action.USB_STATE" -> {
+                UsbStorageUiManager.USB_STATE -> {
                     val connected = intent.getBooleanExtra("connected", false)
                     if (connected) {
                         if (!usbStateReceiverReady) return
@@ -1421,6 +1421,8 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
                             usbStorageManager.onUsbCableRemovedWhileShared()
                         }
                     }
+                    // Settings → Connectivity → Disk Mode shows only while a computer is connected
+                    if (NavigationManager.getInstance().currentState is ScreenState.Settings) getActiveScreenController()?.onRefreshUI()
                 }
             }
         }

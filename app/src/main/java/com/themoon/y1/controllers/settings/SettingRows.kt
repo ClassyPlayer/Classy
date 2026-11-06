@@ -11,7 +11,8 @@ import com.themoon.y1.lists.RowLook
 import com.themoon.y1.lists.RowSpec
 
 /** One row of a Settings page: its English label (the language key) and how to make it with the values of now. */
-class SettingRow(val label: String, val make: () -> RowSpec)
+/** [visible]: false hides the row now (its page is made again after a change). */
+class SettingRow(val label: String, val visible: () -> Boolean = { true }, val make: () -> RowSpec)
 
 /** A group of the Settings top level. A [direct] group has one row, and the top level shows that row itself (no group page). */
 class SettingsGroup(val title: String, val rows: List<SettingRow>, val direct: Boolean = false)
@@ -76,9 +77,15 @@ class SettingRows(
     fun choice(label: String, value: () -> String, open: () -> Unit): SettingRow =
         SettingRow(label) { RowSpec(localize(label), RowLook.VALUE, value = value(), onClick = open) }
 
-    /** A row that opens a screen (the chevron) or does an action. [value]: a status on the right in place of the chevron. */
-    fun action(label: String, value: () -> String = { CHEVRON }, enabled: () -> Boolean = { true }, run: () -> Unit): SettingRow =
-        SettingRow(label) { RowSpec(localize(label), RowLook.VALUE, value = value(), enabled = enabled(), onClick = run) }
+    /**
+     * A row that opens a screen (the chevron) or does an action. [value]: a status on the right in place of the chevron.
+     * [visible]: false hides the row.
+     */
+    fun action(
+        label: String, value: () -> String = { CHEVRON }, enabled: () -> Boolean = { true }, visible: () -> Boolean = { true },
+        run: () -> Unit
+    ): SettingRow =
+        SettingRow(label, visible) { RowSpec(localize(label), RowLook.VALUE, value = value(), enabled = enabled(), onClick = run) }
 
     /**
      * The list of a [choice] row: one row for each value, and it opens at the chosen value (the iPod rule for a value list).

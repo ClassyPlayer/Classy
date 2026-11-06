@@ -1,6 +1,7 @@
 package com.themoon.y1.managers
 
 import android.app.Activity
+import android.content.IntentFilter
 import android.os.Handler
 import android.os.Looper
 import android.view.Gravity
@@ -47,6 +48,14 @@ class UsbStorageUiManager(
         usbPromptScreen?.let { ActionScreens.close(it) }
         usbPromptScreen = null
     }
+
+    /**
+     * Settings → Connectivity → Disk Mode shows: a computer is connected (the sticky USB_STATE; a charger does not
+     * set it) and a microSD card can be shared (also while it is shared: the row stays, under the Disk Mode screen).
+     */
+    val canStartDiskMode: Boolean
+        get() = activity.registerReceiver(null, IntentFilter(USB_STATE))?.getBooleanExtra("connected", false) == true &&
+            UsbMassStorageController.hasShareableVolume(activity) == true
 
     /** A cable plug (once for each plug): what Settings → Connectivity → Computer Connection says ([UsbConnection]). */
     fun onComputerConnected(connection: Int) {
@@ -279,5 +288,9 @@ class UsbStorageUiManager(
         try {
             activity.window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         } catch (_: Exception) {}
+    }
+
+    companion object {
+        const val USB_STATE = "android.hardware.usb.action.USB_STATE"
     }
 }

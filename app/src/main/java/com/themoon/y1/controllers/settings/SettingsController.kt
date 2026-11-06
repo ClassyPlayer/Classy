@@ -226,6 +226,10 @@ class SettingsController(
             action("Web Server") { onNavigateToScreen(MainActivity.STATE_WEBSERVER) },
             // What a cable plug to a computer does: the question, nothing (MTP), or Disk Mode at once
             choice("Computer Connection", { localize(UsbConnection.LABELS[usbConnection()]) }) { openPage("ComputerConnection") },
+            // Only while a computer is connected and a microSD card can be shared
+            action("Disk Mode", visible = { mainActivity?.usbStorageManager?.canStartDiskMode == true }) {
+                mainActivity?.startUsbStorage()
+            },
         )),
         // Battery level, charging, screen on and screen off playing of the last 24 hours or 10 days (BatteryUsageView):
         // on the top level, as Settings → Battery of iOS and macOS (macOS: after the connections)
@@ -294,7 +298,7 @@ class SettingsController(
     private fun pageSpec(shown: SettingsSubMode): ListSpec {
         if (shown is SettingsSubMode.Group) {
             val group = groups.firstOrNull { it.title == shown.title && it.rows.isNotEmpty() }
-            if (group != null) return ListSpec(localize(group.title), group.rows.map { it.make() })
+            if (group != null) return ListSpec(localize(group.title), group.rows.filter { it.visible() }.map { it.make() })
         }
         if (shown is SettingsSubMode.Page) {
             when (shown.id) {
