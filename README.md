@@ -20,6 +20,8 @@ InniClassic is an iPod Classic-style launcher and media player for Innioasis Y1 
 | ------------------------------------------------------ | ----------------------------------------------------- | ------------------------------------------------ |
 | ![Now Playing in Classic Light](site/media/theme-l.png) | ![Now Playing in Classic Dark](site/media/theme-d.png) | ![Synced lyrics on Now Playing](site/media/lyrics-l.png) |
 
+The album covers in the screenshots are from Creative Commons albums, for example *Edge of Summer* by Tenth Cloud ([CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/); photo Anatoliy Laptev, artwork Anna Riet). The credits and the licence of each album are at the end of [site/index.html](site/index.html), in *Music and covers in the screenshots*.
+
 ---
 
 ## Features
