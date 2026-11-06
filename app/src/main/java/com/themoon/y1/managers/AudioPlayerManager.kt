@@ -1380,7 +1380,36 @@ class AudioPlayerManager private constructor() {
             return
         }
         releasedForUsbStorage = false
-        if (restoreLastPlaybackState(main)) resumeAfterUsbStorage() else main.isPendingRestorePlayback = true
+        // Each file look-up on the card takes ~4.5 ms (FUSE), so the restore's look-up of each queue file on the UI
+        // thread took 25-37 s for 5354 files (an ANR). The queue in memory is the saved one: its files are known.
+        // Only a queue that the restore loaded incomplete needs the look-ups, on this worker thread.
+        val known = if (incomplete) null else (main.currentPlaylist + main.originalPlaylist).mapTo(HashSet()) { it.path }
+        Thread({
+            // Wait for the card: it is mounted again a few seconds after the share
+            val deadline = android.os.SystemClock.uptimeMillis() + CARD_WAIT_MS
+            while (ExternalSdMountMonitor.hasSecondarySlot() && !ExternalSdMountMonitor.isSecondaryReady() &&
+                android.os.SystemClock.uptimeMillis() < deadline
+            ) {
+                try {
+                    Thread.sleep(500)
+                } catch (_: InterruptedException) {
+                    break
+                }
+            }
+            val existing = known ?: HashSet<String>().also { found ->
+                for (name in listOf("last_playback_playlist.txt", "last_playback_original.txt")) {
+                    try {
+                        File(main.filesDir, name).forEachLine { line ->
+                            val path = line.trim()
+                            if (path.isNotEmpty() && path !in found && File(path).exists()) found.add(path)
+                        }
+                    } catch (_: Exception) {}
+                }
+            }
+            main.runOnUiThread {
+                if (restoreLastPlaybackState(main, existing)) resumeAfterUsbStorage() else main.isPendingRestorePlayback = true
+            }
+        }, "y1-ums-reload").start()
     }
 
     /** Plays the track that [reloadAfterUsbStorage] loaded, if the music played before the share (also after a later restore). */
@@ -1919,7 +1948,9 @@ class AudioPlayerManager private constructor() {
         saveAudiobookBookmarkIfNeeded()
     }
 
-    fun restoreLastPlaybackState(main: MainActivity): Boolean {
+    /** [existing]: the queue files that are known to exist (no look-up on the card for them); null = look up each one. */
+    fun restoreLastPlaybackState(main: MainActivity, existing: Set<String>? = null): Boolean {
+        val exists = { f: File -> existing?.contains(f.path) ?: f.exists() }
         if (!main.prefs.getBoolean("has_saved_playback_state", false)) return false
         val savedPath = main.prefs.getString("last_played_song_path", null) ?: return false
         val targetFile = File(savedPath)
@@ -1953,7 +1984,7 @@ class AudioPlayerManager private constructor() {
                         val trimmed = line.trim()
                         if (trimmed.isNotEmpty()) {
                             val f = File(trimmed)
-                            if (f.exists()) {
+                            if (exists(f)) {
                                 restoredPlaylist.add(f)
                             } else {
                                 missing++
@@ -1976,7 +2007,7 @@ class AudioPlayerManager private constructor() {
                         val trimmed = line.trim()
                         if (trimmed.isNotEmpty()) {
                             val f = File(trimmed)
-                            if (f.exists()) {
+                            if (exists(f)) {
                                 restoredOriginal.add(f)
                             } else {
                                 missing++
@@ -2081,6 +2112,9 @@ class AudioPlayerManager private constructor() {
             }
             return inst
         }
+
+        /** After a USB storage share: the longest wait for the card before the play queue loads again. */
+        private const val CARD_WAIT_MS = 60_000L
 
         /**
          * The play queue files are written for a new queue ([stamp] is not [saved]), but not for a queue that the
