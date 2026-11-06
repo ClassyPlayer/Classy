@@ -10,6 +10,7 @@ import java.net.ServerSocket
 import java.net.Socket
 import java.util.LinkedHashMap
 import java.util.UUID
+import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
 /**
@@ -19,7 +20,8 @@ import java.util.concurrent.Executors
  */
 class CastMediaServer {
     private var server: ServerSocket? = null
-    private val pool = Executors.newFixedThreadPool(4)
+    /** The threads that send the files; [stop] ends them. */
+    private var pool: ExecutorService? = null
     private val entries = object : LinkedHashMap<String, Entry>() {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Entry>?) = size > 8
     }
@@ -32,11 +34,13 @@ class CastMediaServer {
     fun start() {
         if (server != null) return
         val s = ServerSocket(0)
+        val p = Executors.newFixedThreadPool(4)
         server = s
+        pool = p
         Thread({
             while (!s.isClosed) {
                 val client = try { s.accept() } catch (_: Exception) { break }
-                try { pool.execute { serve(client) } } catch (_: Exception) { closeQuietly(client) }
+                try { p.execute { serve(client) } } catch (_: Exception) { closeQuietly(client) }
             }
         }, "CastMediaServer").start()
         Log.i(TAG, "listening on port ${s.localPort}")
@@ -46,6 +50,9 @@ class CastMediaServer {
     fun stop() {
         try { server?.close() } catch (_: Exception) {}
         server = null
+        // A transfer that runs ends when the speaker closes its connection or after the socket timeout
+        pool?.shutdown()
+        pool = null
         synchronized(entries) { entries.clear() }
     }
 

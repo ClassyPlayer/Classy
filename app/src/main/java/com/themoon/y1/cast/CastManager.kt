@@ -112,8 +112,7 @@ object CastManager {
         workerHandler().post {
             if (s != session) return@post
             try {
-                val srv = server ?: CastMediaServer().also { it.start(); server = it }
-                if (srv.port <= 0) srv.start()
+                ensureServer()
                 volume = r.volume()
             } catch (e: Exception) {
                 Log.w(TAG, "start: $e")
@@ -243,8 +242,7 @@ object CastManager {
         val r = CastRenderer.forDevice(d)
         return try {
             r.status()
-            val srv = server ?: CastMediaServer().also { it.start(); server = it }
-            if (srv.port <= 0) srv.start()
+            ensureServer()
             Link(d, r, try { r.volume() } catch (_: Exception) { null })
         } catch (e: Exception) {
             Log.w(TAG, "connect ${d.id}: $e")
@@ -409,7 +407,7 @@ object CastManager {
     }
 
     private fun load(r: CastRenderer, info: TrackInfo, local: CastSync.Local, a: CastSync.Action.Load) {
-        val srv = server ?: CastMediaServer().also { it.start(); server = it }
+        val srv = ensureServer()
         val host = localAddressFor(device?.host ?: return) ?: throw java.io.IOException("no Wi-Fi address")
         val base = "http://$host:${srv.port}"
         // The Sonos app shows only HTTPS covers: no HTTP cover for a Sonos
@@ -463,6 +461,9 @@ object CastManager {
             sock.close()
         }
     } catch (_: Exception) { null }
+
+    /** Cast thread: the media server, started at the first use after [stop] or [suspendLink] stopped it. */
+    private fun ensureServer(): CastMediaServer = server ?: CastMediaServer().also { it.start(); server = it }
 
     private fun workerHandler(): Handler {
         worker?.let { return it }
