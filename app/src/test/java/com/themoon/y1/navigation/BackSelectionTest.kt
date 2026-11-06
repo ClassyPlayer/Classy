@@ -158,21 +158,6 @@ class BackSelectionTest {
         assertEquals(RowKey("Date & Time", 9, 333), settings.selected.last())
     }
 
-    @Test
-    fun popBackStackToSkipsTheEntriesAboveIt() {
-        val page = ScreenState.Settings(SettingsSubMode.Page("Background"))
-        nav.navigateTo(ScreenState.MainMenu)
-        nav.navigateTo(page)
-        settings.row = RowKey("Select New Background", 0, 0)
-        nav.navigateTo(music(BrowserMode.Folder(java.io.File("/sdcard"), pickImage = true)))
-        nav.navigateTo(music(BrowserMode.Folder(java.io.File("/sdcard/Pictures"), pickImage = true)))
-
-        assertTrue(nav.popBackStackTo { it !is ScreenState.Browser })
-        assertEquals(page, nav.currentState)
-        assertEquals(listOf(RowKey("Select New Background", 0, 0)), settings.selected)
-        assertEquals(ScreenState.MainMenu, nav.previousState())
-    }
-
     private fun folder(path: String) = music(BrowserMode.Folder(java.io.File(path)))
 
     private fun browserThrough(start: String): RowKey {

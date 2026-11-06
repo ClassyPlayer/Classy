@@ -10,7 +10,6 @@ import android.widget.LinearLayout
 import android.widget.ListView
 import android.widget.TextView
 import com.themoon.y1.AppPrefs
-import com.themoon.y1.Prefs
 import com.themoon.y1.MainActivity
 import com.themoon.y1.R
 import com.themoon.y1.StoragePaths
@@ -45,7 +44,7 @@ import java.util.HashSet
 /**
  * Controller for library browser navigation:
  * - Root music / audiobook library menus
- * - Folder browsing with recursive audio playback and background picking
+ * - Folder browsing with recursive audio playback
  * - Category lists (Artists, Track Artists, Albums, Genres, Composers, Years)
  * - Virtual song lists (All, Recent, Favorites, Album tracks, Search results)
  *
@@ -87,7 +86,6 @@ class BrowserController(
 
     var currentBrowserMode: BrowserMode = BrowserMode.Root
     var isAudiobookLibraryMode: Boolean = false
-    var isPickingBackground: Boolean = false
 
     var currentFolder: File = StoragePaths.getPrimaryRoot()
     var virtualQueryType: String = "ALL"
@@ -117,7 +115,6 @@ class BrowserController(
         if (state is ScreenState.Browser) {
             currentBrowserMode = state.mode
             isAudiobookLibraryMode = state.audiobooks || state.mode is BrowserMode.Audiobooks
-            isPickingBackground = (state.mode as? BrowserMode.Folder)?.pickImage == true
             when (val mode = state.mode) {
                 is BrowserMode.Root -> buildFileBrowserUI()
                 is BrowserMode.Folder -> {
@@ -573,7 +570,7 @@ class BrowserController(
 
     /**
      * A folder of the memory: "..", Play All, the folders, the APK files (install) and the audio files (A to Z).
-     * The top of the file tree lists the storage volumes; the background picker of Settings lists the images.
+     * The top of the file tree lists the storage volumes.
      */
     fun buildFolderBrowserUI() {
         val rawDisplayPath = StoragePaths.toDisplayPath(currentFolder.absolutePath)
@@ -617,7 +614,6 @@ class BrowserController(
         val folders = ArrayList<File>()
         val audioFiles = ArrayList<File>()
         val apkFiles = ArrayList<File>()
-        val imageFiles = ArrayList<File>()
 
         for (f in files) {
             if (f.name.startsWith(".")) continue
@@ -632,9 +628,8 @@ class BrowserController(
             }
             when {
                 f.isDirectory -> folders.add(f)
-                isPickingBackground && isImageFile(f) -> imageFiles.add(f)
-                !isPickingBackground && isAudioFile(f) -> audioFiles.add(f)
-                !isPickingBackground && isApkFile(f) -> apkFiles.add(f)
+                isAudioFile(f) -> audioFiles.add(f)
+                isApkFile(f) -> apkFiles.add(f)
             }
         }
 
@@ -660,9 +655,8 @@ class BrowserController(
         Collections.sort(folders, fileSorter)
         Collections.sort(audioFiles, fileSorter)
         Collections.sort(apkFiles, fileSorter)
-        Collections.sort(imageFiles, fileSorter)
 
-        if (!isPickingBackground && !isTop && !StoragePaths.isAnyStorageRoot(currentFolder) && (audioFiles.isNotEmpty() || folders.isNotEmpty())) {
+        if (!isTop && !StoragePaths.isAnyStorageRoot(currentFolder) && (audioFiles.isNotEmpty() || folders.isNotEmpty())) {
             rows += RowSpec("▶ ${localize("Play All")}", key = PLAY_ALL_KEY, onClick = {
                 val allAudio = ArrayList<File>()
                 showLoadingPopup()
@@ -684,35 +678,19 @@ class BrowserController(
 
         for (folder in folders) {
             rows += RowSpec(folderRowText(folder, isTop), key = folder.absolutePath,
-                onClick = { openList(BrowserMode.Folder(folder, isPickingBackground)) })
+                onClick = { openList(BrowserMode.Folder(folder)) })
         }
 
-        if (isPickingBackground) {
-            for (img in imageFiles) {
-                rows += RowSpec(img.name, key = img.absolutePath, onClick = {
-                    try {
-                        AppPrefs.get(activity).edit().putString(Prefs.BACKGROUND.key, img.absolutePath).commit()
-                        MainActivity.instance?.updateMainMenuBackground()
-                    } catch (e: Exception) {
-                    }
-                    Notice.show(activity, localize("Background Applied!"))
-                    isPickingBackground = false
-                    // Back to the Settings screen that opened the picker, over all its folder levels
-                    NavigationManager.getInstance().popBackStackTo { it !is ScreenState.Browser }
-                })
+        for (apk in apkFiles) {
+            val label = "📦 [${localize("INSTALL")}] ${apk.name}"
+            val b = Button(activity).apply {
+                text = label
+                setTextColor(0xFF00FFFF.toInt())
+                background = ListItemViewFactory.createButtonBackground(activity, ThemeManager.getListButtonNormalBg())
             }
-        } else {
-            for (apk in apkFiles) {
-                val label = "📦 [${localize("INSTALL")}] ${apk.name}"
-                val b = Button(activity).apply {
-                    text = label
-                    setTextColor(0xFF00FFFF.toInt())
-                    background = ListItemViewFactory.createButtonBackground(activity, ThemeManager.getListButtonNormalBg())
-                }
-                rows += RowSpec(label, RowLook.CUSTOM, view = b, key = apk.absolutePath, onClick = { installApk(apk) })
-            }
-            for (audio in audioFiles) rows += folderAudioRow(audio)
+            rows += RowSpec(label, RowLook.CUSTOM, view = b, key = apk.absolutePath, onClick = { installApk(apk) })
         }
+        for (audio in audioFiles) rows += folderAudioRow(audio)
 
         show(ListSpec(folderTitle, rows, letters = true))
 
@@ -745,7 +723,7 @@ class BrowserController(
      */
     private fun openParentFolder(parent: File, addToBackStack: Boolean) {
         val row = RowKey(folderRowText(currentFolder, StoragePaths.isTopStorageRoot(parent)), 0)
-        val state = ScreenState.Browser(BrowserMode.Folder(parent, isPickingBackground), isAudiobookLibraryMode)
+        val state = ScreenState.Browser(BrowserMode.Folder(parent), isAudiobookLibraryMode)
         NavigationManager.getInstance().navigateTo(state, addToBackStack, row)
     }
 
@@ -840,11 +818,6 @@ class BrowserController(
     }
 
     private fun isApkFile(f: File?): Boolean = f != null && f.isFile && f.name.lowercase().endsWith(".apk")
-    private fun isImageFile(f: File?): Boolean {
-        if (f == null || !f.isFile) return false
-        val name = f.name.lowercase()
-        return name.endsWith(".jpg") || name.endsWith(".jpeg") || name.endsWith(".png")
-    }
 
     /** Back: the list of the top back-stack entry (NavigationManager builds it again and selects its row). */
     override fun onBackPressed(): Boolean {

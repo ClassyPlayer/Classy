@@ -470,17 +470,6 @@ internal fun MainActivity.initControllers() {
             MainActivity.customLibrary.clear()
             startMediaLibraryScan()
         },
-        onApplyThemeBackground = {
-            prefs.edit().putString(Prefs.BACKGROUND.key, "THEME_DEFAULT").apply()
-            updateMainMenuBackground()
-        },
-        onClearCustomBackground = {
-            prefs.edit().remove(Prefs.BACKGROUND.key).apply()
-            updateMainMenuBackground()
-        },
-        onPickBackgroundFromStorage = {
-            changeScreen(ScreenState.Browser(BrowserMode.Folder(StoragePaths.getPrimaryRoot(), pickImage = true)))
-        },
         resetBacklightTimer = { powerBacklightManager?.applyBacklightSetting() },
         applySoundSetting = {
             updateScreenOffFeedback(true)

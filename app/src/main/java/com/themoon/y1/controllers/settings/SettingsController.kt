@@ -70,9 +70,6 @@ class SettingsController(
     private val onOpenJellyfin: () -> Unit,
     private val onOpenUpdateCheck: () -> Unit,
     private val onClearCacheConfirmed: () -> Unit,
-    private val onApplyThemeBackground: () -> Unit,
-    private val onClearCustomBackground: () -> Unit,
-    private val onPickBackgroundFromStorage: () -> Unit,
     private val resetBacklightTimer: () -> Unit,
     private val applySoundSetting: () -> Unit,
     private val applyAlbumTiltSetting: () -> Unit,
@@ -188,7 +185,6 @@ class SettingsController(
         )),
         SettingsGroup("Appearance", listOf(
             choice("Theme", { AutoThemeManager.settingsRowValue(prefs, localize) }) { openPage("Theme") },
-            action("Background") { openPage("Background") },
             toggle("Toggle Style", { ToggleStyle.isSwitch(activity) }, { ToggleStyle.setSwitch(activity, it) }, { ToggleStyle.label(it, localize) }),
             toggle("List Edges", { ListEdges.isFade(activity) }, { ListEdges.setFade(activity, it) }, { localize(if (it) "Fade" else "Cut") }),
             // Slow pan and zoom of the art in the split screens (main menu, Music, Audiobooks, Videos), as on the iPod
@@ -298,7 +294,6 @@ class SettingsController(
             when (shown.id) {
                 "Language" -> return languageList()
                 "Theme" -> return themeList()
-                "Background" -> return backgroundSpec()
                 "DateTime" -> {
                     val range = DATE_TIME_RANGES[shown.arg]
                     return if (range == null) dateTimeSpec() else dateTimeValueList(shown.arg, range)
@@ -546,13 +541,6 @@ class SettingsController(
         val autoRow = AutoThemeManager.createSelectorRow(activity, prefs, createTablerListButton, clickFeedback, localize)
         return ListSpec(themes.title, listOf(RowSpec(localize("Auto"), RowLook.CUSTOM, view = autoRow)) + themes.rows)
     }
-
-    /** Background: the main menu background (an image from the memory, the theme's image, or none). */
-    private fun backgroundSpec(): ListSpec = ListSpec(localize("Background"), listOf(
-        RowSpec(localize("Select New Background"), RowLook.VALUE, value = SettingRows.CHEVRON, onClick = onPickBackgroundFromStorage),
-        RowSpec(localize("Apply Theme Background"), RowLook.VALUE, value = SettingRows.CHEVRON, onClick = onApplyThemeBackground),
-        RowSpec(localize("Clear Custom Background"), RowLook.VALUE, value = SettingRows.CHEVRON, onClick = onClearCustomBackground)
-    ))
 
     /** Volume Limit: the loudest volume step (1..30, see VolumeSteps), or Off. */
     private fun volumeLimitList(): ListSpec {
