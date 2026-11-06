@@ -89,4 +89,11 @@ class Migration010UsbDriveTest {
         assertFalse(UsbDrive.musicStops(true, "/storage/sdcard10/a.mp3", card))
         assertFalse(UsbDrive.musicStops(true, null, card))
     }
+
+    @Test
+    fun musicPlaysAgainOnlyAfterEject() {
+        assertTrue(UsbDrive.resumesMusic(UsbDrive.End.EJECT))
+        assertFalse(UsbDrive.resumesMusic(UsbDrive.End.CABLE_OUT))
+        assertFalse(UsbDrive.resumesMusic(UsbDrive.End.CARD_REMOVED))
+    }
 }

@@ -527,6 +527,8 @@
   "Connected": "Połączono",
   "Eject": "Wysuń",
   "OK to disconnect.": "Można odłączyć.",
+  "Card not ejected.": "Karta nie została wysunięta.",
+  "microSD card removed.": "Wyjęto kartę microSD.",
   "Always": "Zawsze",
   "Use as USB Drive": "Użyj jako dysku USB",
   "Ask": "Pytaj",

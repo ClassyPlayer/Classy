@@ -527,6 +527,8 @@
   "Connected": "Connected",
   "Eject": "Eject",
   "OK to disconnect.": "OK to disconnect.",
+  "Card not ejected.": "Card not ejected.",
+  "microSD card removed.": "microSD card removed.",
   "Always": "Always",
   "Use as USB Drive": "Use as USB Drive",
   "Ask": "Ask",

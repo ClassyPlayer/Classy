@@ -44,6 +44,15 @@ object UsbDrive {
         else -> if (card == false) OnPlug.NOTHING else OnPlug.ASK
     }
 
+    /**
+     * How a share ends: [EJECT] on the Y2 ("OK to disconnect."), [CABLE_OUT] before Eject ("Card not ejected."),
+     * [CARD_REMOVED] while lent ("microSD card removed.").
+     */
+    enum class End { EJECT, CABLE_OUT, CARD_REMOVED }
+
+    /** Music that played before the share plays again only after Eject. */
+    fun resumesMusic(end: End): Boolean = end == End.EJECT
+
     /** The question says "Music will stop." when music from the card ([cardPath]) plays now: the share pauses it. */
     fun musicStops(playing: Boolean, playingPath: String?, cardPath: String): Boolean =
         playing && playingPath != null && (playingPath == cardPath || playingPath.startsWith("$cardPath/"))

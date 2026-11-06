@@ -1,6 +1,9 @@
 package com.themoon.y1.managers
 
 import android.app.Activity
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
 import android.content.IntentFilter
 import android.os.Handler
 import android.os.Looper
@@ -154,15 +157,15 @@ class UsbStorageUiManager(
                 if (ok) {
                     showUsbStorageOverlay()
                 } else {
-                    onShareEnded(resume = true)
+                    reloadAfterShare(resume = true)
                     Notice.error(activity, localize("Card busy. Try again."))
                 }
             }
         }, "y1-ums-on").start()
     }
 
-    /** Eject. [unplugged]: the cable is already out, so no "OK to disconnect." notice. */
-    fun stopUsbStorage(unplugged: Boolean = false) {
+    /** Eject; [end]: why the share ends (the notice after it). */
+    fun stopUsbStorage(end: UsbDrive.End = UsbDrive.End.EJECT) {
         if (usbStorageBusy) return
         usbStorageBusy = true
         Thread({
@@ -176,18 +179,27 @@ class UsbStorageUiManager(
                     Notice.error(activity, localize("Couldn't eject USB storage."))
                     return@runOnUiThread
                 }
-                hideUsbStorageOverlay()
-                onShareEnded(resume = !unplugged)
-                if (!unplugged) Notice.show(activity, localize("OK to disconnect."))
+                onShareEnded(end)
             }
         }, "y1-ums-off").start()
+    }
+
+    /** The card is back (or gone): close the share screen and say how the share ended. */
+    private fun onShareEnded(end: UsbDrive.End) {
+        hideUsbStorageOverlay()
+        reloadAfterShare(resume = UsbDrive.resumesMusic(end))
+        when (end) {
+            UsbDrive.End.EJECT -> Notice.show(activity, localize("OK to disconnect."))
+            UsbDrive.End.CABLE_OUT -> Notice.error(activity, localize("Card not ejected."))
+            UsbDrive.End.CARD_REMOVED -> Notice.error(activity, localize("microSD card removed."))
+        }
     }
 
     /**
      * The card is back on the Y2 (or the share failed): watch the card again and load the track again.
      * [resume]: play again if the music played before the share.
      */
-    private fun onShareEnded(resume: Boolean) {
+    private fun reloadAfterShare(resume: Boolean) {
         getExternalSdMountMonitor()?.setSuspended(false)
         val main = activity as? MainActivity ?: return
         AudioPlayerManager.getInstance().reloadAfterUsbStorage(main, resume)
@@ -196,13 +208,11 @@ class UsbStorageUiManager(
     fun onUsbCableRemovedWhileShared() {
         Handler(Looper.getMainLooper()).postDelayed({
             Thread({
+                // The share can be off already: then only the screen closes
                 if (UsbMassStorageController.isEnabled()) {
-                    activity.runOnUiThread { stopUsbStorage(unplugged = true) }
+                    activity.runOnUiThread { stopUsbStorage(UsbDrive.End.CABLE_OUT) }
                 } else {
-                    activity.runOnUiThread {
-                        hideUsbStorageOverlay()
-                        onShareEnded(resume = false)
-                    }
+                    activity.runOnUiThread { if (isStorageOverlayActive) onShareEnded(UsbDrive.End.CABLE_OUT) }
                 }
             }, "y1-ums-unplug").start()
         }, 1500)
@@ -288,6 +298,7 @@ class UsbStorageUiManager(
             )
         )
         usbStorageOverlay = overlay
+        watchCardRemoval()
 
         try {
             activity.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -301,12 +312,37 @@ class UsbStorageUiManager(
             val root = activity.findViewById<ViewGroup>(android.R.id.content)
             root?.removeView(usbStorageOverlay)
             usbStorageOverlay = null
+            cardRemovedReceiver?.let { try { activity.unregisterReceiver(it) } catch (_: Exception) {} }
+            cardRemovedReceiver = null
             // Without this, Android selects another row of the screen under it
             focusBeforeOverlay?.takeIf { it.isAttachedToWindow }?.requestFocus()
             focusBeforeOverlay = null
         }
         try {
             activity.window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        } catch (_: Exception) {}
+    }
+
+    /** While the card is lent: its removal closes the share screen ("microSD card removed."). */
+    private var cardRemovedReceiver: BroadcastReceiver? = null
+
+    private fun watchCardRemoval() {
+        if (cardRemovedReceiver != null) return
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                if (intent?.data?.path == StoragePaths.SECONDARY_PATH && isStorageOverlayActive) {
+                    stopUsbStorage(UsbDrive.End.CARD_REMOVED)
+                }
+            }
+        }
+        val filter = IntentFilter().apply {
+            addAction(Intent.ACTION_MEDIA_REMOVED)
+            addAction(Intent.ACTION_MEDIA_BAD_REMOVAL)
+            addDataScheme("file")
+        }
+        try {
+            activity.registerReceiver(receiver, filter)
+            cardRemovedReceiver = receiver
         } catch (_: Exception) {}
     }
 

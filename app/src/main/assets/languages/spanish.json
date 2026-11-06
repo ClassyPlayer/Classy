@@ -340,6 +340,8 @@
   "Connected": "Conectado",
   "Eject": "Expulsar",
   "OK to disconnect.": "Ya puedes desconectar.",
+  "Card not ejected.": "Tarjeta no expulsada.",
+  "microSD card removed.": "Tarjeta microSD retirada.",
   "Always": "Siempre",
   "Use as USB Drive": "Usar como unidad USB",
   "Ask": "Preguntar",

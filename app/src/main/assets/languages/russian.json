@@ -521,6 +521,8 @@
   "Connected": "Подключено",
   "Eject": "Извлечь",
   "OK to disconnect.": "Можно отключать.",
+  "Card not ejected.": "Карта не была извлечена.",
+  "microSD card removed.": "Карта microSD вынута.",
   "Always": "Всегда",
   "Use as USB Drive": "Использовать как USB-накопитель",
   "Ask": "Спрашивать",

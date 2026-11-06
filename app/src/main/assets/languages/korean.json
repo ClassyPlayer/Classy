@@ -340,6 +340,8 @@
   "Connected": "연결됨",
   "Eject": "꺼내기",
   "OK to disconnect.": "이제 연결을 해제해도 됩니다.",
+  "Card not ejected.": "카드를 꺼내지 않았습니다.",
+  "microSD card removed.": "microSD 카드가 제거되었습니다.",
   "Always": "항상",
   "Use as USB Drive": "USB 드라이브로 사용",
   "Ask": "묻기",

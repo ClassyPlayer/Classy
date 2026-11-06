@@ -521,6 +521,8 @@
   "Connected": "接続済み",
   "Eject": "取り出し",
   "OK to disconnect.": "取り外しても大丈夫です。",
+  "Card not ejected.": "カードが取り出されていません。",
+  "microSD card removed.": "microSDカードが取り外されました。",
   "Always": "常に",
   "Use as USB Drive": "USBドライブとして使う",
   "Ask": "確認する",
