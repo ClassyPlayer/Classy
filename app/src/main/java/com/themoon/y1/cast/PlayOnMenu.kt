@@ -19,7 +19,8 @@ object PlayOnMenu {
 
     fun open(main: MainActivity, fromNowPlaying: Boolean = false) {
         if (!DateTimeSync.isWifiConnected(main)) {
-            ActionScreens.open(spec(main, CastManager.knownDevices, main.t("The Y2 is not connected to a Wi-Fi network. Main menu → Wi-Fi."), fromNowPlaying))
+            // No speakers of the last search: without Wi-Fi the Y2 cannot connect to them
+            ActionScreens.open(spec(main, emptyList(), main.t("The Y2 is not connected to a Wi-Fi network. Main menu → Wi-Fi."), fromNowPlaying))
             return
         }
         val key = ActionScreens.open(spec(main, CastManager.knownDevices, main.t("Searching for speakers on the Wi-Fi…"), fromNowPlaying))
