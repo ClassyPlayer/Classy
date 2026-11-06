@@ -124,8 +124,8 @@ class AudioPlayerManager private constructor() {
     fun getMasterVolume(): Float = currentMasterVolume
 
     fun applyMasterVolume() {
-        // Play On: a speaker plays the track, the Y2 plays it with no sound
-        val volume = if (com.themoon.y1.cast.CastManager.isActive) 0f else currentMasterVolume
+        // Play On: a speaker plays the track, the Y2 plays it with no sound (not a podcast stream: the Y2 plays it)
+        val volume = if (com.themoon.y1.cast.CastManager.playsCurrentTrack()) 0f else currentMasterVolume
         try {
             exoPlayer?.volume = volume
         } catch (ignored: Throwable) {}
@@ -503,6 +503,7 @@ class AudioPlayerManager private constructor() {
 
             exoPlayer?.setMediaSource(mediaSource)
             exoPlayer?.prepare()
+            applyMasterVolume()
 
             if (offsetMs > 0) {
                 exoPlayer?.seekTo(offsetMs.toLong())

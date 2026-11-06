@@ -40,8 +40,14 @@ class CastSync {
         val now = local.nowMs
         val prev = last
         last = local
-        // Nothing loaded yet: the speaker stays chosen, and the next song plays on it
-        if (local.trackPath == null) return emptyList()
+        // No file (nothing loaded yet, or a podcast stream that the Y2 plays itself): the speaker stays chosen, and
+        // the next song plays on it. A speaker that still plays the last file pauses, so only one sound plays.
+        if (local.trackPath == null) {
+            if (remote?.state != RemoteStatus.State.PLAYING || loadedTrack == null) return emptyList()
+            wantPlaying = false
+            graceUntil = now + COMMAND_GRACE_MS
+            return listOf(Action.RemotePause)
+        }
 
         if (local.trackPath != loadedTrack) return load(local)
 

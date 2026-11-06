@@ -321,6 +321,14 @@ object CastManager {
         }
     }
 
+    /** True when a speaker plays the current track: a file. The Y2 plays a podcast stream itself (no file to serve). */
+    fun playsCurrentTrack(): Boolean {
+        if (!isActive) return false
+        val m = MainActivity.instance ?: return true
+        val file = m.currentPlaylist.getOrNull(m.currentIndex) ?: return true
+        return !file.absolutePath.startsWith("/PODCAST_STREAM")
+    }
+
     private fun snapshot(): CastSync.Local {
         val m = MainActivity.instance
         val apm = AudioPlayerManager.getInstance()

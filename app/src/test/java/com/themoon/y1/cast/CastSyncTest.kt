@@ -32,6 +32,16 @@ class CastSyncTest {
     }
 
     @Test
+    fun streamPausesThePlayingSpeakerOnce() {
+        val s = loaded()
+        now += 1000
+        assertEquals(listOf(Action.RemotePause), s.tick(local(0, track = null), remote(State.PLAYING, 5000)))
+        now += 1000
+        assertEquals(emptyList<Action>(), s.tick(local(1000, track = null), remote(State.PAUSED, 5000)))
+        assertEquals(emptyList<Action>(), CastSync().tick(local(0, track = null), remote(State.PLAYING, 0)))
+    }
+
+    @Test
     fun steadyPlayDoesNothing() {
         val s = loaded()
         now += 1000
