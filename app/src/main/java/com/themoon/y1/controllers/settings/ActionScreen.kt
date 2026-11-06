@@ -111,16 +111,15 @@ object ActionScreens {
             if (!specs.containsKey(key)) return
             specs[key] = spec
         }
-        val main = MainActivity.instance ?: return
-        main.runOnUiThread {
-            val nav = NavigationManager.getInstance()
-            if (nav.currentState == route(key)) nav.activeController?.onRefreshUI()
-        }
+        refresh(key)
     }
 
     /** Shows the new info rows of screen [key] now if it is the screen that shows. */
     fun update(key: Int, info: List<String>) {
-        if (!setInfo(key, info)) return
+        if (setInfo(key, info)) refresh(key)
+    }
+
+    private fun refresh(key: Int) {
         val main = MainActivity.instance ?: return
         main.runOnUiThread {
             val nav = NavigationManager.getInstance()

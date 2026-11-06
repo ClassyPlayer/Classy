@@ -95,10 +95,7 @@ class CastV2Renderer(private val device: CastDevice) : CastRenderer {
     }
 
     override fun volume(): Int? {
-        connect()
-        val before = synchronized(lock) { receiverStatusCount }
-        send(RECEIVER, NS_RECEIVER, JSONObject().put("type", "GET_STATUS"))
-        waitFor(2000) { receiverStatusCount > before }
+        receiverStatus(2000)
         return synchronized(lock) { volumeLevel?.let { Math.round(it * 100).toInt() } }
     }
 
@@ -125,19 +122,13 @@ class CastV2Renderer(private val device: CastDevice) : CastRenderer {
 
     /** After a lost connection: connects again to the receiver app if it still runs (it does not start it). */
     private fun reattach() {
-        connect()
-        val before = synchronized(lock) { receiverStatusCount }
-        send(RECEIVER, NS_RECEIVER, JSONObject().put("type", "GET_STATUS"))
-        waitFor(3000) { receiverStatusCount > before }
+        receiverStatus(3000)
         synchronized(lock) { transportId }?.let { send(it, NS_CONNECTION, JSONObject().put("type", "CONNECT")) }
     }
 
     /** Starts the Default Media Receiver if it does not run, connects to it and returns its transport id. */
     private fun ensureApp(): String {
-        connect()
-        val before = synchronized(lock) { receiverStatusCount }
-        send(RECEIVER, NS_RECEIVER, JSONObject().put("type", "GET_STATUS"))
-        waitFor(3000) { receiverStatusCount > before }
+        receiverStatus(3000)
         if (synchronized(lock) { transportId } == null) {
             send(RECEIVER, NS_RECEIVER, JSONObject().put("type", "LAUNCH").put("appId", APP_ID))
             waitFor(15000) { transportId != null }
@@ -145,6 +136,14 @@ class CastV2Renderer(private val device: CastDevice) : CastRenderer {
         val tid = synchronized(lock) { transportId } ?: throw IOException("LAUNCH: no answer")
         send(tid, NS_CONNECTION, JSONObject().put("type", "CONNECT"))
         return tid
+    }
+
+    /** Connects if necessary, asks for the receiver status and waits for it (at most [timeoutMs]). */
+    private fun receiverStatus(timeoutMs: Long) {
+        connect()
+        val before = synchronized(lock) { receiverStatusCount }
+        send(RECEIVER, NS_RECEIVER, JSONObject().put("type", "GET_STATUS"))
+        waitFor(timeoutMs) { receiverStatusCount > before }
     }
 
     @Synchronized
@@ -262,8 +261,9 @@ class CastV2Renderer(private val device: CastDevice) : CastRenderer {
         }
     }
 
+    /** Accepts each certificate: a Cast device has a self-signed one ([CastCover] also uses it). */
     @SuppressLint("CustomX509TrustManager", "TrustAllX509TrustManager")
-    private object TrustAll : X509TrustManager {
+    internal object TrustAll : X509TrustManager {
         override fun checkClientTrusted(chain: Array<out X509Certificate>?, authType: String?) {}
         override fun checkServerTrusted(chain: Array<out X509Certificate>?, authType: String?) {}
         override fun getAcceptedIssuers(): Array<X509Certificate> = arrayOf()

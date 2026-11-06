@@ -33,22 +33,9 @@ object CastDiscovery {
     private fun searchSsdp(timeoutMs: Int): List<CastDevice> {
         val found = LinkedHashMap<String, Pair<String, String>>() // location -> (location, server)
         try {
-            val socket = DatagramSocket()
-            try {
-                socket.soTimeout = 300
-                val msg = CastProtocol.SSDP_SEARCH.toByteArray()
-                val group = InetAddress.getByName("239.255.255.250")
-                repeat(2) { socket.send(DatagramPacket(msg, msg.size, group, 1900)) }
-                val end = System.currentTimeMillis() + timeoutMs
-                val buf = ByteArray(4096)
-                while (System.currentTimeMillis() < end) {
-                    val p = DatagramPacket(buf, buf.size)
-                    try { socket.receive(p) } catch (_: SocketTimeoutException) { continue }
-                    val r = CastProtocol.parseSsdpResponse(String(p.data, 0, p.length, Charsets.UTF_8)) ?: continue
-                    found[r.first] = r
-                }
-            } finally {
-                socket.close()
+            udpSearch(CastProtocol.SSDP_SEARCH.toByteArray(), "239.255.255.250", 1900, 4096, timeoutMs) { p ->
+                val r = CastProtocol.parseSsdpResponse(String(p.data, 0, p.length, Charsets.UTF_8)) ?: return@udpSearch
+                found[r.first] = r
             }
         } catch (e: Exception) {
             Log.w(TAG, "SSDP: $e")
@@ -66,31 +53,40 @@ object CastDiscovery {
     private fun searchMdns(timeoutMs: Int): List<CastDevice> {
         val found = LinkedHashMap<String, CastDevice>()
         try {
-            val socket = DatagramSocket()
-            try {
-                socket.soTimeout = 300
-                val q = CastProtocol.mdnsQuery()
-                val group = InetAddress.getByName("224.0.0.251")
-                repeat(2) { socket.send(DatagramPacket(q, q.size, group, 5353)) }
-                val end = System.currentTimeMillis() + timeoutMs
-                val buf = ByteArray(9000)
-                while (System.currentTimeMillis() < end) {
-                    val p = DatagramPacket(buf, buf.size)
-                    try { socket.receive(p) } catch (_: SocketTimeoutException) { continue }
-                    val host = p.address.hostAddress ?: continue
-                    for (c in CastProtocol.parseMdnsCast(p.data, p.length)) {
-                        val name = c.friendlyName ?: c.instance.substringBefore('.')
-                        val d = CastDevice(name, CastDevice.Kind.CAST, host, c.port)
-                        found[d.id] = d
-                    }
+            udpSearch(CastProtocol.mdnsQuery(), "224.0.0.251", 5353, 9000, timeoutMs) { p ->
+                val host = p.address.hostAddress ?: return@udpSearch
+                for (c in CastProtocol.parseMdnsCast(p.data, p.length)) {
+                    val name = c.friendlyName ?: c.instance.substringBefore('.')
+                    val d = CastDevice(name, CastDevice.Kind.CAST, host, c.port)
+                    found[d.id] = d
                 }
-            } finally {
-                socket.close()
             }
         } catch (e: Exception) {
             Log.w(TAG, "mDNS: $e")
         }
         return found.values.toList()
+    }
+
+    /**
+     * Sends [message] two times to [group]:[port] from a normal UDP port, then gives each answer to [onAnswer]
+     * for [timeoutMs].
+     */
+    private fun udpSearch(message: ByteArray, group: String, port: Int, bufferSize: Int, timeoutMs: Int, onAnswer: (DatagramPacket) -> Unit) {
+        val socket = DatagramSocket()
+        try {
+            socket.soTimeout = 300
+            val address = InetAddress.getByName(group)
+            repeat(2) { socket.send(DatagramPacket(message, message.size, address, port)) }
+            val end = System.currentTimeMillis() + timeoutMs
+            val buf = ByteArray(bufferSize)
+            while (System.currentTimeMillis() < end) {
+                val p = DatagramPacket(buf, buf.size)
+                try { socket.receive(p) } catch (_: SocketTimeoutException) { continue }
+                onAnswer(p)
+            }
+        } finally {
+            socket.close()
+        }
     }
 
     fun httpGet(url: String): String {

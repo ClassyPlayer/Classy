@@ -228,19 +228,25 @@ object CastProtocol {
     fun parseCastMessage(b: ByteArray): CastMessage {
         val strings = HashMap<Int, String>()
         var i = 0
-        while (i < b.size) {
-            var key = 0L
+        fun readVarint(): Long {
+            var v = 0L
             var shift = 0
-            while (true) { val x = b[i++].toInt() and 0xff; key = key or ((x and 0x7f).toLong() shl shift); shift += 7; if (x < 0x80) break }
+            while (true) {
+                val x = b[i++].toInt() and 0xff
+                v = v or ((x and 0x7f).toLong() shl shift)
+                shift += 7
+                if (x < 0x80) return v
+            }
+        }
+        while (i < b.size) {
+            val key = readVarint()
             val field = (key ushr 3).toInt()
             when ((key and 7).toInt()) {
-                0 -> while (b[i++].toInt() and 0x80 != 0) { /* skip the varint */ }
+                0 -> readVarint()
                 2 -> {
-                    var n = 0L
-                    shift = 0
-                    while (true) { val x = b[i++].toInt() and 0xff; n = n or ((x and 0x7f).toLong() shl shift); shift += 7; if (x < 0x80) break }
-                    strings[field] = String(b, i, n.toInt(), Charsets.UTF_8)
-                    i += n.toInt()
+                    val n = readVarint().toInt()
+                    strings[field] = String(b, i, n, Charsets.UTF_8)
+                    i += n
                 }
                 else -> throw IllegalArgumentException("wire type ${key and 7}")
             }

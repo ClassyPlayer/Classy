@@ -6,12 +6,10 @@ import java.io.RandomAccessFile
 import java.net.HttpURLConnection
 import java.net.URL
 import java.security.SecureRandom
-import java.security.cert.X509Certificate
 import javax.net.ssl.HttpsURLConnection
 import javax.net.ssl.SSLContext
 import javax.net.ssl.SSLSocketFactory
 import javax.net.ssl.TrustManager
-import javax.net.ssl.X509TrustManager
 
 /**
  * HTTPS cover for the Sonos app (it does not load the HTTP cover of the Y2, test 2026-10-29): the Cover Art
@@ -72,12 +70,8 @@ object CastCover {
      */
     private val tls12: SSLSocketFactory? by lazy {
         try {
-            val trustAll = object : X509TrustManager {
-                override fun checkClientTrusted(certs: Array<X509Certificate>, authType: String) {}
-                override fun checkServerTrusted(certs: Array<X509Certificate>, authType: String) {}
-                override fun getAcceptedIssuers(): Array<X509Certificate> = arrayOf()
-            }
-            SSLContext.getInstance("TLS", "Conscrypt").apply { init(null, arrayOf<TrustManager>(trustAll), SecureRandom()) }.socketFactory
+            SSLContext.getInstance("TLS", "Conscrypt")
+                .apply { init(null, arrayOf<TrustManager>(CastV2Renderer.TrustAll), SecureRandom()) }.socketFactory
         } catch (e: Exception) {
             Log.w(TAG, "Conscrypt: $e")
             null

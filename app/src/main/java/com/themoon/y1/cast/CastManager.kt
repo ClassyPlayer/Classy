@@ -269,9 +269,7 @@ object CastManager {
     private fun resumeFailed(d: CastDevice, trigger: String) {
         resuming = false
         setLocks(false)
-        val apm = AudioPlayerManager.getInstance()
-        val playing = apm.isPlaying()
-        if (playing) apm.playOrPauseMusic()
+        val playing = pauseLocal()
         log("resume-failed", JSONObject().put("device", d.id).put("trigger", trigger))
         if (playing || trigger != "screen") notice("${d.name}: ${localize("cannot connect")}", error = true)
     }
@@ -370,7 +368,7 @@ object CastManager {
                     CastSync.Action.RemotePause -> r.pause()
                     is CastSync.Action.RemoteSeek -> r.seek(a.ms)
                     is CastSync.Action.LocalSeekBy -> onMain(s) { AudioPlayerManager.getInstance().seekRelative(a.deltaMs.toInt(), savePosition = false) }
-                    CastSync.Action.LocalPause -> onMain(s) { if (AudioPlayerManager.getInstance().isPlaying()) AudioPlayerManager.getInstance().playOrPauseMusic() }
+                    CastSync.Action.LocalPause -> onMain(s) { pauseLocal() }
                     CastSync.Action.LocalPlay -> onMain(s) { if (!AudioPlayerManager.getInstance().isPlaying()) AudioPlayerManager.getInstance().playOrPauseMusic() }
                     is CastSync.Action.End -> onMain(s) { endFromSpeaker(a.reason) }
                 }
@@ -408,9 +406,7 @@ object CastManager {
      */
     private fun endFromSpeaker(reason: String) {
         if (!isActive) return
-        val apm = AudioPlayerManager.getInstance()
-        val playing = apm.isPlaying()
-        if (playing) apm.playOrPauseMusic()
+        val playing = pauseLocal()
         if (reason == CastSync.LOST_CONNECTION) {
             val d = device
             suspendLink(reason)
@@ -421,6 +417,14 @@ object CastManager {
     }
 
     // --- helpers ---
+
+    /** Pauses the Y2 player if it plays (main thread). True if it played. */
+    private fun pauseLocal(): Boolean {
+        val apm = AudioPlayerManager.getInstance()
+        if (!apm.isPlaying()) return false
+        apm.playOrPauseMusic()
+        return true
+    }
 
     private fun onMain(s: Int, block: () -> Unit) {
         main.post { if (s == session) block() }
