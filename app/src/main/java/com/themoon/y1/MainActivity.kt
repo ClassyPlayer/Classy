@@ -195,6 +195,8 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     /** True from onResume to onStop: no other app or activity covers the screen. */
     private var isActivityVisible: Boolean = false
 
+    private val systemNotifications by lazy { com.themoon.y1.managers.SystemNotifications.create(this) }
+
     /** The user can see this activity: it is not behind another one, and the screen is not off or blanked. */
     val isOnScreen: Boolean
         get() = isActivityVisible && !isScreenSleeping
@@ -487,6 +489,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
         super.onResume()
         isActivityVisible = true
         isScreenSleeping = false
+        systemNotifications.hide()
         powerBacklightManager?.resetTimer()
         updateScreenOffFeedback(true)
         updateStatusBarClock()
@@ -495,6 +498,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
 
     override fun onPause() {
         super.onPause()
+        systemNotifications.show()
         AudioPlayerManager.getInstance().savePlaybackState(sync = false)
     }
 
