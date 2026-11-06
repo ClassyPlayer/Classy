@@ -32,6 +32,9 @@ import java.util.TreeMap
 import java.util.concurrent.Executors
 import java.util.regex.Pattern
 
+/** Line ends of a lyrics file: CRLF, LF and CR only (as readLine). */
+private val LINE_END = Regex("\r\n|\r|\n")
+
 /**
  * Controller and parser for synchronized LRC, embedded USLT ID3, and M4B chapter lyrics.
  * Manages the overlay ScrollView and synchronized highlight updates.
@@ -188,9 +191,10 @@ class LyricsOverlayController(
         try {
             val pattern = Pattern.compile("\\[(\\d{2}):(\\d{2})\\.(\\d{2,3})\\](.*)")
             val plain = ArrayList<String>()
-            // split, not readLine: a blank last line ("yī\n" for two lines) stays a line for the pairing
-            for (raw in file.readText(Charsets.UTF_8).split("\n")) {
-                val l = raw.removeSuffix("\r").removePrefix("\uFEFF")
+            // split, not readLine: a blank last line ("yī\n" for two lines) stays a line for the pairing.
+            // CRLF, LF and CR-only line ends, as readLine.
+            for (raw in file.readText(Charsets.UTF_8).split(LINE_END)) {
+                val l = raw.removePrefix("\uFEFF")
                 val m = pattern.matcher(l)
                 if (m.find()) {
                     val msStr = m.group(3) ?: "0"
