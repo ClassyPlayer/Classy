@@ -29,6 +29,8 @@ MOUNT_SYS=""
 MOUNT_USER=""
 
 LAUNCHER_REPO="${LAUNCHER_REPO:-ClassyPlayer/Classy}"
+# The ABI of the launcher's native libraries (app/build.gradle abiFilters); they go to /system/lib.
+LAUNCHER_LIB_ABI_DIR="lib/armeabi-v7a"
 
 # Published Y2 base (Solar-built pack for stripping + Classy install).
 Y2_BASE_URL="${Y2_BASE_URL:-https://github.com/ryan-specter/jj_auto/releases/download/y2-test/rom_y2.zip}"
@@ -307,6 +309,23 @@ audit_rom_contents() {
     if [ ! -f "$sys_mount/app/com.themoon.y1.apk" ]; then
         echo "audit fail: com.themoon.y1.apk missing from /system/app" >&2
         errors=$((errors + 1))
+    else
+        # Each native library of the APK must be in /system/lib (Android does not unpack them for /system/app)
+        local so_entry="" so_name=""
+        while IFS= read -r so_entry; do
+            so_name="$(basename "$so_entry")"
+            if [ ! -f "$sys_mount/lib/$so_name" ]; then
+                echo "audit fail: /system/lib/$so_name (native library of com.themoon.y1.apk) missing" >&2
+                errors=$((errors + 1))
+            elif ! unzip -p "$sys_mount/app/com.themoon.y1.apk" "$so_entry" | cmp -s - "$sys_mount/lib/$so_name"; then
+                echo "audit fail: /system/lib/$so_name is not the one in com.themoon.y1.apk" >&2
+                errors=$((errors + 1))
+            fi
+        done < <(unzip -Z1 "$sys_mount/app/com.themoon.y1.apk" "$LAUNCHER_LIB_ABI_DIR/*.so" 2>/dev/null || true)
+        if [ -z "$(unzip -Z1 "$sys_mount/app/com.themoon.y1.apk" "$LAUNCHER_LIB_ABI_DIR/libvlcjni.so" 2>/dev/null || true)" ]; then
+            echo "audit fail: com.themoon.y1.apk has no $LAUNCHER_LIB_ABI_DIR/libvlcjni.so" >&2
+            errors=$((errors + 1))
+        fi
     fi
 
     if [ -f "$sys_mount/etc/init.d/99Y1ButtonScript" ] || [ -f "$sys_mount/etc/init.d/99Y1LauncherInit.sh" ]; then
@@ -620,6 +639,21 @@ sudo mkdir -p "$MOUNT_SYS/app" "$MOUNT_SYS/usr/keylayout"
 sudo cp "$LAUNCHER_APK" "$MOUNT_SYS/app/com.themoon.y1.apk"
 sudo chmod 644 "$MOUNT_SYS/app/com.themoon.y1.apk"
 sudo chown root:root "$MOUNT_SYS/app/com.themoon.y1.apk"
+
+# Android 4.2/4.4 unpack the native libraries of an APK only for user apps and updated system apps, not for
+# an APK in /system/app: those must be in /system/lib. Without them, LibVLC calls System.exit(1) when a video
+# opens (the app restarts at the main menu), and the ExoPlayer FLAC/Opus/FFmpeg extensions are not available.
+echo "==> Installing the launcher's native libraries in /system/lib"
+LAUNCHER_LIB_DIR="$WORK_DIR/launcher-lib"
+mkdir -p "$LAUNCHER_LIB_DIR"
+unzip -q -j -o "$LAUNCHER_APK" "$LAUNCHER_LIB_ABI_DIR/*.so" -d "$LAUNCHER_LIB_DIR" \
+    || die "no $LAUNCHER_LIB_ABI_DIR native libraries in the launcher APK"
+sudo mkdir -p "$MOUNT_SYS/lib"
+for so in "$LAUNCHER_LIB_DIR"/*.so; do
+    sudo cp -f "$so" "$MOUNT_SYS/lib/"
+    sudo chmod 644 "$MOUNT_SYS/lib/$(basename "$so")"
+    sudo chown root:root "$MOUNT_SYS/lib/$(basename "$so")"
+done
 
 echo "==> Patching userdata partition"
 sudo rm -rf "$MOUNT_USER/org.rockbox"
