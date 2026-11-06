@@ -23,6 +23,9 @@ import com.themoon.y1.navigation.NavigationManager
 import com.themoon.y1.views.Notice
 import com.themoon.y1.views.TablerIcons
 
+/** Longest wait for the card on the Y2 after the share (MountService mounts it again after the card check). */
+private const val CARD_BACK_MS = 20_000L
+
 class UsbStorageUiManager(
     private val activity: Activity,
     private val getExternalSdMountMonitor: () -> ExternalSdMountMonitor?,
@@ -34,6 +37,8 @@ class UsbStorageUiManager(
 ) {
     var usbStorageOverlay: View? = null
         private set
+    /** The line under the title of the share screen: "Ejecting…" while the share ends. */
+    private var shareLine: TextView? = null
     /** The selected row under the USB Drive screen: it is selected again after Eject. */
     private var focusBeforeOverlay: View? = null
     var usbStorageBusy: Boolean = false
@@ -168,26 +173,46 @@ class UsbStorageUiManager(
     fun stopUsbStorage(end: UsbDrive.End = UsbDrive.End.EJECT) {
         if (usbStorageBusy) return
         usbStorageBusy = true
+        shareLine?.text = localize("Ejecting…")
         Thread({
             val stillOn = UsbMassStorageController.setEnabled(false)
             if (!stillOn) {
                 UsbMassStorageController.restoreUsbFunction(activity)
             }
             activity.runOnUiThread {
-                usbStorageBusy = false
                 if (stillOn) {
+                    usbStorageBusy = false
+                    shareLine?.text = localize("Eject on the computer first.")
                     Notice.error(activity, localize("Couldn't eject USB storage."))
                     return@runOnUiThread
                 }
-                onShareEnded(end)
+                // The computer has no card now: close the share screen at once
+                onShareEnded(end, reload = false)
+            }
+            if (stillOn) return@Thread
+            // The Y2 mounts the card again a few seconds later (after the card check): then load the track again.
+            // Until then no new share starts (busy).
+            val deadline = android.os.SystemClock.uptimeMillis() + CARD_BACK_MS
+            while (ExternalSdMountMonitor.hasSecondarySlot() && !ExternalSdMountMonitor.isSecondaryReady() &&
+                android.os.SystemClock.uptimeMillis() < deadline
+            ) {
+                try {
+                    Thread.sleep(250)
+                } catch (_: InterruptedException) {
+                    break
+                }
+            }
+            activity.runOnUiThread {
+                usbStorageBusy = false
+                reloadAfterShare(resume = UsbDrive.resumesMusic(end))
             }
         }, "y1-ums-off").start()
     }
 
-    /** The card is back (or gone): close the share screen and say how the share ended. */
-    private fun onShareEnded(end: UsbDrive.End) {
+    /** The card is back (or gone): close the share screen and say how the share ended. [reload]: load the track again now. */
+    private fun onShareEnded(end: UsbDrive.End, reload: Boolean = true) {
         hideUsbStorageOverlay()
-        reloadAfterShare(resume = UsbDrive.resumesMusic(end))
+        if (reload) reloadAfterShare(resume = UsbDrive.resumesMusic(end))
         when (end) {
             UsbDrive.End.EJECT -> Notice.show(activity, localize("OK to disconnect."))
             UsbDrive.End.CABLE_OUT -> Notice.error(activity, localize("Card not ejected."))
@@ -267,7 +292,7 @@ class UsbStorageUiManager(
         content.addView(tvTitle)
 
         val tvSubtitle = TextView(activity).apply {
-            text = localize("Eject on the computer first.")
+            text = localize(if (usbStorageBusy) "Ejecting…" else "Eject on the computer first.")
             setTextColor(ThemeManager.getTextColorSecondary())
             textSize = 14f
             typeface = ThemeManager.getCustomFont()
@@ -275,6 +300,7 @@ class UsbStorageUiManager(
             setPadding(0, 0, 0, (24 * d).toInt())
         }
         content.addView(tvSubtitle)
+        shareLine = tvSubtitle
 
         val btnEject = createListButtonWithIcon("", localize("Eject")).apply {
             layoutParams = LinearLayout.LayoutParams(
@@ -313,6 +339,7 @@ class UsbStorageUiManager(
             val root = activity.findViewById<ViewGroup>(android.R.id.content)
             root?.removeView(usbStorageOverlay)
             usbStorageOverlay = null
+            shareLine = null
             cardRemovedReceiver?.let { try { activity.unregisterReceiver(it) } catch (_: Exception) {} }
             cardRemovedReceiver = null
             // Without this, Android selects another row of the screen under it

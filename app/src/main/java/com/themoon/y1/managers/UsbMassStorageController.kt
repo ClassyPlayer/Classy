@@ -130,7 +130,10 @@ object UsbMassStorageController {
      */
 
     fun setEnabled(enable: Boolean): Boolean {
-        call("service call mount 4 i32 " + (if (enable) 1 else 0))
+        // MountService answers setUsbMassStorageEnabled(false) only after it has mounted the card again on the Y2
+        // (with the card check, ~5 s after the share ends), and the su call times out before that (8 s). The share
+        // state changes much earlier: send the call on its own thread and watch the state.
+        Thread({ call("service call mount 4 i32 " + (if (enable) 1 else 0)) }, "y1-ums-call").start()
         for (i in 0 until 75) {
             val now = isEnabled()
             if (now == enable) return now
