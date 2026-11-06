@@ -718,5 +718,9 @@
   "Backlight": "バックライト",
   "Clock": "時計",
   "Reset Settings": "設定をリセット",
-  "No Episodes": "エピソードがありません"
+  "No Episodes": "エピソードがありません",
+  "Lyrics": "歌詞",
+  "Original": "原文",
+  "Romanised": "ローマ字",
+  "Original + Romanised": "原文 + ローマ字"
 }

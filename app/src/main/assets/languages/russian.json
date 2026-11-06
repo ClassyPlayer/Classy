@@ -718,5 +718,9 @@
   "Backlight": "Подсветка",
   "Clock": "Часы",
   "Reset Settings": "Сбросить настройки",
-  "No Episodes": "Нет эпизодов"
+  "No Episodes": "Нет эпизодов",
+  "Lyrics": "Текст песни",
+  "Original": "Оригинал",
+  "Romanised": "Латиница",
+  "Original + Romanised": "Оригинал + латиница"
 }

@@ -718,5 +718,9 @@
   "Backlight": "Backlight",
   "Clock": "Clock",
   "Reset Settings": "Reset Settings",
-  "No Episodes": "No Episodes"
+  "No Episodes": "No Episodes",
+  "Lyrics": "Lyrics",
+  "Original": "Original",
+  "Romanised": "Romanised",
+  "Original + Romanised": "Original + Romanised"
 }

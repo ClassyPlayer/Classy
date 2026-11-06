@@ -718,5 +718,9 @@
   "Backlight": "화면 조명",
   "Clock": "시계",
   "Reset Settings": "설정 초기화",
-  "No Episodes": "에피소드 없음"
+  "No Episodes": "에피소드 없음",
+  "Lyrics": "가사",
+  "Original": "원문",
+  "Romanised": "로마자",
+  "Original + Romanised": "원문 + 로마자"
 }

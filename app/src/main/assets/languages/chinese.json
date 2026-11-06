@@ -718,5 +718,9 @@
   "Backlight": "背光",
   "Clock": "时钟",
   "Reset Settings": "重置设置",
-  "No Episodes": "暂无单集"
+  "No Episodes": "暂无单集",
+  "Lyrics": "歌词",
+  "Original": "原文",
+  "Romanised": "罗马化",
+  "Original + Romanised": "原文 + 罗马化"
 }

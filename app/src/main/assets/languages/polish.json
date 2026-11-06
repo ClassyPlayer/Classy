@@ -718,5 +718,9 @@
   "Backlight": "Podświetlenie",
   "Clock": "Zegar",
   "Reset Settings": "Zresetuj ustawienia",
-  "No Episodes": "Brak odcinków"
+  "No Episodes": "Brak odcinków",
+  "Lyrics": "Tekst",
+  "Original": "Oryginał",
+  "Romanised": "Latynizacja",
+  "Original + Romanised": "Oryginał + latynizacja"
 }

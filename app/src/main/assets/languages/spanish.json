@@ -718,5 +718,9 @@
   "Backlight": "Retroiluminación",
   "Clock": "Reloj",
   "Reset Settings": "Restablecer ajustes",
-  "No Episodes": "No hay episodios"
+  "No Episodes": "No hay episodios",
+  "Lyrics": "Letra",
+  "Original": "Original",
+  "Romanised": "Romanizada",
+  "Original + Romanised": "Original + romanizada"
 }
