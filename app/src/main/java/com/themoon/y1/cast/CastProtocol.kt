@@ -284,7 +284,7 @@ object CastProtocol {
 
     fun mimeType(fileName: String): String = when (fileName.substringAfterLast('.', "").lowercase(Locale.US)) {
         "mp3" -> "audio/mpeg"
-        "m4a", "aac", "mp4" -> "audio/mp4"
+        "m4a", "m4b", "aac", "mp4" -> "audio/mp4"
         "flac" -> "audio/flac"
         "ogg", "oga" -> "audio/ogg"
         "opus" -> "audio/ogg"
