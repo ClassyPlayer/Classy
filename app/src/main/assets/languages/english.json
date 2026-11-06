@@ -114,7 +114,7 @@
   "Menu order saved!": "Menu order saved!",
   "Loading Cover Flow...\nPlease wait.": "Loading Cover Flow...\nPlease wait.",
   "Server": "Server",
-  "Scanning Media: %d%%\n(%d / %d)\nDo not turn off the screen.": "Scanning Media: %d%%\n(%d / %d)\nDo not turn off the screen.",
+  "Scanning Media: %d%%\n(%d / %d)": "Scanning Media: %d%%\n(%d / %d)",
   "Added to Favorites.": "Added to Favorites.",
   "Playlist ": "Playlist ",
   "Create New Playlist": "Create New Playlist",

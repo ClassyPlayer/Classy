@@ -60,7 +60,7 @@
   "Unknown Book": "未知书籍",
   "Loading Cover Flow...\nPlease wait.": "正在加载 Cover Flow...\n请稍候。",
   "Server": "服务器",
-  "Scanning Media: %d%%\n(%d / %d)\nDo not turn off the screen.": "正在扫描媒体: %d%%\n(%d / %d)\n请勿关闭屏幕。",
+  "Scanning Media: %d%%\n(%d / %d)": "正在扫描媒体: %d%%\n(%d / %d)",
   "Added to Favorites.": "已添加到收藏夹。",
   "Playlist ": "播放列表 ",
   "Create New Playlist": "创建新播放列表",
