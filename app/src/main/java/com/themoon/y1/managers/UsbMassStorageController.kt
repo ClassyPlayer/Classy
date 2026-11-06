@@ -1,5 +1,6 @@
 package com.themoon.y1.managers
 
+import android.content.Context
 import android.util.Log
 import java.util.regex.Pattern
 
@@ -14,6 +15,42 @@ object UsbMassStorageController {
     /** USB functions to put back after eject, or null when this app did not switch them. */
     @Volatile
     private var functionsBeforeUms: String? = null
+
+    /** A storage volume as MountService reports it (hidden StorageVolume and StorageManager API). */
+    data class Volume(val path: String, val allowMassStorage: Boolean, val emulated: Boolean, val state: String?)
+
+    /**
+     * True when MountService can share a volume: one that allows mass storage and is mounted (or already shared).
+     * The Y2's internal storage is emulated and never allows it, so only an inserted microSD card can be shared.
+     */
+    fun canShare(volumes: List<Volume>): Boolean = volumes.any {
+        it.allowMassStorage && !it.emulated && (it.state == "mounted" || it.state == "shared")
+    }
+
+    /**
+     * Whether a volume can be shared now, or null when the hidden API is not available.
+     * Without such a volume, setUsbMassStorageEnabled(true) does nothing and [setEnabled] waits for its full timeout.
+     */
+    fun hasShareableVolume(context: Context): Boolean? {
+        return try {
+            val sm = context.getSystemService(Context.STORAGE_SERVICE) ?: return null
+            val volumes = sm.javaClass.getMethod("getVolumeList").invoke(sm) as? Array<*> ?: return null
+            val getState = sm.javaClass.getMethod("getVolumeState", String::class.java)
+            canShare(volumes.filterNotNull().map { v ->
+                val c = v.javaClass
+                val path = c.getMethod("getPath").invoke(v) as String
+                Volume(
+                    path,
+                    c.getMethod("allowMassStorage").invoke(v) as Boolean,
+                    c.getMethod("isEmulated").invoke(v) as Boolean,
+                    getState.invoke(sm, path) as String?
+                )
+            })
+        } catch (e: Exception) {
+            Log.w(TAG, "volume list not available", e)
+            null
+        }
+    }
 
     fun isConnected(): Boolean {
         return parseBool(call("service call mount 3"))

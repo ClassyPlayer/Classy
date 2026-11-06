@@ -97,6 +97,11 @@ class UsbStorageUiManager(
             Notice.error(activity, localize("Wait for the library scan to finish, then try again."))
             return
         }
+        if (UsbMassStorageController.hasShareableVolume(activity) == false) {
+            // Nothing to share (no card): do not switch the USB function, so the computer keeps MTP.
+            Notice.error(activity, localize("Insert a microSD card to connect as USB storage."))
+            return
+        }
         usbStorageBusy = true
         pauseAllPlaybackForUsb()
         getExternalSdMountMonitor()?.setSuspended(true)
