@@ -43,8 +43,7 @@ class CastV2Renderer(private val device: CastDevice) : CastRenderer {
         val metadata = JSONObject().put("metadataType", 3).put("title", media.title)
         if (media.artist.isNotEmpty()) metadata.put("artist", media.artist)
         if (media.album.isNotEmpty()) metadata.put("albumName", media.album)
-        val cover = media.coverUrl ?: media.httpsCoverUrl
-        if (cover != null) metadata.put("images", JSONArray().put(JSONObject().put("url", cover)))
+        media.coverUrl?.let { metadata.put("images", JSONArray().put(JSONObject().put("url", it))) }
         val m = JSONObject().put("contentId", media.url).put("contentType", media.mimeType)
             .put("streamType", "BUFFERED").put("metadata", metadata)
         if (media.durationMs > 0) m.put("duration", media.durationMs / 1000.0)

@@ -1,7 +1,6 @@
 package com.themoon.y1.cast
 
 import android.content.Context
-import android.media.MediaMetadataRetriever
 import android.net.wifi.WifiManager
 import android.os.Handler
 import android.os.HandlerThread
@@ -358,18 +357,9 @@ object CastManager {
     }
 
     /** The embedded picture of the file, else the image of its folder (cast thread). */
-    private fun coverBytes(file: File): ByteArray? {
-        try {
-            val mmr = MediaMetadataRetriever()
-            try {
-                mmr.setDataSource(file.absolutePath)
-                mmr.embeddedPicture?.let { return it }
-            } finally {
-                mmr.release()
-            }
-        } catch (_: Exception) {}
-        return try { MediaLibraryManager.getInstance().findFolderCover(file.parentFile)?.readBytes() } catch (_: Exception) { null }
-    }
+    private fun coverBytes(file: File): ByteArray? =
+        AudioPlayerManager.getInstance().readTrackTags(file, includeArt = true).art
+            ?: try { MediaLibraryManager.getInstance().findFolderCover(file.parentFile)?.readBytes() } catch (_: Exception) { null }
 
     /** Cast thread: status of the speaker, then the actions of [CastSync]. */
     private fun work(s: Int, local: CastSync.Local, info: TrackInfo?) {
@@ -410,21 +400,20 @@ object CastManager {
         val srv = ensureServer()
         val host = localAddressFor(device?.host ?: return) ?: throw java.io.IOException("no Wi-Fi address")
         val base = "http://$host:${srv.port}"
-        // The Sonos app shows only HTTPS covers: no HTTP cover for a Sonos
-        val cover = if (device?.kind == CastDevice.Kind.SONOS) null else coverBytes(info.file)?.let { b ->
+        // The Sonos app shows only HTTPS covers: a Sonos gets the Cover Art Archive image, the others the cover of the Y2
+        val cover = if (device?.kind == CastDevice.Kind.SONOS) CastCover.httpsCoverUrl(info.file) else coverBytes(info.file)?.let { b ->
             val png = b.size > 4 && b[0] == 0x89.toByte() && b[1] == 'P'.code.toByte()
             base + srv.registerBytes(b, if (png) "image/png" else "image/jpeg", if (png) "png" else "jpg")
         }
-        val https = if (device?.kind == CastDevice.Kind.SONOS) CastCover.httpsCoverUrl(info.file) else null
         val media = CastMedia(
             url = base + srv.register(info.file), mimeType = CastProtocol.mimeType(info.file.name),
             title = info.title, artist = info.artist, album = info.album,
-            durationMs = local.durationMs, sizeBytes = info.file.length(), coverUrl = cover, httpsCoverUrl = https
+            durationMs = local.durationMs, sizeBytes = info.file.length(), coverUrl = cover
         )
         sync.expectedUrl = media.url
         r.load(media, a.startMs, a.play)
         log("load", JSONObject().put("title", info.title).put("startMs", a.startMs).put("play", a.play)
-            .put("cover", cover != null).put("httpsCover", https != null))
+            .put("cover", cover != null))
     }
 
     /**

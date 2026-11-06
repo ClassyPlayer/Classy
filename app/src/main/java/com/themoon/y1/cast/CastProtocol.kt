@@ -64,7 +64,7 @@ object CastProtocol {
             "xmlns:u=\"urn:schemas-upnp-org:service:$service:1\"><InstanceID>0</InstanceID>$args</u:$action></s:Body></s:Envelope>"
 
     /** DIDL-Lite track info. The Sonos app shows title, artist and album; its cover must be an HTTPS URL. */
-    fun didl(media: CastMedia, coverUrl: String?): String {
+    fun didl(media: CastMedia): String {
         val sb = StringBuilder()
         sb.append("<DIDL-Lite xmlns:dc=\"http://purl.org/dc/elements/1.1/\" ")
             .append("xmlns:upnp=\"urn:schemas-upnp-org:metadata-1-0/upnp/\" ")
@@ -77,7 +77,7 @@ object CastProtocol {
                 .append("<upnp:artist>").append(escapeXml(media.artist)).append("</upnp:artist>")
         }
         if (media.album.isNotEmpty()) sb.append("<upnp:album>").append(escapeXml(media.album)).append("</upnp:album>")
-        if (coverUrl != null) sb.append("<upnp:albumArtURI>").append(escapeXml(coverUrl)).append("</upnp:albumArtURI>")
+        media.coverUrl?.let { sb.append("<upnp:albumArtURI>").append(escapeXml(it)).append("</upnp:albumArtURI>") }
         sb.append("<upnp:class>object.item.audioItem.musicTrack</upnp:class>")
             .append("<res protocolInfo=\"http-get:*:").append(media.mimeType).append(":*\"")
         if (media.durationMs > 0) sb.append(" duration=\"").append(formatTime(media.durationMs, millis = true)).append('"')

@@ -29,9 +29,8 @@ data class CastMedia(
     val album: String,
     val durationMs: Long,
     val sizeBytes: Long,
-    /** Cover URL. Sonos shows only HTTPS covers in its app; Cast also loads the HTTP cover of the Y2. */
-    val coverUrl: String?,
-    val httpsCoverUrl: String?
+    /** Cover URL: for a Sonos an HTTPS URL (its app shows no other), for the other speakers a URL of the Y2. */
+    val coverUrl: String?
 )
 
 /** What the speaker reports. */

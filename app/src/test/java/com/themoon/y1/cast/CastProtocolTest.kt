@@ -63,8 +63,8 @@ class CastProtocolTest {
     @Test
     fun didlEscapesAndHasDuration() {
         val m = CastMedia("http://192.168.1.50:4000/m/abc.mp3", "audio/mpeg", "Rock & Roll <Live>", "AC/DC", "", 322022L,
-            13205478L, null, "https://example.org/c.jpg")
-        val didl = CastProtocol.didl(m, m.httpsCoverUrl)
+            13205478L, "https://example.org/c.jpg")
+        val didl = CastProtocol.didl(m)
         assertTrue(didl.contains("<dc:title>Rock &amp; Roll &lt;Live&gt;</dc:title>"))
         assertTrue(didl.contains("<upnp:artist>AC/DC</upnp:artist>"))
         assertTrue(!didl.contains("<upnp:album>"))

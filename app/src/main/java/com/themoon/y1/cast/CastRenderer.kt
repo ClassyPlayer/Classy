@@ -32,9 +32,7 @@ class UpnpRenderer(private val device: CastDevice) : CastRenderer {
     private val isSonos = device.kind == CastDevice.Kind.SONOS && device.rinconId != null
 
     override fun load(media: CastMedia, startMs: Long, play: Boolean) {
-        // The Sonos app shows only HTTPS covers; other players get the cover of the Y2
-        val cover = if (device.kind == CastDevice.Kind.SONOS) media.httpsCoverUrl else media.coverUrl ?: media.httpsCoverUrl
-        val meta = CastProtocol.escapeXml(CastProtocol.didl(media, cover))
+        val meta = CastProtocol.escapeXml(CastProtocol.didl(media))
         val uri = CastProtocol.escapeXml(media.url)
         if (isSonos) {
             av("RemoveAllTracksFromQueue", "")
