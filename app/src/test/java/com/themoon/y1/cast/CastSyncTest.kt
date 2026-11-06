@@ -68,6 +68,36 @@ class CastSyncTest {
         assertEquals(listOf(Action.RemoteSeek(240_000)), s.tick(local(240_000), remote(State.PLAYING, 7_000)))
     }
 
+    /** A sync that plays a.mp3 (300 s) at 297 s, 3 s before the end. */
+    private fun nearTheEnd(): CastSync {
+        val s = loaded(291_000)
+        now += 1000
+        assertEquals(emptyList<Action>(), s.tick(local(297_000), remote(State.PLAYING, 297_000)))
+        now += 1000
+        return s
+    }
+
+    @Test
+    fun repeatOneOnAFinishedCastReceiverLoadsAgain() {
+        val s = nearTheEnd()
+        assertEquals(listOf(Action.Load(500, true)), s.tick(local(500), remote(State.FINISHED, 0)))
+    }
+
+    @Test
+    fun repeatOneOnAStoppedUpnpSpeakerLoadsAgain() {
+        val s = nearTheEnd()
+        assertEquals(listOf(Action.Load(500, true)), s.tick(local(500), remote(State.STOPPED, 0)))
+        // The load grace: no "stopped on the speaker" while the speaker loads
+        now += 1000
+        assertEquals(emptyList<Action>(), s.tick(local(1_500), remote(State.STOPPED, 0)))
+    }
+
+    @Test
+    fun seekBackFromNearTheEndIsASeek() {
+        val s = nearTheEnd()
+        assertEquals(listOf(Action.RemoteSeek(100_000)), s.tick(local(100_000), remote(State.PLAYING, 298_000)))
+    }
+
     @Test
     fun driftMovesTheY2ToTheSpeakerAndIsNotTakenForASeek() {
         val s = loaded()

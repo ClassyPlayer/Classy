@@ -43,18 +43,15 @@ class CastSync {
         // Nothing loaded yet: the speaker stays chosen, and the next song plays on it
         if (local.trackPath == null) return emptyList()
 
-        if (local.trackPath != loadedTrack) {
-            loadedTrack = local.trackPath
-            wantPlaying = local.playing
-            graceUntil = now + LOAD_GRACE_MS
-            startSeekMs = if (local.positionMs > 1000) local.positionMs else null
-            failures = 0
-            return listOf(Action.Load(local.positionMs, local.playing))
-        }
+        if (local.trackPath != loadedTrack) return load(local)
 
         if (prev != null) {
             val expected = prev.positionMs + if (prev.playing) now - prev.nowMs else 0L
             if (abs(local.positionMs - expected) > SEEK_DETECT_MS) {
+                // From the end to the start of the same track (Repeat One): the speaker stopped or finished, and a seek
+                // does not start it again
+                val restart = prev.durationMs > 0 && prev.durationMs - prev.positionMs < END_MS && local.positionMs < START_MS
+                if (restart) return load(local)
                 graceUntil = now + COMMAND_GRACE_MS
                 return listOf(Action.RemoteSeek(local.positionMs))
             }
@@ -109,6 +106,15 @@ class CastSync {
             else -> {}
         }
         return emptyList()
+    }
+
+    private fun load(local: Local): List<Action> {
+        loadedTrack = local.trackPath
+        wantPlaying = local.playing
+        graceUntil = local.nowMs + LOAD_GRACE_MS
+        startSeekMs = if (local.positionMs > 1000) local.positionMs else null
+        failures = 0
+        return listOf(Action.Load(local.positionMs, local.playing))
     }
 
     companion object {
