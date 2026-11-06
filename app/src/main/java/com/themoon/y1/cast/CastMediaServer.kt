@@ -22,6 +22,8 @@ class CastMediaServer {
     private var server: ServerSocket? = null
     /** The threads that send the files; [stop] ends them. */
     private var pool: ExecutorService? = null
+    /** The open connections; [stop] closes them. */
+    private val clients = HashSet<Socket>()
     private val entries = object : LinkedHashMap<String, Entry>() {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Entry>?) = size > 8
     }
@@ -40,7 +42,13 @@ class CastMediaServer {
         Thread({
             while (!s.isClosed) {
                 val client = try { s.accept() } catch (_: Exception) { break }
-                try { p.execute { serve(client) } } catch (_: Exception) { closeQuietly(client) }
+                synchronized(clients) { clients.add(client) }
+                try {
+                    p.execute { serve(client) }
+                } catch (_: Exception) {
+                    synchronized(clients) { clients.remove(client) }
+                    closeQuietly(client)
+                }
             }
         }, "CastMediaServer").start()
         Log.i(TAG, "listening on port ${s.localPort}")
@@ -50,9 +58,10 @@ class CastMediaServer {
     fun stop() {
         try { server?.close() } catch (_: Exception) {}
         server = null
-        // A transfer that runs ends when the speaker closes its connection or after the socket timeout
         pool?.shutdown()
         pool = null
+        // A write to a speaker that does not read has no timeout: close the connections, then the transfers end
+        synchronized(clients) { clients.forEach { closeQuietly(it) }; clients.clear() }
         synchronized(entries) { entries.clear() }
     }
 
@@ -107,6 +116,7 @@ class CastMediaServer {
         } catch (_: Exception) {
             // The speaker closes its probe connections early: normal
         } finally {
+            synchronized(clients) { clients.remove(socket) }
             closeQuietly(socket)
         }
     }
