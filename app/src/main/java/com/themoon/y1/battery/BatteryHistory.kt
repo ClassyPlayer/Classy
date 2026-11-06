@@ -87,8 +87,12 @@ object BatteryHistory {
             addAction(Intent.ACTION_SHUTDOWN)
             addAction("android.intent.action.QUICKBOOT_POWEROFF")
         }
-        // ACTION_BATTERY_CHANGED is sticky: the receiver gets the level now at once
-        app.registerReceiver(receiver, filter)
+        // ACTION_BATTERY_CHANGED is sticky: registerReceiver gives it back at once. Set the charger state from it now:
+        // the receiver gets it later, and a BatteryGuard level change before that wrote "not plugged" on the charger.
+        app.registerReceiver(receiver, filter)?.let { sticky ->
+            plugged = sticky.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0) > 0
+            BatteryGuard.percent(sticky).takeIf { it >= 0 }?.let { level = it }
+        }
         // A new level of the voltage model can come without a battery broadcast
         BatteryGuard.addListener(object : BatteryGuard.Listener {
             override fun onLevelChanged() {
