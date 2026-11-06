@@ -1,5 +1,6 @@
 package com.themoon.y1.migrations
 
+import com.themoon.y1.Prefs
 import com.themoon.y1.controllers.menu.MenuOrder
 
 /**
@@ -20,8 +21,9 @@ class Migration008PlayOnMenuItem : Migration {
     @Throws(Exception::class)
     override fun migrate(context: MigrationContext) {
         val prefs = context.settingsPrefs ?: return
-        // An order still in the old keys (one for each theme) becomes the one order here
-        val order = prefs.getString(MenuOrder.KEY, null) ?: MenuOrder.fromThemeOrders(prefs.all, "") ?: return
+        // An order still in the old keys (one for each theme) becomes the one order here: the current theme's first
+        val theme = prefs.getString(Prefs.THEME_NAME.key, null) ?: Prefs.CURRENT_THEME_NAME.get(prefs)
+        val order = prefs.getString(MenuOrder.KEY, null) ?: MenuOrder.fromThemeOrders(prefs.all, theme) ?: return
         val updated = withPlayOn(order)
         if (updated != order || !prefs.contains(MenuOrder.KEY)) MenuOrder.save(prefs, updated)
     }
