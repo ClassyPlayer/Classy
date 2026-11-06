@@ -263,7 +263,8 @@ object BatteryHistoryLogic {
         val used = IntArray(DAYS)
         var prev: BatterySample? = null
         for (s in samples.sortedBy { it.t }) {
-            if (s.kind != BatterySample.Kind.STATE) continue
+            // A shutdown or a boot: a drop while the device was off (or a new level at the boot) is not use
+            if (s.kind != BatterySample.Kind.STATE) { prev = null; continue }
             val p = prev
             prev = s
             if (p == null || s.plugged || s.level >= p.level) continue

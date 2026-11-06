@@ -187,6 +187,16 @@ class BatteryHistoryLogicTest {
     }
 
     @Test
+    fun tenDaysDoesNotCountTheDropWhileTheDeviceIsOff() {
+        val c = BatteryHistoryLogic.tenDays(listOf(
+            state(at(8), 70), state(at(9), 65), BatterySample.down(at(9, 30)),
+            BatterySample.boot(at(12)), state(at(12, 1), 60), state(at(13), 58),
+            BatterySample.boot(at(14)), state(at(14, 1), 50) // a crash: no shutdown record
+        ), now, utc)
+        assertEquals(7, c.used[9]) // 70 → 65 and 60 → 58
+    }
+
+    @Test
     fun lastChargeIsTheLevelWhenTheChargerWasDisconnected() {
         assertNull(BatteryHistoryLogic.lastCharge(listOf(state(at(1), 50))))
         val samples = listOf(state(at(1), 30, plugged = true), state(at(2), 99, plugged = true), state(at(2, 5), 100), state(at(5), 90))
