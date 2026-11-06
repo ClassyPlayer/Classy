@@ -154,9 +154,17 @@ class CastV2Renderer(private val device: CastDevice) : CastRenderer {
         ctx.init(null, arrayOf<TrustManager>(TrustAll), null)
         val plain = Socket()
         plain.connect(InetSocketAddress(device.host, device.port), 4000)
+        // A receiver that does not finish the handshake must not block the cast thread: a timeout until the read loop
+        plain.soTimeout = 5000
         val raw = ctx.socketFactory.createSocket(plain, device.host, device.port, true) as SSLSocket
         raw.enabledProtocols = raw.supportedProtocols
-        raw.startHandshake()
+        raw.soTimeout = 5000
+        try {
+            raw.startHandshake()
+        } catch (e: IOException) {
+            try { raw.close() } catch (_: Exception) {}
+            throw e
+        }
         raw.soTimeout = 0
         socket = raw
         out = raw.outputStream
