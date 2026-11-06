@@ -103,7 +103,7 @@
   "Menu order saved!": "メニューの順序が保存されました！",
   "Loading Cover Flow...\nPlease wait.": "カバーフローを読み込み中...\nしばらくお待ちください。",
   "Server": "サーバー",
-  "Scanning Media: %d%%\n(%d / %d)\nDo not turn off the screen.": "メディアのスキャン中: %d%%\n(%d / %d)\n画面を消さないでください。",
+  "Scanning Media: %d%%\n(%d / %d)": "メディアのスキャン中: %d%%\n(%d / %d)",
   "Added to Favorites.": "お気に入りに追加しました。",
   "Playlist ": "プレイリスト ",
   "Create New Playlist": "新しいプレイリストを作成",

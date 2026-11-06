@@ -74,7 +74,7 @@ internal fun MainActivity.startMediaLibraryScanInternal() {
             if (total > 0) {
                 val progress = ((scanned.toFloat() / total) * 100).toInt()
                 runOnUiThread {
-                    val template = t("Scanning Media: %d%%\n(%d / %d)\nDo not turn off the screen.")
+                    val template = t("Scanning Media: %d%%\n(%d / %d)")
                     updateLoadingProgress(progress, String.format(java.util.Locale.US, template, progress, scanned, total))
                 }
             }

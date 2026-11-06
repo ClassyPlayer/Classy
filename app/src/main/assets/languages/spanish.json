@@ -60,7 +60,7 @@
   "Unknown Book": "Libro desconocido",
   "Loading Cover Flow...\nPlease wait.": "Cargando Cover Flow...\nPor favor, espere.",
   "Server": "Servidor",
-  "Scanning Media: %d%%\n(%d / %d)\nDo not turn off the screen.": "Escaneando medios: %d%%\n(%d / %d)\nNo apague la pantalla.",
+  "Scanning Media: %d%%\n(%d / %d)": "Escaneando medios: %d%%\n(%d / %d)",
   "Added to Favorites.": "Añadido a Favoritos.",
   "Playlist ": "Lista de reproducción ",
   "Create New Playlist": "Crear nueva lista",

@@ -363,7 +363,7 @@
   "Scanning...": "Skanowanie...",
   "Preparing to scan...\nPlease wait.": "Przygotowanie do skanowania...\nProszę czekać.",
   "Counting files...\nPlease wait.": "Liczenie plików...\nProszę czekać.",
-  "Scanning Media: %d%%\n(%d / %d)\nDo not turn off the screen.": "Skanowanie multimediów: %d%%\n(%d / %d)\nNie wyłączaj ekranu.",
+  "Scanning Media: %d%%\n(%d / %d)": "Skanowanie multimediów: %d%%\n(%d / %d)",
   "Scan Complete! Music": "Skanowanie zakończone! Muzyka",
   "Scan Complete (Retry)": "Skanowanie zakończone (Ponów)",
   "Rescan Library": "Przeskanuj bibliotekę",
