@@ -36,7 +36,7 @@ class SettingsSpecTest {
                 "Display" to listOf("Brightness", "Backlight"),
                 "Now Playing" to listOf("Spectrum", "Total Time", "Lyrics", "Lyrics Keep Screen On", "Cover Tilt"),
                 "Status Bar" to listOf("Clock", "Battery Icon", "Battery Percentage"),
-                "Appearance" to listOf("Theme", "Background", "Toggle Style", "List Edges", "Menu Cover Motion", "Fill Video Screen"),
+                "Appearance" to listOf("Theme", "Toggle Style", "List Edges", "Menu Cover Motion", "Fill Video Screen"),
                 "Menus" to listOf("Main Menu Items", "Music Menu Items", "Group Albums"),
                 "Controls" to listOf(
                     "Button Sound", "Click Volume", "Button Vibration", "Vibration Strength", "Wheel Loop Scroll",

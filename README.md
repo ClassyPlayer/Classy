@@ -8,6 +8,8 @@
 
 Classy is an iPod Classic-style launcher and media player for Innioasis Y1 and Y2 portable audio players, based on InniClassic by [FabianZettl/inniclassic](https://github.com/FabianZettl/inniclassic) and [ismileblue/y1_launcher](https://github.com/ismileblue/y1_launcher). It recreates the classic click wheel interface while adding features like hardware FM radio, podcasts, video playback, and a library-based Music Quiz.
 
+The product page, with screenshots and videos of each feature: [classyplayer.github.io/Classy](https://classyplayer.github.io/Classy/).
+
 ---
 
 ## Screenshots
@@ -19,6 +21,10 @@ Classy is an iPod Classic-style launcher and media player for Innioasis Y1 and Y
 | Now Playing (Classic Light)                            | Now Playing (Classic Dark)                            | Synced lyrics                                    |
 | ------------------------------------------------------ | ----------------------------------------------------- | ------------------------------------------------ |
 | ![Now Playing in Classic Light](site/media/theme-l.png) | ![Now Playing in Classic Dark](site/media/theme-d.png) | ![Synced lyrics on Now Playing](site/media/lyrics-l.png) |
+
+| Play On (Sonos)                                        | Romanised lyrics                                      | Settings > Battery                               |
+| ------------------------------------------------------ | ----------------------------------------------------- | ------------------------------------------------ |
+| ![Now Playing on a Sonos speaker with Play On](site/media/playon-np-l.png) | ![Chinese lyrics with pinyin under each line](site/media/lyrics-zh-l.png) | ![Battery level and screen time of the last 24 hours](site/media/battery-24h-l.png) |
 
 The album covers in the screenshots are from Creative Commons albums, for example *Edge of Summer* by Tenth Cloud ([CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/); photo Anatoliy Laptev, artwork Anna Riet). The credits and the licence of each album are at the end of [site/index.html](site/index.html), in *Music and covers in the screenshots*.
 
@@ -37,9 +43,10 @@ The album covers in the screenshots are from Creative Commons albums, for exampl
 - Redesigned Now Playing screen with a large angled album cover, an optional mirror reflection below it (controlled by Cover Tilt), a glass progress and volume bar, and marquee scrolling for longer titles. The times show as on the iPod (`2:08`, `-0:34`, `1:02:08`). Total Time shows the total time in place of the remaining time.
 - Center button on Now Playing cycles between Progress, Lyrics (only when the song has lyrics), Seek, Shuffle & Repeat, and Rating. In these modes, the click wheel scrolls the lyrics, previews seek positions in 5-second steps, toggles shuffle and repeat modes, or sets star ratings. In Progress, the click wheel controls the volume.
 - In Seek mode, turn the wheel to select a new position. Push Center to go to that position and to the next mode.
-- Hold Center on Now Playing to open the song menu: Add to Favorites, Add to On-The-Go, Add to Playlist, Browse Album and Browse Artist.
+- Hold Center on Now Playing to open the song menu: Add to Favorites, Add to On-The-Go, Add to Playlist, Browse Album, Browse Artist and Play On.
 - Hold Next or Previous to seek (4× speed, up to 120×). Hold Play/Pause to stop.
 - Synced lyrics use the full width of Now Playing. They come from adjacent `.lrc` files or embedded tags (`USLT` in MP3, or FLAC and ALAC lyrics tags). Timestamps in `[mm:ss.xx]` format scroll smoothly in time with the song.
+- Settings > Now Playing > Lyrics shows the lyrics in the Original script, Romanised (pinyin, romaji), or Original + Romanised with the romanised line under each original line. The romanised lines come from a `<track>.romanised.lrc` file next to the song, with the same timestamps (or the same lines for plain lyrics).
 - Settings > Spectrum shows a spectrum in the cover color in place of the album cover.
 - Favorites: add the current song from the song menu, or double-click Center (Settings > Double-Click to Favorite). Music > My Favorites shows them.
 - A fast wheel turn jumps letter by letter in the alphabetical lists and in Cover Flow, and a large letter box shows the letter, as on the iPod.
@@ -63,9 +70,11 @@ The album covers in the screenshots are from Creative Commons albums, for exampl
 - Each button push does one action, on release. Each wheel step gives one click and one vibration; Click Volume and Vibration Strength set their levels.
 - Settings in iPod-style groups (Playback, Display, Now Playing, Status Bar, Appearance, Menus, Controls and more) with On/Off switches. Export Settings and Import Settings save and load all settings as one JSON file.
 - A long press of the Power button opens a Power screen (Restart, Power Off) that the click wheel controls.
+- Settings > Battery shows the battery level and the screen time as bars, for the Last 24 Hours or the Last 10 Days (turn the wheel or push Center to change the range), with the charge periods and the minutes with music or the radio playing and the screen off. The history has no timer or wake lock of its own: it writes a line only on battery, charger, screen and playback events.
 
 ### Beyond music
 
+- Play On (Main Menu > Play On, or the song menu on Now Playing) plays the music on a Sonos or another DLNA player, or on a Google Cast device (Chromecast, Google TV), on the same Wi-Fi, without Google Play Services. The player stays in control: Next, Previous, Pause and Seek go to the speaker, the click wheel sets the speaker volume, and a pause in the Sonos app or with the TV remote comes back to the player. During a long pause the player releases the speaker so that it can sleep; Play connects again to the same speaker.
 - Bluetooth headphones, speakers and car audio: pairing with the click wheel only, the song title and artist on the car display (AVRCP), and remote buttons that also work when the screen is off. Music pauses when the Bluetooth device disconnects, and plays again when the same device connects again.
 - Settings > Date & Time > Sync Time Now sets the clock from the internet.
 - Jellyfin music synchronization client with QuickConnect pairing, remote library browsing, offline track caching, and automatic library scanning.
@@ -86,6 +95,7 @@ The album covers in the screenshots are from Creative Commons albums, for exampl
 
 ## Known limitations
 
+- Play On: the Sonos app shows only HTTPS covers, so a Sonos gets a cover only for MP3 files with a MusicBrainz Album Id tag (from the Cover Art Archive). The other speakers get the cover from the player.
 - Gapless playback works on queues of 15 tracks or fewer, with shuffle disabled and without FLAC tracks. FLAC uses a standalone decoding pipeline separate from ExoPlayer, while large or shuffled queues retain track-by-track loading.
 - Video playback runs on libVLC because ExoPlayer lacks frame-timing mechanisms on Android versions prior to 5.0 (API 21). For dependable playback, encode source videos around 640x480 resolution, 30 fps, and bitrates near 2 Mbps or lower (see [`tools/handbrake_y1_preset.json`](tools/handbrake_y1_preset.json) for a HandBrake profile).
 - On a Mac, use USB Drive (the question when the cable goes in, or Settings > Connectivity > Use as USB Drive): macOS does not show media devices (MTP) without an extra app such as [OpenMTP](https://openmtp.ganeshrvel.com/). Only the microSD card can be a USB drive.

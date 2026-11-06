@@ -531,7 +531,6 @@ class AudioPlayerManager private constructor() {
                         if (bmp != null) {
                             main.runOnUiThread {
                                 main.ivAlbumArt.setImageBitmap(bmp)
-                                main.updateMainMenuBackground()
                             }
                         }
                     } catch (ignored: Exception) {}
@@ -868,7 +867,6 @@ class AudioPlayerManager private constructor() {
                     val bmpCenter = art.embedded
                     if (bmpCenter != null) {
                         main.ivAlbumArt.setImageBitmap(bmpCenter)
-                        main.updateMainMenuBackground()
                         main.refreshNowPlayingPreview()
                         artApplied = true
                     }
@@ -881,7 +879,6 @@ class AudioPlayerManager private constructor() {
                         val bmp = art.podcastCover
                         if (bmp != null) {
                             main.ivAlbumArt.setImageBitmap(bmp)
-                            main.updateMainMenuBackground()
                             main.refreshNowPlayingPreview()
                             artApplied = true
                         }
@@ -899,7 +896,6 @@ class AudioPlayerManager private constructor() {
                         artApplied = true
                     } else {
                         main.ivAlbumArt.setImageResource(R.drawable.default_album)
-                        main.updateMainMenuBackground()
                         main.refreshNowPlayingPreview()
                     }
                 }
@@ -2093,7 +2089,6 @@ class AudioPlayerManager private constructor() {
             prepareMusicTrack(main.currentIndex, initialSeekMs = savedPos, initialDurationMs = savedDur)
             main.updatePlayerUI()
             main.refreshNowPlayingPreview()
-            main.updateMainMenuBackground()
             return true
         } finally {
             isRestoringPlaybackState = false
