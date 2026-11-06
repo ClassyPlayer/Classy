@@ -35,7 +35,6 @@ import kotlin.math.roundToInt
  */
 class BatteryUsageView(
     context: Context,
-    private val source: BatterySampleSource,
     private val localize: (String) -> String,
     private val is24Hour: () -> Boolean
 ) : View(context) {
@@ -79,7 +78,7 @@ class BatteryUsageView(
 
     /** Reads the samples again (a new record, or the screen opens). */
     fun refresh() {
-        samples = source.samples()
+        samples = BatteryHistory.samples()
         now = System.currentTimeMillis()
         val zone = TimeZone.getDefault()
         day = BatteryHistoryLogic.day(samples, now, zone)
@@ -89,12 +88,12 @@ class BatteryUsageView(
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
-        source.addListener(onChange)
+        BatteryHistory.addListener(onChange)
         refresh()
     }
 
     override fun onDetachedFromWindow() {
-        source.removeListener(onChange)
+        BatteryHistory.removeListener(onChange)
         super.onDetachedFromWindow()
     }
 

@@ -182,8 +182,6 @@ class BatteryHistoryLogicTest {
         assertEquals(60, c.screenMinutes[8])
         assertTrue(c.charging[8])
         assertTrue(c.charging[9]) // plugged from 23:00 to 02:00
-        assertEquals(30, c.dayOfMonth[9])
-        assertEquals(29, c.dayOfMonth[8])
         assertEquals(java.util.Calendar.FRIDAY, c.dayOfWeek[9]) // 2026-10-30
         assertEquals(listOf(0, 5), BatteryHistoryLogic.weekMarks(c.dayOfWeek)) // 21 Oct (first) and Monday 26 Oct
     }

@@ -27,7 +27,7 @@ import java.util.concurrent.TimeUnit
  * so it never wakes the device. A typical day has some hundred lines
  * (about 5 KB). On a new boot (kernel boot id) a boot record marks the end of the time when the device was off.
  */
-object BatteryHistory : BatterySampleSource {
+object BatteryHistory {
     private const val TAG = "BatteryHistory"
     private const val FILE_NAME = "battery-history.txt"
     /** Write the file again without the old lines after this many new lines. */
@@ -217,13 +217,15 @@ object BatteryHistory : BatterySampleSource {
 
     // --- For the screen (main thread) ---
 
-    override fun samples(): List<BatterySample> = synchronized(lock) { ArrayList(records) }
+    /** The samples of the last days, in time order. */
+    fun samples(): List<BatterySample> = synchronized(lock) { ArrayList(records) }
 
-    override fun addListener(listener: () -> Unit) {
+    /** [listener] runs on the main thread after each new sample. */
+    fun addListener(listener: () -> Unit) {
         listeners.add(listener)
     }
 
-    override fun removeListener(listener: () -> Unit) {
+    fun removeListener(listener: () -> Unit) {
         listeners.remove(listener)
     }
 }

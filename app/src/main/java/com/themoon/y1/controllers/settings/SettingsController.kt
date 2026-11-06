@@ -14,7 +14,6 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import com.themoon.y1.Prefs
-import com.themoon.y1.battery.BatteryHistory
 import com.themoon.y1.battery.BatteryUsageView
 import com.themoon.y1.MainActivity
 import com.themoon.y1.R
@@ -771,7 +770,7 @@ class SettingsController(
      */
     private fun batteryUsageSpec(): ListSpec {
         val tenDays = batteryUsageView?.tenDays == true
-        val view = BatteryUsageView(activity, BatteryHistory, localize) { Prefs.CLOCK_24_HOUR.get(prefs) }.apply {
+        val view = BatteryUsageView(activity, localize) { Prefs.CLOCK_24_HOUR.get(prefs) }.apply {
             this.tenDays = tenDays
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         }

@@ -29,17 +29,6 @@ data class BatterySample(
     }
 }
 
-/** Where the battery screen gets its samples: our own recording ([BatteryHistory]), or another log of the same facts. */
-fun interface BatterySampleSource {
-    /** The samples of the last days, in time order. */
-    fun samples(): List<BatterySample>
-
-    /** [listener] runs on the main thread after each new sample (a source that does not change: never). */
-    fun addListener(listener: () -> Unit) {}
-
-    fun removeListener(listener: () -> Unit) {}
-}
-
 /** A time when the device was on, with one state: from [start] to [end] (ms). */
 data class BatterySpan(
     val start: Long, val end: Long, val level: Int, val plugged: Boolean, val screenOn: Boolean, val playing: Boolean = false
@@ -63,8 +52,8 @@ class DayChart(
     /** The hour of the day (0..23, local time) at the start of each hour bar. */
     val hours: IntArray
 ) {
-    val screenTotalMinutes: Int get() = screenMinutes.filter { it > 0 }.sum()
-    val offTotalMinutes: Int get() = offMinutes.filter { it > 0 }.sum()
+    val screenTotalMinutes: Int get() = BatteryHistoryLogic.totalMinutes(screenMinutes)
+    val offTotalMinutes: Int get() = BatteryHistoryLogic.totalMinutes(offMinutes)
 }
 
 /** The Last 10 Days view: one bar a day (local midnight to midnight), today is the last. */
@@ -79,13 +68,11 @@ class TenDayChart(
     val offMinutes: IntArray,
     /** True when the charger was connected during the day. */
     val charging: BooleanArray,
-    /** Day of the month of each day, for the labels. */
-    val dayOfMonth: IntArray,
     /** Calendar.DAY_OF_WEEK of each day. */
     val dayOfWeek: IntArray
 ) {
-    val screenTotalMinutes: Int get() = screenMinutes.filter { it > 0 }.sum()
-    val offTotalMinutes: Int get() = offMinutes.filter { it > 0 }.sum()
+    val screenTotalMinutes: Int get() = BatteryHistoryLogic.totalMinutes(screenMinutes)
+    val offTotalMinutes: Int get() = BatteryHistoryLogic.totalMinutes(offMinutes)
 }
 
 /** The last charge: the battery was at [level] % when the charger was disconnected at [t]. */
@@ -145,11 +132,11 @@ object BatteryHistoryLogic {
     }
 
     /**
-     * The samples to keep at [now]: the ones of the last [keepMs], and the last state before them (the state at the
+     * The samples to keep at [now]: the ones of the last [KEEP_MS], and the last state before them (the state at the
      * start of the period).
      */
-    fun prune(samples: List<BatterySample>, now: Long, keepMs: Long = KEEP_MS): List<BatterySample> {
-        val cut = now - keepMs
+    fun prune(samples: List<BatterySample>, now: Long): List<BatterySample> {
+        val cut = now - KEEP_MS
         val first = samples.indexOfFirst { it.t >= cut }
         if (first <= 0) return if (first < 0) samples.takeLast(1).filter { it.kind == BatterySample.Kind.STATE } else samples
         val before = samples.subList(0, first).lastOrNull()?.takeIf { it.kind == BatterySample.Kind.STATE }
@@ -189,6 +176,43 @@ object BatteryHistoryLogic {
 
     // --- The two views ---
 
+    /** The time of the spans in each bucket ([edges] i to i + 1): device on, screen on, Screen Off playing (ms). */
+    private class Buckets(n: Int) {
+        val on = LongArray(n)
+        val screen = LongArray(n)
+        val off = LongArray(n)
+        /** True when the charger was connected in the bucket. */
+        val charging = BooleanArray(n)
+        /** The level of the last span in the bucket, -1 = no span. */
+        val level = IntArray(n) { -1 }
+    }
+
+    private fun buckets(spans: List<BatterySpan>, edges: LongArray): Buckets {
+        val n = edges.size - 1
+        val b = Buckets(n)
+        // Spans are in time order: the last span in a bucket gives its level
+        for (span in spans) {
+            if (span.end <= edges[0] || span.start >= edges[n]) continue
+            for (i in 0 until n) {
+                val overlap = minOf(span.end, edges[i + 1]) - maxOf(span.start, edges[i])
+                if (overlap <= 0) continue
+                b.on[i] += overlap
+                if (span.screenOn) b.screen[i] += overlap
+                if (span.playingScreenOff) b.off[i] += overlap
+                if (span.plugged) b.charging[i] = true
+                b.level[i] = span.level
+            }
+        }
+        return b
+    }
+
+    /** [ms] in whole minutes (at most [cap]), -1 = no bar (the device was not [on] in the bucket). */
+    private fun minutes(ms: LongArray, on: LongArray, cap: Int = Int.MAX_VALUE) =
+        IntArray(ms.size) { if (on[it] == 0L) -1 else Math.round(ms[it] / MINUTE_MS.toDouble()).toInt().coerceAtMost(cap) }
+
+    /** The sum of the bars (-1 = no bar). */
+    fun totalMinutes(minutes: IntArray): Int = minutes.filter { it > 0 }.sum()
+
     /** Start of the hour after [now] (local time in [zone]): the end of the Last 24 Hours view. */
     fun nextHour(now: Long, zone: TimeZone): Long {
         val c = Calendar.getInstance(zone)
@@ -202,35 +226,15 @@ object BatteryHistoryLogic {
 
     fun day(samples: List<BatterySample>, now: Long, zone: TimeZone): DayChart {
         val start = nextHour(now, zone) - DAY_MS
-        val levels = IntArray(DAY_SLOTS) { -1 }
-        val charging = BooleanArray(DAY_SLOTS)
-        val screenMs = LongArray(24)
-        val offMs = LongArray(24)
-        val onMs = LongArray(24)
-        for (span in spans(samples, now)) {
-            val a = maxOf(span.start, start)
-            val b = span.end
-            if (b <= a) continue
-            // Spans are in time order: the last span in a slot gives its level
-            for (k in ((a - start) / SLOT_MS).toInt()..((b - 1 - start) / SLOT_MS).toInt().coerceAtMost(DAY_SLOTS - 1)) {
-                levels[k] = span.level
-                if (span.plugged) charging[k] = true
-            }
-            for (h in ((a - start) / HOUR_MS).toInt()..((b - 1 - start) / HOUR_MS).toInt().coerceAtMost(23)) {
-                val overlap = minOf(b, start + (h + 1) * HOUR_MS) - maxOf(a, start + h * HOUR_MS)
-                if (overlap <= 0) continue
-                onMs[h] += overlap
-                if (span.screenOn) screenMs[h] += overlap
-                if (span.playingScreenOff) offMs[h] += overlap
-            }
-        }
-        fun minutes(ms: LongArray) = IntArray(24) { h -> if (onMs[h] == 0L) -1 else Math.round(ms[h] / MINUTE_MS.toDouble()).toInt().coerceAtMost(60) }
+        val spans = spans(samples, now)
+        val slots = buckets(spans, LongArray(DAY_SLOTS + 1) { start + it * SLOT_MS })
+        val h = buckets(spans, LongArray(24 + 1) { start + it * HOUR_MS })
         val c = Calendar.getInstance(zone)
-        val hours = IntArray(24) { h ->
-            c.timeInMillis = start + h * HOUR_MS
+        val hours = IntArray(24) {
+            c.timeInMillis = start + it * HOUR_MS
             c.get(Calendar.HOUR_OF_DAY)
         }
-        return DayChart(start, levels, charging, minutes(screenMs), minutes(offMs), hours)
+        return DayChart(start, slots.level, slots.charging, minutes(h.screen, h.on, 60), minutes(h.off, h.on, 60), hours)
     }
 
     /** The local midnights of the last [DAYS] days (today is the last), and the next midnight: [DAYS] + 1 values. */
@@ -255,20 +259,7 @@ object BatteryHistoryLogic {
             for (d in 0 until DAYS) if (t < starts[d + 1]) return d
             return -1
         }
-        val onMs = LongArray(DAYS)
-        val screenMs = LongArray(DAYS)
-        val offMs = LongArray(DAYS)
-        val charging = BooleanArray(DAYS)
-        for (span in spans(samples, now)) {
-            for (d in 0 until DAYS) {
-                val overlap = minOf(span.end, starts[d + 1]) - maxOf(span.start, starts[d])
-                if (overlap <= 0) continue
-                onMs[d] += overlap
-                if (span.screenOn) screenMs[d] += overlap
-                if (span.playingScreenOff) offMs[d] += overlap
-                if (span.plugged) charging[d] = true
-            }
-        }
+        val b = buckets(spans(samples, now), starts)
         val used = IntArray(DAYS)
         var prev: BatterySample? = null
         for (s in samples.sortedBy { it.t }) {
@@ -280,14 +271,12 @@ object BatteryHistoryLogic {
             if (d >= 0) used[d] += p.level - s.level
         }
         val c = Calendar.getInstance(zone)
-        fun minutes(ms: LongArray) = IntArray(DAYS) { if (onMs[it] == 0L) -1 else Math.round(ms[it] / MINUTE_MS.toDouble()).toInt() }
         return TenDayChart(
             starts,
-            IntArray(DAYS) { if (onMs[it] == 0L) -1 else used[it] },
-            minutes(screenMs),
-            minutes(offMs),
-            charging,
-            IntArray(DAYS) { c.timeInMillis = starts[it]; c.get(Calendar.DAY_OF_MONTH) },
+            IntArray(DAYS) { if (b.on[it] == 0L) -1 else used[it] },
+            minutes(b.screen, b.on),
+            minutes(b.off, b.on),
+            b.charging,
             IntArray(DAYS) { c.timeInMillis = starts[it]; c.get(Calendar.DAY_OF_WEEK) }
         )
     }
