@@ -1247,6 +1247,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
                     if (Intent.ACTION_POWER_DISCONNECTED == action) {
                         isCharging = false
                     }
+                    usbStorageManager.promptGate.onPower(Intent.ACTION_POWER_DISCONNECTED == action, plugged)
                     if (level != -1 && scale > 0) {
                         // The voltage model while discharging on the Y2 (the gauge can stay high while the battery empties)
                         val pct = com.themoon.y1.battery.BatteryGuard.percent(batteryIntent)
@@ -1412,11 +1413,8 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
                     if (connected) {
                         if (!usbStateReceiverReady) return
                         if (!isUsbPromptEnabled || usbStorageManager.isStorageOverlayActive || usbStorageManager.isDialogShowing || usbStorageManager.usbStorageBusy) return
-                        val now = System.currentTimeMillis()
-                        if (now - usbStorageManager.lastUsbDialogShownMs > 8000) {
-                            usbStorageManager.lastUsbDialogShownMs = now
-                            showUsbStorageDialog()
-                        }
+                        // One question for each cable plug: USB function changes send this broadcast again
+                        if (usbStorageManager.promptGate.shouldAsk()) showUsbStorageDialog()
                     } else {
                         usbStorageManager.dismissUsbStorageDialog()
                         if (usbStorageManager.isStorageOverlayActive) {

@@ -34,7 +34,8 @@ class UsbStorageUiManager(
     /** The key of the USB prompt screen (ActionScreen.kt), or null. */
     private var usbPromptScreen: Int? = null
         private set
-    var lastUsbDialogShownMs: Long = 0L
+    /** One question for each cable plug (see [UsbPromptGate]). */
+    val promptGate = UsbPromptGate()
 
     val isStorageOverlayActive: Boolean
         get() = usbStorageOverlay != null
@@ -56,17 +57,17 @@ class UsbStorageUiManager(
             listOf(
                 ActionScreens.Action(localize("Connect as Storage")) {
                     usbPromptScreen = null
-                    lastUsbDialogShownMs = System.currentTimeMillis()
+                    promptGate.onAnswered()
                     startUsbStorage()
                 },
                 ActionScreens.Action(localize("Charge Only")) {
                     usbPromptScreen = null
-                    lastUsbDialogShownMs = System.currentTimeMillis()
+                    promptGate.onAnswered()
                 }
             ),
             onCancel = {
                 usbPromptScreen = null
-                lastUsbDialogShownMs = System.currentTimeMillis()
+                promptGate.onAnswered()
             }
         ))
     }
@@ -119,8 +120,6 @@ class UsbStorageUiManager(
                 if (ok) {
                     showUsbStorageOverlay()
                 } else {
-                    // The function switch reconnects USB; do not ask again at once.
-                    lastUsbDialogShownMs = System.currentTimeMillis()
                     onShareEnded()
                     Notice.error(activity, localize("Couldn't connect as USB storage."))
                 }
@@ -142,8 +141,6 @@ class UsbStorageUiManager(
                     Notice.error(activity, localize("Couldn't eject USB storage."))
                     return@runOnUiThread
                 }
-                // The function switch reconnects USB; do not ask again at once.
-                lastUsbDialogShownMs = System.currentTimeMillis()
                 hideUsbStorageOverlay()
                 onShareEnded()
             }
@@ -174,6 +171,8 @@ class UsbStorageUiManager(
 
     fun showUsbStorageOverlay() {
         if (usbStorageOverlay != null) return
+        // Also the share that is still on after an app restart: Eject must not ask again.
+        promptGate.onAnswered()
         val root = activity.findViewById<ViewGroup>(android.R.id.content) ?: return
         val d = activity.resources.displayMetrics.density
 
