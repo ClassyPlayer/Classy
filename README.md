@@ -98,6 +98,7 @@ The album covers in the screenshots are from Creative Commons albums, for exampl
 - Play On: the Sonos app shows only HTTPS covers, so a Sonos gets a cover only for MP3 files with a MusicBrainz Album Id tag (from the Cover Art Archive). The other speakers get the cover from the player.
 - Gapless playback works on queues of 15 tracks or fewer, with shuffle disabled and without FLAC tracks. FLAC uses a standalone decoding pipeline separate from ExoPlayer, while large or shuffled queues retain track-by-track loading.
 - Video playback runs on libVLC because ExoPlayer lacks frame-timing mechanisms on Android versions prior to 5.0 (API 21). For dependable playback, encode source videos around 640x480 resolution, 30 fps, and bitrates near 2 Mbps or lower (see [`tools/handbrake_y1_preset.json`](tools/handbrake_y1_preset.json) for a HandBrake profile).
+- On a Mac, use USB Drive (the question when the cable goes in, or Settings > Connectivity > Use as USB Drive): macOS does not show media devices (MTP) without an extra app such as [OpenMTP](https://openmtp.ganeshrvel.com/). Only the microSD card can be a USB drive.
 
 ## Installation
 

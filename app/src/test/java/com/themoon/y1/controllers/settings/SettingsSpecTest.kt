@@ -42,7 +42,7 @@ class SettingsSpecTest {
                     "Button Sound", "Click Volume", "Button Vibration", "Vibration Strength", "Wheel Loop Scroll",
                     "Screen-Off Control", "Double-Click to Favorite"
                 ),
-                "Connectivity" to listOf("Bluetooth", "Wi-Fi", "Web Server", "Ask on USB Connect"),
+                "Connectivity" to listOf("Bluetooth", "Wi-Fi", "Web Server", "USB Drive", "Use as USB Drive"),
                 "Battery" to listOf("Battery"),
                 "Library" to listOf("Clear Album Art & Info", "Jellyfin Sync", "Sync Scrobbles to Last.fm", "Last.fm Account"),
                 "Date & Time" to listOf("Date & Time"),

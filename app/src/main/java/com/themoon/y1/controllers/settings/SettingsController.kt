@@ -33,6 +33,7 @@ import com.themoon.y1.managers.VolumeSteps
 import com.themoon.y1.managers.LanguageManager
 import com.themoon.y1.managers.LastFmScrobbler
 import com.themoon.y1.managers.PowerMenu
+import com.themoon.y1.managers.UsbDrive
 import com.themoon.y1.lists.Focus
 import com.themoon.y1.lists.ListSpec
 import com.themoon.y1.lists.RowLook
@@ -219,7 +220,12 @@ class SettingsController(
             action("Bluetooth") { onNavigateToScreen(MainActivity.STATE_BLUETOOTH) },
             action("Wi-Fi") { onNavigateToScreen(MainActivity.STATE_WIFI) },
             action("Web Server") { onNavigateToScreen(MainActivity.STATE_WEBSERVER) },
-            toggle("Ask on USB Connect", Prefs.USB_PROMPT),
+            // What a cable plug to a computer does with the microSD card: the question, a USB drive at once, or nothing
+            choice("USB Drive", { localize(UsbDrive.LABELS[usbDrive()]) }) { openPage("UsbDrive") },
+            // Only while a computer is connected (without a card, the share gives the notice No microSD card.)
+            action("Use as USB Drive", visible = { mainActivity?.usbStorageManager?.isComputerConnected == true }) {
+                mainActivity?.startUsbStorage()
+            },
         )),
         // Battery level, charging, screen on and screen off playing of the last 24 hours or 10 days (BatteryUsageView):
         // on the top level, as Settings → Battery of iOS and macOS (macOS: after the connections)
@@ -288,7 +294,7 @@ class SettingsController(
     private fun pageSpec(shown: SettingsSubMode): ListSpec {
         if (shown is SettingsSubMode.Group) {
             val group = groups.firstOrNull { it.title == shown.title && it.rows.isNotEmpty() }
-            if (group != null) return ListSpec(localize(group.title), group.rows.map { it.make() })
+            if (group != null) return ListSpec(localize(group.title), group.rows.filter { it.visible() }.map { it.make() })
         }
         if (shown is SettingsSubMode.Page) {
             when (shown.id) {
@@ -300,6 +306,7 @@ class SettingsController(
                 }
                 "TimeZone" -> return timeZoneList()
                 "VolumeLimit" -> return volumeLimitList()
+                "UsbDrive" -> return usbDriveList()
                 "Legal" -> return legalSpec()
                 "Update" -> return updateSpec()
                 "MainMenuItems" -> return mainMenuItemsSpec()
@@ -553,6 +560,17 @@ class SettingsController(
             }
         }, view = ::centredRow)
     }
+
+    private fun usbDrive(): Int = UsbDrive.normalize(Prefs.USB_DRIVE.get(prefs))
+
+    /** USB Drive: Ask, Always or Never. */
+    private fun usbDriveList(): ListSpec =
+        rows.valueList(localize("USB Drive"), UsbDrive.LABELS.mapIndexed { value, label ->
+            SettingValue(localize(label), value == usbDrive()) {
+                Prefs.USB_DRIVE.set(prefs, value)
+                onNavigateBack()
+            }
+        })
 
     private fun centredRow(text: String): View = ListItemViewFactory.createListButtonSimple(activity, text).apply { gravity = Gravity.CENTER }
 

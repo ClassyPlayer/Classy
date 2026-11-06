@@ -167,7 +167,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     val isVibrationEnabled: Boolean get() = setting(Prefs.VIBRATE)
     val vibrationStrengthLevel: Int get() = setting(Prefs.VIBRATE_STRENGTH)
     val isScreenOffControlEnabled: Boolean get() = setting(Prefs.SCREEN_OFF_CONTROL)
-    val isUsbPromptEnabled: Boolean get() = setting(Prefs.USB_PROMPT)
+    val usbDrive: Int get() = setting(Prefs.USB_DRIVE)
     val is24HourFormat: Boolean get() = setting(Prefs.CLOCK_24_HOUR)
     val isTimeInTitleBar: Boolean get() = setting(Prefs.TIME_IN_TITLE)
     val isShowBatteryPercentage: Boolean get() = setting(Prefs.BATTERY_PERCENTAGE)
@@ -416,6 +416,8 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
                             if (!playbackRestored || isPendingRestorePlayback || currentPlaylist.isEmpty()) {
                                 isPendingRestorePlayback = false
                                 playbackRestored = AudioPlayerManager.getInstance().restoreLastPlaybackState(this@MainActivity)
+                                // After Eject, when the card was not mounted yet at the reload
+                                if (playbackRestored) AudioPlayerManager.getInstance().resumeAfterUsbStorage()
                             }
                         }
                         if (customLibrary.isEmpty()) {
@@ -1242,6 +1244,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
                     if (Intent.ACTION_POWER_DISCONNECTED == action) {
                         isCharging = false
                     }
+                    usbStorageManager.promptGate.onPower(Intent.ACTION_POWER_DISCONNECTED == action, plugged)
                     if (level != -1 && scale > 0) {
                         // The voltage model while discharging on the Y2 (the gauge can stay high while the battery empties)
                         val pct = com.themoon.y1.battery.BatteryGuard.percent(batteryIntent)
@@ -1402,22 +1405,21 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
                 Intent.ACTION_SHUTDOWN, "android.intent.action.QUICKBOOT_POWEROFF", "com.htc.intent.action.QUICKBOOT_POWEROFF" -> {
                     AudioPlayerManager.getInstance().savePlaybackState(sync = true)
                 }
-                "android.hardware.usb.action.USB_STATE" -> {
+                UsbStorageUiManager.USB_STATE -> {
                     val connected = intent.getBooleanExtra("connected", false)
                     if (connected) {
                         if (!usbStateReceiverReady) return
-                        if (!isUsbPromptEnabled || usbStorageManager.isStorageOverlayActive || usbStorageManager.isDialogShowing || usbStorageManager.usbStorageBusy) return
-                        val now = System.currentTimeMillis()
-                        if (now - usbStorageManager.lastUsbDialogShownMs > 8000) {
-                            usbStorageManager.lastUsbDialogShownMs = now
-                            showUsbStorageDialog()
-                        }
+                        if (usbStorageManager.isStorageOverlayActive || usbStorageManager.isDialogShowing || usbStorageManager.usbStorageBusy) return
+                        // Once for each cable plug: USB function changes send this broadcast again
+                        if (usbStorageManager.promptGate.shouldAsk()) usbStorageManager.onComputerConnected(usbDrive)
                     } else {
                         usbStorageManager.dismissUsbStorageDialog()
                         if (usbStorageManager.isStorageOverlayActive) {
                             usbStorageManager.onUsbCableRemovedWhileShared()
                         }
                     }
+                    // Settings → Connectivity → Use as USB Drive shows only while a computer is connected
+                    if (NavigationManager.getInstance().currentState is ScreenState.Settings) getActiveScreenController()?.onRefreshUI()
                 }
             }
         }

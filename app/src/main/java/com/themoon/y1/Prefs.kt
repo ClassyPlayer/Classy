@@ -12,6 +12,7 @@ import com.themoon.y1.managers.AutoThemeManager
 import com.themoon.y1.managers.BacklightTimer
 import com.themoon.y1.managers.ButtonVibration
 import com.themoon.y1.managers.ClickVolume
+import com.themoon.y1.managers.UsbDrive
 import com.themoon.y1.managers.VolumeSteps
 import com.themoon.y1.models.AlbumKey
 import com.themoon.y1.views.CoverPane
@@ -171,7 +172,8 @@ object Prefs {
     val DOUBLE_CLICK_FAVORITE = add(BoolPref("double_click_favorite", true, PrefGroup.CONTROLS, resettable = true))
 
     // --- Connectivity ---
-    val USB_PROMPT = add(BoolPref("usb_storage_prompt", true, PrefGroup.CONNECTIVITY))
+    /** USB Drive: Ask, Always or Never ([UsbDrive]). */
+    val USB_DRIVE = add(IntPref(UsbDrive.PREF, UsbDrive.ASK, PrefGroup.CONNECTIVITY))
 
     // --- Date & Time ---
     val CLOCK_24_HOUR = add(BoolPref(ClockSettings.KEY_24_HOUR_FORMAT, ClockSettings.DEFAULT_24_HOUR_FORMAT, PrefGroup.DATE_TIME, resettable = true))

@@ -1343,6 +1343,78 @@ class AudioPlayerManager private constructor() {
         currentFileInputStream = null
     }
 
+    /** True while the player is closed for a USB storage share; see [releaseForUsbStorage]. */
+    private var releasedForUsbStorage = false
+    /** Music played when the share started: it plays again after Eject ([reloadAfterUsbStorage]). */
+    private var resumeAfterUsbStorage = false
+
+    /**
+     * Before a USB storage share: saves the queue and the position, and closes the track file.
+     * MountService kills each process that has a file open on the volume that it unmounts for the share.
+     * [wasPlaying]: music played before the share paused it.
+     */
+    fun releaseForUsbStorage(wasPlaying: Boolean) {
+        resumeAfterUsbStorage = wasPlaying
+        if (exoPlayer == null && legacyPlayer == null) return
+        val main = MainActivity.instance
+        val hasTrack = main != null && main.currentIndex in main.currentPlaylist.indices
+        if (hasTrack) savePlaybackState(sync = true)
+        releasePlayer()
+        releasedForUsbStorage = hasTrack
+    }
+
+    /**
+     * After the share: loads the saved track again, paused. When the card is not mounted yet, the mount listener does it.
+     * Also a queue that the restore loaded incomplete during the share loads again, now with all its files.
+     * [resume]: the music plays again if it played before the share (after Eject; not when the cable came out first).
+     */
+    fun reloadAfterUsbStorage(main: MainActivity, resume: Boolean) {
+        resumeAfterUsbStorage = resumeAfterUsbStorage && resume
+        val incomplete = incompleteQueueStamp?.let { it == queueStamp(main.currentPlaylist, main.originalPlaylist) } == true
+        if (!releasedForUsbStorage && !incomplete) {
+            resumeAfterUsbStorage = false
+            return
+        }
+        releasedForUsbStorage = false
+        // Each file look-up on the card takes ~4.5 ms (FUSE), so the restore's look-up of each queue file on the UI
+        // thread took 25-37 s for 5354 files (an ANR). The queue in memory is the saved one: its files are known.
+        // Only a queue that the restore loaded incomplete needs the look-ups, on this worker thread.
+        val known = if (incomplete) null else (main.currentPlaylist + main.originalPlaylist).mapTo(HashSet()) { it.path }
+        Thread({
+            // Wait for the card: it is mounted again a few seconds after the share
+            val deadline = android.os.SystemClock.uptimeMillis() + CARD_WAIT_MS
+            while (ExternalSdMountMonitor.hasSecondarySlot() && !ExternalSdMountMonitor.isSecondaryReady() &&
+                android.os.SystemClock.uptimeMillis() < deadline
+            ) {
+                try {
+                    Thread.sleep(500)
+                } catch (_: InterruptedException) {
+                    break
+                }
+            }
+            val existing = known ?: HashSet<String>().also { found ->
+                for (name in listOf("last_playback_playlist.txt", "last_playback_original.txt")) {
+                    try {
+                        File(main.filesDir, name).forEachLine { line ->
+                            val path = line.trim()
+                            if (path.isNotEmpty() && path !in found && File(path).exists()) found.add(path)
+                        }
+                    } catch (_: Exception) {}
+                }
+            }
+            main.runOnUiThread {
+                if (restoreLastPlaybackState(main, existing)) resumeAfterUsbStorage() else main.isPendingRestorePlayback = true
+            }
+        }, "y1-ums-reload").start()
+    }
+
+    /** Plays the track that [reloadAfterUsbStorage] loaded, if the music played before the share (also after a later restore). */
+    fun resumeAfterUsbStorage() {
+        if (!resumeAfterUsbStorage) return
+        resumeAfterUsbStorage = false
+        if (!isPlaying()) playOrPauseMusic()
+    }
+
     fun extractOpusMetadata(file: File): Array<Any?> = extractOpusMetadata(file, true)
 
     fun extractOpusMetadata(file: File, includeArt: Boolean): Array<Any?> {
@@ -1805,6 +1877,8 @@ class AudioPlayerManager private constructor() {
 
     // The queue that the play queue files hold (queueStamp), or null before the first write
     private var savedQueueStamp: List<Int>? = null
+    // A queue that the restore loaded without some of its files (queueStamp), or null: see shouldWriteQueue
+    private var incompleteQueueStamp: List<Int>? = null
 
     fun savePlaybackState(sync: Boolean = false) {
         val main = MainActivity.instance ?: return
@@ -1817,7 +1891,7 @@ class AudioPlayerManager private constructor() {
         try {
             // The play queue files change only with the queue: a track change does not write them again
             val queueStamp = queueStamp(main.currentPlaylist, main.originalPlaylist)
-            if (queueStamp != savedQueueStamp) {
+            if (shouldWriteQueue(queueStamp, savedQueueStamp, incompleteQueueStamp)) {
                 val playlistFile = File(main.filesDir, "last_playback_playlist.txt")
                 val origPlaylistFile = File(main.filesDir, "last_playback_original.txt")
 
@@ -1870,7 +1944,9 @@ class AudioPlayerManager private constructor() {
         saveAudiobookBookmarkIfNeeded()
     }
 
-    fun restoreLastPlaybackState(main: MainActivity): Boolean {
+    /** [existing]: the queue files that are known to exist (no look-up on the card for them); null = look up each one. */
+    fun restoreLastPlaybackState(main: MainActivity, existing: Set<String>? = null): Boolean {
+        val exists = { f: File -> existing?.contains(f.path) ?: f.exists() }
         if (!main.prefs.getBoolean("has_saved_playback_state", false)) return false
         val savedPath = main.prefs.getString("last_played_song_path", null) ?: return false
         val targetFile = File(savedPath)
@@ -1895,6 +1971,8 @@ class AudioPlayerManager private constructor() {
             val origPlaylistFile = File(main.filesDir, "last_playback_original.txt")
             val restoredPlaylist = ArrayList<File>()
             val restoredOriginal = ArrayList<File>()
+            // Lines of the play queue files whose file is not there now (for example the card is not mounted yet)
+            var missing = 0
 
             if (playlistFile.exists()) {
                 try {
@@ -1902,8 +1980,10 @@ class AudioPlayerManager private constructor() {
                         val trimmed = line.trim()
                         if (trimmed.isNotEmpty()) {
                             val f = File(trimmed)
-                            if (f.exists()) {
+                            if (exists(f)) {
                                 restoredPlaylist.add(f)
+                            } else {
+                                missing++
                             }
                         }
                     }
@@ -1923,8 +2003,10 @@ class AudioPlayerManager private constructor() {
                         val trimmed = line.trim()
                         if (trimmed.isNotEmpty()) {
                             val f = File(trimmed)
-                            if (f.exists()) {
+                            if (exists(f)) {
                                 restoredOriginal.add(f)
+                            } else {
+                                missing++
                             }
                         }
                     }
@@ -1951,6 +2033,7 @@ class AudioPlayerManager private constructor() {
                         restoredPlaylist.addAll(chaps)
                         restoredOriginal.clear()
                         restoredOriginal.addAll(chaps)
+                        missing = 0
                     }
                 }
             }
@@ -1968,6 +2051,7 @@ class AudioPlayerManager private constructor() {
             main.currentIndex = savedIndex
             main.isPausedByHand = true
             main.isAudiobookLibraryMode = isAudiobook
+            incompleteQueueStamp = if (missing > 0) queueStamp(main.currentPlaylist, main.originalPlaylist) else null
 
             val isShuffle = Prefs.SHUFFLE.get(main.prefs)
             val repeatPref = Prefs.REPEAT_MODE.get(main.prefs)
@@ -2023,6 +2107,17 @@ class AudioPlayerManager private constructor() {
             }
             return inst
         }
+
+        /** After a USB storage share: the longest wait for the card before the play queue loads again. */
+        private const val CARD_WAIT_MS = 60_000L
+
+        /**
+         * The play queue files are written for a new queue ([stamp] is not [saved]), but not for a queue that the
+         * restore loaded without some of its files ([incomplete]): for example the restore ran while the card was
+         * not mounted or was shared, and the files keep the full queue. A new queue of the user is written again.
+         */
+        internal fun shouldWriteQueue(stamp: List<Int>, saved: List<Int>?, incomplete: List<Int>?): Boolean =
+            stamp != saved && stamp != incomplete
     }
 }
 

@@ -115,6 +115,24 @@ class TrackLookupTest {
     }
 
     @Test
+    fun aQueueThatTheRestoreLoadedIncompleteIsNotWritten() {
+        val apm = AudioPlayerManager.getInstance()
+        val full = (1..5).map { java.io.File("/storage/sdcard1/$it.mp3") }
+        val fullStamp = apm.queueStamp(full, full)
+        // The restore found 2 of 5 files (the card was being shared): the files keep the 5
+        val part = full.take(2)
+        val partStamp = apm.queueStamp(part, part)
+        assertFalse(AudioPlayerManager.shouldWriteQueue(partStamp, fullStamp, partStamp))
+        assertFalse(AudioPlayerManager.shouldWriteQueue(partStamp, null, partStamp))
+        // A new queue of the user is written, also after an incomplete restore
+        val other = listOf(java.io.File("/storage/sdcard1/x.mp3"))
+        assertTrue(AudioPlayerManager.shouldWriteQueue(apm.queueStamp(other, other), fullStamp, partStamp))
+        // A complete restore: only a changed queue is written
+        assertFalse(AudioPlayerManager.shouldWriteQueue(fullStamp, fullStamp, null))
+        assertTrue(AudioPlayerManager.shouldWriteQueue(partStamp, fullStamp, null))
+    }
+
+    @Test
     fun theCoverWindowFollowsTheQueueOrderAndWraps() {
         assertEquals(listOf(5, 6, 4, 7, 3), NeighbourCovers.window(5, 10, 2))
         // Next after the last track is the first one, Previous before the first is the last
