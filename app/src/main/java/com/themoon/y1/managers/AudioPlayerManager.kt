@@ -1363,9 +1363,13 @@ class AudioPlayerManager private constructor() {
         releasedForUsbStorage = hasTrack
     }
 
-    /** After the share: loads the saved track again, paused. When the card is not mounted yet, the mount listener does it. */
+    /**
+     * After the share: loads the saved track again, paused. When the card is not mounted yet, the mount listener does it.
+     * Also a queue that the restore loaded incomplete during the share loads again, now with all its files.
+     */
     fun reloadAfterUsbStorage(main: MainActivity) {
-        if (!releasedForUsbStorage) return
+        val incomplete = incompleteQueueStamp?.let { it == queueStamp(main.currentPlaylist, main.originalPlaylist) } == true
+        if (!releasedForUsbStorage && !incomplete) return
         releasedForUsbStorage = false
         if (!restoreLastPlaybackState(main)) main.isPendingRestorePlayback = true
     }
@@ -1832,6 +1836,8 @@ class AudioPlayerManager private constructor() {
 
     // The queue that the play queue files hold (queueStamp), or null before the first write
     private var savedQueueStamp: List<Int>? = null
+    // A queue that the restore loaded without some of its files (queueStamp), or null: see shouldWriteQueue
+    private var incompleteQueueStamp: List<Int>? = null
 
     fun savePlaybackState(sync: Boolean = false) {
         val main = MainActivity.instance ?: return
@@ -1844,7 +1850,7 @@ class AudioPlayerManager private constructor() {
         try {
             // The play queue files change only with the queue: a track change does not write them again
             val queueStamp = queueStamp(main.currentPlaylist, main.originalPlaylist)
-            if (queueStamp != savedQueueStamp) {
+            if (shouldWriteQueue(queueStamp, savedQueueStamp, incompleteQueueStamp)) {
                 val playlistFile = File(main.filesDir, "last_playback_playlist.txt")
                 val origPlaylistFile = File(main.filesDir, "last_playback_original.txt")
 
@@ -1922,6 +1928,8 @@ class AudioPlayerManager private constructor() {
             val origPlaylistFile = File(main.filesDir, "last_playback_original.txt")
             val restoredPlaylist = ArrayList<File>()
             val restoredOriginal = ArrayList<File>()
+            // Lines of the play queue files whose file is not there now (for example the card is not mounted yet)
+            var missing = 0
 
             if (playlistFile.exists()) {
                 try {
@@ -1931,6 +1939,8 @@ class AudioPlayerManager private constructor() {
                             val f = File(trimmed)
                             if (f.exists()) {
                                 restoredPlaylist.add(f)
+                            } else {
+                                missing++
                             }
                         }
                     }
@@ -1952,6 +1962,8 @@ class AudioPlayerManager private constructor() {
                             val f = File(trimmed)
                             if (f.exists()) {
                                 restoredOriginal.add(f)
+                            } else {
+                                missing++
                             }
                         }
                     }
@@ -1978,6 +1990,7 @@ class AudioPlayerManager private constructor() {
                         restoredPlaylist.addAll(chaps)
                         restoredOriginal.clear()
                         restoredOriginal.addAll(chaps)
+                        missing = 0
                     }
                 }
             }
@@ -1995,6 +2008,7 @@ class AudioPlayerManager private constructor() {
             main.currentIndex = savedIndex
             main.isPausedByHand = true
             main.isAudiobookLibraryMode = isAudiobook
+            incompleteQueueStamp = if (missing > 0) queueStamp(main.currentPlaylist, main.originalPlaylist) else null
 
             val isShuffle = Prefs.SHUFFLE.get(main.prefs)
             val repeatPref = Prefs.REPEAT_MODE.get(main.prefs)
@@ -2051,6 +2065,14 @@ class AudioPlayerManager private constructor() {
             }
             return inst
         }
+
+        /**
+         * The play queue files are written for a new queue ([stamp] is not [saved]), but not for a queue that the
+         * restore loaded without some of its files ([incomplete]): for example the restore ran while the card was
+         * not mounted or was shared, and the files keep the full queue. A new queue of the user is written again.
+         */
+        internal fun shouldWriteQueue(stamp: List<Int>, saved: List<Int>?, incomplete: List<Int>?): Boolean =
+            stamp != saved && stamp != incomplete
     }
 }
 

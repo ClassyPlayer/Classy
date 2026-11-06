@@ -56,8 +56,11 @@ class UsbStorageUiManager(
      * set it) and a microSD card can be shared (also while it is shared: the row stays, under the Disk Mode screen).
      */
     val canStartDiskMode: Boolean
-        get() = activity.registerReceiver(null, IntentFilter(USB_STATE))?.getBooleanExtra("connected", false) == true &&
-            UsbMassStorageController.hasShareableVolume(activity) == true
+        get() = isComputerConnected && UsbMassStorageController.hasShareableVolume(activity) == true
+
+    /** A computer is connected: the sticky USB_STATE (a charger does not set it). */
+    val isComputerConnected: Boolean
+        get() = activity.registerReceiver(null, IntentFilter(USB_STATE))?.getBooleanExtra("connected", false) == true
 
     /** A cable plug (once for each plug): what Settings → Connectivity → Computer Connection says ([UsbConnection]). */
     fun onComputerConnected(connection: Int) {
@@ -117,6 +120,13 @@ class UsbStorageUiManager(
 
     fun startUsbStorage() {
         if (usbStorageBusy) return
+        val main = activity as? MainActivity
+        if (main?.isLibraryCacheLoading == true) {
+            // The cache load checks each file on the card, and the restore of the play queue runs after it: during
+            // the share they see only part of the files. Start when they are done (their callbacks run first).
+            main.loadLibraryCache { if (isComputerConnected && !isStorageOverlayActive) startUsbStorage() }
+            return
+        }
         if (MediaLibraryManager.getInstance().isScanning) {
             // The scan keeps files open; vold would kill this app to unmount the volume.
             Notice.error(activity, localize("Wait for the library scan to finish, then try again."))
