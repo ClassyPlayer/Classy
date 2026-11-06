@@ -168,7 +168,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     val isVibrationEnabled: Boolean get() = setting(Prefs.VIBRATE)
     val vibrationStrengthLevel: Int get() = setting(Prefs.VIBRATE_STRENGTH)
     val isScreenOffControlEnabled: Boolean get() = setting(Prefs.SCREEN_OFF_CONTROL)
-    val isUsbPromptEnabled: Boolean get() = setting(Prefs.USB_PROMPT)
+    val usbConnection: Int get() = setting(Prefs.USB_CONNECTION)
     val is24HourFormat: Boolean get() = setting(Prefs.CLOCK_24_HOUR)
     val isTimeInTitleBar: Boolean get() = setting(Prefs.TIME_IN_TITLE)
     val isShowBatteryPercentage: Boolean get() = setting(Prefs.BATTERY_PERCENTAGE)
@@ -1412,9 +1412,9 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
                     val connected = intent.getBooleanExtra("connected", false)
                     if (connected) {
                         if (!usbStateReceiverReady) return
-                        if (!isUsbPromptEnabled || usbStorageManager.isStorageOverlayActive || usbStorageManager.isDialogShowing || usbStorageManager.usbStorageBusy) return
-                        // One question for each cable plug: USB function changes send this broadcast again
-                        if (usbStorageManager.promptGate.shouldAsk()) showUsbStorageDialog()
+                        if (usbStorageManager.isStorageOverlayActive || usbStorageManager.isDialogShowing || usbStorageManager.usbStorageBusy) return
+                        // Once for each cable plug: USB function changes send this broadcast again
+                        if (usbStorageManager.promptGate.shouldAsk()) usbStorageManager.onComputerConnected(usbConnection)
                     } else {
                         usbStorageManager.dismissUsbStorageDialog()
                         if (usbStorageManager.isStorageOverlayActive) {

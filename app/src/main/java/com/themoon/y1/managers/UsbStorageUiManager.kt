@@ -48,6 +48,18 @@ class UsbStorageUiManager(
         usbPromptScreen = null
     }
 
+    /** A cable plug (once for each plug): what Settings → Connectivity → Computer Connection says ([UsbConnection]). */
+    fun onComputerConnected(connection: Int) {
+        when (UsbConnection.onPlug(connection, UsbMassStorageController.hasShareableVolume(activity))) {
+            UsbConnection.OnPlug.ASK -> showUsbStorageDialog()
+            UsbConnection.OnPlug.DISK_MODE -> {
+                promptGate.onAnswered()
+                startUsbStorage()
+            }
+            UsbConnection.OnPlug.NOTHING -> {}
+        }
+    }
+
     /** USB cable in: Connect as Storage or Not Now, on a screen of its own. Back is Not Now. */
     fun showUsbStorageDialog() {
         dismissUsbStorageDialog()

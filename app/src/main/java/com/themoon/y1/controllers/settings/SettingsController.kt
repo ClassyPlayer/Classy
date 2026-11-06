@@ -33,6 +33,7 @@ import com.themoon.y1.managers.VolumeSteps
 import com.themoon.y1.managers.LanguageManager
 import com.themoon.y1.managers.LastFmScrobbler
 import com.themoon.y1.managers.PowerMenu
+import com.themoon.y1.managers.UsbConnection
 import com.themoon.y1.lists.Focus
 import com.themoon.y1.lists.ListSpec
 import com.themoon.y1.lists.RowLook
@@ -223,7 +224,8 @@ class SettingsController(
             action("Bluetooth") { onNavigateToScreen(MainActivity.STATE_BLUETOOTH) },
             action("Wi-Fi") { onNavigateToScreen(MainActivity.STATE_WIFI) },
             action("Web Server") { onNavigateToScreen(MainActivity.STATE_WEBSERVER) },
-            toggle("Ask on USB Connect", Prefs.USB_PROMPT),
+            // What a cable plug to a computer does: the question, nothing (MTP), or Disk Mode at once
+            choice("Computer Connection", { localize(UsbConnection.LABELS[usbConnection()]) }) { openPage("ComputerConnection") },
         )),
         // Battery level, charging, screen on and screen off playing of the last 24 hours or 10 days (BatteryUsageView):
         // on the top level, as Settings → Battery of iOS and macOS (macOS: after the connections)
@@ -305,6 +307,7 @@ class SettingsController(
                 }
                 "TimeZone" -> return timeZoneList()
                 "VolumeLimit" -> return volumeLimitList()
+                "ComputerConnection" -> return computerConnectionList()
                 "Legal" -> return legalSpec()
                 "Update" -> return updateSpec()
                 "MainMenuItems" -> return mainMenuItemsSpec()
@@ -565,6 +568,17 @@ class SettingsController(
             }
         }, view = ::centredRow)
     }
+
+    private fun usbConnection(): Int = UsbConnection.normalize(Prefs.USB_CONNECTION.get(prefs))
+
+    /** Computer Connection: Ask, Media Device or Disk Mode. */
+    private fun computerConnectionList(): ListSpec =
+        rows.valueList(localize("Computer Connection"), UsbConnection.LABELS.mapIndexed { value, label ->
+            SettingValue(localize(label), value == usbConnection()) {
+                Prefs.USB_CONNECTION.set(prefs, value)
+                onNavigateBack()
+            }
+        })
 
     private fun centredRow(text: String): View = ListItemViewFactory.createListButtonSimple(activity, text).apply { gravity = Gravity.CENTER }
 
