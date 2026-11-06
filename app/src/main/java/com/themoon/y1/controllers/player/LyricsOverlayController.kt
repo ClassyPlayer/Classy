@@ -206,7 +206,7 @@ class LyricsOverlayController(
                     line = br.readLine()
                 }
             }
-            if (data.romanised.isEmpty() && data.plain != null) data.romanisedPlain = plain.joinToString("\n").trim()
+            if (data.romanised.isEmpty() && data.plain != null) data.romanisedPlain = plain.joinToString("\n")
         } catch (ignored: Exception) {
             data.romanised.clear()
         }

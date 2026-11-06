@@ -57,6 +57,15 @@ class LyricsScriptTest {
     }
 
     @Test
+    fun blankRomanisedLineAtTheStartOrEndStaysPaired() {
+        assertEquals(listOf("一", "èr"), LyricsScript.plainLines("一\n二", "\nèr", LyricsScript.ROMANISED)!!.map { it.first })
+        assertEquals(listOf("yī", "二"), LyricsScript.plainLines("一\n二", "yī\n", LyricsScript.ROMANISED)!!.map { it.first })
+        // Extra blank lines (the end of the file, or the blank lines that the original text lost) are removed
+        assertEquals(listOf("一", "èr"), LyricsScript.plainLines("一\n二", "\nèr\n\n", LyricsScript.ROMANISED)!!.map { it.first })
+        assertEquals(listOf("yī", "èr"), LyricsScript.plainLines("一\n二", "\n\nyī\nèr\n", LyricsScript.ROMANISED)!!.map { it.first })
+    }
+
+    @Test
     fun plainLyricsWithOtherLineCountShowTheOriginal() {
         assertNull(LyricsScript.plainLines("一\n二", "yī", LyricsScript.ROMANISED))
         assertNull(LyricsScript.plainLines("一", "yī", LyricsScript.ORIGINAL))

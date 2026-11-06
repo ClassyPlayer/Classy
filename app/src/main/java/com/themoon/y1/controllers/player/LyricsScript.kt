@@ -47,13 +47,20 @@ object LyricsScript {
 
     /**
      * Plain lyrics (no timestamps): pairs the lines in order. Returns null (show the original text) when the
-     * romanised text has another number of lines, or for [ORIGINAL].
+     * romanised text has another number of lines, or for [ORIGINAL]. The original text has no blank lines at its
+     * start and end; blank romanised lines there are removed only when the romanised text has more lines than the
+     * original. Thus a blank first or last romanised line stays paired, and that line shows the original.
      */
     fun plainLines(original: String, romanised: String?, mode: Int): List<Pair<String, Int>>? {
         if (romanised == null || normalize(mode) == ORIGINAL) return null
         val o = original.split("\n")
-        val r = romanised.split("\n")
-        if (o.size != r.size) return null
+        val all = romanised.split("\n")
+        var from = 0
+        var to = all.size
+        while (to - from > o.size && !LyricsText.isVisible(all[to - 1])) to--
+        while (to - from > o.size && !LyricsText.isVisible(all[from])) from++
+        if (to - from != o.size) return null
+        val r = all.subList(from, to)
         return o.indices.map { line(o[it], r[it], mode) }
     }
 }
