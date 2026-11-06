@@ -40,7 +40,9 @@ class OtaUpdateManager(
         /** True from the start of a download to its install or its end: one at a time, as all write the same file. */
         private val downloadRunning = java.util.concurrent.atomic.AtomicBoolean(false)
 
-        const val UPDATE_JSON_URL = "https://raw.githubusercontent.com/JonaszPotoniec/Classy/main/app/version.json"
+        // Read from the release asset rather than a file on main: the workflow publishes
+        // dist/update.json with every release, so this URL needs nothing committed to the repo.
+        const val UPDATE_JSON_URL = "https://github.com/JonaszPotoniec/Classy/releases/latest/download/update.json"
 
         fun extractBuildNumber(suffix: String?): Int {
             if (suffix.isNullOrEmpty()) return 0
