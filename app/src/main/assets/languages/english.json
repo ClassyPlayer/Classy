@@ -518,7 +518,7 @@
   "USB Connected": "USB Connected",
   "Connect this device as USB storage to transfer files to your computer?": "Connect this device as USB storage to transfer files to your computer?",
   "Connect as Storage": "Connect as Storage",
-  "Charge Only": "Charge Only",
+  "Not Now": "Not Now",
   "Couldn't connect as USB storage.": "Couldn't connect as USB storage.",
   "Insert a microSD card to connect as USB storage.": "Insert a microSD card to connect as USB storage.",
   "Wait for the library scan to finish, then try again.": "Wait for the library scan to finish, then try again.",

@@ -20,7 +20,7 @@ class UsbPromptGateTest {
     }
 
     @Test
-    fun chargeOnlyOrBack_noQuestionOnTheNextConnect() {
+    fun notNowOrBack_noQuestionOnTheNextConnect() {
         val gate = UsbPromptGate()
         assertTrue(gate.shouldAsk())
         gate.onAnswered()

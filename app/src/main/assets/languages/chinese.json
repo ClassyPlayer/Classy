@@ -331,7 +331,7 @@
   "USB Connected": "USB 已连接",
   "Connect this device as USB storage to transfer files to your computer?": "将设备连接为 USB 存储以向电脑传输文件？",
   "Connect as Storage": "连接为存储设备",
-  "Charge Only": "仅充电",
+  "Not Now": "暂不",
   "Couldn't connect as USB storage.": "无法连接为 USB 存储设备。",
   "Insert a microSD card to connect as USB storage.": "请插入 microSD 卡以连接为 USB 存储设备。",
   "Wait for the library scan to finish, then try again.": "请等待媒体库扫描完成，然后重试。",

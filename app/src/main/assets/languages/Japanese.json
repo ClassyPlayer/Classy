@@ -512,7 +512,7 @@
   "USB Connected": "USB 接続済み",
   "Connect this device as USB storage to transfer files to your computer?": "このデバイスをUSBストレージとして接続して、コンピュータにファイルを転送しますか？",
   "Connect as Storage": "ストレージとして接続",
-  "Charge Only": "充電のみ",
+  "Not Now": "今はしない",
   "Couldn't connect as USB storage.": "USBストレージとして接続できませんでした。",
   "Insert a microSD card to connect as USB storage.": "USBストレージとして接続するには、microSDカードを入れてください。",
   "Wait for the library scan to finish, then try again.": "ライブラリのスキャンが完了するまで待ってから、もう一度お試しください。",

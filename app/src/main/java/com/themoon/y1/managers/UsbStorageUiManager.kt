@@ -48,7 +48,7 @@ class UsbStorageUiManager(
         usbPromptScreen = null
     }
 
-    /** USB cable in: Connect as Storage or Charge Only, on a screen of its own. Back is Charge Only. */
+    /** USB cable in: Connect as Storage or Not Now, on a screen of its own. Back is Not Now. */
     fun showUsbStorageDialog() {
         dismissUsbStorageDialog()
         usbPromptScreen = ActionScreens.open(ActionScreens.Spec(
@@ -60,7 +60,7 @@ class UsbStorageUiManager(
                     promptGate.onAnswered()
                     startUsbStorage()
                 },
-                ActionScreens.Action(localize("Charge Only")) {
+                ActionScreens.Action(localize("Not Now")) {
                     usbPromptScreen = null
                     promptGate.onAnswered()
                 }

@@ -331,7 +331,7 @@
   "USB Connected": "USB conectado",
   "Connect this device as USB storage to transfer files to your computer?": "¿Conectar el dispositivo como almacenamiento USB para transferir archivos al ordenador?",
   "Connect as Storage": "Conectar como almacenamiento",
-  "Charge Only": "Solo cargar",
+  "Not Now": "Ahora no",
   "Couldn't connect as USB storage.": "No se pudo conectar como almacenamiento USB.",
   "Insert a microSD card to connect as USB storage.": "Inserta una tarjeta microSD para conectar como almacenamiento USB.",
   "Wait for the library scan to finish, then try again.": "Espere a que termine el escaneo de la biblioteca y vuelva a intentarlo.",

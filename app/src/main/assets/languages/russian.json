@@ -512,7 +512,7 @@
   "USB Connected": "USB подключён",
   "Connect this device as USB storage to transfer files to your computer?": "Подключить устройство как USB-накопитель для передачи файлов на компьютер?",
   "Connect as Storage": "Подключить как накопитель",
-  "Charge Only": "Только зарядка",
+  "Not Now": "Не сейчас",
   "Couldn't connect as USB storage.": "Не удалось подключить как USB-накопитель.",
   "Insert a microSD card to connect as USB storage.": "Вставьте карту microSD, чтобы подключить как USB-накопитель.",
   "Wait for the library scan to finish, then try again.": "Дождитесь окончания сканирования медиатеки и попробуйте снова.",
