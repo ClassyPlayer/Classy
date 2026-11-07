@@ -3,6 +3,7 @@ package com.themoon.y1.controllers.videos
 import android.app.Activity
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.view.KeyEvent
 import android.view.SurfaceView
 import android.view.View
@@ -21,6 +22,7 @@ import java.io.File
 /**
  * Controller for fullscreen video playback using LibVLC (VideoPlayerManager),
  * progress updates, time formatting, and Click Wheel seek/volume controls.
+ * The title and the time bar hide while the video plays, and show at each button push ([VideoOverlayLogic]).
  */
 class VideoPlayerController(
     private val activity: Activity,
@@ -38,14 +40,18 @@ class VideoPlayerController(
     private val tvVideoTimeTotal: TextView? = rootView.findViewById(R.id.tv_video_time_total)
     private val videoProgressBar: ProgressBar? = rootView.findViewById(R.id.video_progress)
     private val tvVideoModeHint: TextView? = rootView.findViewById(R.id.tv_video_mode_hint)
+    private val layoutVideoControls: View? = rootView.findViewById(R.id.layout_video_controls)
 
     private val progressHandler = Handler(Looper.getMainLooper())
     private var isSeekModeActive = false
     private var currentVideoFile: File? = null
+    private val overlay = VideoOverlayLogic()
+    private val overlayTask = Runnable { refreshOverlay() }
 
     private val updateProgressTask = object : Runnable {
         override fun run() {
             updateProgressUI()
+            refreshOverlay()
             progressHandler.postDelayed(this, 1000)
         }
     }
@@ -73,13 +79,41 @@ class VideoPlayerController(
         tvVideoModeHint?.visibility = View.GONE
 
         VideoPlayerManager.getInstance().playVideo(activity, file, surfaceVideo)
+        showOverlay()
         progressHandler.removeCallbacks(updateProgressTask)
         progressHandler.post(updateProgressTask)
     }
 
     fun stop() {
         progressHandler.removeCallbacks(updateProgressTask)
+        progressHandler.removeCallbacks(overlayTask)
         VideoPlayerManager.getInstance().stopAndRelease()
+    }
+
+    /** A new video or a button push: show the title and the time bar, and start the hide delay again. */
+    private fun showOverlay() {
+        overlay.show(SystemClock.uptimeMillis())
+        refreshOverlay()
+    }
+
+    /** Show or hide the overlay for the play state now, and set the time of the next check. */
+    private fun refreshOverlay() {
+        val now = SystemClock.uptimeMillis()
+        val visible = overlay.update(now, VideoPlayerManager.getInstance().isPlaying())
+        listOf(tvVideoTitle, layoutVideoControls).forEach { v -> v?.let { setOverlayVisible(it, visible) } }
+        progressHandler.removeCallbacks(overlayTask)
+        val wait = overlay.msUntilHide(now)
+        if (wait >= 0) progressHandler.postDelayed(overlayTask, wait)
+    }
+
+    private fun setOverlayVisible(v: View, visible: Boolean) {
+        if (visible) {
+            v.animate().cancel()
+            v.alpha = 1f
+            v.visibility = View.VISIBLE
+        } else if (v.visibility == View.VISIBLE && v.alpha == 1f) {
+            v.animate().alpha(0f).setDuration(OVERLAY_FADE_MS).withEndAction { v.visibility = View.INVISIBLE }.start()
+        }
     }
 
     private fun updateProgressUI() {
@@ -108,6 +142,8 @@ class VideoPlayerController(
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         val keyCode = event.keyCode
         val action = event.action
+        // Each button push (also a wheel step) shows the overlay again
+        if (action == KeyEvent.ACTION_DOWN) showOverlay()
 
         if (keyCode == KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE
             || keyCode == KeyEvent.KEYCODE_MEDIA_PLAY || keyCode == KeyEvent.KEYCODE_MEDIA_PAUSE
@@ -203,5 +239,9 @@ class VideoPlayerController(
 
     private fun formatTime(ms: Int): String {
         return TimeFormat.format(ms)
+    }
+
+    companion object {
+        private const val OVERLAY_FADE_MS = 300L
     }
 }
