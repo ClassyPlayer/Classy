@@ -10,6 +10,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.ProgressBar
+import android.widget.SeekBar
 import android.widget.TextView
 import com.themoon.y1.R
 import com.themoon.y1.controllers.ScreenController
@@ -21,7 +22,8 @@ import java.io.File
 
 /**
  * Controller for fullscreen video playback using LibVLC (VideoPlayerManager),
- * progress updates, time formatting, and Click Wheel seek/volume controls.
+ * progress updates, time formatting, and Click Wheel controls: the wheel changes the volume, and the centre
+ * button opens scrub mode ([VideoScrub]), where the wheel moves the playhead.
  * The title and the time bar hide while the video plays, and show at each button push ([VideoOverlayLogic]).
  */
 class VideoPlayerController(
@@ -39,11 +41,11 @@ class VideoPlayerController(
     private val tvVideoTimeCurrent: TextView? = rootView.findViewById(R.id.tv_video_time_current)
     private val tvVideoTimeTotal: TextView? = rootView.findViewById(R.id.tv_video_time_total)
     private val videoProgressBar: ProgressBar? = rootView.findViewById(R.id.video_progress)
-    private val tvVideoModeHint: TextView? = rootView.findViewById(R.id.tv_video_mode_hint)
     private val layoutVideoControls: View? = rootView.findViewById(R.id.layout_video_controls)
+    private val seekVideoScrub: SeekBar? = rootView.findViewById(R.id.seek_video_scrub)
 
     private val progressHandler = Handler(Looper.getMainLooper())
-    private var isSeekModeActive = false
+    private val scrub = VideoScrub()
     private var currentVideoFile: File? = null
     private val overlay = VideoOverlayLogic()
     private val overlayTask = Runnable { refreshOverlay() }
@@ -66,6 +68,7 @@ class VideoPlayerController(
 
     override fun onExit() {
         stop()
+        closeScrub()
         surfaceVideo.visibility = View.GONE
         layoutVideoPlayer.visibility = View.GONE
     }
@@ -75,8 +78,7 @@ class VideoPlayerController(
         val title = file.nameWithoutExtension
         tvVideoTitle?.text = title
 
-        isSeekModeActive = false
-        tvVideoModeHint?.visibility = View.GONE
+        closeScrub()
 
         VideoPlayerManager.getInstance().playVideo(activity, file, surfaceVideo)
         showOverlay()
@@ -99,7 +101,8 @@ class VideoPlayerController(
     /** Show or hide the overlay for the play state now, and set the time of the next check. */
     private fun refreshOverlay() {
         val now = SystemClock.uptimeMillis()
-        val visible = overlay.update(now, VideoPlayerManager.getInstance().isPlaying())
+        // In scrub mode the time bar is the scrub bar: it stays until scrub mode closes
+        val visible = overlay.update(now, VideoPlayerManager.getInstance().isPlaying() && !scrub.isActive)
         listOf(tvVideoTitle, layoutVideoControls).forEach { v -> v?.let { setOverlayVisible(it, visible) } }
         progressHandler.removeCallbacks(overlayTask)
         val wait = overlay.msUntilHide(now)
@@ -118,7 +121,8 @@ class VideoPlayerController(
 
     private fun updateProgressUI() {
         val vm = VideoPlayerManager.getInstance()
-        val pos = vm.getCurrentPosition().toInt()
+        // In scrub mode after a wheel step, the times and the bar show the pending position
+        val pos = scrub.shownMs(vm.getCurrentPosition()).toInt()
         val dur = vm.getDuration().toInt()
 
         tvVideoTimeCurrent?.text = formatTime(pos)
@@ -126,17 +130,39 @@ class VideoPlayerController(
         if (videoProgressBar != null && dur > 0) {
             videoProgressBar.progress = ((pos.toLong() * 100) / dur).toInt()
         }
+        if (scrub.isActive) {
+            seekVideoScrub?.max = if (dur > 0) dur else 1000
+            seekVideoScrub?.progress = pos
+        }
     }
 
-    fun toggleSeekMode() {
-        isSeekModeActive = !isSeekModeActive
-        tvVideoModeHint?.let { hint ->
-            hint.text = if (isSeekModeActive) localize("Seek Mode") else localize("Volume Mode")
-            hint.visibility = View.VISIBLE
-            hint.postDelayed({
-                hint.visibility = View.GONE
-            }, 1500)
+    /** Centre button: open scrub mode, or seek to the pending position and close it. */
+    private fun onCentre() {
+        if (scrub.isActive) {
+            scrub.commit()?.let { target ->
+                val vm = VideoPlayerManager.getInstance()
+                vm.seekRelative(target - vm.getCurrentPosition())
+            }
+        } else {
+            scrub.open()
         }
+        showScrub()
+    }
+
+    /** Closes scrub mode with no seek. False if it was not open. */
+    private fun closeScrub(): Boolean {
+        if (!scrub.isActive) return false
+        scrub.cancel()
+        showScrub()
+        return true
+    }
+
+    /** Scrub mode shows the scrub bar (diamond thumb) in place of the progress bar, as Now Playing does. */
+    private fun showScrub() {
+        videoProgressBar?.visibility = if (scrub.isActive) View.GONE else View.VISIBLE
+        seekVideoScrub?.visibility = if (scrub.isActive) View.VISIBLE else View.GONE
+        updateProgressUI()
+        showOverlay()
     }
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
@@ -172,8 +198,10 @@ class VideoPlayerController(
 
         if (keyCode == 21 || keyCode == 22) {
             if (action == KeyEvent.ACTION_DOWN) {
-                if (isSeekModeActive) {
-                    VideoPlayerManager.getInstance().seekRelative(if (keyCode == 22) 10000L else -10000L)
+                if (scrub.isActive) {
+                    val vm = VideoPlayerManager.getInstance()
+                    scrub.step(keyCode == 22, vm.getCurrentPosition(), vm.getDuration())
+                    updateProgressUI()
                 } else {
                     onAdjustVolume(keyCode == 22)
                 }
@@ -185,53 +213,29 @@ class VideoPlayerController(
         if (keyCode == KeyEvent.KEYCODE_BACK) {
             if (action == KeyEvent.ACTION_UP && !event.isCanceled) {
                 clickFeedback()
-                stop()
-                onExitRequested()
+                // Back in scrub mode closes it with no seek, as in Now Playing
+                if (!closeScrub()) {
+                    stop()
+                    onExitRequested()
+                }
             }
             return true
         }
 
         if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER) {
-            if (action == KeyEvent.ACTION_UP) {
+            // Play/Pause stays on the Play/Pause button; the centre button opens scrub mode, as in Now Playing
+            if (action == KeyEvent.ACTION_UP && !event.isCanceled) {
                 clickFeedback()
-                VideoPlayerManager.getInstance().togglePlayPause()
+                onCentre()
             }
             return true
         }
-
-        return false
-    }
-
-    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
-        if (keyCode == 21 || keyCode == 22) { // Wheel Left/Right
-            clickFeedback()
-            if (isSeekModeActive) {
-                val delta = if (keyCode == 22) 10000L else -10000L
-                VideoPlayerManager.getInstance().seekRelative(delta)
-                updateProgressUI()
-            } else {
-                onAdjustVolume(keyCode == 22)
-            }
-            return true
-        }
-
-        if (keyCode == KeyEvent.KEYCODE_MEDIA_NEXT || keyCode == KeyEvent.KEYCODE_MEDIA_PREVIOUS) {
-            val delta = if (keyCode == KeyEvent.KEYCODE_MEDIA_NEXT) 10000L else -10000L
-            VideoPlayerManager.getInstance().seekRelative(delta)
-            return true
-        }
-
-        if (keyCode == KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE || keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER) {
-            clickFeedback()
-            VideoPlayerManager.getInstance().togglePlayPause()
-            return true
-        }
-
 
         return false
     }
 
     override fun onBackPressed(): Boolean {
+        if (closeScrub()) return true
         stop()
         onExitRequested()
         return true
