@@ -11,7 +11,7 @@ object BootStringsPatcher {
 
     val WANTED_REPLACEMENTS = listOf(
         "Android is upgrading\u2026" to "Classy is starting\u2026",
-        "Optimizing app %1$d of %2$d." to "Updating %1$d of %2$d",
+        "Optimizing app %1\$d of %2\$d." to "Updating %1\$d of %2\$d",
         "Starting apps." to "Starting up\u2026",
         "Finishing boot." to "Finishing up\u2026"
     )
@@ -39,12 +39,10 @@ object BootStringsPatcher {
         if (isPatched(apkFile)) return true
 
         try {
-            var arscBytes: ByteArray? = null
-            ZipFile(apkFile).use { zip ->
+            val arsc = ZipFile(apkFile).use { zip ->
                 val entry = zip.getEntry("resources.arsc") ?: return false
-                arscBytes = zip.getInputStream(entry).use { it.readBytes() }
+                zip.getInputStream(entry).use { it.readBytes() }
             }
-            val arsc = arscBytes ?: return false
             if (arsc.size < 12) return false
 
             val buf = ByteBuffer.wrap(arsc).order(ByteOrder.LITTLE_ENDIAN)
