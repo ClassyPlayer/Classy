@@ -41,6 +41,7 @@ open class MigrationManager {
         registerMigration(Migration008PlayOnMenuItem())
         registerMigration(Migration009RemoveBackgroundPath())
         registerMigration(Migration010UsbDrive())
+        registerMigration(Migration011BootScreen())
     }
 
     /**

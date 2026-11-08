@@ -35,6 +35,19 @@ The Y2 base ROM (`y2-test`) has no `Bluetooth.apk`, so Bluetooth cannot turn on 
 
 `scripts/build-rom.sh y2` checks both hashes, installs the files in `/system/app` (root:root 644), then runs [`tools/patch_bluetooth_profiles.py`](../patch_bluetooth_profiles.py) on the installed `Bluetooth.apk` (hands-free, phone book and message profiles off; only `resources.arsc` changes, as with the `framework-res.apk` patches, so the odex still matches). The files here stay stock. The audit fails if the files are missing, if the odex is different, or if the installed APK is not the patched stock APK (SHA-256 `99d8d244e6dd083266985ef473bbe86fe51026d11ab724f9a78ca677cc388013`). Keep the stock `MtkBt.apk`.
 
+## `android.policy.jar` — Classy boot screen (TYPE_BOOT_PROGRESS dialog)
+
+Android 4.4 KitKat system dialog (`PhoneWindowManager$29` in `system_server`) shown on boot during `dexopt` ("Android is upgrading..."). Stock version draws a Holo title bar, spinner, and dark grey rectangle.
+
+This patched jar removes the title bar (`setTitle(null)`), hides the circular spinner, styles the background to solid black, horizontally and vertically centers the text at 22sp white `sans-serif-light`, and adds an iPod Classic-style horizontal progress bar below the message that fills as packages are optimized.
+
+| File | Size | SHA-256 |
+|---|---|---|
+| `android.policy.jar` | 117,716 | `e4a0adb8281e5940220ad810d48bd797ddaf4e961d4cc7ef1a1f9533b4f6880a` |
+
+`scripts/build-rom.sh` installs it to `/system/framework/android.policy.jar` (root:root 644) and removes `/system/framework/android.policy.odex` so Dalvik re-optimizes the jar into `/data/dalvik-cache`. Pair with [`tools/swap_boot_strings.py`](../swap_boot_strings.py) for `framework-res.apk` boot message text ("Updating X of Y", "Starting up…", "Finishing up…").
+
+
 ## Format notes
 
 MTK `LOGO` partition, fully reverse-engineered from stock firmware and `libshowlogo.so` (`check_logo_index_valid`). The container holds 39 image streams (stream 0 = primary boot logo, stream 38 = secondary splash, streams 1–37 = battery charging animations, percentages, and alerts):

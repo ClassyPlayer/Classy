@@ -399,6 +399,34 @@ class OtaUpdateManager(
             val apkPath = apkFile.absolutePath
             val logPath = StoragePaths.primaryFile("y1_update_log.txt").absolutePath
 
+            // Migrate boot screen (android.policy.jar + boot strings) for OTA update before reboot
+            var tempJarPath: String? = null
+            var tempApkPath: String? = null
+            try {
+                if (!com.themoon.y1.migrations.BootScreenMigrator.isPolicyJarPatched()) {
+                    java.util.zip.ZipFile(apkFile).use { zip ->
+                        zip.getEntry("assets/" + com.themoon.y1.migrations.BootScreenMigrator.ASSET_POLICY_JAR)?.let { entry ->
+                            val tempJar = File(activity.cacheDir, "ota_android_policy.jar")
+                            zip.getInputStream(entry).use { input ->
+                                tempJar.outputStream().use { output -> input.copyTo(output) }
+                            }
+                            tempJarPath = tempJar.absolutePath
+                        }
+                    }
+                }
+                if (!com.themoon.y1.migrations.BootScreenMigrator.isFrameworkResPatched() &&
+                    File(com.themoon.y1.migrations.BootScreenMigrator.TARGET_FRAMEWORK_RES).exists()
+                ) {
+                    val tempApk = File(activity.cacheDir, "ota_framework_res.apk")
+                    File(com.themoon.y1.migrations.BootScreenMigrator.TARGET_FRAMEWORK_RES).copyTo(tempApk, overwrite = true)
+                    if (com.themoon.y1.migrations.BootStringsPatcher.patchInPlace(tempApk)) {
+                        tempApkPath = tempApk.absolutePath
+                    } else {
+                        tempApk.delete()
+                    }
+                }
+            } catch (_: Throwable) {}
+
             os.writeBytes("chmod 777 " + apkFile.parentFile.absolutePath + "\n")
             os.writeBytes("chmod 777 $apkPath\n")
             os.writeBytes("mount -o remount,rw /system 2>/dev/null\n")
@@ -411,6 +439,27 @@ class OtaUpdateManager(
             os.writeBytes("    rm -f /data/app/com.themoon.y1* 2>/dev/null\n")
             os.writeBytes("  fi\n")
             os.writeBytes("done\n")
+            if (tempJarPath != null) {
+                val targetJar = com.themoon.y1.migrations.BootScreenMigrator.TARGET_POLICY_JAR
+                val targetOdex = com.themoon.y1.migrations.BootScreenMigrator.TARGET_POLICY_ODEX
+                val stagedJar = "$targetJar.classy_tmp"
+                os.writeBytes("if cp $tempJarPath $stagedJar >> $logPath 2>&1 && chmod 644 $stagedJar && chown root:root $stagedJar; then\n")
+                os.writeBytes("  mv -f $stagedJar $targetJar >> $logPath 2>&1 && rm -f $targetOdex\n")
+                os.writeBytes("else\n")
+                os.writeBytes("  rm -f $stagedJar\n")
+                os.writeBytes("fi\n")
+                os.writeBytes("rm -f $tempJarPath\n")
+            }
+            if (tempApkPath != null) {
+                val targetApk = com.themoon.y1.migrations.BootScreenMigrator.TARGET_FRAMEWORK_RES
+                val stagedApk = "$targetApk.classy_tmp"
+                os.writeBytes("if cp $tempApkPath $stagedApk >> $logPath 2>&1 && chmod 644 $stagedApk && chown root:root $stagedApk; then\n")
+                os.writeBytes("  mv -f $stagedApk $targetApk >> $logPath 2>&1\n")
+                os.writeBytes("else\n")
+                os.writeBytes("  rm -f $stagedApk\n")
+                os.writeBytes("fi\n")
+                os.writeBytes("rm -f $tempApkPath\n")
+            }
             os.writeBytes("pm install -r -d $apkPath >> $logPath 2>&1\n")
             os.writeBytes("sync\n")
             os.writeBytes("reboot\n")

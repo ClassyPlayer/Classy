@@ -42,6 +42,9 @@ Y2_BT_ODEX_SHA256="f543c2842589e70f6d4582e8992e2ccf1f2e0e1fa19b454fabf039b5f8e08
 # The installed Bluetooth.apk after tools/patch_bluetooth_profiles.py (only resources.arsc bools change).
 Y2_BT_APK_PATCHED_SHA256="99d8d244e6dd083266985ef473bbe86fe51026d11ab724f9a78ca677cc388013"
 
+# Patched /system/framework/android.policy.jar for the Classy boot screen (tools/rom_assets/android.policy.jar).
+BOOT_POLICY_JAR_SHA256="e4a0adb8281e5940220ad810d48bd797ddaf4e961d4cc7ef1a1f9533b4f6880a"
+
 usage() {
     cat >&2 <<EOF
 usage: $0 <a|b|y2> [--launcher-apk PATH] [--launcher-tag TAG] [--launcher-apk-url URL] [output.zip]
@@ -140,7 +143,7 @@ require_cmd unzip
 require_cmd zip
 require_cmd cmp
 require_cmd sudo
-require_cmd sha256sum
+command -v sha256sum >/dev/null 2>&1 || command -v shasum >/dev/null 2>&1 || die "require sha256sum or shasum"
 
 resolve_latest_launcher_tag() {
     local release_url tag
@@ -188,7 +191,11 @@ download_launcher_apk() {
 }
 
 sha256_of() {
-    sha256sum "$1" | awk '{ print $1 }'
+    if command -v sha256sum >/dev/null 2>&1; then
+        sha256sum "$1" | awk '{ print $1 }'
+    else
+        shasum -a 256 "$1" | awk '{ print $1 }'
+    fi
 }
 
 verify_sha256() {
@@ -360,6 +367,25 @@ audit_rom_contents() {
         errors=$((errors + 1))
     fi
 
+    if [ ! -f "$sys_mount/framework/android.policy.jar" ]; then
+        echo "audit fail: /system/framework/android.policy.jar missing" >&2
+        errors=$((errors + 1))
+    elif [ "$(sha256_of "$sys_mount/framework/android.policy.jar")" != "$BOOT_POLICY_JAR_SHA256" ]; then
+        echo "audit fail: /system/framework/android.policy.jar is not the patched Classy boot screen jar" >&2
+        errors=$((errors + 1))
+    fi
+
+    if [ -f "$sys_mount/framework/android.policy.odex" ]; then
+        echo "audit fail: stale /system/framework/android.policy.odex still present" >&2
+        errors=$((errors + 1))
+    fi
+
+    if [ -f "$sys_mount/framework/framework-res.apk" ] \
+        && ! python3 "$REPO_ROOT/tools/swap_boot_strings.py" "$sys_mount/framework/framework-res.apk" --check >/dev/null 2>&1; then
+        echo "audit fail: framework-res.apk still has stock boot strings" >&2
+        errors=$((errors + 1))
+    fi
+
     # Y1: Generic.kl == Stock.kl (scripts/Stock.kl).
     # Y2: pin scripts/Y2.kl onto the device input names launcher needs.
     if [ "$rom_type" = "y2" ]; then
@@ -474,7 +500,7 @@ fi
 
 echo "==> Downloading type-${TYPE} base firmware"
 echo "    $BASE_URL"
-curl -fsSL -L -o "$BASE_DIR/rom.zip" "$BASE_URL"
+curl -fsSL --retry 5 --retry-delay 5 -o "$BASE_DIR/rom.zip" "$BASE_URL"
 unzip -q "$BASE_DIR/rom.zip" -d "$BASE_DIR"
 
 # Some packs nest images one directory deep.
@@ -592,6 +618,16 @@ fi
 if [ -f "$MOUNT_SYS/framework/framework-res.apk" ]; then
     echo "==> Patching framework-res.apk to disable Safe Media Volume"
     sudo python3 "$REPO_ROOT/tools/patch_safe_volume.py" "$MOUNT_SYS/framework/framework-res.apk"
+    sudo chmod 644 "$MOUNT_SYS/framework/framework-res.apk"
+    sudo chown root:root "$MOUNT_SYS/framework/framework-res.apk"
+
+    echo "==> Patching boot screen (android.policy.jar + boot strings)"
+    verify_sha256 "$REPO_ROOT/tools/rom_assets/android.policy.jar" "$BOOT_POLICY_JAR_SHA256"
+    sudo cp -f "$REPO_ROOT/tools/rom_assets/android.policy.jar" "$MOUNT_SYS/framework/android.policy.jar"
+    sudo rm -f "$MOUNT_SYS/framework/android.policy.odex"
+    sudo chmod 644 "$MOUNT_SYS/framework/android.policy.jar"
+    sudo chown root:root "$MOUNT_SYS/framework/android.policy.jar"
+    sudo python3 "$REPO_ROOT/tools/swap_boot_strings.py" "$MOUNT_SYS/framework/framework-res.apk"
     sudo chmod 644 "$MOUNT_SYS/framework/framework-res.apk"
     sudo chown root:root "$MOUNT_SYS/framework/framework-res.apk"
 fi
