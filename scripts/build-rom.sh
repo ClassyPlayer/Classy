@@ -500,7 +500,7 @@ fi
 
 echo "==> Downloading type-${TYPE} base firmware"
 echo "    $BASE_URL"
-curl -fsSL -L -o "$BASE_DIR/rom.zip" "$BASE_URL"
+curl -fsSL --retry 5 --retry-delay 5 -o "$BASE_DIR/rom.zip" "$BASE_URL"
 unzip -q "$BASE_DIR/rom.zip" -d "$BASE_DIR"
 
 # Some packs nest images one directory deep.
