@@ -84,7 +84,7 @@ object BootStringsPatcher {
 
                 for ((oldStr, newStr) in WANTED_REPLACEMENTS) {
                     if (text == oldStr) {
-                        val room = if (i + 1 < stringCount) offsets[i + 1] - offsets[i] else (arsc.size - (dataBase + offsets[i]))
+                        val room = prefix + prefix2 + bodyLen + 1
                         val payload = newStr.toByteArray(Charsets.UTF_8)
                         val u16len = newStr.length
                         val need = payload.size + 1
