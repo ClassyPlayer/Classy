@@ -440,20 +440,24 @@ class OtaUpdateManager(
             os.writeBytes("  fi\n")
             os.writeBytes("done\n")
             if (tempJarPath != null) {
-                val stagedJar = com.themoon.y1.migrations.BootScreenMigrator.TARGET_POLICY_JAR + ".classy_tmp"
-                os.writeBytes("cp $tempJarPath $stagedJar >> $logPath 2>&1\n")
-                os.writeBytes("chmod 644 $stagedJar\n")
-                os.writeBytes("chown root:root $stagedJar\n")
-                os.writeBytes("mv -f $stagedJar " + com.themoon.y1.migrations.BootScreenMigrator.TARGET_POLICY_JAR + " >> $logPath 2>&1\n")
-                os.writeBytes("rm -f " + com.themoon.y1.migrations.BootScreenMigrator.TARGET_POLICY_ODEX + "\n")
+                val targetJar = com.themoon.y1.migrations.BootScreenMigrator.TARGET_POLICY_JAR
+                val targetOdex = com.themoon.y1.migrations.BootScreenMigrator.TARGET_POLICY_ODEX
+                val stagedJar = "$targetJar.classy_tmp"
+                os.writeBytes("if cp $tempJarPath $stagedJar >> $logPath 2>&1 && chmod 644 $stagedJar && chown root:root $stagedJar; then\n")
+                os.writeBytes("  mv -f $stagedJar $targetJar >> $logPath 2>&1 && rm -f $targetOdex\n")
+                os.writeBytes("else\n")
+                os.writeBytes("  rm -f $stagedJar\n")
+                os.writeBytes("fi\n")
                 os.writeBytes("rm -f $tempJarPath\n")
             }
             if (tempApkPath != null) {
-                val stagedApk = com.themoon.y1.migrations.BootScreenMigrator.TARGET_FRAMEWORK_RES + ".classy_tmp"
-                os.writeBytes("cp $tempApkPath $stagedApk >> $logPath 2>&1\n")
-                os.writeBytes("chmod 644 $stagedApk\n")
-                os.writeBytes("chown root:root $stagedApk\n")
-                os.writeBytes("mv -f $stagedApk " + com.themoon.y1.migrations.BootScreenMigrator.TARGET_FRAMEWORK_RES + " >> $logPath 2>&1\n")
+                val targetApk = com.themoon.y1.migrations.BootScreenMigrator.TARGET_FRAMEWORK_RES
+                val stagedApk = "$targetApk.classy_tmp"
+                os.writeBytes("if cp $tempApkPath $stagedApk >> $logPath 2>&1 && chmod 644 $stagedApk && chown root:root $stagedApk; then\n")
+                os.writeBytes("  mv -f $stagedApk $targetApk >> $logPath 2>&1\n")
+                os.writeBytes("else\n")
+                os.writeBytes("  rm -f $stagedApk\n")
+                os.writeBytes("fi\n")
                 os.writeBytes("rm -f $tempApkPath\n")
             }
             os.writeBytes("pm install -r -d $apkPath >> $logPath 2>&1\n")

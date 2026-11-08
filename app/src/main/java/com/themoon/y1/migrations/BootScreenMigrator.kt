@@ -91,6 +91,7 @@ object BootScreenMigrator {
             val os = DataOutputStream(process.outputStream)
 
             os.writeBytes("set -e\n")
+            os.writeBytes("trap 'rm -f $TARGET_POLICY_JAR.classy_tmp $TARGET_FRAMEWORK_RES.classy_tmp' EXIT\n")
             os.writeBytes("mount -o remount,rw /system 2>/dev/null || mount -o remount,rw /system\n")
 
             if (!policyPatched && tempJar.exists()) {
@@ -112,6 +113,7 @@ object BootScreenMigrator {
                 os.writeBytes("mv -f $stagedApk $TARGET_FRAMEWORK_RES\n")
             }
 
+            os.writeBytes("trap - EXIT\n")
             os.writeBytes("sync\n")
             os.writeBytes("exit 0\n")
             os.flush()
