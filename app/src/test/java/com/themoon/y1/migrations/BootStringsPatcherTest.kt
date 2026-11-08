@@ -19,15 +19,27 @@ class BootStringsPatcherTest {
     }
 
     @Test
-    fun testIsPatchedOnAlreadyPatchedApk() {
-        val apk = File("../classy-boot-screen/framework-res.apk")
-        if (!apk.exists()) {
-            val localApk = File("classy-boot-screen/framework-res.apk")
-            if (!localApk.exists()) return
-            assertTrue(BootStringsPatcher.isPatched(localApk))
-            return
+    fun testIsPatchedPositiveAndNegativeFixtures() {
+        val patchedZip = File.createTempFile("test_patched", ".apk")
+        val stockZip = File.createTempFile("test_stock", ".apk")
+        try {
+            writeMockApk(patchedZip, "dummy_prefix Classy is starting… dummy_suffix".toByteArray(Charsets.UTF_8))
+            assertTrue(BootStringsPatcher.isPatched(patchedZip))
+
+            writeMockApk(stockZip, "dummy_prefix Android is upgrading… dummy_suffix".toByteArray(Charsets.UTF_8))
+            assertFalse(BootStringsPatcher.isPatched(stockZip))
+        } finally {
+            patchedZip.delete()
+            stockZip.delete()
         }
-        assertTrue(BootStringsPatcher.isPatched(apk))
+    }
+
+    private fun writeMockApk(file: File, arscContent: ByteArray) {
+        java.util.zip.ZipOutputStream(file.outputStream()).use { zos ->
+            zos.putNextEntry(java.util.zip.ZipEntry("resources.arsc"))
+            zos.write(arscContent)
+            zos.closeEntry()
+        }
     }
 
     @Test

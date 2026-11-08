@@ -83,6 +83,8 @@ object BootScreenMigrator {
                     apkNeedsWrite = true
                 } else {
                     tempApk.delete()
+                    Log.e(TAG, "Failed to patch framework-res.apk boot strings")
+                    return false
                 }
             }
 
