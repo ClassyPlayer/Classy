@@ -640,6 +640,7 @@ NEW_MSG = """    invoke-virtual {v1, v2}, Landroid/app/ProgressDialog;->setMessa
 
 
 def tool_classpath(jars):
+    """Build the Java classpath string containing the required smali/baksmali toolchain jars."""
     names = [
         "baksmali.jar",
         "smali.jar",
@@ -657,6 +658,7 @@ def tool_classpath(jars):
 
 
 def run(cmd):
+    """Execute a subprocess command, printing stderr and exiting on failure."""
     p = subprocess.run(cmd, capture_output=True, text=True)
     if p.returncode != 0:
         sys.stderr.write(p.stdout[-4000:] + p.stderr[-4000:])
@@ -665,6 +667,7 @@ def run(cmd):
 
 
 def main():
+    """Main CLI entry point to dissemble, patch, reassemble, or verify android.policy.jar."""
     ap = argparse.ArgumentParser()
     ap.add_argument("jar")
     ap.add_argument("out", nargs="?")

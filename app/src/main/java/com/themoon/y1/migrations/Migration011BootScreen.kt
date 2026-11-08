@@ -20,11 +20,11 @@ class Migration011BootScreen : Migration {
 
     override fun migrate(context: MigrationContext) {
         val appCtx = context.context ?: return
-        try {
-            BootScreenMigrator.applyMigration(appCtx)
-        } catch (e: Throwable) {
-            Log.e("Classy", "Migration011BootScreen skipped or failed", e)
+        if (!BootScreenMigrator.isRootAvailable()) {
+            Log.i("Classy", "Root not available; skipping Migration011BootScreen")
+            return
         }
+        check(BootScreenMigrator.applyMigration(appCtx)) { "Boot screen migration failed" }
     }
 
     companion object {

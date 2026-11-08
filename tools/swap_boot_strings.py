@@ -18,6 +18,7 @@ import zipfile
 
 
 def read_pool(arsc, chunk_off):
+    """Parse the ResStringPool chunk header, flags, and string offsets from raw ARSC bytes."""
     _, header_size, chunk_size = struct.unpack_from("<HHI", arsc, chunk_off)
     string_count, style_count, flags, strings_start, styles_start = struct.unpack_from(
         "<IIIII", arsc, chunk_off + 8
@@ -39,6 +40,7 @@ def read_pool(arsc, chunk_off):
 
 
 def read_string(arsc, pool, idx):
+    """Decode a UTF-8 or UTF-16 string from the string pool at the given index."""
     off = pool["data_off"] + pool["offsets"][idx]
     utf8 = bool(pool["flags"] & 0x100)
     if utf8:
@@ -67,6 +69,7 @@ def entry_footprint(pool, idx):
 
 
 def replace_string(arsc, pool, idx, new_text):
+    """Replace a string entry in-place with new text, preserving byte offsets and alignment."""
     old = read_string(arsc, pool, idx)
     off = pool["data_off"] + pool["offsets"][idx]
     room = entry_footprint(pool, idx)
@@ -106,6 +109,7 @@ def replace_string(arsc, pool, idx, new_text):
 
 
 def patch_arsc(arsc, wanted):
+    """Apply all (old_string, new_string) replacements to the string pool of resources.arsc."""
     chunk_off = struct.unpack_from("<H", arsc, 0)[0]  # ResTable header size
     pool = read_pool(arsc, 12)
     by_text = {}
@@ -156,6 +160,7 @@ def fix_crc(path, name, data):
 
 
 def arsc_offset_in_zip(path, name="resources.arsc"):
+    """Locate the raw file offset and compression method of an entry in a zip archive."""
     with zipfile.ZipFile(path) as z:
         info = z.getinfo(name)
     with open(path, "rb") as fh:
@@ -177,6 +182,7 @@ WANTED = [
 
 
 def main():
+    """Main CLI entry point to patch boot strings in framework-res.apk or check their status."""
     if len(sys.argv) < 2:
         print(__doc__)
         return 1
@@ -187,16 +193,18 @@ def main():
         arsc = bytearray(z.read("resources.arsc"))
 
     pool = read_pool(arsc, 12)
+    stock = {old for old, _ in WANTED}
+    tracked = stock | {new for _, new in WANTED}
     now = {}
     for i in range(pool["count"]):
         s = read_string(arsc, pool, i)
-        if s in ("Android is upgrading\u2026", "Starting apps.", "Classy is starting\u2026", "Starting up\u2026"):
+        if s in tracked:
             now.setdefault(s, 0)
             now[s] += 1
 
     if check:
         print(now)
-        return 0 if not any(k.startswith(("Android", "Optimizing app", "Starting apps", "Finishing boot")) for k in now) else 1
+        return 0 if not any(k in stock for k in now) else 1
 
     before = len(arsc)
     changed = patch_arsc(arsc, WANTED)

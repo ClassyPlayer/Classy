@@ -40,6 +40,18 @@ object BootScreenMigrator {
         BootStringsPatcher.isPatched(File(TARGET_FRAMEWORK_RES))
 
     /**
+     * Checks if root (`su`) is available and executable.
+     */
+    fun isRootAvailable(): Boolean {
+        return try {
+            val process = Runtime.getRuntime().exec(arrayOf("su", "-c", "id"))
+            process.waitFor() == 0
+        } catch (_: Throwable) {
+            false
+        }
+    }
+
+    /**
      * Fully applies the boot screen migration on a running device using `su`.
      * Safe to call multiple times (idempotent).
      */
@@ -74,29 +86,34 @@ object BootScreenMigrator {
                 }
             }
 
-            // 3. Execute root install commands
+            // 3. Execute root install commands with atomic replacement
             val process = Runtime.getRuntime().exec("su")
             val os = DataOutputStream(process.outputStream)
 
-            os.writeBytes("mount -o remount,rw /system 2>/dev/null\n")
+            os.writeBytes("set -e\n")
+            os.writeBytes("mount -o remount,rw /system 2>/dev/null || mount -o remount,rw /system\n")
 
             if (!policyPatched && tempJar.exists()) {
                 val p = tempJar.absolutePath
-                os.writeBytes("cp $p $TARGET_POLICY_JAR\n")
-                os.writeBytes("chmod 644 $TARGET_POLICY_JAR\n")
-                os.writeBytes("chown root:root $TARGET_POLICY_JAR\n")
+                val stagedJar = "$TARGET_POLICY_JAR.classy_tmp"
+                os.writeBytes("cp $p $stagedJar\n")
+                os.writeBytes("chmod 644 $stagedJar\n")
+                os.writeBytes("chown root:root $stagedJar\n")
+                os.writeBytes("mv -f $stagedJar $TARGET_POLICY_JAR\n")
                 os.writeBytes("rm -f $TARGET_POLICY_ODEX\n")
             }
 
             if (apkNeedsWrite && tempApk.exists()) {
                 val p = tempApk.absolutePath
-                os.writeBytes("cp $p $TARGET_FRAMEWORK_RES\n")
-                os.writeBytes("chmod 644 $TARGET_FRAMEWORK_RES\n")
-                os.writeBytes("chown root:root $TARGET_FRAMEWORK_RES\n")
+                val stagedApk = "$TARGET_FRAMEWORK_RES.classy_tmp"
+                os.writeBytes("cp $p $stagedApk\n")
+                os.writeBytes("chmod 644 $stagedApk\n")
+                os.writeBytes("chown root:root $stagedApk\n")
+                os.writeBytes("mv -f $stagedApk $TARGET_FRAMEWORK_RES\n")
             }
 
             os.writeBytes("sync\n")
-            os.writeBytes("exit\n")
+            os.writeBytes("exit 0\n")
             os.flush()
             os.close()
 

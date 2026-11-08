@@ -107,6 +107,9 @@ object BootStringsPatcher {
             if (changedCount == 0) return false
 
             val offsetsInfo = findZipEntryOffsets(apkFile, "resources.arsc") ?: return false
+            if (offsetsInfo.method != 0 || offsetsInfo.compressedSize != arsc.size.toLong()) {
+                return false
+            }
 
             val crc = CRC32()
             crc.update(arsc)
@@ -137,7 +140,13 @@ object BootStringsPatcher {
         }
     }
 
-    private data class ZipOffsets(val dataOffset: Long, val localHeaderOffset: Long, val centralDirPos: Long)
+    private data class ZipOffsets(
+        val dataOffset: Long,
+        val localHeaderOffset: Long,
+        val centralDirPos: Long,
+        val method: Int,
+        val compressedSize: Long
+    )
 
     private fun findZipEntryOffsets(file: File, name: String): ZipOffsets? {
         val len = file.length()
@@ -175,6 +184,8 @@ object BootStringsPatcher {
                     cdBytes[pos + 2] != 0x01.toByte() || cdBytes[pos + 3] != 0x02.toByte()
                 ) break
 
+                val method = cdBuf.getShort(pos + 10).toInt() and 0xFFFF
+                val compSize = cdBuf.getInt(pos + 20).toLong() and 0xFFFFFFFFL
                 val nameLen = cdBuf.getShort(pos + 28).toInt() and 0xFFFF
                 val extraLen = cdBuf.getShort(pos + 30).toInt() and 0xFFFF
                 val commentLen = cdBuf.getShort(pos + 32).toInt() and 0xFFFF
@@ -188,7 +199,7 @@ object BootStringsPatcher {
                     val lhNameLen = ((lhHdr[0].toInt() and 0xFF) or ((lhHdr[1].toInt() and 0xFF) shl 8))
                     val lhExtraLen = ((lhHdr[2].toInt() and 0xFF) or ((lhHdr[3].toInt() and 0xFF) shl 8))
                     val dataOff = lho + 30 + lhNameLen + lhExtraLen
-                    return ZipOffsets(dataOff, lho, cdOff + pos)
+                    return ZipOffsets(dataOff, lho, cdOff + pos, method, compSize)
                 }
                 pos += 46 + nameLen + extraLen + commentLen
             }

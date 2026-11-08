@@ -143,7 +143,7 @@ require_cmd unzip
 require_cmd zip
 require_cmd cmp
 require_cmd sudo
-require_cmd sha256sum
+command -v sha256sum >/dev/null 2>&1 || command -v shasum >/dev/null 2>&1 || die "require sha256sum or shasum"
 
 resolve_latest_launcher_tag() {
     local release_url tag
