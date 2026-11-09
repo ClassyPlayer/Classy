@@ -1,6 +1,7 @@
 package com.themoon.y1.managers
 
 import android.content.ComponentName
+import android.content.ContentResolver
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
@@ -233,12 +234,22 @@ object SystemBloatManager {
         val resolver = context.contentResolver
         return try {
             keyboardImes(
-                Settings.Secure.getString(resolver, Settings.Secure.DEFAULT_INPUT_METHOD),
-                Settings.Secure.getString(resolver, Settings.Secure.ENABLED_INPUT_METHODS)
+                readSecure(resolver, Settings.Secure.DEFAULT_INPUT_METHOD),
+                readSecure(resolver, Settings.Secure.ENABLED_INPUT_METHODS)
             )
         } catch (_: Throwable) {
             null
         }
+    }
+
+    /**
+     * The secure setting [name] from the settings provider, "" when it is not set. Throws when the provider gives no
+     * answer: `Settings.Secure.getString` gives null for that too, the same as for a setting that is not set.
+     */
+    private fun readSecure(resolver: ContentResolver, name: String): String {
+        val cursor = resolver.query(Settings.Secure.CONTENT_URI, arrayOf("value"), "name=?", arrayOf(name), null)
+            ?: throw IllegalStateException("no answer from the settings provider for $name")
+        cursor.use { return if (it.moveToFirst()) it.getString(0).orEmpty() else "" }
     }
 
     /** The init state (`init.svc.<name>`) of [service], or null. */
