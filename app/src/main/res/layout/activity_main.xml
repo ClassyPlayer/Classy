@@ -566,8 +566,12 @@
 
         <SurfaceView android:id="@+id/surface_game" android:layout_width="match_parent" android:layout_height="match_parent" android:visibility="gone" />
 
-        <LinearLayout android:id="@+id/layout_game_menu" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_gravity="center_vertical" android:orientation="vertical" android:paddingTop="6dp" android:paddingBottom="6dp" android:visibility="gone">
-            <LinearLayout android:id="@+id/container_game_menu" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" />
+        <!-- The pause screen (as the USB Drive screen): the game art, its title, "Paused" and the rows -->
+        <LinearLayout android:id="@+id/layout_game_menu" android:layout_width="match_parent" android:layout_height="match_parent" android:gravity="center" android:orientation="vertical" android:clickable="true" android:visibility="gone">
+            <ImageView android:id="@+id/iv_game_menu_art" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginBottom="12dp" />
+            <TextView android:id="@+id/tv_game_menu_title" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginLeft="24dp" android:layout_marginRight="24dp" android:gravity="center" android:maxLines="1" android:ellipsize="end" android:textSize="22sp" />
+            <TextView android:id="@+id/tv_game_menu_status" android:layout_width="wrap_content" android:layout_height="wrap_content" android:paddingTop="2dp" android:paddingBottom="16dp" android:gravity="center" android:textSize="14sp" />
+            <LinearLayout android:id="@+id/container_game_menu" android:layout_width="200dp" android:layout_height="wrap_content" android:orientation="vertical" />
         </LinearLayout>
     </FrameLayout>
 </FrameLayout>

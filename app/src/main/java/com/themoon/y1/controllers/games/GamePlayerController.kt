@@ -2,9 +2,14 @@ package com.themoon.y1.controllers.games
 
 import android.app.Activity
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.BitmapShader
+import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Rect
+import android.graphics.RectF
+import android.graphics.Shader
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
@@ -13,6 +18,8 @@ import android.view.SurfaceHolder
 import android.view.SurfaceView
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ImageView
+import android.widget.TextView
 import com.themoon.y1.R
 import com.themoon.y1.ThemeManager
 import com.themoon.y1.controllers.ScreenController
@@ -20,13 +27,17 @@ import com.themoon.y1.controllers.player.LyricsScreenHold
 import com.themoon.y1.games.FliwheelBridge
 import com.themoon.y1.games.GameInput
 import com.themoon.y1.games.GameKeys
+import com.themoon.y1.games.GameLibrary
 import com.themoon.y1.games.WheelSensor
 import com.themoon.y1.lists.ListScreen
 import com.themoon.y1.lists.ListSpec
+import com.themoon.y1.lists.RowLook
 import com.themoon.y1.lists.RowSpec
 import com.themoon.y1.managers.AudioSources
 import com.themoon.y1.navigation.ScreenState
+import com.themoon.y1.views.ListItemViewFactory
 import com.themoon.y1.views.Notice
+import com.themoon.y1.views.TablerIcons
 import java.io.File
 
 /**
@@ -34,8 +45,9 @@ import java.io.File
  * core onto [SurfaceView] (4:3, centred), and every button goes to the game ([GameKeys]); the volume buttons stay
  * the app's (InputRouter takes them first).
  *
- * A centre hold, or the screen going off, pauses the game and opens the Resume / Quit Game menu. The screen stays
- * on while the game runs (a screen wake lock, as for lyrics).
+ * A centre hold, or the screen going off, pauses the game and opens the pause screen: the game art and title over
+ * Resume / Quit Game, full screen (as the USB Drive screen). The screen stays on while the game runs (a screen wake
+ * lock, as for lyrics).
  *
  * While the game runs, [WheelSensor] reads where the finger is on the wheel (the menu scrolls with the wheel's steps).
  */
@@ -50,6 +62,9 @@ class GamePlayerController(
     private val surface: SurfaceView = rootView.findViewById(R.id.surface_game)
     private val menuLayout: View = rootView.findViewById(R.id.layout_game_menu)
     private val menu = ListScreen(rootView.findViewById(R.id.container_game_menu), clickFeedback = clickFeedback)
+    private val menuArt: ImageView = rootView.findViewById(R.id.iv_game_menu_art)
+    private val menuTitle: TextView = rootView.findViewById(R.id.tv_game_menu_title)
+    private val menuStatus: TextView = rootView.findViewById(R.id.tv_game_menu_status)
     private val handler = Handler(Looper.getMainLooper())
     private val keys = GameKeys()
     private val wheel = WheelSensor { inputs ->
@@ -65,6 +80,9 @@ class GamePlayerController(
     /** Each game start has its own number: a start that ends after its screen closed does nothing. */
     private var session = 0
     private var isMenuOpen = false
+    /** The title and art of the running game, for the pause screen (null art: the gamepad tile). */
+    private var gameTitle = ""
+    private var gameArt: Bitmap? = null
     /** The centre release of the hold that opened the menu: it must not click a row of the menu. */
     private var dropCentreRelease = false
 
@@ -113,7 +131,11 @@ class GamePlayerController(
         AudioSources.app.videoStarts()
         val id = ++session
         // Loading a game reads its files: off the main thread
+        gameTitle = bundleDir.name
+        gameArt = null
         Thread({
+            val item = GameLibrary.parseGameDir(bundleDir)
+            val art = item?.iconFile?.let { decodeArt(it, artPx()) }
             val b = FliwheelBridge()
             val ok = b.init(bundleDir)
             activity.runOnUiThread {
@@ -121,6 +143,8 @@ class GamePlayerController(
                     if (ok) Thread({ b.destroy() }, "GameDestroy").start()
                     return@runOnUiThread
                 }
+                item?.let { gameTitle = it.title }
+                gameArt = art
                 if (!ok) {
                     Notice.show(activity, localize("Failed to start game") + "\n" + localize("Details are in y1_game_log.txt"), long = true)
                     onExitRequested()
@@ -268,7 +292,7 @@ class GamePlayerController(
         wheelQuietUntilMs = SystemClock.uptimeMillis() + WHEEL_QUIET_MS
     }
 
-    // --- Resume / Quit Game menu ---
+    // --- Pause screen: Resume / Quit Game ---
 
     private fun openMenu(dropRelease: Boolean) {
         handler.removeCallbacks(holdTask)
@@ -279,18 +303,58 @@ class GamePlayerController(
         isMenuOpen = true
         dropCentreRelease = dropRelease
         if (dropRelease) clickFeedback()
-        menuLayout.setBackgroundColor(ThemeManager.getOverlayBackgroundColor())
+        // Opaque: none of the game shows around the rows
+        menuLayout.setBackgroundColor(ThemeManager.getOverlayBackgroundColor() or 0xFF000000.toInt())
+        val px = artPx()
+        menuArt.setImageBitmap(gameArt ?: TablerIcons.renderTile(TablerIcons.DEVICE_GAMEPAD, px, px * 2 / 3,
+            ThemeManager.getTextColorPrimary(), 0x22888888, px / 8f))
+        menuTitle.text = gameTitle
+        menuTitle.setTextColor(ThemeManager.getTextColorPrimary())
+        menuTitle.typeface = ThemeManager.getCustomFontBold()
+        menuStatus.text = localize("Paused")
+        menuStatus.setTextColor(ThemeManager.getTextColorSecondary())
+        menuStatus.typeface = ThemeManager.getCustomFont()
         menuLayout.visibility = View.VISIBLE
         menu.show(ListSpec(null, listOf(
-            RowSpec(localize("Resume"), onClick = { resumeGame() }),
-            RowSpec(localize("Quit Game"), onClick = { onExitRequested() })
+            menuRow(TablerIcons.PLAYER_PLAY, localize("Resume")) { resumeGame() },
+            menuRow(TablerIcons.LOGOUT, localize("Quit Game")) { onExitRequested() }
         ), id = "game_menu"))
+    }
+
+    private fun menuRow(icon: Array<String>, label: String, onClick: () -> Unit) = RowSpec(label, RowLook.CUSTOM,
+        view = ListItemViewFactory.createTablerListButton(activity, icon, label), onClick = onClick)
+
+    private fun artPx(): Int = (ART_DP * activity.resources.displayMetrics.density).toInt()
+
+    /** The game art at [px]×[px] (scaled to fit), with round corners as the gamepad tile; null when it cannot be read. */
+    private fun decodeArt(file: File, px: Int): Bitmap? = try {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(file.absolutePath, bounds)
+        var sample = 1
+        while (bounds.outWidth / (sample * 2) >= px && bounds.outHeight / (sample * 2) >= px) sample *= 2
+        BitmapFactory.decodeFile(file.absolutePath, BitmapFactory.Options().apply { inSampleSize = sample })?.let { src ->
+            val scale = minOf(px.toFloat() / src.width, px.toFloat() / src.height)
+            val w = (src.width * scale).toInt().coerceAtLeast(1)
+            val h = (src.height * scale).toInt().coerceAtLeast(1)
+            val scaled = Bitmap.createScaledBitmap(src, w, h, true)
+            val out = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+            val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                shader = BitmapShader(scaled, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP)
+            }
+            Canvas(out).drawRoundRect(RectF(0f, 0f, w.toFloat(), h.toFloat()), px / 8f, px / 8f, paint)
+            if (scaled !== src) scaled.recycle()
+            src.recycle()
+            out
+        }
+    } catch (_: Throwable) {
+        null
     }
 
     private fun hideMenu() {
         isMenuOpen = false
         dropCentreRelease = false
         menu.clear()
+        menuArt.setImageDrawable(null)
         menuLayout.visibility = View.GONE
     }
 
@@ -324,6 +388,7 @@ class GamePlayerController(
     private companion object {
         const val FRAME_NS = 16_666_667L
         const val MENU_TAP_MS = 100L
+        const val ART_DP = 88
         const val SCREEN_HOLD_TICK_MS = 2_000L
         const val WHEEL_QUIET_MS = 150L
         val MENU_KEY_TOKEN = Any()
