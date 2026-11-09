@@ -83,6 +83,15 @@ class GameKeysTest {
     }
 
     @Test
+    fun wheelStepsAreDroppedWhileTheWheelSenses() {
+        keys.isWheelSensing = true
+        assertTrue(down(KeyEvent.KEYCODE_DPAD_LEFT).isEmpty())
+        assertTrue(down(KeyEvent.KEYCODE_DPAD_RIGHT).isEmpty())
+        // The buttons still go
+        assertEquals(listOf(GameInput.Key(KeyEvent.KEYCODE_MEDIA_NEXT, true)), down(KeyEvent.KEYCODE_MEDIA_NEXT))
+    }
+
+    @Test
     fun otherButtonsGoAsTheyAre() {
         for (code in listOf(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, KeyEvent.KEYCODE_MEDIA_NEXT, KeyEvent.KEYCODE_MEDIA_PREVIOUS)) {
             assertEquals(listOf(GameInput.Key(code, true)), down(code))

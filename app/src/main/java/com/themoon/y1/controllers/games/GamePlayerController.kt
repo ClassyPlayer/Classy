@@ -20,6 +20,7 @@ import com.themoon.y1.controllers.player.LyricsScreenHold
 import com.themoon.y1.games.FliwheelBridge
 import com.themoon.y1.games.GameInput
 import com.themoon.y1.games.GameKeys
+import com.themoon.y1.games.WheelSensor
 import com.themoon.y1.lists.ListScreen
 import com.themoon.y1.lists.ListSpec
 import com.themoon.y1.lists.RowSpec
@@ -35,6 +36,8 @@ import java.io.File
  *
  * A centre hold, or the screen going off, pauses the game and opens the Resume / Quit Game menu. The screen stays
  * on while the game runs (a screen wake lock, as for lyrics).
+ *
+ * While the game runs, [WheelSensor] reads where the finger is on the wheel (the menu scrolls with the wheel's steps).
  */
 class GamePlayerController(
     private val activity: Activity,
@@ -49,6 +52,13 @@ class GamePlayerController(
     private val menu = ListScreen(rootView.findViewById(R.id.container_game_menu), clickFeedback = clickFeedback)
     private val handler = Handler(Looper.getMainLooper())
     private val keys = GameKeys()
+    private val wheel = WheelSensor { inputs ->
+        // A turn that arrives after the menu opened would move the paused game: only the finger's lift goes through
+        handler.post { apply(if (isMenuOpen) inputs.filterIsInstance<GameInput.WheelTouch>() else inputs) }
+    }
+
+    /** Step keys of the wheel until then are repeats of the wheel sensor (or a step of its switch back): not a turn. */
+    private var wheelQuietUntilMs = 0L
     private val screenHold = LyricsScreenHold(activity, "Y1:GameKeepScreenOn")
 
     private var bridge: FliwheelBridge? = null
@@ -117,6 +127,7 @@ class GamePlayerController(
                     return@runOnUiThread
                 }
                 bridge = b
+                startWheel()
                 startRenderThread()
                 handler.post(screenHoldTask)
             }
@@ -129,6 +140,7 @@ class GamePlayerController(
         handler.removeCallbacks(screenHoldTask)
         handler.removeCallbacksAndMessages(MENU_KEY_TOKEN)
         screenHold.update(false)
+        stopWheel()
         keys.reset()
         val b = bridge ?: return
         bridge = null
@@ -231,6 +243,7 @@ class GamePlayerController(
             when (input) {
                 is GameInput.Key -> b.sendKey(input.code, input.down)
                 is GameInput.Wheel -> b.sendWheel(input.delta)
+                is GameInput.WheelTouch -> b.sendWheelTouch(input.angle)
                 GameInput.MenuTap -> {
                     b.sendKey(KeyEvent.KEYCODE_MENU, true)
                     handler.postAtTime({ bridge?.sendKey(KeyEvent.KEYCODE_MENU, false) }, MENU_KEY_TOKEN,
@@ -241,10 +254,25 @@ class GamePlayerController(
         }
     }
 
+    // --- Wheel sensor ---
+
+    /** The game reads where the finger is (after a screen-on too: the kernel's resume turns the sensor off). */
+    private fun startWheel() {
+        keys.isWheelSensing = wheel.start()
+    }
+
+    private fun stopWheel() {
+        if (!wheel.isActive) return
+        wheel.stop()
+        keys.isWheelSensing = false
+        wheelQuietUntilMs = SystemClock.uptimeMillis() + WHEEL_QUIET_MS
+    }
+
     // --- Resume / Quit Game menu ---
 
     private fun openMenu(dropRelease: Boolean) {
         handler.removeCallbacks(holdTask)
+        stopWheel()
         keys.reset()
         bridge?.pause()
         screenHold.update(false)
@@ -269,12 +297,14 @@ class GamePlayerController(
     private fun resumeGame() {
         hideMenu()
         bridge?.resume()
+        if (bridge != null) startWheel()
     }
 
     private fun menuKey(event: KeyEvent): Boolean {
         val up = event.action == KeyEvent.ACTION_UP && !event.isCanceled
         when (event.keyCode) {
-            KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT -> if (event.action == KeyEvent.ACTION_DOWN) {
+            KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT -> if (event.action == KeyEvent.ACTION_DOWN &&
+                event.eventTime >= wheelQuietUntilMs) {
                 menu.wheel(if (event.keyCode == KeyEvent.KEYCODE_DPAD_RIGHT) 1 else -1, event.eventTime)
             }
             KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> if (up) {
@@ -295,6 +325,7 @@ class GamePlayerController(
         const val FRAME_NS = 16_666_667L
         const val MENU_TAP_MS = 100L
         const val SCREEN_HOLD_TICK_MS = 2_000L
+        const val WHEEL_QUIET_MS = 150L
         val MENU_KEY_TOKEN = Any()
 
         /** The 4:3 frame, as large as fits in [width]×[height], centred. */

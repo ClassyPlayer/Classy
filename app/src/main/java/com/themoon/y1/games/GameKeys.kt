@@ -10,6 +10,9 @@ sealed interface GameInput {
     /** A wheel turn; negative = counter-clockwise. */
     data class Wheel(val delta: Float) : GameInput
 
+    /** Where a finger rests on the wheel ([WheelSensor]): the core's touch angle, null when it lifts. */
+    data class WheelTouch(val angle: Int?) : GameInput
+
     /** The game's own Menu button (pause, options): press it and let it go a moment later. */
     data object MenuTap : GameInput
 
@@ -21,7 +24,8 @@ sealed interface GameInput {
  * The Y2 buttons in a game, as pure state (the tests give it the key events and the time):
  * - Top (Back): Up of the game while it is pressed; two pushes within [DOUBLE_TAP_MS] = the game's Menu.
  * - Centre: Action of the game; a hold of [HOLD_MS] = the app's Resume / Quit Game menu ([centreHeld]).
- * - Wheel (DPAD_LEFT / DPAD_RIGHT): a scroll of [WHEEL_STEP] per step.
+ * - Wheel (DPAD_LEFT / DPAD_RIGHT): a scroll of [WHEEL_STEP] per step; none while [isWheelSensing] (the wheel's
+ *   position comes from [WheelSensor], and these keys are only its repeats).
  * - The other buttons (Play/Pause = Down, Previous = Left, Next = Right) go to the core as they are.
  */
 class GameKeys {
@@ -29,14 +33,17 @@ class GameKeys {
     private var isCentreDown = false
     private var wasCentreHeld = false
 
+    /** [WheelSensor] reads the wheel: its step keys are dropped. */
+    var isWheelSensing = false
+
     /** One key event of the screen. The controller starts the hold timer at a centre press ([isCentrePress]). */
     fun onKey(keyCode: Int, down: Boolean, repeatCount: Int, timeMs: Long): List<GameInput> {
         if (down && repeatCount > 0) return emptyList()
         return when (keyCode) {
             KeyEvent.KEYCODE_BACK -> top(down, timeMs)
             KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> centre(down)
-            KeyEvent.KEYCODE_DPAD_LEFT -> if (down) listOf(GameInput.Wheel(-WHEEL_STEP)) else emptyList()
-            KeyEvent.KEYCODE_DPAD_RIGHT -> if (down) listOf(GameInput.Wheel(WHEEL_STEP)) else emptyList()
+            KeyEvent.KEYCODE_DPAD_LEFT -> if (down && !isWheelSensing) listOf(GameInput.Wheel(-WHEEL_STEP)) else emptyList()
+            KeyEvent.KEYCODE_DPAD_RIGHT -> if (down && !isWheelSensing) listOf(GameInput.Wheel(WHEEL_STEP)) else emptyList()
             else -> listOf(GameInput.Key(keyCode, down))
         }
     }

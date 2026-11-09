@@ -86,6 +86,19 @@ class FliwheelBridge {
         if (handle != 0L) nativeSendWheel(handle, delta)
     }
 
+    /** Where a finger rests on the wheel ([WheelSensor]): the core's touch angle, null when it lifts. */
+    @Synchronized
+    fun sendWheelTouch(angle: Int?) {
+        if (handle == 0L || !hasWheelTouch) return
+        try {
+            nativeSendWheelTouch(handle, angle ?: -1)
+        } catch (e: UnsatisfiedLinkError) {
+            // An older core (the ROM's libfliwheel_android.so): the wheel still turns, without the touch angle
+            hasWheelTouch = false
+            log("nativeSendWheelTouch missing: ${e.message}")
+        }
+    }
+
     /** Stops the game's time and its music (the Resume / Quit Game menu, screen off). */
     @Synchronized
     fun pause() {
@@ -221,6 +234,9 @@ class FliwheelBridge {
 
         private var isLoaded = false
 
+        @Volatile
+        private var hasWheelTouch = true
+
         /**
          * Loads the core. On an adb install Android unpacks it into the app's lib folder; in the ROM
          * (/system/app, where KitKat does not unpack libraries) build-rom.sh puts it into /system/lib.
@@ -253,6 +269,7 @@ class FliwheelBridge {
         @JvmStatic private external fun nativeRenderFrame(handle: Long, outPixels: IntArray): Boolean
         @JvmStatic private external fun nativeSendKey(handle: Long, keyCode: Int, isDown: Boolean)
         @JvmStatic private external fun nativeSendWheel(handle: Long, delta: Float)
+        @JvmStatic private external fun nativeSendWheelTouch(handle: Long, angle: Int)
         @JvmStatic private external fun nativePollAudio(handle: Long): String?
         @JvmStatic private external fun nativeSetPaused(handle: Long, paused: Boolean)
         @JvmStatic private external fun nativeDestroy(handle: Long)
