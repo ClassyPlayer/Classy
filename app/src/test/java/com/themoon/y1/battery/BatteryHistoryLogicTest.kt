@@ -99,6 +99,14 @@ class BatteryHistoryLogicTest {
         assertEquals(77, c.levels[47 - 1]) // 19:00..19:30
         assertEquals(77, c.levels[47]) // 19:30..20:00 has now (19:50)
         assertArrayEquals(IntArray(24) { (20 + it) % 24 }, c.hours)
+        assertEquals(25, c.hourStarts.size)
+        assertEquals(c.start, c.hourStarts[0])
+        assertEquals(at(20), c.hourStarts[24])
+    }
+
+    @Test
+    fun stepsAreMadeByAddition() {
+        assertArrayEquals(longArrayOf(at(1), at(1, 30), at(2)), BatteryHistoryLogic.steps(at(1), 30 * MINUTE_MS, 3))
     }
 
     @Test

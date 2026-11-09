@@ -459,7 +459,7 @@ class BatteryUsageView(
         if (!dates) return
         val format = SimpleDateFormat("d MMM", Locale.getDefault())
         drawDates(canvas, axis, BatteryHistoryLogic.dateMarks(c.hours).map { h ->
-            left + h * hourW to format.format(Date(c.start + h * BatteryHistoryLogic.HOUR_MS))
+            left + h * hourW to format.format(Date(c.hourStarts[h]))
         })
     }
 
