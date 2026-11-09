@@ -37,6 +37,7 @@ import com.themoon.y1.DeviceModel
  * The keyboard: Android keeps it as the input method after `pm disable`, and each window focus of the app then throws
  * "Unknown id" (a crash at each start until a reboot). So `ime disable` removes it first, while it is still enabled
  * ([keyboardImes]); on a device where version 3 disabled it already, the keyboard is enabled again for that step.
+ * The keyboard package goes off only when a read of the settings shows that Android no longer has it as an input method.
  */
 object SystemBloatManager {
     private const val TAG = "Y1SystemBloat"
@@ -125,6 +126,7 @@ object SystemBloatManager {
         return if (running.isEmpty()) null else running.joinToString("; ") { "setprop ctl.stop $it" }
     }
 
+    /** True when the setting value [actual] is the number [wanted]. */
     internal fun settingMatches(actual: String?, wanted: String): Boolean =
         actual?.toFloatOrNull()?.let { it == wanted.toFloat() } ?: false
 
@@ -139,6 +141,7 @@ object SystemBloatManager {
         }, "SystemBloat").start()
     }
 
+    /** Stops the running [SERVICES] with root. */
     private fun stopServices() {
         val command = stopCommand(::systemProperty) ?: return
         if (FmRadioManager.runSuQuiet(command)) {
@@ -148,18 +151,26 @@ object SystemBloatManager {
         }
     }
 
+    /** Applies the packages, components and settings once for each [VERSION]; records it only when a check passes. */
     private fun applyOnce(appContext: Context) {
         val prefs = AppPrefs.get(appContext)
         if (prefs.getInt(KEY_APPLIED_VERSION, 0) >= VERSION) return
 
-        // `ime disable` needs the keyboard enabled: when it is disabled already, enable it for this step
-        val imes = keyboardImesOn(appContext)
+        // Step 1: the enables, and `ime disable` of the keyboard. `ime disable` needs the keyboard enabled: when it is
+        // disabled already (version 3), it is enabled again for this step.
+        val imes = keyboardImesOn(appContext).orEmpty()
         val keyboardAgain = imes.isNotEmpty() && isDisabled(appContext, KEYBOARD)
         val enable = ENABLED.filter { isDisabled(appContext, it) } + if (keyboardAgain) listOf(KEYBOARD) else emptyList()
-        val disable = DISABLED.filter { !isDisabled(appContext, it) || (it == KEYBOARD && keyboardAgain) }
+        if (enable.isNotEmpty() || imes.isNotEmpty()) {
+            FmRadioManager.runSuQuiet(applyCommand(enable, emptyList(), emptyList(), imes), timeoutMs = 30_000)
+        }
+        // Step 2: the disables and settings. The keyboard only when the settings show that it is no longer an input
+        // method (not from the exit code of `ime`); else it stays on and the next start tries again.
+        val keyboardFree = keyboardImesOn(appContext)?.isEmpty() == true
+        val disable = DISABLED.filter { !isDisabled(appContext, it) && (it != KEYBOARD || keyboardFree) }
         val settings = SETTINGS.filter { !hasValue(appContext, it) }
-        if (enable.isNotEmpty() || disable.isNotEmpty() || settings.isNotEmpty() || imes.isNotEmpty()) {
-            FmRadioManager.runSuQuiet(applyCommand(enable, disable, settings, imes), timeoutMs = 30_000)
+        if (disable.isNotEmpty() || settings.isNotEmpty()) {
+            FmRadioManager.runSuQuiet(applyCommand(emptyList(), disable, settings), timeoutMs = 30_000)
         }
         val disableDontKill = DISABLED_DONT_KILL.filter { !isDisabled(appContext, it) }
         disableDontKill.forEach { disableWithoutKill(appContext, it) }
@@ -167,7 +178,7 @@ object SystemBloatManager {
         val failed = ENABLED.filter { isDisabled(appContext, it) } +
             (DISABLED + DISABLED_DONT_KILL).filter { !isDisabled(appContext, it) } +
             SETTINGS.filter { !hasValue(appContext, it) }.map { it.name } +
-            keyboardImesOn(appContext)
+            (keyboardImesOn(appContext) ?: listOf("input method settings (not readable)"))
         if (failed.isEmpty()) {
             prefs.edit().putInt(KEY_APPLIED_VERSION, VERSION).apply()
             Log.i(TAG, "Applied version $VERSION (changed: $enable $disable $disableDontKill ${settings.map { it.name }})")
@@ -205,6 +216,7 @@ object SystemBloatManager {
         true
     }
 
+    /** True when [setting] has its wanted (number) value. */
     private fun hasValue(context: Context, setting: Setting): Boolean {
         val resolver = context.contentResolver
         val actual = try {
@@ -216,8 +228,8 @@ object SystemBloatManager {
         return settingMatches(actual, setting.value)
     }
 
-    /** [keyboardImes] of the secure settings of this device. */
-    private fun keyboardImesOn(context: Context): List<String> {
+    /** [keyboardImes] of the secure settings of this device; null when the settings cannot be read. */
+    private fun keyboardImesOn(context: Context): List<String>? {
         val resolver = context.contentResolver
         return try {
             keyboardImes(
@@ -225,10 +237,11 @@ object SystemBloatManager {
                 Settings.Secure.getString(resolver, Settings.Secure.ENABLED_INPUT_METHODS)
             )
         } catch (_: Throwable) {
-            emptyList()
+            null
         }
     }
 
+    /** The init state (`init.svc.<name>`) of [service], or null. */
     private fun systemProperty(service: String): String? = try {
         Class.forName("android.os.SystemProperties")
             .getMethod("get", String::class.java)
