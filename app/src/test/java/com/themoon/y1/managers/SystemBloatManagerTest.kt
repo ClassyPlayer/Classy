@@ -26,6 +26,21 @@ class SystemBloatManagerTest {
     }
 
     @Test
+    fun lists_turnOffTheSdDefaultPathDialogWithoutForceStoppingAndroid() {
+        assertTrue("android/com.mediatek.storage.StorageDefaultPathDialog" in SystemBloatManager.DISABLED_DONT_KILL)
+        // pm disable force-stops the package: for "android" that cancels the system's own alarms
+        assertFalse(SystemBloatManager.DISABLED.any { it == "android" || it.startsWith("android/") })
+    }
+
+    @Test
+    fun disableDontKillCommand_callsSetComponentEnabledSettingWithDontKillApp() {
+        assertEquals(
+            "service call package 61 i32 1 s16 android s16 com.mediatek.storage.StorageDefaultPathDialog i32 2 i32 1 i32 0",
+            SystemBloatManager.disableDontKillCommand("android/com.mediatek.storage.StorageDefaultPathDialog")
+        )
+    }
+
+    @Test
     fun applyCommand_enablesFirstAndOnlyHasTheGivenItems() {
         val command = SystemBloatManager.applyCommand(
             listOf("com.android.systemui"),

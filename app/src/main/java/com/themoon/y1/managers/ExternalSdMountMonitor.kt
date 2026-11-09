@@ -25,6 +25,12 @@ class ExternalSdMountMonitor(context: Context) {
     interface Listener {
         /** Called on a background thread after a successful remount. */
         fun onSecondaryStorageReady()
+
+        /**
+         * Called on a background thread when a card that was out while the app ran is in and ready. Not at boot
+         * with the card in, not after USB storage.
+         */
+        fun onSecondaryStorageInserted() {}
     }
 
     private val appContext: Context = context.applicationContext
@@ -39,6 +45,8 @@ class ExternalSdMountMonitor(context: Context) {
     private var lastMountAttemptMs: Long = 0L
     private var lastPriReady = false
     private var lastSecReady = false
+    /** The card was out (no block device, or a removal broadcast) since the last insertion. */
+    private val cardWasOut = AtomicBoolean(false)
 
     /** While true (USB storage shared with PC) the watchdog never remounts/starts FUSE. */
     fun setSuspended(s: Boolean) {
@@ -71,6 +79,7 @@ class ExternalSdMountMonitor(context: Context) {
 
         lastPriReady = isPrimaryReady()
         lastSecReady = isSecondaryReady()
+        cardWasOut.set(!hasSecondarySlot())
 
         if (bgThread == null || bgThread?.isAlive != true) {
             val thread = HandlerThread("y1-sd-monitor-bg")
@@ -96,6 +105,7 @@ class ExternalSdMountMonitor(context: Context) {
 
     private fun checkAndMaybeMount(reason: String) {
         if (suspended.get()) return
+        if (!hasSecondarySlot()) cardWasOut.set(true)
         val priReady = isPrimaryReady()
         val secReady = isSecondaryReady()
 
@@ -109,6 +119,7 @@ class ExternalSdMountMonitor(context: Context) {
             StoragePaths.invalidate()
             notifyReady()
         }
+        if (secReady) notifyIfInserted()
 
         val secNeeded = hasSecondarySlot() && !secReady
         if (!secNeeded) return
@@ -128,6 +139,7 @@ class ExternalSdMountMonitor(context: Context) {
                 StoragePaths.invalidate()
                 lastSecReady = afterSec
                 notifyReady()
+                notifyIfInserted()
             }
         } finally {
             mountInFlight.set(false)
@@ -152,11 +164,29 @@ class ExternalSdMountMonitor(context: Context) {
         }, "y1-sd-ready").start()
     }
 
+    private fun notifyIfInserted() {
+        if (!cardWasOut.compareAndSet(true, false)) return
+        Log.i(TAG, "Card inserted and ready")
+        val l = listener ?: return
+        Thread({
+            try {
+                l.onSecondaryStorageInserted()
+            } catch (e: Exception) {
+                Log.w(TAG, "listener failed", e)
+            }
+        }, "y1-sd-inserted").start()
+    }
+
     private fun registerMediaReceiver() {
         if (mediaReceiver != null) return
         mediaReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
                 val action = intent?.action ?: return
+                if ((Intent.ACTION_MEDIA_REMOVED == action || Intent.ACTION_MEDIA_BAD_REMOVAL == action) &&
+                    intent.data?.path == StoragePaths.SECONDARY_PATH
+                ) {
+                    cardWasOut.set(true)
+                }
                 if (Intent.ACTION_MEDIA_MOUNTED == action ||
                     Intent.ACTION_MEDIA_UNMOUNTED == action ||
                     Intent.ACTION_MEDIA_REMOVED == action ||

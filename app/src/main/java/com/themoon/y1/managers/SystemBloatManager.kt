@@ -27,12 +27,21 @@ import com.themoon.y1.DeviceModel
  *
  * Not touched: `com.android.phone`, `rild` and `gsm0710muxd`. In airplane mode the MTK RIL powers the modem off,
  * and [CellRadioManager] keeps airplane mode on for the cell radio.
+ *
+ * MediaTek's "SD card ready / change the default write disk?" dialog: MountService opens it after a card is inserted
+ * and mounted. Its OK button only opens Android's storage settings, and the "default write disk" is read by stock MTK
+ * apps only, not by this app. MountService opens it in a try/catch after the mount, so with the dialog disabled the
+ * mount goes on. It is an activity of package `android`, so it goes off with DONT_KILL_APP ([DISABLED_DONT_KILL]):
+ * `pm disable` would force-stop `android`, which cancels the system's own alarms (the time tick).
  */
 object SystemBloatManager {
     private const val TAG = "Y1SystemBloat"
 
-    /** Raise it when [ENABLED], [DISABLED] or [SETTINGS] change, so that devices apply the new list once. */
-    internal const val VERSION = 2
+    /**
+     * Raise it when [ENABLED], [DISABLED], [DISABLED_DONT_KILL] or [SETTINGS] change, so that devices apply the new
+     * list once.
+     */
+    internal const val VERSION = 3
     private const val KEY_APPLIED_VERSION = "system_bloat_applied_version"
 
     /** Version 1 disabled the whole SystemUI package (see the class comment). */
@@ -45,6 +54,14 @@ object SystemBloatManager {
         "com.android.inputmethod.latin",
         "com.android.providers.userdictionary",
     )
+
+    /** Components (`package/class`) of packages that must not be force-stopped: disabled with DONT_KILL_APP. */
+    internal val DISABLED_DONT_KILL = listOf(
+        "android/com.mediatek.storage.StorageDefaultPathDialog",
+    )
+
+    /** `IPackageManager.TRANSACTION_setComponentEnabledSetting` in the framework.jar of the Y2 ROM (Android 4.4). */
+    private const val TRANSACTION_SET_COMPONENT_ENABLED_SETTING = 61
 
     internal data class Setting(val table: String, val name: String, val value: String)
 
@@ -66,6 +83,17 @@ object SystemBloatManager {
         (enable.map { "pm enable $it" } + disable.map { "pm disable $it" } +
             settings.map { "settings put ${it.table} ${it.name} ${it.value}" })
             .joinToString("; ")
+
+    /**
+     * Root shell command that disables [component] (`package/class`) with DONT_KILL_APP, for when the app has no
+     * CHANGE_COMPONENT_ENABLED_STATE (`pm disable` has no such flag). Arguments: the ComponentName (non-null, package,
+     * class), state DISABLED, flags DONT_KILL_APP, user 0.
+     */
+    internal fun disableDontKillCommand(component: String): String {
+        val (pkg, cls) = component.split('/', limit = 2)
+        return "service call package $TRANSACTION_SET_COMPONENT_ENABLED_SETTING i32 1 s16 $pkg s16 $cls " +
+            "i32 ${PackageManager.COMPONENT_ENABLED_STATE_DISABLED} i32 ${PackageManager.DONT_KILL_APP} i32 0"
+    }
 
     /** Root shell command that stops the services, or null if none runs. [state]: value of `init.svc.<name>`. */
     internal fun stopCommand(state: (String) -> String?): String? {
@@ -106,14 +134,33 @@ object SystemBloatManager {
         if (enable.isNotEmpty() || disable.isNotEmpty() || settings.isNotEmpty()) {
             FmRadioManager.runSuQuiet(applyCommand(enable, disable, settings), timeoutMs = 30_000)
         }
+        val disableDontKill = DISABLED_DONT_KILL.filter { !isDisabled(appContext, it) }
+        disableDontKill.forEach { disableWithoutKill(appContext, it) }
 
-        val failed = ENABLED.filter { isDisabled(appContext, it) } + DISABLED.filter { !isDisabled(appContext, it) } +
+        val failed = ENABLED.filter { isDisabled(appContext, it) } +
+            (DISABLED + DISABLED_DONT_KILL).filter { !isDisabled(appContext, it) } +
             SETTINGS.filter { !hasValue(appContext, it) }.map { it.name }
         if (failed.isEmpty()) {
             prefs.edit().putInt(KEY_APPLIED_VERSION, VERSION).apply()
-            Log.i(TAG, "Applied version $VERSION (changed: $enable $disable ${settings.map { it.name }})")
+            Log.i(TAG, "Applied version $VERSION (changed: $enable $disable $disableDontKill ${settings.map { it.name }})")
         } else {
             Log.w(TAG, "Not applied, tries again at the next start: $failed")
+        }
+    }
+
+    /** With the system permission (the app is in /system/app) through the package manager, else with root. */
+    private fun disableWithoutKill(context: Context, component: String) {
+        val name = ComponentName.unflattenFromString(component) ?: return
+        try {
+            context.packageManager.setComponentEnabledSetting(
+                name,
+                PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                PackageManager.DONT_KILL_APP
+            )
+        } catch (e: SecurityException) {
+            FmRadioManager.runSuQuiet(disableDontKillCommand(component))
+        } catch (e: IllegalArgumentException) {
+            // Not on this ROM: isDisabled counts it as off
         }
     }
 
