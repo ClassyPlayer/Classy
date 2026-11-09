@@ -446,6 +446,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
         // A long press of the Power button shows our Power screen, not Android's power menu
         powerMenuInterceptor = PowerMenuInterceptor(this) { showPowerMenu() }.also { it.register() }
         com.themoon.y1.managers.CellRadioManager.start(this)
+        com.themoon.y1.managers.SystemBloatManager.start(this)
 
         try {
             val initBattery = registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))

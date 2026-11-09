@@ -416,6 +416,16 @@ audit_rom_contents() {
             errors=$((errors + 1))
         fi
 
+        # Android 4.4 keeps the first value of a ro.* key, so each key must occur once
+        local radio_prop=""
+        for radio_prop in ro.radio.noril=1 ro.carrier=wifi-only; do
+            if [ "$(grep -c "^${radio_prop%%=*}=" "$sys_mount/build.prop" 2>/dev/null)" != 1 ] \
+                || ! grep -qx "$radio_prop" "$sys_mount/build.prop" 2>/dev/null; then
+                echo "audit fail: /system/build.prop must have $radio_prop once" >&2
+                errors=$((errors + 1))
+            fi
+        done
+
         local y2_kl=""
         for y2_kl in Generic.kl Stock.kl mtk-tpd-kpd.kl mtk-kpd.kl Rockbox.kl Y2-Rockbox.kl; do
             if [ ! -f "$sys_mount/usr/keylayout/$y2_kl" ]; then
@@ -575,6 +585,15 @@ settings put system audio_safe_volume_state 2 2>/dev/null
 settings put global safe_media_volume_enabled 0 2>/dev/null
 settings put system safe_media_volume_enabled 0 2>/dev/null
 
+# Y2: stop daemons it cannot use (logs, analog TV, OTA, A-GPS, MTK device management). init starts them at each
+# boot. ctl.stop needs no Java VM. Their files stay executable: without the execute bit, init restarts them every 5 s.
+# rild, gsm0710muxd and com.android.phone stay: in airplane mode the MTK RIL powers the modem off.
+if [ "$(getprop ro.product.model)" = "Y2" ]; then
+    for svc in mobile_log_d netdiag matv agpsd fotabinder DMAgent PPLAgent; do
+        setprop ctl.stop $svc
+    done
+fi
+
 # Reset cached NVRAM volume table once so the patched libaudiocustparam.so takes effect on existing installs
 if [ ! -f /data/nvram/.audio_vol_lowgain_v1 ]; then
     rm -f /data/nvram/APCFG/APRDEB/Audio_Vol_custom
@@ -598,6 +617,19 @@ echo -n "$(getprop ro.product.model)" > /sys/class/android_usb/android0/iProduct
 # The MTK firmware persists BT state in persist.bluetooth.on; clearing it means the user's
 # explicit OFF choice is respected after reboot rather than being overridden by the stack.
 setprop persist.bluetooth.on 0
+
+# No window animations (instant iPod-like screen changes) and no lockscreen. Android keeps these settings, so set
+# them once. Each settings call starts a Java VM, so wait for the boot in the background: Bluetooth above starts on time.
+# animator_duration_scale stays: at 0 every View.animate() in the app (Cover Flow, menu focus) jumps to its end.
+if [ ! -f /data/local/.ui_settings_v1 ]; then
+    (
+        while [ "$(getprop sys.boot_completed)" != 1 ]; do sleep 2; done
+        settings put global window_animation_scale 0 \
+            && settings put global transition_animation_scale 0 \
+            && settings put secure lockscreen.disabled 1 \
+            && touch /data/local/.ui_settings_v1
+    ) &
+fi
 EOF
 sudo chmod 755 "$MOUNT_SYS/etc/install-recovery.sh"
 sudo chown root:root "$MOUNT_SYS/etc/install-recovery.sh"
@@ -612,6 +644,14 @@ if [ -f "$MOUNT_SYS/build.prop" ]; then
     if ! grep -q "^audio.safemedia.bypass" "$MOUNT_SYS/build.prop"; then
         echo "==> Setting audio.safemedia.bypass=true in build.prop"
         echo "audio.safemedia.bypass=true" | sudo tee -a "$MOUNT_SYS/build.prop" > /dev/null
+    fi
+    if [ "$TYPE" = "y2" ]; then
+        echo "==> Setting ro.radio.noril=1 and ro.carrier=wifi-only in build.prop"
+        for radio_prop in ro.radio.noril=1 ro.carrier=wifi-only; do
+            # Android 4.4 keeps the first value of a ro.* key: drop each old line, then add the key once
+            sudo sed -i "/^${radio_prop%%=*}=/d" "$MOUNT_SYS/build.prop"
+            echo "$radio_prop" | sudo tee -a "$MOUNT_SYS/build.prop" > /dev/null
+        done
     fi
 fi
 

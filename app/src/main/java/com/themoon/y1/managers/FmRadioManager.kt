@@ -481,13 +481,13 @@ class FmRadioManager private constructor(context: Context) {
             return instance
         }
 
-        internal fun runSuQuiet(cmd: String): Boolean {
+        internal fun runSuQuiet(cmd: String, timeoutMs: Long = 4000): Boolean {
             val suCandidates = arrayOf("su", "/system/xbin/su", "/system/bin/su")
             for (suBin in suCandidates) {
                 var p: Process? = null
                 try {
                     p = Runtime.getRuntime().exec(arrayOf(suBin, "-c", cmd))
-                    val deadline = System.currentTimeMillis() + 4000
+                    val deadline = System.currentTimeMillis() + timeoutMs
                     while (System.currentTimeMillis() < deadline) {
                         try {
                             val code = p.exitValue()
