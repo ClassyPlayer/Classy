@@ -164,7 +164,7 @@ class MigrationManagerTest {
     }
 
     // In-memory SharedPreferences for isolated JVM testing
-    internal class MockSharedPreferences : SharedPreferences {
+    private class MockSharedPreferences : SharedPreferences {
         private val map = mutableMapOf<String, Any?>()
 
         override fun getAll(): Map<String, *> = HashMap(map)

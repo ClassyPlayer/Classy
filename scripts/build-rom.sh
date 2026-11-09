@@ -364,24 +364,13 @@ audit_rom_contents() {
             errors=$((errors + 1))
         fi
 
-        if ! grep -q "^ro.radio.noril=1" "$sys_mount/build.prop" 2>/dev/null; then
-            echo "audit fail: ro.radio.noril=1 missing in /system/build.prop" >&2
-            errors=$((errors + 1))
-        fi
-        if ! grep -q "^ro.carrier=wifi-only" "$sys_mount/build.prop" 2>/dev/null; then
-            echo "audit fail: ro.carrier=wifi-only missing in /system/build.prop" >&2
-            errors=$((errors + 1))
-        fi
-
-        local daemon_bin=""
-        for daemon_bin in matv mobile_log_d fotabinder mtk_agpsd netdiag dm_agent_binder ppl_agent rild gsm0710muxd mdlogger; do
-            if [ -f "$sys_mount/bin/$daemon_bin" ]; then
-                local mode
-                mode="$(stat -c '%a' "$sys_mount/bin/$daemon_bin" 2>/dev/null || stat -f '%Lp' "$sys_mount/bin/$daemon_bin" 2>/dev/null || true)"
-                if [ "$mode" != "0" ] && [ "$mode" != "000" ]; then
-                    echo "audit fail: daemon $daemon_bin is not stripped (permissions are not 000, got $mode)" >&2
-                    errors=$((errors + 1))
-                fi
+        # Android 4.4 keeps the first value of a ro.* key, so each key must occur once
+        local radio_prop=""
+        for radio_prop in ro.radio.noril=1 ro.carrier=wifi-only; do
+            if [ "$(grep -c "^${radio_prop%%=*}=" "$sys_mount/build.prop" 2>/dev/null)" != 1 ] \
+                || ! grep -qx "$radio_prop" "$sys_mount/build.prop" 2>/dev/null; then
+                echo "audit fail: /system/build.prop must have $radio_prop once" >&2
+                errors=$((errors + 1))
             fi
         done
 
@@ -541,23 +530,13 @@ settings put system audio_safe_volume_state 2 2>/dev/null
 settings put global safe_media_volume_enabled 0 2>/dev/null
 settings put system safe_media_volume_enabled 0 2>/dev/null
 
-# Disable window animations for instant iPod-like screen changes
-settings put global window_animation_scale 0 2>/dev/null
-settings put global transition_animation_scale 0 2>/dev/null
-settings put global animator_duration_scale 0 2>/dev/null
-
-# Disable Android lockscreen
-settings put secure lockscreen.disabled 1 2>/dev/null
-
-# Strip unused packages on Y2 (telephony, keyboard, keyguard, systemui)
+# Y2: stop daemons it cannot use (logs, analog TV, OTA, A-GPS, MTK device management). init starts them at each
+# boot. ctl.stop needs no Java VM. Their files stay executable: without the execute bit, init restarts them every 5 s.
+# rild, gsm0710muxd and com.android.phone stay: in airplane mode the MTK RIL powers the modem off.
 if [ "$(getprop ro.product.model)" = "Y2" ]; then
-    pm disable com.android.systemui 2>/dev/null
-    pm disable com.android.phone 2>/dev/null
-    pm disable com.android.providers.telephony 2>/dev/null
-    pm disable com.android.providers.contacts 2>/dev/null
-    pm disable com.android.inputmethod.latin 2>/dev/null
-    pm disable com.android.providers.userdictionary 2>/dev/null
-    pm disable com.android.keyguard 2>/dev/null
+    for svc in mobile_log_d netdiag matv agpsd fotabinder DMAgent PPLAgent; do
+        setprop ctl.stop $svc
+    done
 fi
 
 # Reset cached NVRAM volume table once so the patched libaudiocustparam.so takes effect on existing installs
@@ -583,6 +562,19 @@ echo -n "$(getprop ro.product.model)" > /sys/class/android_usb/android0/iProduct
 # The MTK firmware persists BT state in persist.bluetooth.on; clearing it means the user's
 # explicit OFF choice is respected after reboot rather than being overridden by the stack.
 setprop persist.bluetooth.on 0
+
+# No window animations (instant iPod-like screen changes) and no lockscreen. Android keeps these settings, so set
+# them once. Each settings call starts a Java VM, so wait for the boot in the background: Bluetooth above starts on time.
+# animator_duration_scale stays: at 0 every View.animate() in the app (Cover Flow, menu focus) jumps to its end.
+if [ ! -f /data/local/.ui_settings_v1 ]; then
+    (
+        while [ "$(getprop sys.boot_completed)" != 1 ]; do sleep 2; done
+        settings put global window_animation_scale 0 \
+            && settings put global transition_animation_scale 0 \
+            && settings put secure lockscreen.disabled 1 \
+            && touch /data/local/.ui_settings_v1
+    ) &
+fi
 EOF
 sudo chmod 755 "$MOUNT_SYS/etc/install-recovery.sh"
 sudo chown root:root "$MOUNT_SYS/etc/install-recovery.sh"
@@ -599,11 +591,12 @@ if [ -f "$MOUNT_SYS/build.prop" ]; then
         echo "audio.safemedia.bypass=true" | sudo tee -a "$MOUNT_SYS/build.prop" > /dev/null
     fi
     if [ "$TYPE" = "y2" ]; then
-        if ! grep -q "^ro.radio.noril" "$MOUNT_SYS/build.prop"; then
-            echo "==> Setting ro.radio.noril=1 and ro.carrier=wifi-only in build.prop"
-            echo "ro.radio.noril=1" | sudo tee -a "$MOUNT_SYS/build.prop" > /dev/null
-            echo "ro.carrier=wifi-only" | sudo tee -a "$MOUNT_SYS/build.prop" > /dev/null
-        fi
+        echo "==> Setting ro.radio.noril=1 and ro.carrier=wifi-only in build.prop"
+        for radio_prop in ro.radio.noril=1 ro.carrier=wifi-only; do
+            # Android 4.4 keeps the first value of a ro.* key: drop each old line, then add the key once
+            sudo sed -i "/^${radio_prop%%=*}=/d" "$MOUNT_SYS/build.prop"
+            echo "$radio_prop" | sudo tee -a "$MOUNT_SYS/build.prop" > /dev/null
+        done
     fi
 fi
 
@@ -658,13 +651,6 @@ if [ "$TYPE" = "y2" ]; then
         sudo chown root:root "$MOUNT_SYS/app/MtkBt.apk"
         sudo rm -f "$MOUNT_SYS/app/MtkBt.odex"
     fi
-
-    echo "==> Stripping unused MediaTek telemetry and cellular daemons"
-    for daemon_bin in matv mobile_log_d fotabinder mtk_agpsd netdiag dm_agent_binder ppl_agent rild gsm0710muxd mdlogger; do
-        if [ -f "$MOUNT_SYS/bin/$daemon_bin" ]; then
-            sudo chmod 000 "$MOUNT_SYS/bin/$daemon_bin"
-        fi
-    done
 fi
 
 sudo mkdir -p "$MOUNT_SYS/app" "$MOUNT_SYS/usr/keylayout"

@@ -38,7 +38,6 @@ open class MigrationManager {
         registerMigration(Migration004MoveMisplacedPrefs())
         registerMigration(Migration005MergeAudiobookBookmarks())
         registerMigration(Migration006PopulateTrackTimestamps())
-        registerMigration(Migration007StripSystemBloat())
     }
 
     /**
