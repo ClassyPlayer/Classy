@@ -145,6 +145,9 @@ object StoragePaths {
 
     fun getVideosDir(): File = getMoviesDir()
 
+    /** The Games folders (iPod Click Wheel games) on each storage. Not made when missing. */
+    fun getGamesDirs(): List<File> = mediaDirs("Games")
+
     fun getVideosDirs(): List<File> {
         val list = ArrayList<File>()
         list.addAll(getMoviesDirs())

@@ -18,6 +18,8 @@ import com.themoon.y1.controllers.connectivity.WifiKeyboardController
 import com.themoon.y1.controllers.coverflow.CoverFlowController
 import com.themoon.y1.controllers.home.HomeWidgetsController
 import com.themoon.y1.controllers.menu.MainMenuController
+import com.themoon.y1.controllers.games.GamePlayerController
+import com.themoon.y1.controllers.games.GamesController
 import com.themoon.y1.controllers.player.PlayerController
 import com.themoon.y1.controllers.playlists.PlaylistController
 import com.themoon.y1.controllers.podcasts.PodcastController
@@ -285,6 +287,22 @@ internal fun MainActivity.initControllers() {
         localize = { t(it) }
     )
 
+    gamesController = GamesController(
+        activity = this,
+        rootView = layoutGamesMode as ViewGroup,
+        onGameSelected = { dir -> changeScreen(ScreenState.GamePlayer(dir)) },
+        clickFeedback = { clickFeedback() },
+        localize = { t(it) }
+    )
+
+    gamePlayerController = GamePlayerController(
+        activity = this,
+        rootView = layoutGamePlayerMode as ViewGroup,
+        onExitRequested = { NavigationManager.getInstance().popBackStack() },
+        clickFeedback = { clickFeedback() },
+        localize = { t(it) }
+    )
+
     bluetoothController = BluetoothController(
         activity = this,
         rootView = layoutBluetoothMode as ViewGroup,
@@ -516,6 +534,8 @@ internal fun MainActivity.initControllers() {
         registerController(ScreenState.MusicQuiz::class.java, musicQuizController)
         registerController(ScreenState.Videos::class.java, videoBrowserController)
         registerController(ScreenState.VideoPlayer::class.java, videoPlayerController)
+        registerController(ScreenState.Games::class.java, gamesController)
+        registerController(ScreenState.GamePlayer::class.java, gamePlayerController)
     }
 }
 
@@ -549,6 +569,9 @@ internal fun MainActivity.handleMainMenuAction(action: String) {
         "OPEN_MUSIC_QUIZ", "EXTRAS" -> {
             changeScreen(MainActivity.STATE_QUIZ)
             musicQuizController.showStartHub()
+        }
+        "OPEN_GAMES" -> {
+            changeScreen(ScreenState.Games)
         }
         "OPEN_SETTINGS", "SETTINGS" -> {
             changeScreen(MainActivity.STATE_SETTINGS)

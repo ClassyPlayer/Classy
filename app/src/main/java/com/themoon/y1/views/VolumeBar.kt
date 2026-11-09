@@ -18,7 +18,7 @@ import com.themoon.y1.controllers.player.NowPlayingTheme
 /**
  * The volume bar, at the iPod places (no floating box):
  * - Now Playing: the volume row replaces the progress bar row (the iPod classic does this).
- * - Video player: the same bar replaces the time row at the bottom of the video.
+ * - Video player: the same bar replaces the time row at the bottom of the video (also at the bottom of a game).
  * - Other screens (the volume buttons): the bar replaces the status bar title, so the list stays visible.
  * The bar goes away [SHOW_MS] after the last change.
  */
@@ -31,7 +31,7 @@ object VolumeBar {
     /** Where the bar shows on the screen [screenState] (a MainActivity.STATE_ value). */
     fun placeFor(screenState: Int): Place = when (screenState) {
         MainActivity.STATE_PLAYER -> Place.NOW_PLAYING
-        MainActivity.STATE_VIDEO_PLAYER -> Place.VIDEO
+        MainActivity.STATE_VIDEO_PLAYER, MainActivity.STATE_GAME_PLAYER -> Place.VIDEO
         else -> Place.STATUS_BAR
     }
 
@@ -42,6 +42,8 @@ object VolumeBar {
     }
 
     private const val TAG_STRIP = "volume_bar_strip"
+    /** The full-screen players with the bar at the bottom ([Place.VIDEO]). */
+    private val FULL_SCREEN_FRAMES = intArrayOf(R.id.layout_video_player_mode, R.id.layout_game_player_mode)
     private val handler by lazy { Handler(Looper.getMainLooper()) }
     private var shown: Place? = null
     /** The activity of the bar that shows; [release] puts its window back when that activity closes. */
@@ -72,8 +74,9 @@ object VolumeBar {
         when (shown) {
             Place.NOW_PLAYING -> if (main.isPlayerControllerInitialized()) main.playerController.hideVolume()
             Place.VIDEO -> {
-                main.findViewById<ViewGroup>(R.id.layout_video_player_mode)
-                    ?.findViewWithTag<View>(TAG_STRIP)?.visibility = View.GONE
+                for (id in FULL_SCREEN_FRAMES) {
+                    main.findViewById<ViewGroup>(id)?.findViewWithTag<View>(TAG_STRIP)?.visibility = View.GONE
+                }
                 hiddenRow?.visibility = hiddenRowVisibility
                 hiddenRow = null
             }
@@ -106,7 +109,9 @@ object VolumeBar {
     // Video player: the strip takes the place of the time row.
 
     private fun showInVideo(main: MainActivity, level: Int, max: Int, leftIcon: Int): Boolean {
-        val frame = main.findViewById<FrameLayout>(R.id.layout_video_player_mode) ?: return false
+        val frameId = if (main.currentScreenState == MainActivity.STATE_GAME_PLAYER) R.id.layout_game_player_mode
+            else R.id.layout_video_player_mode
+        val frame = main.findViewById<FrameLayout>(frameId) ?: return false
         val d = main.resources.displayMetrics.density
         var strip = frame.findViewWithTag<LinearLayout>(TAG_STRIP)
         if (strip == null) {
@@ -115,7 +120,7 @@ object VolumeBar {
             strip.setPadding((18 * d).toInt(), 0, (18 * d).toInt(), (14 * d).toInt())
             frame.addView(strip, lp)
         }
-        val row = main.findViewById<View>(R.id.video_progress)?.parent as? View
+        val row = if (frameId == R.id.layout_video_player_mode) main.findViewById<View>(R.id.video_progress)?.parent as? View else null
         if (row != null && row !== hiddenRow) {
             hiddenRowVisibility = row.visibility
             row.visibility = View.INVISIBLE

@@ -261,6 +261,20 @@
         </com.themoon.y1.views.EdgeFadeScrollView>
     </LinearLayout>
 
+    <!-- Main menu → Games: the iPod games in the Games folders -->
+    <LinearLayout
+        android:id="@+id/layout_games_mode"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:paddingTop="26dp"
+        android:background="#66000000"
+        android:visibility="gone">
+        <com.themoon.y1.views.EdgeFadeScrollView android:layout_width="match_parent" android:layout_height="match_parent" android:fillViewport="true">
+            <LinearLayout android:id="@+id/container_game_items" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:clipChildren="false" android:clipToPadding="false" />
+        </com.themoon.y1.views.EdgeFadeScrollView>
+    </LinearLayout>
+
     <LinearLayout
         android:id="@+id/layout_bluetooth_mode"
         android:layout_width="match_parent"
@@ -540,5 +554,20 @@
             <TextView android:id="@+id/tv_video_time_total" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="-0:00" android:textColor="#FFFFFFFF" android:textStyle="bold" android:textSize="14sp" android:layout_marginLeft="10dp" android:shadowColor="#FF000000" android:shadowDx="1" android:shadowDy="1" android:shadowRadius="3"/>
         </LinearLayout>
 
+    </FrameLayout>
+
+    <!-- A running game (full screen), with its Resume / Quit Game menu on a centre hold -->
+    <FrameLayout
+        android:id="@+id/layout_game_player_mode"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#FF000000"
+        android:visibility="gone">
+
+        <SurfaceView android:id="@+id/surface_game" android:layout_width="match_parent" android:layout_height="match_parent" android:visibility="gone" />
+
+        <LinearLayout android:id="@+id/layout_game_menu" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_gravity="center_vertical" android:orientation="vertical" android:paddingTop="6dp" android:paddingBottom="6dp" android:visibility="gone">
+            <LinearLayout android:id="@+id/container_game_menu" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" />
+        </LinearLayout>
     </FrameLayout>
 </FrameLayout>
