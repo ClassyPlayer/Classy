@@ -164,4 +164,36 @@ class GameLibraryTest {
     fun missingRootsAreSkipped() {
         assertTrue(GameLibrary.scan(listOf(File(tmp.root, "none"))).isEmpty())
     }
+
+    @Test
+    fun saveDirUsesTheManifestGuidNextToTheGames() {
+        val root = tmp.newFolder("Games")
+        val bundle = game(File(root, "Tetris"), "Tetris")
+        File(bundle, "Manifest.plist").writeText("<key>GUID</key>\n\t<string>66666</string>")
+        assertEquals(File(root, "GameData_RW/66666").path, GameLibrary.saveDir(bundle, listOf(root)).path)
+    }
+
+    @Test
+    fun saveDirFallsBackToTheFolderName() {
+        val root = tmp.newFolder("Games")
+        val bundle = game(root, "Zuma")
+        assertEquals(File(root, "GameData_RW/Zuma").path, GameLibrary.saveDir(bundle, listOf(root)).path)
+    }
+
+    @Test
+    fun saveDirStaysInsideTheSaveFolder() {
+        val root = tmp.newFolder("Games")
+        val bundle = game(root, "Evil")
+        File(bundle, "Manifest.plist").writeText("<key>GUID</key><string>../../up</string>")
+        assertEquals(File(root, "GameData_RW/.._.._up").path, GameLibrary.saveDir(bundle, listOf(root)).path)
+    }
+
+    @Test
+    fun theSaveFolderIsNotAGame() {
+        val root = tmp.newFolder("Games")
+        game(root, "Tetris")
+        File(root, "GameData_RW/66666").mkdirs()
+        File(root, "GameData_RW/66666/game.sav").writeText("save")
+        assertEquals(listOf("Tetris"), GameLibrary.scan(listOf(root)).map { it.title })
+    }
 }

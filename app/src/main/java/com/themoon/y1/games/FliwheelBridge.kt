@@ -34,10 +34,11 @@ class FliwheelBridge {
     private val loadedSounds = HashSet<Int>()
     private var music: MediaPlayer? = null
     private var isPaused = false
+    private var hasSaves = false
 
-    /** Starts the game in [bundleDir]. False: see [lastError] and y1_game_log.txt. */
+    /** Starts the game in [bundleDir], with its saves in [saveRoots]' GameData_RW. False: see [lastError] and y1_game_log.txt. */
     @Synchronized
-    fun init(bundleDir: File): Boolean {
+    fun init(bundleDir: File, saveRoots: List<File>): Boolean {
         lastError = null
         if (handle != 0L) destroy()
         if (!ensureLoaded()) return false
@@ -45,7 +46,7 @@ class FliwheelBridge {
         val bundle = GameLibrary.bundleDir(bundleDir)
         log("init: ${bundle.absolutePath}")
         handle = try {
-            nativeInit(bundle.absolutePath)
+            startCore(bundle, GameLibrary.saveDir(bundle, saveRoots))
         } catch (t: Throwable) {
             lastError = "nativeInit: ${t.message}"
             log(lastError + "\n" + Log.getStackTraceString(t))
@@ -56,6 +57,7 @@ class FliwheelBridge {
             log(lastError!!)
             return false
         }
+        running = this
 
         @Suppress("DEPRECATION") // SoundPool.Builder is API 21
         soundPool = SoundPool(4, AudioManager.STREAM_MUSIC, 0).also { pool ->
@@ -99,6 +101,28 @@ class FliwheelBridge {
         }
     }
 
+    private fun startCore(bundle: File, saves: File): Long = try {
+        nativeInitWithSaves(bundle.absolutePath, saves.absolutePath).also { hasSaves = true }
+    } catch (e: UnsatisfiedLinkError) {
+        // An older core (the ROM's libfliwheel_android.so): it starts, without saves
+        log("nativeInitWithSaves missing: ${e.message}")
+        nativeInit(bundle.absolutePath)
+    }
+
+    /** Writes what the game has saved so far to the card. */
+    @Synchronized
+    fun flushSaves() {
+        if (handle != 0L && hasSaves) nativeFlushSaves(handle)
+    }
+
+    /** Ends the game after it had the chance to save, which can take seconds: not on the main thread. */
+    fun saveAndDestroy() {
+        synchronized(this) {
+            if (handle != 0L && hasSaves) nativeRequestQuit(handle)
+        }
+        destroy()
+    }
+
     /** Stops the game's time and its music (the Resume / Quit Game menu, screen off). */
     @Synchronized
     fun pause() {
@@ -133,6 +157,7 @@ class FliwheelBridge {
 
     /** Ends the game. The audio thread stops first: no native call may run while the core frees the session. */
     fun destroy() {
+        if (running === this) running = null
         isRunning = false
         audioThread?.let { t ->
             t.interrupt()
@@ -223,6 +248,13 @@ class FliwheelBridge {
     }
 
     companion object {
+        @Volatile private var running: FliwheelBridge? = null
+
+        /** Before the card is shared over USB: whatever the running game has saved goes on it first. */
+        fun flushRunningGame() {
+            running?.flushSaves()
+        }
+
         private const val TAG = "FliwheelBridge"
         const val WIDTH = 320
         const val HEIGHT = 240
@@ -266,6 +298,9 @@ class FliwheelBridge {
         }
 
         @JvmStatic private external fun nativeInit(bundlePath: String): Long
+        @JvmStatic private external fun nativeInitWithSaves(bundlePath: String, saveRoot: String): Long
+        @JvmStatic private external fun nativeFlushSaves(handle: Long)
+        @JvmStatic private external fun nativeRequestQuit(handle: Long)
         @JvmStatic private external fun nativeRenderFrame(handle: Long, outPixels: IntArray): Boolean
         @JvmStatic private external fun nativeSendKey(handle: Long, keyCode: Int, isDown: Boolean)
         @JvmStatic private external fun nativeSendWheel(handle: Long, delta: Float)

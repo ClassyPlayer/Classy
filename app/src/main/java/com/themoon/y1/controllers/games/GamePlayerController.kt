@@ -21,6 +21,7 @@ import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
 import com.themoon.y1.R
+import com.themoon.y1.StoragePaths
 import com.themoon.y1.ThemeManager
 import com.themoon.y1.controllers.ScreenController
 import com.themoon.y1.controllers.player.LyricsScreenHold
@@ -124,6 +125,7 @@ class GamePlayerController(
     /** MainActivity went to the background (screen off, another app): pause the game behind its menu. */
     fun onActivityPause() {
         if (bridge != null && !isMenuOpen) openMenu(dropRelease = false)
+        bridge?.flushSaves()
     }
 
     private fun start(bundleDir: File) {
@@ -134,10 +136,12 @@ class GamePlayerController(
         gameTitle = bundleDir.name
         gameArt = null
         Thread({
+            // The last game may still be saving: this one must see its files
+            quitting?.join()
             val item = GameLibrary.parseGameDir(bundleDir)
             val art = item?.iconFile?.let { decodeArt(it, artPx()) }
             val b = FliwheelBridge()
-            val ok = b.init(bundleDir)
+            val ok = b.init(bundleDir, StoragePaths.getGamesDirs())
             activity.runOnUiThread {
                 if (id != session) {
                     if (ok) Thread({ b.destroy() }, "GameDestroy").start()
@@ -169,7 +173,7 @@ class GamePlayerController(
         val b = bridge ?: return
         bridge = null
         stopRenderThread()
-        b.destroy()
+        quitting = Thread({ b.saveAndDestroy() }, "GameQuit").apply { start() }
     }
 
     // --- Rendering ---
@@ -386,6 +390,9 @@ class GamePlayerController(
     }
 
     private companion object {
+        /** The game that is saving and ending, after its screen has closed. */
+        @Volatile private var quitting: Thread? = null
+
         const val FRAME_NS = 16_666_667L
         const val MENU_TAP_MS = 100L
         const val ART_DP = 88

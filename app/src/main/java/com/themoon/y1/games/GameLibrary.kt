@@ -17,12 +17,14 @@ data class GameItem(val title: String, val bundleDir: File, val iconFile: File?)
  * The folder of an .ipg counts only when it is complete: a marker file ([MARKER]) is written after the whole .ipg
  * is in it. A folder without the marker (unpacked by an older version, or cut off: files of 0 bytes) is checked
  * once against the .ipg, and unpacked again over itself when a file is missing or short. The folder is never
- * deleted: the game saves are in it (.fliwheel-saves).
+ * deleted: older versions kept the game saves in it (.fliwheel-saves), which the core moves to [saveDir].
  */
 object GameLibrary {
     private const val TAG = "GameLibrary"
     private const val EXECUTABLES = "Executables"
     const val MARKER = ".classy-unpacked"
+    const val SAVES = "GameData_RW"
+    private val GUID = Regex("<key>GUID</key>\\s*<string>([^<]+)</string>")
 
     /**
      * The games in [roots], sorted by title. A game in two places (the same folder by two mount paths, or the same
@@ -88,6 +90,23 @@ object GameLibrary {
     fun bundleDir(dir: File): File =
         if (File(dir, EXECUTABLES).isDirectory) dir
         else dir.listFiles()?.sortedBy { it.name }?.firstOrNull { File(it, EXECUTABLES).isDirectory } ?: dir
+
+    /** Where the game in [bundle] keeps its saves, as on an iPod: `GameData_RW/<GameID>` next to the games in [roots]. */
+    fun saveDir(bundle: File, roots: List<File>): File {
+        val path = canonical(bundle)
+        val root = roots.firstOrNull { path.startsWith(canonical(it) + File.separator) } ?: bundle.parentFile ?: bundle
+        return File(File(root, SAVES), gameId(bundle))
+    }
+
+    /** The GUID in the game's Manifest.plist, which stays the same however its folder is named. */
+    private fun gameId(bundle: File): String {
+        val guid = try {
+            GUID.find(File(bundle, "Manifest.plist").readText())?.groupValues?.get(1)
+        } catch (e: IOException) {
+            null
+        }
+        return (guid ?: bundle.name).trim().replace(Regex("[^A-Za-z0-9._ -]"), "_")
+    }
 
     /**
      * The art of a game, in this order. An empty file (cut off) is no art. The iPod's own .raw.lcd5 images are

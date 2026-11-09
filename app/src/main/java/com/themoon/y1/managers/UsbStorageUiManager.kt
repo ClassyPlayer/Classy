@@ -19,6 +19,7 @@ import com.themoon.y1.MainActivity
 import com.themoon.y1.StoragePaths
 import com.themoon.y1.ThemeManager
 import com.themoon.y1.controllers.settings.ActionScreens
+import com.themoon.y1.games.FliwheelBridge
 import com.themoon.y1.navigation.NavigationManager
 import com.themoon.y1.views.Notice
 import com.themoon.y1.views.TablerIcons
@@ -148,6 +149,7 @@ class UsbStorageUiManager(
         usbStorageBusy = true
         val musicPlayed = AudioPlayerManager.getInstance().isPlaying()
         pauseAllPlaybackForUsb()
+        FliwheelBridge.flushRunningGame()
         // An open track file on the card makes MountService kill this app during the share.
         AudioPlayerManager.getInstance().releaseForUsbStorage(musicPlayed)
         getExternalSdMountMonitor()?.setSuspended(true)
