@@ -55,6 +55,26 @@ class SystemBloatManagerTest {
     }
 
     @Test
+    fun applyCommand_removesTheInputMethodBeforeItsPackageIsDisabled() {
+        val ime = "com.android.inputmethod.latin/.LatinIME"
+        assertEquals(
+            "pm enable com.android.inputmethod.latin; ime disable $ime; pm disable com.android.inputmethod.latin",
+            SystemBloatManager.applyCommand(
+                listOf("com.android.inputmethod.latin"), listOf("com.android.inputmethod.latin"), emptyList(), listOf(ime)
+            )
+        )
+    }
+
+    @Test
+    fun keyboardImes_findsTheKeyboardInTheDefaultAndTheEnabledList() {
+        val ime = "com.android.inputmethod.latin/.LatinIME"
+        assertEquals(listOf(ime), SystemBloatManager.keyboardImes(ime, ime))
+        assertEquals(listOf(ime), SystemBloatManager.keyboardImes(null, "com.other/.Ime;123:$ime;456;789"))
+        assertEquals(emptyList<String>(), SystemBloatManager.keyboardImes("com.other/.Ime", "com.other/.Ime"))
+        assertEquals(emptyList<String>(), SystemBloatManager.keyboardImes("", null))
+    }
+
+    @Test
     fun stopCommand_stopsRunningAndRestartingServicesOnly() {
         val states = mapOf("matv" to "running", "agpsd" to "restarting", "netdiag" to "stopped")
         assertEquals("setprop ctl.stop matv; setprop ctl.stop agpsd", SystemBloatManager.stopCommand { states[it] })
