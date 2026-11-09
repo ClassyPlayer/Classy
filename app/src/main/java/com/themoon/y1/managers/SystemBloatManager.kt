@@ -1,5 +1,6 @@
 package com.themoon.y1.managers
 
+import android.content.ComponentName
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
@@ -9,9 +10,13 @@ import com.themoon.y1.AppPrefs
 import com.themoon.y1.DeviceModel
 
 /**
- * Turns off Android parts that the Y2 does not use: the status bar (SystemUI), the lockscreen, the keyboard,
+ * Turns off Android parts that the Y2 does not use: the status bar, the lockscreen, the keyboard,
  * the window animations and some MediaTek daemons. It runs in its own thread at each app start, so the library
  * does not wait for it.
+ *
+ * The status bar goes off with its service only (`SystemUIService`), not with the whole SystemUI package: the package also has
+ * the only wallpaper service (`ImageWallpaper`). Without a wallpaper window, Android 4.4 enables input only at its 30 s
+ * boot timeout, so the click wheel does nothing for about 30 s after each boot.
  *
  * Packages and settings: Android keeps them (`package-restrictions.xml`, `settings.db`), so they are set once.
  * The step is recorded only when a check of the real state passes; if root fails, the next start tries again.
@@ -26,12 +31,16 @@ import com.themoon.y1.DeviceModel
 object SystemBloatManager {
     private const val TAG = "Y1SystemBloat"
 
-    /** Raise it when [PACKAGES] or [SETTINGS] change, so that devices apply the new list once. */
-    internal const val VERSION = 1
+    /** Raise it when [ENABLED], [DISABLED] or [SETTINGS] change, so that devices apply the new list once. */
+    internal const val VERSION = 2
     private const val KEY_APPLIED_VERSION = "system_bloat_applied_version"
 
-    internal val PACKAGES = listOf(
-        "com.android.systemui",
+    /** Version 1 disabled the whole SystemUI package (see the class comment). */
+    internal val ENABLED = listOf("com.android.systemui")
+
+    /** Packages, or components as `package/class`. */
+    internal val DISABLED = listOf(
+        "com.android.systemui/com.android.systemui.SystemUIService",
         "com.android.keyguard",
         "com.android.inputmethod.latin",
         "com.android.providers.userdictionary",
@@ -52,9 +61,10 @@ object SystemBloatManager {
     @Volatile
     private var started = false
 
-    /** Root shell command for the packages and settings that are not yet in their state. */
-    internal fun applyCommand(packages: List<String>, settings: List<Setting>): String =
-        (packages.map { "pm disable $it" } + settings.map { "settings put ${it.table} ${it.name} ${it.value}" })
+    /** Root shell command for the packages, components and settings that are not yet in their state. Enables come first. */
+    internal fun applyCommand(enable: List<String>, disable: List<String>, settings: List<Setting>): String =
+        (enable.map { "pm enable $it" } + disable.map { "pm disable $it" } +
+            settings.map { "settings put ${it.table} ${it.name} ${it.value}" })
             .joinToString("; ")
 
     /** Root shell command that stops the services, or null if none runs. [state]: value of `init.svc.<name>`. */
@@ -90,25 +100,28 @@ object SystemBloatManager {
         val prefs = AppPrefs.get(appContext)
         if (prefs.getInt(KEY_APPLIED_VERSION, 0) >= VERSION) return
 
-        val packages = PACKAGES.filter { !isDisabled(appContext, it) }
+        val enable = ENABLED.filter { isDisabled(appContext, it) }
+        val disable = DISABLED.filter { !isDisabled(appContext, it) }
         val settings = SETTINGS.filter { !hasValue(appContext, it) }
-        if (packages.isNotEmpty() || settings.isNotEmpty()) {
-            FmRadioManager.runSuQuiet(applyCommand(packages, settings), timeoutMs = 30_000)
+        if (enable.isNotEmpty() || disable.isNotEmpty() || settings.isNotEmpty()) {
+            FmRadioManager.runSuQuiet(applyCommand(enable, disable, settings), timeoutMs = 30_000)
         }
 
-        val failedPackages = PACKAGES.filter { !isDisabled(appContext, it) }
-        val failedSettings = SETTINGS.filter { !hasValue(appContext, it) }.map { it.name }
-        if (failedPackages.isEmpty() && failedSettings.isEmpty()) {
+        val failed = ENABLED.filter { isDisabled(appContext, it) } + DISABLED.filter { !isDisabled(appContext, it) } +
+            SETTINGS.filter { !hasValue(appContext, it) }.map { it.name }
+        if (failed.isEmpty()) {
             prefs.edit().putInt(KEY_APPLIED_VERSION, VERSION).apply()
-            Log.i(TAG, "Applied version $VERSION (changed: $packages ${settings.map { it.name }})")
+            Log.i(TAG, "Applied version $VERSION (changed: $enable $disable ${settings.map { it.name }})")
         } else {
-            Log.w(TAG, "Not applied, tries again at the next start: $failedPackages $failedSettings")
+            Log.w(TAG, "Not applied, tries again at the next start: $failed")
         }
     }
 
-    /** True when the package is disabled or not on this ROM. */
-    private fun isDisabled(context: Context, packageName: String): Boolean = try {
-        when (context.packageManager.getApplicationEnabledSetting(packageName)) {
+    /** True when the package or component (`package/class`) is disabled, or its package is not on this ROM. */
+    private fun isDisabled(context: Context, name: String): Boolean = try {
+        val component = ComponentName.unflattenFromString(name)
+        val pm = context.packageManager
+        when (if (component != null) pm.getComponentEnabledSetting(component) else pm.getApplicationEnabledSetting(name)) {
             PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
             PackageManager.COMPONENT_ENABLED_STATE_DISABLED_USER -> true
             else -> false
