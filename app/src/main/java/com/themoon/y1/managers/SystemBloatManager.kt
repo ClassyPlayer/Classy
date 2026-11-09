@@ -33,6 +33,10 @@ import com.themoon.y1.DeviceModel
  * apps only, not by this app. MountService opens it in a try/catch after the mount, so with the dialog disabled the
  * mount goes on. It is an activity of package `android`, so it goes off with DONT_KILL_APP ([DISABLED_DONT_KILL]):
  * `pm disable` would force-stop `android`, which cancels the system's own alarms (the time tick).
+ *
+ * The keyboard: Android keeps it as the input method after `pm disable`, and each window focus of the app then throws
+ * "Unknown id" (a crash at each start until a reboot). So `ime disable` removes it first, while it is still enabled
+ * ([keyboardImes]); on a device where version 3 disabled it already, the keyboard is enabled again for that step.
  */
 object SystemBloatManager {
     private const val TAG = "Y1SystemBloat"
@@ -41,8 +45,11 @@ object SystemBloatManager {
      * Raise it when [ENABLED], [DISABLED], [DISABLED_DONT_KILL] or [SETTINGS] change, so that devices apply the new
      * list once.
      */
-    internal const val VERSION = 3
+    internal const val VERSION = 4
     private const val KEY_APPLIED_VERSION = "system_bloat_applied_version"
+
+    /** The keyboard package (LatinIME). */
+    internal const val KEYBOARD = "com.android.inputmethod.latin"
 
     /** Version 1 disabled the whole SystemUI package (see the class comment). */
     internal val ENABLED = listOf("com.android.systemui")
@@ -51,7 +58,7 @@ object SystemBloatManager {
     internal val DISABLED = listOf(
         "com.android.systemui/com.android.systemui.SystemUIService",
         "com.android.keyguard",
-        "com.android.inputmethod.latin",
+        KEYBOARD,
         "com.android.providers.userdictionary",
     )
 
@@ -78,11 +85,28 @@ object SystemBloatManager {
     @Volatile
     private var started = false
 
-    /** Root shell command for the packages, components and settings that are not yet in their state. Enables come first. */
-    internal fun applyCommand(enable: List<String>, disable: List<String>, settings: List<Setting>): String =
-        (enable.map { "pm enable $it" } + disable.map { "pm disable $it" } +
+    /**
+     * Root shell command for the packages, components and settings that are not yet in their state. Enables come
+     * first, then `ime disable` of the input methods [imes] (before their package is disabled), then the disables.
+     */
+    internal fun applyCommand(
+        enable: List<String>,
+        disable: List<String>,
+        settings: List<Setting>,
+        imes: List<String> = emptyList()
+    ): String =
+        (enable.map { "pm enable $it" } + imes.map { "ime disable $it" } + disable.map { "pm disable $it" } +
             settings.map { "settings put ${it.table} ${it.name} ${it.value}" })
             .joinToString("; ")
+
+    /**
+     * The input methods of the [KEYBOARD] package in the secure settings `default_input_method` ([default]) and
+     * `enabled_input_methods` ([enabled]: `id;subtype;subtype:id...`).
+     */
+    internal fun keyboardImes(default: String?, enabled: String?): List<String> =
+        (listOfNotNull(default) + enabled.orEmpty().split(':').map { it.substringBefore(';') })
+            .filter { it.startsWith("$KEYBOARD/") }
+            .distinct()
 
     /**
      * Root shell command that disables [component] (`package/class`) with DONT_KILL_APP, for when the app has no
@@ -128,18 +152,22 @@ object SystemBloatManager {
         val prefs = AppPrefs.get(appContext)
         if (prefs.getInt(KEY_APPLIED_VERSION, 0) >= VERSION) return
 
-        val enable = ENABLED.filter { isDisabled(appContext, it) }
-        val disable = DISABLED.filter { !isDisabled(appContext, it) }
+        // `ime disable` needs the keyboard enabled: when it is disabled already, enable it for this step
+        val imes = keyboardImesOn(appContext)
+        val keyboardAgain = imes.isNotEmpty() && isDisabled(appContext, KEYBOARD)
+        val enable = ENABLED.filter { isDisabled(appContext, it) } + if (keyboardAgain) listOf(KEYBOARD) else emptyList()
+        val disable = DISABLED.filter { !isDisabled(appContext, it) || (it == KEYBOARD && keyboardAgain) }
         val settings = SETTINGS.filter { !hasValue(appContext, it) }
-        if (enable.isNotEmpty() || disable.isNotEmpty() || settings.isNotEmpty()) {
-            FmRadioManager.runSuQuiet(applyCommand(enable, disable, settings), timeoutMs = 30_000)
+        if (enable.isNotEmpty() || disable.isNotEmpty() || settings.isNotEmpty() || imes.isNotEmpty()) {
+            FmRadioManager.runSuQuiet(applyCommand(enable, disable, settings, imes), timeoutMs = 30_000)
         }
         val disableDontKill = DISABLED_DONT_KILL.filter { !isDisabled(appContext, it) }
         disableDontKill.forEach { disableWithoutKill(appContext, it) }
 
         val failed = ENABLED.filter { isDisabled(appContext, it) } +
             (DISABLED + DISABLED_DONT_KILL).filter { !isDisabled(appContext, it) } +
-            SETTINGS.filter { !hasValue(appContext, it) }.map { it.name }
+            SETTINGS.filter { !hasValue(appContext, it) }.map { it.name } +
+            keyboardImesOn(appContext)
         if (failed.isEmpty()) {
             prefs.edit().putInt(KEY_APPLIED_VERSION, VERSION).apply()
             Log.i(TAG, "Applied version $VERSION (changed: $enable $disable $disableDontKill ${settings.map { it.name }})")
@@ -186,6 +214,19 @@ object SystemBloatManager {
             null
         }
         return settingMatches(actual, setting.value)
+    }
+
+    /** [keyboardImes] of the secure settings of this device. */
+    private fun keyboardImesOn(context: Context): List<String> {
+        val resolver = context.contentResolver
+        return try {
+            keyboardImes(
+                Settings.Secure.getString(resolver, Settings.Secure.DEFAULT_INPUT_METHOD),
+                Settings.Secure.getString(resolver, Settings.Secure.ENABLED_INPUT_METHODS)
+            )
+        } catch (_: Throwable) {
+            emptyList()
+        }
     }
 
     private fun systemProperty(service: String): String? = try {
