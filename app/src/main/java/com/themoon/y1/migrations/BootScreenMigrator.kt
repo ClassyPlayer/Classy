@@ -102,7 +102,7 @@ object BootScreenMigrator {
                 os.writeBytes("cp $p $stagedJar\n")
                 os.writeBytes("chmod 644 $stagedJar\n")
                 os.writeBytes("chown root:root $stagedJar\n")
-                os.writeBytes("mv -f $stagedJar $TARGET_POLICY_JAR\n")
+                os.writeBytes("mv $stagedJar $TARGET_POLICY_JAR\n")
                 os.writeBytes("rm -f $TARGET_POLICY_ODEX\n")
             }
 
@@ -112,7 +112,7 @@ object BootScreenMigrator {
                 os.writeBytes("cp $p $stagedApk\n")
                 os.writeBytes("chmod 644 $stagedApk\n")
                 os.writeBytes("chown root:root $stagedApk\n")
-                os.writeBytes("mv -f $stagedApk $TARGET_FRAMEWORK_RES\n")
+                os.writeBytes("mv $stagedApk $TARGET_FRAMEWORK_RES\n")
             }
 
             os.writeBytes("trap - EXIT\n")

@@ -498,7 +498,8 @@ class OtaUpdateManager(
                 val targetOdex = com.themoon.y1.migrations.BootScreenMigrator.TARGET_POLICY_ODEX
                 val stagedJar = "$targetJar.classy_tmp"
                 os.writeBytes("if cp $tempJarPath $stagedJar >> $logPath 2>&1 && chmod 644 $stagedJar && chown root:root $stagedJar; then\n")
-                os.writeBytes("  mv -f $stagedJar $targetJar >> $logPath 2>&1 && rm -f $targetOdex\n")
+                // Plain mv: the Y2's toolbox mv has no -f (it fails with "failed on '-f'") and replaces the target anyway
+                os.writeBytes("  mv $stagedJar $targetJar >> $logPath 2>&1 && rm -f $targetOdex || rm -f $stagedJar\n")
                 os.writeBytes("else\n")
                 os.writeBytes("  rm -f $stagedJar\n")
                 os.writeBytes("fi\n")
@@ -508,7 +509,7 @@ class OtaUpdateManager(
                 val targetApk = com.themoon.y1.migrations.BootScreenMigrator.TARGET_FRAMEWORK_RES
                 val stagedApk = "$targetApk.classy_tmp"
                 os.writeBytes("if cp $tempApkPath $stagedApk >> $logPath 2>&1 && chmod 644 $stagedApk && chown root:root $stagedApk; then\n")
-                os.writeBytes("  mv -f $stagedApk $targetApk >> $logPath 2>&1\n")
+                os.writeBytes("  mv $stagedApk $targetApk >> $logPath 2>&1 || rm -f $stagedApk\n")
                 os.writeBytes("else\n")
                 os.writeBytes("  rm -f $stagedApk\n")
                 os.writeBytes("fi\n")
