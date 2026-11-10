@@ -738,5 +738,8 @@
   "Original": "Original",
   "Romanised": "Romanizada",
   "Original + Romanised": "Original + romanizada",
-  "SD card ready": "Tarjeta SD lista"
+  "SD card ready": "Tarjeta SD lista",
+  "Cannot Update": "No se puede actualizar",
+  "This Classy was not installed with the official firmware, so the update cannot replace it.": "Este Classy no se instaló con el firmware oficial, por lo que la actualización no puede reemplazarlo.",
+  "To update, install the new firmware with Innioasis Updater CE (innioasis.app).": "Para actualizar, instala el nuevo firmware con Innioasis Updater CE (innioasis.app)."
 }

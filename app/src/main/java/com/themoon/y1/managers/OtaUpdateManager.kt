@@ -3,6 +3,9 @@ package com.themoon.y1.managers
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ApplicationInfo
+import android.content.pm.PackageManager
+import android.content.pm.Signature
 import android.graphics.Typeface
 import android.net.Uri
 import android.net.wifi.WifiManager
@@ -391,7 +394,58 @@ class OtaUpdateManager(
         }.start()
     }
 
+    /**
+     * Android installs an update over the app only with the same signing key. With a different key, only the copy
+     * in the firmware (/system) can take the update, at the next start, and only when no copy in /data/app hides it.
+     * Without this check the install script replaced the firmware copy, the start found no usable app, and the
+     * player stayed on the start screen.
+     */
+    private fun canInstall(apkFile: File): Boolean {
+        val installed = try {
+            activity.packageManager.getPackageInfo(activity.packageName, PackageManager.GET_SIGNATURES)
+        } catch (_: Exception) {
+            return true
+        }
+        val flags = installed.applicationInfo?.flags ?: 0
+        val onlyFirmwareCopy = flags and ApplicationInfo.FLAG_SYSTEM != 0 &&
+            flags and ApplicationInfo.FLAG_UPDATED_SYSTEM_APP == 0
+        if (onlyFirmwareCopy) return true
+        return try {
+            val apkSigners = apkSigners(apkFile)
+            apkSigners.isNotEmpty() && apkSigners == installed.signatures?.map { it.toCharsString() }?.toSet()
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    /** The signers of an APK (v1 signature), in the form of [Signature.toCharsString]. */
+    private fun apkSigners(apkFile: File): Set<String> =
+        java.util.jar.JarFile(apkFile).use { jar ->
+            val entry = jar.getJarEntry("AndroidManifest.xml") ?: return emptySet()
+            // The certificates of an entry are known only after all of it was read
+            jar.getInputStream(entry).use { input ->
+                val buffer = ByteArray(8192)
+                while (input.read(buffer) != -1) { /* read to the end */ }
+            }
+            entry.certificates?.map { Signature(it.encoded).toCharsString() }?.toSet() ?: emptySet()
+        }
+
+    private fun showCannotUpdateDialog() {
+        ActionScreens.open(ActionScreens.Spec(
+            localize("Cannot Update"),
+            listOf(
+                localize("This Classy was not installed with the official firmware, so the update cannot replace it."),
+                localize("To update, install the new firmware with Innioasis Updater CE (innioasis.app).")
+            )
+        ))
+    }
+
     fun installApk(apkFile: File) {
+        if (!canInstall(apkFile)) {
+            apkFile.delete()
+            activity.runOnUiThread { showCannotUpdateDialog() }
+            return
+        }
         try {
             val process = Runtime.getRuntime().exec("su")
             val os = java.io.DataOutputStream(process.outputStream)
@@ -436,7 +490,7 @@ class OtaUpdateManager(
             os.writeBytes("    cp $apkPath \$sys_apk >> $logPath 2>&1\n")
             os.writeBytes("    chmod 644 \$sys_apk\n")
             os.writeBytes("    rm -f /data/dalvik-cache/*com.themoon.y1* 2>/dev/null\n")
-            os.writeBytes("    rm -f /data/app/com.themoon.y1* 2>/dev/null\n")
+            // A copy in /data/app stays: it has the same key (canInstall), so pm install replaces it below
             os.writeBytes("  fi\n")
             os.writeBytes("done\n")
             if (tempJarPath != null) {
