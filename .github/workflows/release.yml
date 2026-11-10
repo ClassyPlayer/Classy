@@ -50,6 +50,11 @@ jobs:
 
       - name: Determine Version and Release Tag
         id: version
+        # Tag values only through the environment: in the script text, a crafted tag name could run shell commands
+        env:
+          INPUT_TAG: ${{ inputs.tag_name }}
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
           VERSION=$(grep -m1 'appVersionName' app/build.gradle | grep -o '".*"' | tr -d '"' || echo "1.5.0")
           DEFAULT_CODE="150"
@@ -57,7 +62,6 @@ jobs:
 
           DATE=$(date -u +'%Y%m%d')
 
-          INPUT_TAG="${{ inputs.tag_name }}"
           if [ -n "$INPUT_TAG" ]; then
             TAG_NAME="$INPUT_TAG"
             RELEASE_NAME="$INPUT_TAG"
@@ -70,10 +74,10 @@ jobs:
             else
               VERSION_CODE="${DEFAULT_CODE}"
             fi
-          elif [ "${{ github.ref_type }}" = "tag" ]; then
-            TAG_NAME="${{ github.ref_name }}"
-            RELEASE_NAME="${{ github.ref_name }}"
-            VERSION_NAME="${{ github.ref_name }}"
+          elif [ "$REF_TYPE" = "tag" ]; then
+            TAG_NAME="$REF_NAME"
+            RELEASE_NAME="$REF_NAME"
+            VERSION_NAME="$REF_NAME"
             TAG_DATE=$(echo "${TAG_NAME}" | grep -oE '[0-9]{8}' | head -1 || true)
             if [ -n "$TAG_DATE" ]; then
               # Date + 2 digits (the N of -vN, else 00), as for the automatic tags: the codes must only go up
@@ -140,11 +144,14 @@ jobs:
           KEYSTORE_BASE64: ${{ secrets.CLASSY_RELEASE_KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.CLASSY_RELEASE_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.CLASSY_RELEASE_KEY_ALIAS }}
+          VERSION_CODE: ${{ steps.version.outputs.version_code }}
+          VERSION_NAME: ${{ steps.version.outputs.version_name }}
         run: |
           # One fixed key for all releases: Android installs an update over the app only with the same key.
           # Without the secrets (forks), Gradle signs with the runner's new debug key, as before.
           SIGNING=()
           if [ -n "$KEYSTORE_BASE64" ]; then
+            trap 'rm -f "$RUNNER_TEMP/release.jks"' EXIT
             echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
             SIGNING=(
               -Pandroid.injected.signing.store.file="$RUNNER_TEMP/release.jks"
@@ -155,21 +162,26 @@ jobs:
           else
             echo "::warning::No release key in the secrets: the APK is signed with a new debug key"
           fi
-          ./gradlew assembleRelease -PappVersionCode="${{ steps.version.outputs.version_code }}" -PappVersionName="${{ steps.version.outputs.version_name }}" "${SIGNING[@]}"
-          rm -f "$RUNNER_TEMP/release.jks"
+          ./gradlew assembleRelease -PappVersionCode="$VERSION_CODE" -PappVersionName="$VERSION_NAME" "${SIGNING[@]}"
 
       - name: Package APK and Generate Update Metadata
+        env:
+          VERSION_CODE: ${{ steps.version.outputs.version_code }}
+          VERSION_NAME: ${{ steps.version.outputs.version_name }}
+          RELEASE_NAME: ${{ steps.version.outputs.release_name }}
+          APK_NAME: ${{ steps.version.outputs.apk_name }}
+          REPOSITORY: ${{ github.repository }}
         run: |
           mkdir -p dist
-          cp app/build/outputs/apk/release/app-release.apk "dist/${{ steps.version.outputs.apk_name }}"
+          cp app/build/outputs/apk/release/app-release.apk "dist/$APK_NAME"
           cat << EOF > dist/update.json
           {
-            "versionCode": ${{ steps.version.outputs.version_code }},
-            "versionName": "${{ steps.version.outputs.version_name }}",
-            "releaseName": "Classy ${{ steps.version.outputs.release_name }}",
-            "apkName": "${{ steps.version.outputs.apk_name }}",
-            "apkUrl": "https://github.com/${{ github.repository }}/releases/latest/download/${{ steps.version.outputs.apk_name }}",
-            "outputFile": "${{ steps.version.outputs.apk_name }}"
+            "versionCode": $VERSION_CODE,
+            "versionName": "$VERSION_NAME",
+            "releaseName": "Classy $RELEASE_NAME",
+            "apkName": "$APK_NAME",
+            "apkUrl": "https://github.com/$REPOSITORY/releases/latest/download/$APK_NAME",
+            "outputFile": "$APK_NAME"
           }
           EOF
           echo "Generated dist/update.json:"
