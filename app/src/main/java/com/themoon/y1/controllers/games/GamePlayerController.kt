@@ -215,6 +215,11 @@ class GamePlayerController(
         while (renderThread === Thread.currentThread()) {
             val started = System.nanoTime()
             if (!b.renderFrame(pixels)) {
+                // A game that quit by itself (Tetris's Quit) leaves its last frame up: go back to the list
+                if (b.isFinished()) {
+                    activity.runOnUiThread { if (bridge === b) onExitRequested() }
+                    break
+                }
                 sleep(5)
                 continue
             }

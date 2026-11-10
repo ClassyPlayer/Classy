@@ -101,6 +101,20 @@ class FliwheelBridge {
         }
     }
 
+    /** True once the game has quit by itself (its own Quit, after saving): close the session. */
+    @Synchronized
+    fun isFinished(): Boolean {
+        if (handle == 0L || !hasFinishedCheck) return false
+        return try {
+            nativeIsFinished(handle)
+        } catch (e: UnsatisfiedLinkError) {
+            // An older core (the ROM's libfliwheel_android.so): the game stays on its last screen
+            hasFinishedCheck = false
+            log("nativeIsFinished missing: ${e.message}")
+            false
+        }
+    }
+
     private fun startCore(bundle: File, saves: File): Long = try {
         nativeInitWithSaves(bundle.absolutePath, saves.absolutePath).also { hasSaves = true }
     } catch (e: UnsatisfiedLinkError) {
@@ -268,6 +282,8 @@ class FliwheelBridge {
 
         @Volatile
         private var hasWheelTouch = true
+        @Volatile
+        private var hasFinishedCheck = true
 
         /**
          * Loads the core. On an adb install Android unpacks it into the app's lib folder; in the ROM
@@ -301,6 +317,7 @@ class FliwheelBridge {
         @JvmStatic private external fun nativeInitWithSaves(bundlePath: String, saveRoot: String): Long
         @JvmStatic private external fun nativeFlushSaves(handle: Long)
         @JvmStatic private external fun nativeRequestQuit(handle: Long)
+        @JvmStatic private external fun nativeIsFinished(handle: Long): Boolean
         @JvmStatic private external fun nativeRenderFrame(handle: Long, outPixels: IntArray): Boolean
         @JvmStatic private external fun nativeSendKey(handle: Long, keyCode: Int, isDown: Boolean)
         @JvmStatic private external fun nativeSendWheel(handle: Long, delta: Float)
