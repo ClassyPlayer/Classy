@@ -136,7 +136,27 @@ jobs:
           retention-days: 7
 
       - name: Build Release APK
-        run: ./gradlew assembleRelease -PappVersionCode="${{ steps.version.outputs.version_code }}" -PappVersionName="${{ steps.version.outputs.version_name }}"
+        env:
+          KEYSTORE_BASE64: ${{ secrets.CLASSY_RELEASE_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.CLASSY_RELEASE_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.CLASSY_RELEASE_KEY_ALIAS }}
+        run: |
+          # One fixed key for all releases: Android installs an update over the app only with the same key.
+          # Without the secrets (forks), Gradle signs with the runner's new debug key, as before.
+          SIGNING=()
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+            SIGNING=(
+              -Pandroid.injected.signing.store.file="$RUNNER_TEMP/release.jks"
+              -Pandroid.injected.signing.store.password="$KEYSTORE_PASSWORD"
+              -Pandroid.injected.signing.key.alias="$KEY_ALIAS"
+              -Pandroid.injected.signing.key.password="$KEYSTORE_PASSWORD"
+            )
+          else
+            echo "::warning::No release key in the secrets: the APK is signed with a new debug key"
+          fi
+          ./gradlew assembleRelease -PappVersionCode="${{ steps.version.outputs.version_code }}" -PappVersionName="${{ steps.version.outputs.version_name }}" "${SIGNING[@]}"
+          rm -f "$RUNNER_TEMP/release.jks"
 
       - name: Package APK and Generate Update Metadata
         run: |
