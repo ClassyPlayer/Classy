@@ -430,6 +430,7 @@ class OtaUpdateManager(
             entry.certificates?.map { Signature(it.encoded).toCharsString() }?.toSet() ?: emptySet()
         }
 
+    /** Says why the update cannot install and how the user can update (canInstall returned false). */
     private fun showCannotUpdateDialog() {
         ActionScreens.open(ActionScreens.Spec(
             localize("Cannot Update"),
