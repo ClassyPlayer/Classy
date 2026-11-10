@@ -64,7 +64,9 @@ jobs:
             VERSION_NAME="$INPUT_TAG"
             TAG_DATE=$(echo "${TAG_NAME}" | grep -oE '[0-9]{8}' | head -1 || true)
             if [ -n "$TAG_DATE" ]; then
-              VERSION_CODE="${TAG_DATE}"
+              # Date + 2 digits (the N of -vN, else 00), as for the automatic tags: the codes must only go up
+              TAG_REV=$(echo "${TAG_NAME}" | grep -oE -- '-v[0-9]+$' | tr -dc '0-9' || true)
+              VERSION_CODE="${TAG_DATE}$(printf '%02d' "$((10#${TAG_REV:-0}))")"
             else
               VERSION_CODE="${DEFAULT_CODE}"
             fi
@@ -74,7 +76,9 @@ jobs:
             VERSION_NAME="${{ github.ref_name }}"
             TAG_DATE=$(echo "${TAG_NAME}" | grep -oE '[0-9]{8}' | head -1 || true)
             if [ -n "$TAG_DATE" ]; then
-              VERSION_CODE="${TAG_DATE}"
+              # Date + 2 digits (the N of -vN, else 00), as for the automatic tags: the codes must only go up
+              TAG_REV=$(echo "${TAG_NAME}" | grep -oE -- '-v[0-9]+$' | tr -dc '0-9' || true)
+              VERSION_CODE="${TAG_DATE}$(printf '%02d' "$((10#${TAG_REV:-0}))")"
             else
               VERSION_CODE="${DEFAULT_CODE}"
             fi
@@ -104,7 +108,7 @@ jobs:
               TAG_NAME="${DATE}"
               RELEASE_NAME="${DATE}"
               VERSION_NAME="${DATE}"
-              VERSION_CODE="${DATE}"
+              VERSION_CODE="${DATE}00"
             fi
           fi
 

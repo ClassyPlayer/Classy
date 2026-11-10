@@ -17,7 +17,8 @@ def lastFmApiKey = localProps.getProperty("lastfm.api.key", "")
 def lastFmApiSecret = localProps.getProperty("lastfm.api.secret", "")
 
 def todayDate = new java.text.SimpleDateFormat("yyyyMMdd").format(new Date())
-def defaultVersionCode = todayDate.toInteger()
+// Date + 2 digits, as in the release workflow (20261107-v2 = 2026110702): the codes must only go up
+def defaultVersionCode = (todayDate + "00").toInteger()
 def defaultVersionName = todayDate
 
 def appVersionCode = project.hasProperty('appVersionCode') ? project.property('appVersionCode').toInteger() : defaultVersionCode
