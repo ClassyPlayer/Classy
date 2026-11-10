@@ -24,6 +24,7 @@ object GameLibrary {
     private const val EXECUTABLES = "Executables"
     const val MARKER = ".classy-unpacked"
     const val SAVES = "GameData_RW"
+    private val UNSAFE_ID_CHARS = Regex("[^A-Za-z0-9._ -]")
     private val GUID = Regex("<key>GUID</key>\\s*<string>([^<]+)</string>")
 
     /**
@@ -105,8 +106,11 @@ object GameLibrary {
         } catch (e: IOException) {
             null
         }
-        return (guid ?: bundle.name).trim().replace(Regex("[^A-Za-z0-9._ -]"), "_")
+        // "." or ".." (or nothing) would put the saves in GameData_RW itself or above it: the folder name then
+        return safeId(guid)?.takeIf { it.any { c -> c != '.' } } ?: safeId(bundle.name)?.takeIf { it.any { c -> c != '.' } } ?: "_"
     }
+
+    private fun safeId(name: String?): String? = name?.trim()?.replace(UNSAFE_ID_CHARS, "_")
 
     /**
      * The art of a game, in this order. An empty file (cut off) is no art. The iPod's own .raw.lcd5 images are

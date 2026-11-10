@@ -503,6 +503,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
         updateScreenOffFeedback(true)
         updateStatusBarClock()
         applyTheme()
+        if (::gamePlayerController.isInitialized) gamePlayerController.onActivityResume()
     }
 
     override fun onPause() {

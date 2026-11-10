@@ -189,6 +189,16 @@ class GameLibraryTest {
     }
 
     @Test
+    fun aDotGuidUsesTheFolderName() {
+        val root = tmp.newFolder("Games")
+        for (guid in listOf("..", ".", "  ")) {
+            val bundle = game(root, "Evil")
+            File(bundle, "Manifest.plist").writeText("<key>GUID</key><string>$guid</string>")
+            assertEquals(File(root, "GameData_RW/Evil").path, GameLibrary.saveDir(bundle, listOf(root)).path)
+        }
+    }
+
+    @Test
     fun theSaveFolderIsNotAGame() {
         val root = tmp.newFolder("Games")
         game(root, "Tetris")

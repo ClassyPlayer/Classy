@@ -212,7 +212,7 @@ class FliwheelBridge {
                 }
                 continue
             }
-            synchronized(this) { if (isRunning) play(path) }
+            if (isMusic(path)) playMusic(path) else synchronized(this) { if (isRunning) play(path) }
         }
     }
 
@@ -230,34 +230,62 @@ class FliwheelBridge {
         } catch (_: Exception) {}
     }
 
-    private fun play(path: String) {
-        if (!File(path).isFile) return
+    private fun isMusic(path: String): Boolean {
         val lower = path.lowercase(Locale.US)
+        return lower.endsWith(".m4a") || lower.endsWith(".mp3") || lower.endsWith(".aac")
+    }
+
+    /** A sound effect (.wav). Runs under the bridge lock. */
+    private fun play(path: String) {
+        if (!File(path).isFile || !path.lowercase(Locale.US).endsWith(".wav")) return
         try {
-            when {
-                lower.endsWith(".wav") -> {
-                    val pool = soundPool ?: return
-                    val id = sounds[path]
-                    if (id == null) {
-                        sounds[path] = pool.load(path, 1) // plays when it has loaded
-                    } else if (synchronized(loadedSounds) { id in loadedSounds }) {
-                        playSound(pool, id)
-                    }
-                }
-                lower.endsWith(".m4a") || lower.endsWith(".mp3") || lower.endsWith(".aac") -> {
-                    releaseMusic()
-                    music = MediaPlayer().apply {
-                        setAudioStreamType(AudioManager.STREAM_MUSIC)
-                        setDataSource(path)
-                        prepare()
-                        isLooping = true
-                        VirtualVolumeManager.getInstance().registerMediaPlayer(this)
-                        if (!isPaused) start()
-                    }
-                }
+            val pool = soundPool ?: return
+            val id = sounds[path]
+            if (id == null) {
+                sounds[path] = pool.load(path, 1) // plays when it has loaded
+            } else if (synchronized(loadedSounds) { id in loadedSounds }) {
+                playSound(pool, id)
             }
         } catch (e: Exception) {
             Log.w(TAG, "Could not play $path", e)
+        }
+    }
+
+    /**
+     * The game's looping music. It is prepared outside the bridge lock, which the keys, the wheel and the frames
+     * also take: reading the track from the card must not hold them up. A track that cannot play is released.
+     */
+    private fun playMusic(path: String) {
+        if (!File(path).isFile) return
+        val player = MediaPlayer()
+        try {
+            player.setAudioStreamType(AudioManager.STREAM_MUSIC)
+            player.setDataSource(path)
+            player.prepare()
+            player.isLooping = true
+        } catch (e: Exception) {
+            Log.w(TAG, "Could not play $path", e)
+            try {
+                player.release()
+            } catch (_: Exception) {}
+            return
+        }
+        synchronized(this) {
+            if (!isRunning) {
+                try {
+                    player.release()
+                } catch (_: Exception) {}
+                return
+            }
+            releaseMusic()
+            VirtualVolumeManager.getInstance().registerMediaPlayer(player)
+            music = player
+            if (isPaused) return
+            try {
+                player.start()
+            } catch (e: Exception) {
+                Log.w(TAG, "Could not play $path", e)
+            }
         }
     }
 

@@ -20,6 +20,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
+import com.themoon.y1.MainActivity
 import com.themoon.y1.R
 import com.themoon.y1.StoragePaths
 import com.themoon.y1.ThemeManager
@@ -86,6 +87,8 @@ class GamePlayerController(
     private var gameArt: Bitmap? = null
     /** The centre release of the hold that opened the menu: it must not click a row of the menu. */
     private var dropCentreRelease = false
+    /** From the activity's onPause to its onResume: a game that finishes loading then starts paused. */
+    private var isInBackground = false
 
     @Volatile
     private var renderThread: Thread? = null
@@ -124,8 +127,13 @@ class GamePlayerController(
 
     /** MainActivity went to the background (screen off, another app): pause the game behind its menu. */
     fun onActivityPause() {
+        isInBackground = true
         if (bridge != null && !isMenuOpen) openMenu(dropRelease = false)
         bridge?.flushSaves()
+    }
+
+    fun onActivityResume() {
+        isInBackground = false
     }
 
     private fun start(bundleDir: File) {
@@ -155,8 +163,10 @@ class GamePlayerController(
                     return@runOnUiThread
                 }
                 bridge = b
-                startWheel()
                 startRenderThread()
+                // The screen went off (or another app came up) while the game loaded: it waits behind its menu
+                if (isInBackground || (activity as? MainActivity)?.isOnScreen == false) openMenu(dropRelease = false)
+                else startWheel()
                 handler.post(screenHoldTask)
             }
         }, "GameStart").start()
