@@ -755,5 +755,6 @@
   "The downloaded update could not be verified, so nothing was changed.": "无法验证下载的更新，因此未做任何更改。",
   "Try again later or on another Wi-Fi network, or install the new firmware with Innioasis Updater CE (innioasis.app).": "请稍后或连接其他 Wi-Fi 网络后重试，或使用 Innioasis Updater CE（innioasis.app）安装新固件。",
   "This update needs a newer Android version than this player has, so nothing was changed.": "此更新需要比本播放器更新的 Android 版本，因此未做任何更改。",
-  "Keep this version until there is an update for this player.": "请继续使用当前版本，直到有适用于本播放器的更新。"
+  "Keep this version until there is an update for this player.": "请继续使用当前版本，直到有适用于本播放器的更新。",
+  "Games could not start on this Android version.": "游戏无法在此 Android 版本上启动。"
 }
