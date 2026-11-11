@@ -1,12 +1,14 @@
 package com.themoon.y1.managers
 
 import com.themoon.y1.Prefs
+import android.annotation.TargetApi
 import android.content.SharedPreferences
 import android.media.audiofx.AudioEffect
 import android.media.audiofx.BassBoost
 import android.media.audiofx.Equalizer
 import android.media.audiofx.LoudnessEnhancer
 import android.media.audiofx.Virtualizer
+import android.os.Build
 import com.themoon.y1.MainActivity
 import com.themoon.y1.StoragePaths
 import com.themoon.y1.views.Notice
@@ -82,8 +84,10 @@ class AudioEffectManager private constructor() {
             if (virt.strengthSupported) virt.setStrength(AudioEffectPlan.strengthForStep(settings.virtualizerStep))
             true
         }
-        main.loudnessEnhancer = keepEffect(main.loudnessEnhancer, plan.loudnessEnhancer, { LoudnessEnhancer(sessionId) }) { le ->
-            le.setTargetGain(SOUND_CHECK_GAIN_MB)
+        // LoudnessEnhancer is API 19: before it (Y1, Android 4.2) Sound Check has no effect.
+        val loudnessNeeded = plan.loudnessEnhancer && Build.VERSION.SDK_INT >= 19
+        main.loudnessEnhancer = keepEffect(main.loudnessEnhancer, loudnessNeeded, { Loudness.create(sessionId) }) { le ->
+            Loudness.setTargetGain(le, SOUND_CHECK_GAIN_MB)
             true
         }
     }
@@ -282,6 +286,17 @@ class AudioEffectManager private constructor() {
         } catch (e: Exception) {
             e.printStackTrace()
         }
+    }
+
+    /**
+     * The LoudnessEnhancer calls (API 19), in a class of their own: Android 4.2 then loads and checks
+     * AudioEffectManager without the LoudnessEnhancer class.
+     */
+    @TargetApi(19)
+    private object Loudness {
+        fun create(sessionId: Int): AudioEffect = LoudnessEnhancer(sessionId)
+
+        fun setTargetGain(effect: AudioEffect, gainMb: Int) = (effect as LoudnessEnhancer).setTargetGain(gainMb)
     }
 
     companion object {

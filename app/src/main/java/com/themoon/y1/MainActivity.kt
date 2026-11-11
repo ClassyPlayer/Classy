@@ -16,7 +16,6 @@ import android.bluetooth.BluetoothProfile
 import android.media.AudioManager
 import android.media.audiofx.BassBoost
 import android.media.audiofx.Equalizer
-import android.media.audiofx.LoudnessEnhancer
 import android.media.audiofx.Virtualizer
 import android.media.audiofx.Visualizer
 import android.net.ConnectivityManager
@@ -237,7 +236,8 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     var equalizer: Equalizer? = null
     var bassBoost: BassBoost? = null
     var virtualizer: Virtualizer? = null
-    var loudnessEnhancer: LoudnessEnhancer? = null
+    /** A LoudnessEnhancer (API 19); typed as AudioEffect so that this code also loads on API 17. */
+    var loudnessEnhancer: android.media.audiofx.AudioEffect? = null
     var currentAudioSessionId: Int = -1
 
     private var usbStateReceiverReady: Boolean = false
