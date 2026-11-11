@@ -19,13 +19,15 @@ import com.themoon.y1.MainActivity
 import com.themoon.y1.StoragePaths
 import com.themoon.y1.ThemeManager
 import com.themoon.y1.controllers.settings.ActionScreens
-import com.themoon.y1.games.FliwheelBridge
+import com.themoon.y1.controllers.games.GamePlayerController
 import com.themoon.y1.navigation.NavigationManager
 import com.themoon.y1.views.Notice
 import com.themoon.y1.views.TablerIcons
 
 /** Longest wait for the card on the Y2 after the share (MountService mounts it again after the card check). */
 private const val CARD_BACK_MS = 20_000L
+/** The longest wait for the save of a game that ends for a share (the core can take seconds). */
+private const val GAME_SAVE_WAIT_MS = 10_000L
 
 class UsbStorageUiManager(
     private val activity: Activity,
@@ -141,6 +143,11 @@ class UsbStorageUiManager(
             Notice.error(activity, localize("Wait for the library scan to finish, then try again."))
             return
         }
+        if (main?.isGameScanRunning() == true) {
+            // The game scan reads the game folders and unpacks .ipg files on the card
+            Notice.error(activity, localize("Wait for the game scan to finish, then try again."))
+            return
+        }
         if (UsbMassStorageController.hasShareableVolume(activity) == false) {
             // Nothing to share (no card): do not switch the USB function, so the computer keeps MTP.
             Notice.error(activity, localize("No microSD card."))
@@ -149,14 +156,18 @@ class UsbStorageUiManager(
         usbStorageBusy = true
         val musicPlayed = AudioPlayerManager.getInstance().isPlaying()
         pauseAllPlaybackForUsb()
-        FliwheelBridge.flushRunningGame()
+        // A game reads the card (its files, its music): it ends first, and the share waits for its save below
+        main?.endGameForUsbShare()
         // An open track file on the card makes MountService kill this app during the share.
         AudioPlayerManager.getInstance().releaseForUsbStorage(musicPlayed)
         getExternalSdMountMonitor()?.setSuspended(true)
         Thread({
-            UsbMassStorageController.ensureMassStorageFunction(activity)
-            val ok = UsbMassStorageController.setEnabled(true)
-            if (!ok) {
+            val gameDone = GamePlayerController.awaitGameWork(GAME_SAVE_WAIT_MS)
+            val ok = gameDone && run {
+                UsbMassStorageController.ensureMassStorageFunction(activity)
+                UsbMassStorageController.setEnabled(true)
+            }
+            if (!ok && gameDone) {
                 UsbMassStorageController.restoreUsbFunction(activity)
             }
             activity.runOnUiThread {

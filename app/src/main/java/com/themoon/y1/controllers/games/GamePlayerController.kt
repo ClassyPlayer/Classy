@@ -129,6 +129,14 @@ class GamePlayerController(
         rootView.visibility = View.GONE
     }
 
+    /**
+     * Before the card is shared over USB: the game reads it (its files, its music), so it ends, as with Quit Game.
+     * The share waits for its save ([awaitGameWork]).
+     */
+    fun endForUsbShare() {
+        if (rootView.visibility == View.VISIBLE) onExitRequested()
+    }
+
     /** MainActivity went to the background (screen off, another app): pause the game behind its menu. */
     fun onActivityPause() {
         isInBackground = true

@@ -40,7 +40,8 @@ class GamesController(
 
     private var games: List<GameItem>? = null
     private val icons = HashMap<File, Bitmap>()
-    private var isScanning = false
+    var isScanning = false
+        private set
     private var progress: String? = null
 
     override fun title(): String = localize("Games")

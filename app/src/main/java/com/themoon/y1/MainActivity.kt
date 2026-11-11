@@ -306,6 +306,14 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     lateinit var videoPlayerController: VideoPlayerController
     lateinit var gamesController: GamesController
     lateinit var gamePlayerController: GamePlayerController
+
+    /** The Games list unpacks or reads the game folders on the card. */
+    fun isGameScanRunning(): Boolean = ::gamesController.isInitialized && gamesController.isScanning
+
+    /** Before the card is shared over USB: the game on the screen ends (its save then runs on the game worker). */
+    fun endGameForUsbShare() {
+        if (::gamePlayerController.isInitialized) gamePlayerController.endForUsbShare()
+    }
     lateinit var bluetoothController: BluetoothController
     lateinit var wifiController: WifiController
     lateinit var wifiKeyboardController: WifiKeyboardController

@@ -292,11 +292,6 @@ class FliwheelBridge {
     companion object {
         @Volatile private var running: FliwheelBridge? = null
 
-        /** Before the card is shared over USB: whatever the running game has saved goes on it first. */
-        fun flushRunningGame() {
-            running?.flushSaves()
-        }
-
         /** Ends a session that no screen shows (its start ended after its screen closed): the core runs one game at a time. */
         fun endLeftover() {
             running?.destroy()
