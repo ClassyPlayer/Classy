@@ -178,6 +178,8 @@ class GamePlayerController(
         // Loading a game reads its files: off the main thread
         gameTitle = bundleDir.name
         gameArt = null
+        // A black screen while the game loads would look like a crash
+        showCover(localize("Please wait..."))
         // After the end of the last game (it may still be saving: this one must see its files)
         work.execute {
             // A start whose screen closed before it ended, and whose end is still in the queue: the core runs one game
@@ -207,8 +209,12 @@ class GamePlayerController(
                 lastInputMs = SystemClock.uptimeMillis()
                 startRenderThread()
                 // The screen went off (or another app came up) while the game loaded: it waits behind its menu
-                if (isInBackground || (activity as? MainActivity)?.isOnScreen == false) openMenu(dropRelease = false)
-                else startWheel()
+                if (isInBackground || (activity as? MainActivity)?.isOnScreen == false) {
+                    openMenu(dropRelease = false)
+                } else {
+                    hideMenu()
+                    startWheel()
+                }
                 if (!isMenuOpen) handler.post(screenHoldTask)
             }
         }
@@ -371,7 +377,18 @@ class GamePlayerController(
         stopRenderThread()
         dropCentreRelease = dropRelease
         if (dropRelease) clickFeedback()
-        // Opaque: none of the game shows around the rows
+        showCover(localize("Paused"))
+        menu.show(ListSpec(null, listOf(
+            menuRow(TablerIcons.PLAYER_PLAY, localize("Resume")) { resumeGame() },
+            menuRow(TablerIcons.LOGOUT, localize("Quit Game")) { onExitRequested() }
+        ), id = "game_menu"))
+    }
+
+    /**
+     * The game art and title over [status], full screen and opaque (none of the game shows around it): the pause
+     * screen ([openMenu] adds its rows), and the screen while the game loads.
+     */
+    private fun showCover(status: String) {
         menuLayout.setBackgroundColor(ThemeManager.getOverlayBackgroundColor() or 0xFF000000.toInt())
         val px = artPx()
         menuArt.setImageBitmap(gameArt ?: TablerIcons.renderTile(TablerIcons.DEVICE_GAMEPAD, px, px * 2 / 3,
@@ -379,14 +396,10 @@ class GamePlayerController(
         menuTitle.text = gameTitle
         menuTitle.setTextColor(ThemeManager.getTextColorPrimary())
         menuTitle.typeface = ThemeManager.getCustomFontBold()
-        menuStatus.text = localize("Paused")
+        menuStatus.text = status
         menuStatus.setTextColor(ThemeManager.getTextColorSecondary())
         menuStatus.typeface = ThemeManager.getCustomFont()
         menuLayout.visibility = View.VISIBLE
-        menu.show(ListSpec(null, listOf(
-            menuRow(TablerIcons.PLAYER_PLAY, localize("Resume")) { resumeGame() },
-            menuRow(TablerIcons.LOGOUT, localize("Quit Game")) { onExitRequested() }
-        ), id = "game_menu"))
     }
 
     private fun menuRow(icon: Array<String>, label: String, onClick: () -> Unit) = RowSpec(label, RowLook.CUSTOM,
