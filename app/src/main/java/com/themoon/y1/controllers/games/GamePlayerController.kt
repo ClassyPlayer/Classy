@@ -41,6 +41,9 @@ import com.themoon.y1.views.ListItemViewFactory
 import com.themoon.y1.views.Notice
 import com.themoon.y1.views.TablerIcons
 import java.io.File
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 /**
  * Plays an iPod Click Wheel game full screen ([FliwheelBridge]): a render thread draws the 320×240 frames of the
@@ -80,6 +83,7 @@ class GamePlayerController(
 
     private var bridge: FliwheelBridge? = null
     /** Each game start has its own number: a start that ends after its screen closed does nothing. */
+    @Volatile
     private var session = 0
     private var isMenuOpen = false
     /** The title and art of the running game, for the pause screen (null art: the gamepad tile). */
@@ -143,16 +147,22 @@ class GamePlayerController(
         // Loading a game reads its files: off the main thread
         gameTitle = bundleDir.name
         gameArt = null
-        Thread({
-            // The last game may still be saving: this one must see its files
-            quitting?.join()
+        // After the end of the last game (it may still be saving: this one must see its files)
+        work.execute {
+            // A start whose screen closed before it ended, and whose end is still in the queue: the core runs one game
+            FliwheelBridge.endLeftover()
+            if (id != session) return@execute
             val item = GameLibrary.parseGameDir(bundleDir)
             val art = item?.iconFile?.let { decodeArt(it, artPx()) }
             val b = FliwheelBridge()
             val ok = b.init(bundleDir, StoragePaths.getGamesDirs())
+            if (ok && id != session) {
+                b.destroy()
+                return@execute
+            }
             activity.runOnUiThread {
                 if (id != session) {
-                    if (ok) Thread({ b.destroy() }, "GameDestroy").start()
+                    if (ok) work.execute { b.destroy() }
                     return@runOnUiThread
                 }
                 item?.let { gameTitle = it.title }
@@ -169,7 +179,7 @@ class GamePlayerController(
                 else startWheel()
                 handler.post(screenHoldTask)
             }
-        }, "GameStart").start()
+        }
     }
 
     private fun stop() {
@@ -183,7 +193,7 @@ class GamePlayerController(
         val b = bridge ?: return
         bridge = null
         stopRenderThread()
-        quitting = Thread({ b.saveAndDestroy() }, "GameQuit").apply { start() }
+        work.execute { b.saveAndDestroy() }
     }
 
     // --- Rendering ---
@@ -404,9 +414,24 @@ class GamePlayerController(
         return true
     }
 
-    private companion object {
-        /** The game that is saving and ending, after its screen has closed. */
-        @Volatile private var quitting: Thread? = null
+    companion object {
+        /**
+         * The starts and the ends (saves) of the game sessions, one after the other: the core runs one game at a
+         * time, and a game must see the saves of the last one. Made at the first game.
+         */
+        private val workThread = lazy { Executors.newSingleThreadExecutor { r -> Thread(r, "GameWork") } }
+        private val work: ExecutorService by workThread
+
+        /** Waits until the game starts and ends in the queue are done (not on the main thread). False after [timeoutMs]. */
+        fun awaitGameWork(timeoutMs: Long): Boolean {
+            if (!workThread.isInitialized()) return true
+            return try {
+                work.submit {}.get(timeoutMs, TimeUnit.MILLISECONDS)
+                true
+            } catch (_: Exception) {
+                false
+            }
+        }
 
         const val FRAME_NS = 16_666_667L
         const val MENU_TAP_MS = 100L

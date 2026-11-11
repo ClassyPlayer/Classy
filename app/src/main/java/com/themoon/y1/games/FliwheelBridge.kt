@@ -297,6 +297,11 @@ class FliwheelBridge {
             running?.flushSaves()
         }
 
+        /** Ends a session that no screen shows (its start ended after its screen closed): the core runs one game at a time. */
+        fun endLeftover() {
+            running?.destroy()
+        }
+
         private const val TAG = "FliwheelBridge"
         const val WIDTH = 320
         const val HEIGHT = 240
