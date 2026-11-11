@@ -481,6 +481,7 @@
   "Resume": "再開",
   "Quit Game": "ゲームを終了",
   "Paused": "一時停止中",
+  "Hold Center to pause or quit.": "センターを長押しで一時停止または終了。",
   "Wait for the game scan to finish, then try again.": "ゲームのスキャンが終わるまで待ってから、もう一度お試しください。",
   "Game": "ゲーム",
   "Please wait...": "お待ちください...",

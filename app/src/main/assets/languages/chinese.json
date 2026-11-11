@@ -621,6 +621,7 @@
   "Resume": "继续",
   "Quit Game": "退出游戏",
   "Paused": "已暂停",
+  "Hold Center to pause or quit.": "按住中央键可暂停或退出。",
   "Wait for the game scan to finish, then try again.": "请等待游戏扫描完成后再试。",
   "Game": "游戏",
   "Please wait...": "请稍候...",

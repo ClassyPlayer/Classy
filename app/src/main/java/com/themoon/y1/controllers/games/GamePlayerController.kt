@@ -214,6 +214,8 @@ class GamePlayerController(
                 } else {
                     hideMenu()
                     startWheel()
+                    // Every button goes to the game: say how to get out
+                    Notice.show(activity, localize("Hold Center to pause or quit."))
                 }
                 if (!isMenuOpen) handler.post(screenHoldTask)
             }
