@@ -750,5 +750,8 @@
   "SD card ready": "SD-карта готова",
   "Cannot Update": "Обновление невозможно",
   "This Classy was not installed with the official firmware, so the update cannot replace it.": "Этот Classy установлен не с официальной прошивкой, поэтому обновление не может его заменить.",
-  "To update, install the new firmware with Innioasis Updater CE (innioasis.app).": "Чтобы обновить, установите новую прошивку с помощью Innioasis Updater CE (innioasis.app)."
+  "To update, install the new firmware with Innioasis Updater CE (innioasis.app).": "Чтобы обновить, установите новую прошивку с помощью Innioasis Updater CE (innioasis.app).",
+  "Cannot Verify Update": "Не удалось проверить обновление",
+  "The downloaded update could not be verified, so nothing was changed.": "Не удалось проверить загруженное обновление, поэтому ничего не изменено.",
+  "Try again later or on another Wi-Fi network, or install the new firmware with Innioasis Updater CE (innioasis.app).": "Повторите попытку позже или через другую сеть Wi-Fi либо установите новую прошивку с помощью Innioasis Updater CE (innioasis.app)."
 }

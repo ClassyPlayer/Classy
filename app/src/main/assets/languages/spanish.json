@@ -750,5 +750,8 @@
   "SD card ready": "Tarjeta SD lista",
   "Cannot Update": "No se puede actualizar",
   "This Classy was not installed with the official firmware, so the update cannot replace it.": "Este Classy no se instaló con el firmware oficial, por lo que la actualización no puede reemplazarlo.",
-  "To update, install the new firmware with Innioasis Updater CE (innioasis.app).": "Para actualizar, instala el nuevo firmware con Innioasis Updater CE (innioasis.app)."
+  "To update, install the new firmware with Innioasis Updater CE (innioasis.app).": "Para actualizar, instala el nuevo firmware con Innioasis Updater CE (innioasis.app).",
+  "Cannot Verify Update": "No se puede verificar la actualización",
+  "The downloaded update could not be verified, so nothing was changed.": "No se pudo verificar la actualización descargada, así que no se ha cambiado nada.",
+  "Try again later or on another Wi-Fi network, or install the new firmware with Innioasis Updater CE (innioasis.app).": "Inténtalo de nuevo más tarde o con otra red Wi-Fi, o instala el nuevo firmware con Innioasis Updater CE (innioasis.app)."
 }

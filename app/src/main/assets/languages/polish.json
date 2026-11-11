@@ -750,5 +750,8 @@
   "SD card ready": "Karta SD gotowa",
   "Cannot Update": "Nie można zaktualizować",
   "This Classy was not installed with the official firmware, so the update cannot replace it.": "Ten Classy nie został zainstalowany z oficjalnym firmware, więc aktualizacja nie może go zastąpić.",
-  "To update, install the new firmware with Innioasis Updater CE (innioasis.app).": "Aby zaktualizować, zainstaluj nowy firmware za pomocą Innioasis Updater CE (innioasis.app)."
+  "To update, install the new firmware with Innioasis Updater CE (innioasis.app).": "Aby zaktualizować, zainstaluj nowy firmware za pomocą Innioasis Updater CE (innioasis.app).",
+  "Cannot Verify Update": "Nie można zweryfikować aktualizacji",
+  "The downloaded update could not be verified, so nothing was changed.": "Nie można zweryfikować pobranej aktualizacji, więc nic nie zostało zmienione.",
+  "Try again later or on another Wi-Fi network, or install the new firmware with Innioasis Updater CE (innioasis.app).": "Spróbuj ponownie później lub w innej sieci Wi-Fi albo zainstaluj nowy firmware za pomocą Innioasis Updater CE (innioasis.app)."
 }
