@@ -40,6 +40,9 @@ class OtaUpdateManager(
 ) {
 
     companion object {
+        /** A library name the update may write into /system/lib (no path, no shell characters). */
+        private val NATIVE_LIB_NAME = Regex("lib[A-Za-z0-9_.+-]+\\.so")
+
         /** True from the start of a download to its install or its end: one at a time, as all write the same file. */
         private val downloadRunning = java.util.concurrent.atomic.AtomicBoolean(false)
 
@@ -441,6 +444,42 @@ class OtaUpdateManager(
         ))
     }
 
+    /**
+     * The native libraries of [apkFile] for this CPU that /system/lib does not have, or has with other content,
+     * copied to the cache: (staged file, library name). Only plain names (lib/<abi>/libx.so).
+     */
+    private fun stageNativeLibs(apkFile: File): List<Pair<File, String>> {
+        val staged = ArrayList<Pair<File, String>>()
+        java.util.zip.ZipFile(apkFile).use { zip ->
+            val abi = listOf(android.os.Build.CPU_ABI, android.os.Build.CPU_ABI2)
+                .firstOrNull { a -> a.isNotEmpty() && zip.entries().asSequence().any { it.name.startsWith("lib/$a/") } }
+                ?: return staged
+            for (entry in zip.entries()) {
+                val name = entry.name.removePrefix("lib/$abi/")
+                if (entry.isDirectory || name == entry.name || !NATIVE_LIB_NAME.matches(name)) continue
+                val installed = File("/system/lib", name)
+                if (installed.isFile && installed.length() == entry.size && crc32(installed) == entry.crc) continue
+                val out = File(activity.cacheDir, "ota_$name")
+                zip.getInputStream(entry).use { input -> out.outputStream().use { input.copyTo(it) } }
+                staged += out to name
+            }
+        }
+        return staged
+    }
+
+    private fun crc32(file: File): Long {
+        val crc = java.util.zip.CRC32()
+        file.inputStream().use { input ->
+            val buffer = ByteArray(64 * 1024)
+            while (true) {
+                val n = input.read(buffer)
+                if (n <= 0) break
+                crc.update(buffer, 0, n)
+            }
+        }
+        return crc.value
+    }
+
     fun installApk(apkFile: File) {
         if (!canInstall(apkFile)) {
             apkFile.delete()
@@ -481,6 +520,12 @@ class OtaUpdateManager(
                     }
                 }
             } catch (_: Throwable) {}
+            // KitKat does not unpack the libraries of an app in /system: they must be in /system/lib (as build-rom.sh does)
+            val newLibs = try {
+                stageNativeLibs(apkFile)
+            } catch (_: Throwable) {
+                emptyList()
+            }
 
             os.writeBytes("chmod 777 " + apkFile.parentFile.absolutePath + "\n")
             os.writeBytes("chmod 777 $apkPath\n")
@@ -494,6 +539,20 @@ class OtaUpdateManager(
             // A copy in /data/app stays: it has the same key (canInstall), so pm install replaces it below
             os.writeBytes("  fi\n")
             os.writeBytes("done\n")
+            if (newLibs.isNotEmpty()) {
+                os.writeBytes("if [ -f /system/priv-app/com.themoon.y1.apk ] || [ -f /system/app/com.themoon.y1.apk ]; then\n")
+                for ((staged, name) in newLibs) {
+                    // Through a temp file and mv: the running app has the old library mapped (an overwrite in place can crash it)
+                    val target = "/system/lib/$name"
+                    os.writeBytes("  if cp ${staged.absolutePath} $target.classy_tmp >> $logPath 2>&1 && chmod 644 $target.classy_tmp && chown root:root $target.classy_tmp; then\n")
+                    os.writeBytes("    mv $target.classy_tmp $target >> $logPath 2>&1 || rm -f $target.classy_tmp\n")
+                    os.writeBytes("  else\n")
+                    os.writeBytes("    rm -f $target.classy_tmp\n")
+                    os.writeBytes("  fi\n")
+                }
+                os.writeBytes("fi\n")
+                for ((staged, _) in newLibs) os.writeBytes("rm -f ${staged.absolutePath}\n")
+            }
             if (tempJarPath != null) {
                 val targetJar = com.themoon.y1.migrations.BootScreenMigrator.TARGET_POLICY_JAR
                 val targetOdex = com.themoon.y1.migrations.BootScreenMigrator.TARGET_POLICY_ODEX

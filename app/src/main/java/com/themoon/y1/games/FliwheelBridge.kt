@@ -329,7 +329,8 @@ class FliwheelBridge {
 
         /**
          * Loads the core. On an adb install Android unpacks it into the app's lib folder; in the ROM
-         * (/system/app, where KitKat does not unpack libraries) build-rom.sh puts it into /system/lib.
+         * (/system/app, where KitKat does not unpack libraries) build-rom.sh puts it into /system/lib, and System Update
+         * (OtaUpdateManager) too.
          */
         @Synchronized
         private fun ensureLoaded(): Boolean {
