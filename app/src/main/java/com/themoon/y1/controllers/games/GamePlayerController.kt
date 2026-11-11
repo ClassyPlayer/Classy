@@ -13,11 +13,13 @@ import android.graphics.Shader
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
+import android.view.Gravity
 import android.view.KeyEvent
 import android.view.SurfaceHolder
 import android.view.SurfaceView
 import android.view.View
 import android.view.ViewGroup
+import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.TextView
 import com.themoon.y1.MainActivity
@@ -116,6 +118,21 @@ class GamePlayerController(
 
     init {
         surface.holder.addCallback(this)
+        // The surface has the core's size: SurfaceFlinger scales it to the view, not a software canvas each frame
+        surface.holder.setFixedSize(FliwheelBridge.WIDTH, FliwheelBridge.HEIGHT)
+        rootView.addOnLayoutChangeListener { _, l, t, r, b, _, _, _, _ -> fitSurface(r - l, b - t) }
+    }
+
+    /** The surface view as the 4:3 frame, as large as fits in the screen, centred. */
+    private fun fitSurface(width: Int, height: Int) {
+        if (width <= 0 || height <= 0) return
+        val f = fit(width, height)
+        val lp = surface.layoutParams as? FrameLayout.LayoutParams ?: return
+        if (lp.width == f.width() && lp.height == f.height() && lp.gravity == Gravity.CENTER) return
+        lp.width = f.width()
+        lp.height = f.height()
+        lp.gravity = Gravity.CENTER
+        surface.layoutParams = lp
     }
 
     override fun title(): String? = null
@@ -266,6 +283,7 @@ class GamePlayerController(
                 null
             } ?: continue
             try {
+                // The buffer is 320×240 ([setFixedSize]): the frame is drawn 1:1, the clear is cheap at this size
                 canvas.drawColor(Color.BLACK)
                 synchronized(dst) { canvas.drawBitmap(frame, src, dst, paint) }
             } finally {
