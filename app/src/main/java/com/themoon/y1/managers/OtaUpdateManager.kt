@@ -516,10 +516,10 @@ class OtaUpdateManager(
             val apkPath = apkFile.absolutePath
             val logPath = StoragePaths.primaryFile("y1_update_log.txt").absolutePath
 
-            // Migrate boot screen (android.policy.jar + boot strings) for OTA update before reboot
+            // Migrate boot screen (android.policy.jar + boot strings) for OTA update before reboot (Y2 with Android 4.4 only)
             var tempJarPath: String? = null
             var tempApkPath: String? = null
-            try {
+            if (com.themoon.y1.migrations.BootScreenMigrator.isSupported()) try {
                 if (!com.themoon.y1.migrations.BootScreenMigrator.isPolicyJarPatched()) {
                     com.themoon.y1.migrations.BootScreenMigrator.readZipEntry(
                         apkFile, "assets/" + com.themoon.y1.migrations.BootScreenMigrator.ASSET_POLICY_JAR

@@ -1,7 +1,9 @@
 package com.themoon.y1.migrations
 
 import android.content.Context
+import android.os.Build
 import android.util.Log
+import com.themoon.y1.DeviceModel
 import java.io.DataOutputStream
 import java.io.File
 import java.util.zip.ZipFile
@@ -13,6 +15,14 @@ object BootScreenMigrator {
     const val TARGET_POLICY_JAR = "/system/framework/android.policy.jar"
     const val TARGET_POLICY_ODEX = "/system/framework/android.policy.odex"
     const val TARGET_FRAMEWORK_RES = "/system/framework/framework-res.apk"
+
+    /**
+     * True when the boot screen can be installed: only on the Y2 with Android 4.4 (API 19). The jar in the assets is
+     * the Y2's whole Android 4.4 android.policy.jar with the patch; in another framework (the Y1 has Android 4.2) it
+     * can stop the system at boot. The boot strings in framework-res.apk go with the jar, so they follow the same rule.
+     */
+    fun isSupported(sdk: Int = Build.VERSION.SDK_INT, model: String? = Build.MODEL): Boolean =
+        sdk == Build.VERSION_CODES.KITKAT && DeviceModel.isY2(model)
 
     /**
      * Checks if /system/framework/android.policy.jar contains ClassyBootScreen.
@@ -66,6 +76,10 @@ object BootScreenMigrator {
      * Safe to call multiple times (idempotent).
      */
     fun applyMigration(context: Context): Boolean {
+        if (!isSupported()) {
+            Log.i(TAG, "Boot screen is only for the Y2 with Android 4.4: not installed")
+            return true
+        }
         val policyPatched = isPolicyJarPatched()
         val stringsPatched = isFrameworkResPatched()
         if (policyPatched && stringsPatched) {

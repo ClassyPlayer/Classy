@@ -20,6 +20,10 @@ class Migration011BootScreen : Migration {
 
     override fun migrate(context: MigrationContext) {
         val appCtx = context.context ?: return
+        if (!BootScreenMigrator.isSupported()) {
+            Log.i("Classy", "Boot screen is only for the Y2 with Android 4.4; skipping Migration011BootScreen")
+            return
+        }
         if (!BootScreenMigrator.isRootAvailable()) {
             Log.i("Classy", "Root not available; skipping Migration011BootScreen")
             return
