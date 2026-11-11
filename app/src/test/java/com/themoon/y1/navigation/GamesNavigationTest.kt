@@ -61,7 +61,8 @@ class GamesNavigationTest {
             "No games found.\nCopy iPod games (.ipg files or game folders) into the \"Games\" folder on your SD card, then select Rescan Games.",
             "Rescan Games", "Indexing games...", "Extracting %s...",
             "This game could not start. The file may be encrypted or damaged.",
-            "Games need the latest firmware. Install it with System Update.", "Resume", "Quit Game"
+            "Games need the latest firmware. Install it with System Update.", "Resume", "Quit Game",
+            "Hold Center to pause or quit.", "Could not read %s", "Wait for the game scan to finish, then try again."
         ))
     }
 }
