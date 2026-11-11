@@ -132,7 +132,15 @@ object GameLibrary {
     fun isUnpacked(ipg: File, target: File): Boolean {
         if (!target.isDirectory) return false
         val marker = File(target, MARKER)
-        if (marker.isFile) return marker.readText() == stamp(ipg)
+        if (marker.isFile) {
+            // The card can go during the scan: an unreadable marker means "check the .ipg" (an exception here would
+            // end the scan thread, and with it the app)
+            try {
+                return marker.readText() == stamp(ipg)
+            } catch (e: IOException) {
+                Log.w(TAG, "Could not read the marker of ${target.name}", e)
+            }
+        }
         val complete = try {
             ZipFile(ipg).use { zip ->
                 zip.entries().asSequence().filter { !it.isDirectory }.all { e ->
