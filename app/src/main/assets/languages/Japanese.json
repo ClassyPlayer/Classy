@@ -753,5 +753,7 @@
   "To update, install the new firmware with Innioasis Updater CE (innioasis.app).": "更新するには、Innioasis Updater CE（innioasis.app）で新しいファームウェアをインストールしてください。",
   "Cannot Verify Update": "更新を検証できません",
   "The downloaded update could not be verified, so nothing was changed.": "ダウンロードした更新を検証できなかったため、何も変更されていません。",
-  "Try again later or on another Wi-Fi network, or install the new firmware with Innioasis Updater CE (innioasis.app).": "後でもう一度、または別の Wi-Fi ネットワークでお試しいただくか、Innioasis Updater CE（innioasis.app）で新しいファームウェアをインストールしてください。"
+  "Try again later or on another Wi-Fi network, or install the new firmware with Innioasis Updater CE (innioasis.app).": "後でもう一度、または別の Wi-Fi ネットワークでお試しいただくか、Innioasis Updater CE（innioasis.app）で新しいファームウェアをインストールしてください。",
+  "This update needs a newer Android version than this player has, so nothing was changed.": "このアップデートには、このプレーヤーより新しい Android バージョンが必要です。何も変更されていません。",
+  "Keep this version until there is an update for this player.": "このプレーヤー向けのアップデートが出るまで、このバージョンをお使いください。"
 }

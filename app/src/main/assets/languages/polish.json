@@ -753,5 +753,7 @@
   "To update, install the new firmware with Innioasis Updater CE (innioasis.app).": "Aby zaktualizować, zainstaluj nowy firmware za pomocą Innioasis Updater CE (innioasis.app).",
   "Cannot Verify Update": "Nie można zweryfikować aktualizacji",
   "The downloaded update could not be verified, so nothing was changed.": "Nie można zweryfikować pobranej aktualizacji, więc nic nie zostało zmienione.",
-  "Try again later or on another Wi-Fi network, or install the new firmware with Innioasis Updater CE (innioasis.app).": "Spróbuj ponownie później lub w innej sieci Wi-Fi albo zainstaluj nowy firmware za pomocą Innioasis Updater CE (innioasis.app)."
+  "Try again later or on another Wi-Fi network, or install the new firmware with Innioasis Updater CE (innioasis.app).": "Spróbuj ponownie później lub w innej sieci Wi-Fi albo zainstaluj nowy firmware za pomocą Innioasis Updater CE (innioasis.app).",
+  "This update needs a newer Android version than this player has, so nothing was changed.": "Ta aktualizacja wymaga nowszej wersji Androida niż ma ten odtwarzacz, więc nic nie zostało zmienione.",
+  "Keep this version until there is an update for this player.": "Zachowaj tę wersję, dopóki nie pojawi się aktualizacja dla tego odtwarzacza."
 }

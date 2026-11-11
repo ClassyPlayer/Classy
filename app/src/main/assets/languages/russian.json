@@ -753,5 +753,7 @@
   "To update, install the new firmware with Innioasis Updater CE (innioasis.app).": "Чтобы обновить, установите новую прошивку с помощью Innioasis Updater CE (innioasis.app).",
   "Cannot Verify Update": "Не удалось проверить обновление",
   "The downloaded update could not be verified, so nothing was changed.": "Не удалось проверить загруженное обновление, поэтому ничего не изменено.",
-  "Try again later or on another Wi-Fi network, or install the new firmware with Innioasis Updater CE (innioasis.app).": "Повторите попытку позже или через другую сеть Wi-Fi либо установите новую прошивку с помощью Innioasis Updater CE (innioasis.app)."
+  "Try again later or on another Wi-Fi network, or install the new firmware with Innioasis Updater CE (innioasis.app).": "Повторите попытку позже или через другую сеть Wi-Fi либо установите новую прошивку с помощью Innioasis Updater CE (innioasis.app).",
+  "This update needs a newer Android version than this player has, so nothing was changed.": "Для этого обновления нужна более новая версия Android, чем на этом плеере, поэтому ничего не изменено.",
+  "Keep this version until there is an update for this player.": "Оставьте эту версию, пока не выйдет обновление для этого плеера."
 }

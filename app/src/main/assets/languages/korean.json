@@ -753,5 +753,7 @@
   "To update, install the new firmware with Innioasis Updater CE (innioasis.app).": "업데이트하려면 Innioasis Updater CE(innioasis.app)로 새 펌웨어를 설치하세요.",
   "Cannot Verify Update": "업데이트를 검증할 수 없음",
   "The downloaded update could not be verified, so nothing was changed.": "다운로드한 업데이트를 검증할 수 없어 아무것도 변경되지 않았습니다.",
-  "Try again later or on another Wi-Fi network, or install the new firmware with Innioasis Updater CE (innioasis.app).": "나중에 또는 다른 Wi-Fi 네트워크에서 다시 시도하거나, Innioasis Updater CE(innioasis.app)로 새 펌웨어를 설치하세요."
+  "Try again later or on another Wi-Fi network, or install the new firmware with Innioasis Updater CE (innioasis.app).": "나중에 또는 다른 Wi-Fi 네트워크에서 다시 시도하거나, Innioasis Updater CE(innioasis.app)로 새 펌웨어를 설치하세요.",
+  "This update needs a newer Android version than this player has, so nothing was changed.": "이 업데이트에는 이 플레이어보다 최신 Android 버전이 필요하므로 아무것도 변경되지 않았습니다.",
+  "Keep this version until there is an update for this player.": "이 플레이어용 업데이트가 나올 때까지 현재 버전을 계속 사용하세요."
 }

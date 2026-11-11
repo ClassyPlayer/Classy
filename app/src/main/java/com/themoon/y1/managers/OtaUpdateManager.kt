@@ -429,6 +429,17 @@ class OtaUpdateManager(
         ))
     }
 
+    /** Says that the update needs a newer Android than this player has (nothing changed). */
+    private fun showNeedsNewerAndroidDialog() {
+        ActionScreens.open(ActionScreens.Spec(
+            localize("Cannot Update"),
+            listOf(
+                localize("This update needs a newer Android version than this player has, so nothing was changed."),
+                localize("Keep this version until there is an update for this player.")
+            )
+        ))
+    }
+
     /** Says why the update cannot install and how the user can update (verdict CANNOT_REPLACE). */
     private fun showCannotUpdateDialog() {
         ActionScreens.open(ActionScreens.Spec(
@@ -491,6 +502,14 @@ class OtaUpdateManager(
     }
 
     fun installApk(apkFile: File) {
+        // Before any change: an update for a newer Android (for example a Y2 release on a Y1 with Android 4.2) would
+        // replace the firmware copy with an app that this Android does not start: no launcher after the restart
+        val minSdk = ApkMinSdk.read(apkFile)
+        if (minSdk != null && minSdk > android.os.Build.VERSION.SDK_INT) {
+            apkFile.delete()
+            activity.runOnUiThread { showNeedsNewerAndroidDialog() }
+            return
+        }
         // Before any change: the script below copies the APK, and files from it, into /system as root
         val verdict = updateVerdict(apkFile)
         if (verdict != UpdateSignature.Verdict.INSTALL) {
