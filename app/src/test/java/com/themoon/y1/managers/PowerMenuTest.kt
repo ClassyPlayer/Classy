@@ -25,6 +25,13 @@ class PowerMenuTest {
     }
 
     @Test
+    fun android42HasNoSvcPowerRebootOrShutdown() {
+        assertEquals(listOf("svc power reboot", "reboot"), PowerMenu.commands(PowerMenu.Action.RESTART, 19))
+        assertEquals(listOf("reboot"), PowerMenu.commands(PowerMenu.Action.RESTART, 17))
+        assertEquals(listOf("reboot -p"), PowerMenu.commands(PowerMenu.Action.POWER_OFF, 17))
+    }
+
+    @Test
     fun dryRunPropertyNameFitsAndroid44Limit() {
         assertTrue(PowerMenu.DRY_RUN_PROP.length < 32)
     }
