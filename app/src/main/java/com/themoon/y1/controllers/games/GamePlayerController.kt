@@ -102,8 +102,13 @@ class GamePlayerController(
     private val dst = Rect()
 
     private val holdTask = Runnable { apply(keys.centreHeld()) }
+    /** The last key or wheel input in the game: a game left alone pauses, and the Backlight Timer applies again. */
+    private var lastInputMs = 0L
     private val screenHoldTask = object : Runnable {
         override fun run() {
+            if (bridge != null && !isMenuOpen && SystemClock.uptimeMillis() - lastInputMs >= IDLE_PAUSE_MS) {
+                openMenu(dropRelease = false)
+            }
             screenHold.update(bridge != null && !isMenuOpen)
             handler.postDelayed(this, SCREEN_HOLD_TICK_MS)
         }
@@ -182,6 +187,7 @@ class GamePlayerController(
                     return@runOnUiThread
                 }
                 bridge = b
+                lastInputMs = SystemClock.uptimeMillis()
                 startRenderThread()
                 // The screen went off (or another app came up) while the game loaded: it waits behind its menu
                 if (isInBackground || (activity as? MainActivity)?.isOnScreen == false) openMenu(dropRelease = false)
@@ -289,6 +295,7 @@ class GamePlayerController(
             return true
         }
         val down = event.action == KeyEvent.ACTION_DOWN
+        lastInputMs = SystemClock.uptimeMillis()
         if (keys.isCentrePress(event.keyCode, down, event.repeatCount)) {
             handler.removeCallbacks(holdTask)
             handler.postDelayed(holdTask, GameKeys.HOLD_MS)
@@ -301,6 +308,7 @@ class GamePlayerController(
 
     private fun apply(inputs: List<GameInput>) {
         val b = bridge ?: return
+        if (inputs.isNotEmpty()) lastInputMs = SystemClock.uptimeMillis()
         for (input in inputs) {
             when (input) {
                 is GameInput.Key -> b.sendKey(input.code, input.down)
@@ -397,6 +405,7 @@ class GamePlayerController(
     }
 
     private fun resumeGame() {
+        lastInputMs = SystemClock.uptimeMillis()
         hideMenu()
         bridge?.resume()
         if (bridge != null) startWheel()
@@ -446,6 +455,8 @@ class GamePlayerController(
         const val MENU_TAP_MS = 100L
         const val ART_DP = 88
         const val SCREEN_HOLD_TICK_MS = 2_000L
+        /** A game with no key or wheel input this long pauses: the screen does not stay on until the battery is empty. */
+        const val IDLE_PAUSE_MS = 3 * 60_000L
         const val WHEEL_QUIET_MS = 150L
         val MENU_KEY_TOKEN = Any()
 
