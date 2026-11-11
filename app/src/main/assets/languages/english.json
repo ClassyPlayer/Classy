@@ -741,5 +741,8 @@
   "SD card ready": "SD card ready",
   "Cannot Update": "Cannot Update",
   "This Classy was not installed with the official firmware, so the update cannot replace it.": "This Classy was not installed with the official firmware, so the update cannot replace it.",
-  "To update, install the new firmware with Innioasis Updater CE (innioasis.app).": "To update, install the new firmware with Innioasis Updater CE (innioasis.app)."
+  "To update, install the new firmware with Innioasis Updater CE (innioasis.app).": "To update, install the new firmware with Innioasis Updater CE (innioasis.app).",
+  "Cannot Verify Update": "Cannot Verify Update",
+  "The downloaded update could not be verified, so nothing was changed.": "The downloaded update could not be verified, so nothing was changed.",
+  "Try again later or on another Wi-Fi network, or install the new firmware with Innioasis Updater CE (innioasis.app).": "Try again later or on another Wi-Fi network, or install the new firmware with Innioasis Updater CE (innioasis.app)."
 }
