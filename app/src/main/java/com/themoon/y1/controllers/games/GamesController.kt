@@ -25,7 +25,8 @@ import java.io.File
 /**
  * Main menu → Games: the iPod Click Wheel games in the Games folders ([GameLibrary]), and Rescan Games.
  * The first visit scans the folders on a worker thread: the ready games show at once, and the .ipg files that need
- * unpacking join the list one by one (a progress row at the end). The list stays in memory until Rescan Games.
+ * unpacking join the list one by one (a progress row at the end). The list stays in memory until Rescan Games or
+ * the end of a USB share ([forget]).
  */
 class GamesController(
     private val activity: Activity,
@@ -63,6 +64,14 @@ class GamesController(
     override fun onWheel(delta: Int, event: KeyEvent): Boolean = screen.wheel(delta, event.eventTime)
 
     private fun isShown(): Boolean = rootView.visibility == View.VISIBLE
+
+    /** The games on the card may have changed (a USB share): the next visit scans again, or now if the list shows. */
+    fun forget() {
+        if (isScanning) return
+        games = null
+        icons.clear()
+        if (isShown()) scan()
+    }
 
     private fun scan() {
         isScanning = true

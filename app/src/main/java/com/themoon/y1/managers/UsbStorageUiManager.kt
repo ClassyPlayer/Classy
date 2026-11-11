@@ -241,6 +241,8 @@ class UsbStorageUiManager(
         getExternalSdMountMonitor()?.setSuspended(false)
         val main = activity as? MainActivity ?: return
         AudioPlayerManager.getInstance().reloadAfterUsbStorage(main, resume)
+        // The computer may have added or removed games
+        main.forgetGames()
     }
 
     fun onUsbCableRemovedWhileShared() {

@@ -310,6 +310,11 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     /** The Games list unpacks or reads the game folders on the card. */
     fun isGameScanRunning(): Boolean = ::gamesController.isInitialized && gamesController.isScanning
 
+    /** The card was shared over USB: the Games list scans the folders again. */
+    fun forgetGames() {
+        if (::gamesController.isInitialized) gamesController.forget()
+    }
+
     /** Before the card is shared over USB: the game on the screen ends (its save then runs on the game worker). */
     fun endGameForUsbShare() {
         if (::gamePlayerController.isInitialized) gamePlayerController.endForUsbShare()
