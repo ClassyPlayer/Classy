@@ -20,6 +20,7 @@ import com.themoon.y1.StoragePaths
 import com.themoon.y1.ThemeManager
 import com.themoon.y1.controllers.settings.ActionScreens
 import com.themoon.y1.controllers.games.GamePlayerController
+import com.themoon.y1.core.ApiCompat
 import com.themoon.y1.navigation.NavigationManager
 import com.themoon.y1.views.Notice
 import com.themoon.y1.views.TablerIcons
@@ -358,7 +359,7 @@ class UsbStorageUiManager(
             cardRemovedReceiver?.let { try { activity.unregisterReceiver(it) } catch (_: Exception) {} }
             cardRemovedReceiver = null
             // Without this, Android selects another row of the screen under it
-            focusBeforeOverlay?.takeIf { it.isAttachedToWindow }?.requestFocus()
+            focusBeforeOverlay?.takeIf { ApiCompat.isAttachedToWindow(it) }?.requestFocus()
             focusBeforeOverlay = null
         }
         try {
