@@ -3,6 +3,7 @@ package com.themoon.y1.controllers.settings
 import android.content.Context
 import android.content.res.Resources
 import android.net.ConnectivityManager
+import android.os.Build
 import android.os.SystemClock
 import android.provider.Settings
 import java.net.DatagramPacket
@@ -15,7 +16,8 @@ import java.util.TimeZone
  * Settings → Date & Time: set the clock now, from the internet (SNTP) or from one changed value (Year...Minute).
  *
  * The app is not a system app, so it cannot call AlarmManager.setTime itself (SET_TIME is signature|system).
- * It calls it through su: `service call alarm 2` is IAlarmManager.setTime(long) on API 19. The service sets the
+ * It calls it through su: `service call alarm 2` is IAlarmManager.setTime(long) on API 19 (4 on API 17-18, see
+ * [setTimeTransaction]). The service sets the
  * system clock and the hardware clock (/dev/alarm) and sends ACTION_TIME_CHANGED, so all clocks show the new time.
  * The time is UTC milliseconds, so the time zone has no effect on it.
  *
@@ -137,6 +139,16 @@ object DateTimeSync {
         for (i in 0 until 4) b[offset + i] = (value shr (24 - 8 * i)).toByte()
     }
 
+    /**
+     * IAlarmManager transaction codes. API 19 has set (1), setTime (2), setTimeZone (3), remove (4). API 17-18
+     * (the Y1 has Android 4.2) have set (1), setRepeating (2), setInexactRepeating (3), setTime (4), setTimeZone (5),
+     * remove (6): there the API 19 codes would call the wrong method.
+     */
+    fun setTimeTransaction(sdk: Int = Build.VERSION.SDK_INT): Int = if (sdk >= Build.VERSION_CODES.KITKAT) 2 else 4
+
+    /** See [setTimeTransaction]. */
+    fun setTimeZoneTransaction(sdk: Int = Build.VERSION.SDK_INT): Int = if (sdk >= Build.VERSION_CODES.KITKAT) 3 else 5
+
     /** The arguments of `service call alarm 2` for [utcMs]: a long is two i32 in the parcel, low word first. */
     fun setTimeArgs(utcMs: Long): String = "i32 ${utcMs.toInt()} i32 ${(utcMs ushr 32).toInt()}"
 
@@ -147,7 +159,7 @@ object DateTimeSync {
      */
     fun setSystemTime(utcMs: Long, manual: Boolean): String? {
         val command = (if (manual) "settings put global auto_time 0; " else "") +
-            "service call alarm 2 ${setTimeArgs(utcMs + if (manual) 0 else SET_DELAY_MS)}"
+            "service call alarm ${setTimeTransaction()} ${setTimeArgs(utcMs + if (manual) 0 else SET_DELAY_MS)}"
         return try {
             val proc = Runtime.getRuntime().exec(arrayOf("su", "-c", command))
             val out = proc.inputStream.bufferedReader().readText()

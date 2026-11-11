@@ -62,6 +62,14 @@ class DateTimeSyncTest {
     }
 
     @Test
+    fun alarmTransactionCodesOfAndroid44And42() {
+        assertEquals(2, DateTimeSync.setTimeTransaction(19))
+        assertEquals(3, DateTimeSync.setTimeZoneTransaction(19))
+        assertEquals(4, DateTimeSync.setTimeTransaction(17))
+        assertEquals(5, DateTimeSync.setTimeZoneTransaction(17))
+    }
+
+    @Test
     fun setTimeArgsAreTwoInt32LowWordFirst() {
         // Checked on the Y2: service call alarm 2 i32 2000297282 i32 417 = 1793001659714 ms
         assertEquals("i32 2000297282 i32 417", DateTimeSync.setTimeArgs(1793001659714L))

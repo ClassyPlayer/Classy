@@ -699,9 +699,10 @@ class SettingsController(
         Thread {
             val ok = try {
                 // AlarmManager.setTimeZone needs SET_TIME_ZONE (signature|system), so call it through su.
-                // Transaction 3 is IAlarmManager.setTimeZone on API 19: it saves persist.sys.timezone,
+                // IAlarmManager.setTimeZone (3 on API 19, 5 on API 17): it saves persist.sys.timezone,
                 // updates the kernel zone and broadcasts ACTION_TIMEZONE_CHANGED to refresh the clocks.
-                val proc = Runtime.getRuntime().exec(arrayOf("su", "-c", "service call alarm 3 s16 $zoneId"))
+                val code = DateTimeSync.setTimeZoneTransaction()
+                val proc = Runtime.getRuntime().exec(arrayOf("su", "-c", "service call alarm $code s16 $zoneId"))
                 proc.waitFor()
                 true
             } catch (_: Exception) {
