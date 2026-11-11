@@ -456,7 +456,9 @@ class OtaUpdateManager(
     }
 
     private fun stageInto(apkFile: File, staged: MutableList<Pair<File, String>>) {
-        java.util.zip.ZipFile(apkFile).use { zip ->
+        // ZipFile is Closeable only from API 19: close it in finally
+        val zip = java.util.zip.ZipFile(apkFile)
+        try {
             val abi = listOf(android.os.Build.CPU_ABI, android.os.Build.CPU_ABI2)
                 .firstOrNull { a -> a.isNotEmpty() && zip.entries().asSequence().any { it.name.startsWith("lib/$a/") } }
                 ?: return
@@ -470,6 +472,8 @@ class OtaUpdateManager(
                 staged += out to name
                 zip.getInputStream(entry).use { input -> out.outputStream().use { input.copyTo(it) } }
             }
+        } finally {
+            zip.close()
         }
     }
 
@@ -517,14 +521,12 @@ class OtaUpdateManager(
             var tempApkPath: String? = null
             try {
                 if (!com.themoon.y1.migrations.BootScreenMigrator.isPolicyJarPatched()) {
-                    java.util.zip.ZipFile(apkFile).use { zip ->
-                        zip.getEntry("assets/" + com.themoon.y1.migrations.BootScreenMigrator.ASSET_POLICY_JAR)?.let { entry ->
-                            val tempJar = File(activity.cacheDir, "ota_android_policy.jar")
-                            zip.getInputStream(entry).use { input ->
-                                tempJar.outputStream().use { output -> input.copyTo(output) }
-                            }
-                            tempJarPath = tempJar.absolutePath
-                        }
+                    com.themoon.y1.migrations.BootScreenMigrator.readZipEntry(
+                        apkFile, "assets/" + com.themoon.y1.migrations.BootScreenMigrator.ASSET_POLICY_JAR
+                    )?.let { bytes ->
+                        val tempJar = File(activity.cacheDir, "ota_android_policy.jar")
+                        tempJar.writeBytes(bytes)
+                        tempJarPath = tempJar.absolutePath
                     }
                 }
                 if (!com.themoon.y1.migrations.BootScreenMigrator.isFrameworkResPatched() &&

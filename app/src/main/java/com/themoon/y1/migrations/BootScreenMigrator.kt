@@ -21,15 +21,25 @@ object BootScreenMigrator {
         val file = File(TARGET_POLICY_JAR)
         if (!file.exists()) return false
         return try {
-            ZipFile(file).use { zip ->
-                val entry = zip.getEntry("classes.dex") ?: return false
-                val bytes = zip.getInputStream(entry).use { it.readBytes() }
-                // Check for ASCII bytes "ClassyBootScreen"
-                val str = String(bytes, Charsets.ISO_8859_1)
-                str.contains("ClassyBootScreen")
-            }
+            val bytes = readZipEntry(file, "classes.dex") ?: return false
+            // Check for ASCII bytes "ClassyBootScreen"
+            String(bytes, Charsets.ISO_8859_1).contains("ClassyBootScreen")
         } catch (_: Throwable) {
             false
+        }
+    }
+
+    /**
+     * The bytes of the entry [name] of the zip [file], or null when it has none. ZipFile is Closeable only from
+     * API 19, so it is closed in finally (not with use).
+     */
+    fun readZipEntry(file: File, name: String): ByteArray? {
+        val zip = ZipFile(file)
+        try {
+            val entry = zip.getEntry(name) ?: return null
+            return zip.getInputStream(entry).use { it.readBytes() }
+        } finally {
+            zip.close()
         }
     }
 
