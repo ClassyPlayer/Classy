@@ -743,5 +743,9 @@
   "Lyrics": "Tekst",
   "Original": "Oryginał",
   "Romanised": "Latynizacja",
-  "Original + Romanised": "Oryginał + latynizacja"
+  "Original + Romanised": "Oryginał + latynizacja",
+  "SD card ready": "Karta SD gotowa",
+  "Cannot Update": "Nie można zaktualizować",
+  "This Classy was not installed with the official firmware, so the update cannot replace it.": "Ten Classy nie został zainstalowany z oficjalnym firmware, więc aktualizacja nie może go zastąpić.",
+  "To update, install the new firmware with Innioasis Updater CE (innioasis.app).": "Aby zaktualizować, zainstaluj nowy firmware za pomocą Innioasis Updater CE (innioasis.app)."
 }

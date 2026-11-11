@@ -743,5 +743,9 @@
   "Lyrics": "歌詞",
   "Original": "原文",
   "Romanised": "ローマ字",
-  "Original + Romanised": "原文 + ローマ字"
+  "Original + Romanised": "原文 + ローマ字",
+  "SD card ready": "SDカードの準備ができました",
+  "Cannot Update": "更新できません",
+  "This Classy was not installed with the official firmware, so the update cannot replace it.": "この Classy は公式ファームウェアでインストールされていないため、更新で置き換えられません。",
+  "To update, install the new firmware with Innioasis Updater CE (innioasis.app).": "更新するには、Innioasis Updater CE（innioasis.app）で新しいファームウェアをインストールしてください。"
 }

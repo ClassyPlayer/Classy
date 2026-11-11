@@ -437,6 +437,11 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
                         }
                     }
                 }
+
+                // In place of the MediaTek "SD card ready" dialog, which SystemBloatManager turns off
+                override fun onSecondaryStorageInserted() {
+                    Notice.show(this@MainActivity, t("SD card ready"))
+                }
             })
             start()
         }

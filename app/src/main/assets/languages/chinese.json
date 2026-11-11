@@ -743,5 +743,9 @@
   "Lyrics": "歌词",
   "Original": "原文",
   "Romanised": "罗马化",
-  "Original + Romanised": "原文 + 罗马化"
+  "Original + Romanised": "原文 + 罗马化",
+  "SD card ready": "SD 卡已就绪",
+  "Cannot Update": "无法更新",
+  "This Classy was not installed with the official firmware, so the update cannot replace it.": "此 Classy 不是通过官方固件安装的，因此更新无法替换它。",
+  "To update, install the new firmware with Innioasis Updater CE (innioasis.app).": "如需更新，请使用 Innioasis Updater CE（innioasis.app）安装新固件。"
 }

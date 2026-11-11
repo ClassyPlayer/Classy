@@ -743,5 +743,9 @@
   "Lyrics": "가사",
   "Original": "원문",
   "Romanised": "로마자",
-  "Original + Romanised": "원문 + 로마자"
+  "Original + Romanised": "원문 + 로마자",
+  "SD card ready": "SD 카드 준비됨",
+  "Cannot Update": "업데이트할 수 없음",
+  "This Classy was not installed with the official firmware, so the update cannot replace it.": "이 Classy는 공식 펌웨어로 설치되지 않아 업데이트로 교체할 수 없습니다.",
+  "To update, install the new firmware with Innioasis Updater CE (innioasis.app).": "업데이트하려면 Innioasis Updater CE(innioasis.app)로 새 펌웨어를 설치하세요."
 }

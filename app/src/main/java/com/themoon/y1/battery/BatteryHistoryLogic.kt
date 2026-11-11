@@ -50,7 +50,9 @@ class DayChart(
     /** Minutes of each hour with music or radio playing and the screen off, -1 = no bar. */
     val offMinutes: IntArray,
     /** The hour of the day (0..23, local time) at the start of each hour bar. */
-    val hours: IntArray
+    val hours: IntArray,
+    /** The start of each hour bar, and the end of the last one (25 values). */
+    val hourStarts: LongArray
 ) {
     val screenTotalMinutes: Int get() = BatteryHistoryLogic.totalMinutes(screenMinutes)
     val offTotalMinutes: Int get() = BatteryHistoryLogic.totalMinutes(offMinutes)
@@ -227,14 +229,30 @@ object BatteryHistoryLogic {
     fun day(samples: List<BatterySample>, now: Long, zone: TimeZone): DayChart {
         val start = nextHour(now, zone) - DAY_MS
         val spans = spans(samples, now)
-        val slots = buckets(spans, LongArray(DAY_SLOTS + 1) { start + it * SLOT_MS })
-        val h = buckets(spans, LongArray(24 + 1) { start + it * HOUR_MS })
+        val hourStarts = steps(start, HOUR_MS, 24 + 1)
+        val slots = buckets(spans, steps(start, SLOT_MS, DAY_SLOTS + 1))
+        val h = buckets(spans, hourStarts)
         val c = Calendar.getInstance(zone)
         val hours = IntArray(24) {
-            c.timeInMillis = start + it * HOUR_MS
+            c.timeInMillis = hourStarts[it]
             c.get(Calendar.HOUR_OF_DAY)
         }
-        return DayChart(start, slots.level, slots.charging, minutes(h.screen, h.on, 60), minutes(h.off, h.on, 60), hours)
+        return DayChart(start, slots.level, slots.charging, minutes(h.screen, h.on, 60), minutes(h.off, h.on, 60), hours, hourStarts)
+    }
+
+    /**
+     * [count] times from [start], [step] apart, made by addition. Do not use `start + it * step` in a loop: on the Y2
+     * (the Dalvik JIT of Android 4.4), the compiled loop gave the value of the index before (or [start]) at random, so
+     * the bars of Last 24 Hours were missing.
+     */
+    fun steps(start: Long, step: Long, count: Int): LongArray {
+        val out = LongArray(count)
+        var t = start
+        for (i in 0 until count) {
+            out[i] = t
+            t += step
+        }
+        return out
     }
 
     /** The local midnights of the last [DAYS] days (today is the last), and the next midnight: [DAYS] + 1 values. */

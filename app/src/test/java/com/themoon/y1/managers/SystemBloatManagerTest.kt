@@ -26,6 +26,21 @@ class SystemBloatManagerTest {
     }
 
     @Test
+    fun lists_turnOffTheSdDefaultPathDialogWithoutForceStoppingAndroid() {
+        assertTrue("android/com.mediatek.storage.StorageDefaultPathDialog" in SystemBloatManager.DISABLED_DONT_KILL)
+        // pm disable force-stops the package: for "android" that cancels the system's own alarms
+        assertFalse(SystemBloatManager.DISABLED.any { it == "android" || it.startsWith("android/") })
+    }
+
+    @Test
+    fun disableDontKillCommand_callsSetComponentEnabledSettingWithDontKillApp() {
+        assertEquals(
+            "service call package 61 i32 1 s16 android s16 com.mediatek.storage.StorageDefaultPathDialog i32 2 i32 1 i32 0",
+            SystemBloatManager.disableDontKillCommand("android/com.mediatek.storage.StorageDefaultPathDialog")
+        )
+    }
+
+    @Test
     fun applyCommand_enablesFirstAndOnlyHasTheGivenItems() {
         val command = SystemBloatManager.applyCommand(
             listOf("com.android.systemui"),
@@ -37,6 +52,26 @@ class SystemBloatManagerTest {
                 "settings put secure lockscreen.disabled 1",
             command
         )
+    }
+
+    @Test
+    fun applyCommand_removesTheInputMethodBeforeItsPackageIsDisabled() {
+        val ime = "com.android.inputmethod.latin/.LatinIME"
+        assertEquals(
+            "pm enable com.android.inputmethod.latin; ime disable $ime; pm disable com.android.inputmethod.latin",
+            SystemBloatManager.applyCommand(
+                listOf("com.android.inputmethod.latin"), listOf("com.android.inputmethod.latin"), emptyList(), listOf(ime)
+            )
+        )
+    }
+
+    @Test
+    fun keyboardImes_findsTheKeyboardInTheDefaultAndTheEnabledList() {
+        val ime = "com.android.inputmethod.latin/.LatinIME"
+        assertEquals(listOf(ime), SystemBloatManager.keyboardImes(ime, ime))
+        assertEquals(listOf(ime), SystemBloatManager.keyboardImes(null, "com.other/.Ime;123:$ime;456;789"))
+        assertEquals(emptyList<String>(), SystemBloatManager.keyboardImes("com.other/.Ime", "com.other/.Ime"))
+        assertEquals(emptyList<String>(), SystemBloatManager.keyboardImes("", null))
     }
 
     @Test
