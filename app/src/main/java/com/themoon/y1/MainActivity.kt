@@ -342,6 +342,8 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
         prefs = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
         audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
         vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+        // The app may have died during a game: the wheel then still reports pads, and no list would scroll
+        com.themoon.y1.games.WheelSensor.resetTestMode()
 
         window.setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN)
         setContentView(R.layout.activity_main)

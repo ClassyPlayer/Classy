@@ -64,6 +64,11 @@ class WheelSensor(private val onInputs: (List<GameInput>) -> Unit) {
             0
         }
 
+        /** Back to scroll steps, at the app start: after the app died during a game, the wheel is still in test mode. */
+        fun resetTestMode() {
+            if (TEST_MODE.exists()) setTestMode(false)
+        }
+
         private fun setTestMode(on: Boolean): Boolean {
             if (!TEST_MODE.exists()) return false
             return try {
