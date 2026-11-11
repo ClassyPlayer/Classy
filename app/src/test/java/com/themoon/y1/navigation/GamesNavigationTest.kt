@@ -59,8 +59,9 @@ class GamesNavigationTest {
         LanguageFiles.assertEachFileTranslates(listOf(
             "Games",
             "No iPod games found.\nCopy decrypted game folders or .ipg files into the \"Games\" folder on your SD card.",
-            "Rescan Games", "Indexing games...", "Extracting %s...", "Failed to start game",
-            "Details are in y1_game_log.txt", "Resume", "Quit Game"
+            "Rescan Games", "Indexing games...", "Extracting %s...",
+            "This game could not start. The file may be encrypted or damaged.",
+            "Games need the latest firmware. Install it with System Update.", "Resume", "Quit Game"
         ))
     }
 }

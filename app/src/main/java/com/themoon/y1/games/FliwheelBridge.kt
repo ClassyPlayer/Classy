@@ -23,6 +23,14 @@ import java.util.Locale
  * The JNI names are bound to this class name (com.themoon.y1.games.FliwheelBridge): keep it, or build the core again.
  */
 class FliwheelBridge {
+    /** Why a game did not start ([lastFailure]). */
+    enum class Failure {
+        /** The core library is not on the player (a firmware without games). */
+        NO_CORE,
+        /** The core could not load the game (an encrypted or damaged file). */
+        GAME
+    }
+
     @Volatile
     private var handle = 0L
 
@@ -43,8 +51,12 @@ class FliwheelBridge {
     @Synchronized
     fun init(bundleDir: File, saveRoots: List<File>): Boolean {
         lastError = null
+        lastFailure = null
         if (handle != 0L) destroy()
-        if (!ensureLoaded()) return false
+        if (!ensureLoaded()) {
+            lastFailure = Failure.NO_CORE
+            return false
+        }
 
         val bundle = GameLibrary.bundleDir(bundleDir)
         rotateLog()
@@ -53,11 +65,13 @@ class FliwheelBridge {
             startCore(bundle, GameLibrary.saveDir(bundle, saveRoots))
         } catch (t: Throwable) {
             lastError = "nativeInit: ${t.message}"
+            lastFailure = Failure.GAME
             log(lastError + "\n" + Log.getStackTraceString(t))
             return false
         }
         if (handle == 0L) {
             lastError = "The core could not load the game (check that the game is decrypted)"
+            lastFailure = Failure.GAME
             log(lastError!!)
             return false
         }
@@ -315,9 +329,14 @@ class FliwheelBridge {
         const val WIDTH = 320
         const val HEIGHT = 240
 
-        /** Why the last [init] failed, for the error message. */
+        /** Why the last [init] failed, for the log. */
         @Volatile
         var lastError: String? = null
+            private set
+
+        /** Why the last [init] failed, for the user: no core, or the core could not run the game. */
+        @Volatile
+        var lastFailure: Failure? = null
             private set
 
         private var isLoaded = false

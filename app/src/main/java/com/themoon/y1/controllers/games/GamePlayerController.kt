@@ -201,7 +201,11 @@ class GamePlayerController(
                 item?.let { gameTitle = it.title }
                 gameArt = art
                 if (!ok) {
-                    Notice.show(activity, localize("Failed to start game") + "\n" + localize("Details are in y1_game_log.txt"), long = true)
+                    // What is wrong and what to do; the details stay in y1_game_log.txt (internal storage) for developers
+                    Notice.error(activity, localize(
+                        if (FliwheelBridge.lastFailure == FliwheelBridge.Failure.NO_CORE) "Games need the latest firmware. Install it with System Update."
+                        else "This game could not start. The file may be encrypted or damaged."
+                    ))
                     onExitRequested()
                     return@runOnUiThread
                 }
