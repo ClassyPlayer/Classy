@@ -192,7 +192,7 @@ class GamePlayerController(
                 // The screen went off (or another app came up) while the game loaded: it waits behind its menu
                 if (isInBackground || (activity as? MainActivity)?.isOnScreen == false) openMenu(dropRelease = false)
                 else startWheel()
-                handler.post(screenHoldTask)
+                if (!isMenuOpen) handler.post(screenHoldTask)
             }
         }
     }
@@ -229,7 +229,8 @@ class GamePlayerController(
 
     private fun startRenderThread() {
         val b = bridge ?: return
-        if (!hasSurface || renderThread != null) return
+        // Paused: the menu covers the game, and no frame comes (the loop would only poll)
+        if (!hasSurface || renderThread != null || isMenuOpen) return
         renderThread = Thread({ renderLoop(b) }, "GameRenderLoop").also { it.start() }
     }
 
@@ -342,11 +343,14 @@ class GamePlayerController(
 
     private fun openMenu(dropRelease: Boolean) {
         handler.removeCallbacks(holdTask)
+        handler.removeCallbacks(screenHoldTask)
         stopWheel()
         keys.reset()
         bridge?.pause()
         screenHold.update(false)
         isMenuOpen = true
+        // Nothing polls while the game is paused (also with the screen off while music plays)
+        stopRenderThread()
         dropCentreRelease = dropRelease
         if (dropRelease) clickFeedback()
         // Opaque: none of the game shows around the rows
@@ -408,7 +412,11 @@ class GamePlayerController(
         lastInputMs = SystemClock.uptimeMillis()
         hideMenu()
         bridge?.resume()
-        if (bridge != null) startWheel()
+        if (bridge == null) return
+        startRenderThread()
+        startWheel()
+        handler.removeCallbacks(screenHoldTask)
+        handler.post(screenHoldTask)
     }
 
     private fun menuKey(event: KeyEvent): Boolean {

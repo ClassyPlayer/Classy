@@ -33,7 +33,10 @@ class FliwheelBridge {
     private val sounds = HashMap<String, Int>()
     private val loadedSounds = HashSet<Int>()
     private var music: MediaPlayer? = null
+    @Volatile
     private var isPaused = false
+    /** The audio thread waits on it while the game is paused (no polling). */
+    private val pauseLock = Object()
     private var hasSaves = false
 
     /** Starts the game in [bundleDir], with its saves in [saveRoots]' GameData_RW. False: see [lastError] and y1_game_log.txt. */
@@ -153,6 +156,7 @@ class FliwheelBridge {
     fun resume() {
         if (handle == 0L || !isPaused) return
         isPaused = false
+        synchronized(pauseLock) { pauseLock.notifyAll() }
         setNativePaused(false)
         try {
             music?.start()
@@ -197,6 +201,15 @@ class FliwheelBridge {
 
     private fun pollAudio() {
         while (isRunning) {
+            if (isPaused) {
+                // A paused game asks for no sound: wait for resume (or destroy, which interrupts) instead of polling
+                try {
+                    synchronized(pauseLock) { while (isPaused && isRunning) pauseLock.wait() }
+                } catch (_: InterruptedException) {
+                    return
+                }
+                continue
+            }
             val path = try {
                 val h = handle
                 if (h == 0L) null else nativePollAudio(h)
