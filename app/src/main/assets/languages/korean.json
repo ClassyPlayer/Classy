@@ -616,6 +616,7 @@
   "Rescan Games": "게임 다시 검색",
   "Indexing games...": "게임 색인 중...",
   "Extracting %s...": "%s 압축 해제 중...",
+  "Could not read %s": "%s을(를) 읽을 수 없습니다",
   "Resume": "계속",
   "Quit Game": "게임 종료",
   "Paused": "일시 정지됨",

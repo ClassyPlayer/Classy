@@ -476,6 +476,7 @@
   "Rescan Games": "ゲームを再スキャン",
   "Indexing games...": "ゲームを検索中...",
   "Extracting %s...": "%sを展開中...",
+  "Could not read %s": "%s を読み込めませんでした",
   "Resume": "再開",
   "Quit Game": "ゲームを終了",
   "Paused": "一時停止中",

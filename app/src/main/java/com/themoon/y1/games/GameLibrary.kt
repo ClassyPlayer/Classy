@@ -32,9 +32,14 @@ object GameLibrary {
      * title on both cards) shows once.
      *
      * The ready games come first ([onProgress] with null), then each .ipg that needs unpacking ([onProgress] with
-     * its name, before it unpacks: that can take a while).
+     * its name, before it unpacks: that can take a while). [onFailed] gets the name of each .ipg that could not be
+     * unpacked or has no game in it: the list says so, instead of leaving it out silently.
      */
-    fun scan(roots: List<File>, onProgress: (games: List<GameItem>, unpacking: String?) -> Unit = { _, _ -> }): List<GameItem> {
+    fun scan(
+        roots: List<File>,
+        onFailed: (ipgName: String) -> Unit = {},
+        onProgress: (games: List<GameItem>, unpacking: String?) -> Unit = { _, _ -> }
+    ): List<GameItem> {
         val games = ArrayList<GameItem>()
         val seenPaths = HashSet<String>()
         val seenTitles = HashSet<String>()
@@ -68,7 +73,8 @@ object GameLibrary {
 
         for ((ipg, target) in pending) {
             onProgress(sorted(), target.name)
-            if (unpack(ipg, target)) add(parseGameDir(target))
+            val item = if (unpack(ipg, target)) parseGameDir(target) else null
+            if (item == null) onFailed(ipg.name) else add(item)
         }
         return sorted()
     }

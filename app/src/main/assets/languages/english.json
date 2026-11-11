@@ -482,6 +482,7 @@
   "Rescan Games": "Rescan Games",
   "Indexing games...": "Indexing games...",
   "Extracting %s...": "Extracting %s...",
+  "Could not read %s": "Could not read %s",
   "Resume": "Resume",
   "Quit Game": "Quit Game",
   "Paused": "Paused",

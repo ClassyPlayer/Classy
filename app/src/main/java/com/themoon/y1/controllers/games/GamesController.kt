@@ -44,6 +44,8 @@ class GamesController(
     var isScanning = false
         private set
     private var progress: String? = null
+    /** The .ipg files of the last scan that could not be read. */
+    private var failed: List<String> = emptyList()
 
     override fun title(): String = localize("Games")
 
@@ -69,6 +71,7 @@ class GamesController(
     fun forget() {
         if (isScanning) return
         games = null
+        failed = emptyList()
         icons.clear()
         if (isShown()) scan()
     }
@@ -78,8 +81,9 @@ class GamesController(
         progress = localize("Indexing games...")
         show()
         val art = HashMap<File, Bitmap>()
+        val bad = ArrayList<String>()
         Thread({
-            val found = GameLibrary.scan(StoragePaths.getGamesDirs()) { sofar, unpacking ->
+            val found = GameLibrary.scan(StoragePaths.getGamesDirs(), onFailed = { bad += it }) { sofar, unpacking ->
                 loadIcons(sofar, art)
                 val shown = sofar.toList()
                 val icons = HashMap(art)
@@ -94,6 +98,7 @@ class GamesController(
             activity.runOnUiThread {
                 icons.putAll(art)
                 games = found
+                failed = bad.toList()
                 isScanning = false
                 progress = null
                 if (isShown()) show()
@@ -106,6 +111,7 @@ class GamesController(
         val rows = ArrayList<RowSpec>()
         val list = games
         list?.forEach { rows += gameRow(it) }
+        if (!isScanning) failed.forEach { rows += RowSpec(String.format(localize("Could not read %s"), it), RowLook.INFO) }
         if (isScanning) {
             rows += RowSpec(progress ?: localize("Indexing games..."), RowLook.INFO, key = KEY_PROGRESS)
         } else {

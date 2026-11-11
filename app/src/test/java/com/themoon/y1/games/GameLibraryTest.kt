@@ -124,6 +124,20 @@ class GameLibraryTest {
     }
 
     @Test
+    fun anIpgThatCannotBeReadIsReported() {
+        val root = tmp.newFolder("Games")
+        File(root, "Broken.ipg").writeText("not a zip")
+        ipg(File(root, "Empty.ipg"), "Readme.txt")
+        game(root, "Good")
+        val failed = ArrayList<String>()
+
+        val games = GameLibrary.scan(listOf(root), onFailed = { failed += it })
+
+        assertEquals(listOf("Good"), games.map { it.title })
+        assertEquals(listOf("Broken.ipg", "Empty.ipg"), failed)
+    }
+
+    @Test
     fun aGameInTwoPlacesShowsOnce() {
         val a = tmp.newFolder("sdcard0", "Games")
         val b = tmp.newFolder("sdcard1", "Games")

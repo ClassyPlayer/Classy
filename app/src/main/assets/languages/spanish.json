@@ -616,6 +616,7 @@
   "Rescan Games": "Volver a buscar juegos",
   "Indexing games...": "Indexando juegos...",
   "Extracting %s...": "Extrayendo %s...",
+  "Could not read %s": "No se pudo leer %s",
   "Resume": "Reanudar",
   "Quit Game": "Salir del juego",
   "Paused": "En pausa",

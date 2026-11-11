@@ -476,6 +476,7 @@
   "Rescan Games": "Повторить поиск игр",
   "Indexing games...": "Поиск игр...",
   "Extracting %s...": "Распаковка %s...",
+  "Could not read %s": "Не удалось прочитать %s",
   "Resume": "Продолжить",
   "Quit Game": "Выйти из игры",
   "Paused": "Пауза",

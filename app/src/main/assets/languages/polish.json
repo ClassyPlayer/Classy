@@ -449,6 +449,7 @@
   "Rescan Games": "Przeskanuj gry",
   "Indexing games...": "Indeksowanie gier...",
   "Extracting %s...": "Rozpakowywanie %s...",
+  "Could not read %s": "Nie można odczytać %s",
   "Resume": "Wznów",
   "Quit Game": "Zakończ grę",
   "Paused": "Wstrzymano",

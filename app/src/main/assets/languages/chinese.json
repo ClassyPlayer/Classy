@@ -616,6 +616,7 @@
   "Rescan Games": "重新扫描游戏",
   "Indexing games...": "正在索引游戏...",
   "Extracting %s...": "正在解压 %s...",
+  "Could not read %s": "无法读取 %s",
   "Resume": "继续",
   "Quit Game": "退出游戏",
   "Paused": "已暂停",
