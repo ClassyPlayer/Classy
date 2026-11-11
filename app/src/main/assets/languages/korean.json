@@ -741,5 +741,8 @@
   "SD card ready": "SD 카드 준비됨",
   "Cannot Update": "업데이트할 수 없음",
   "This Classy was not installed with the official firmware, so the update cannot replace it.": "이 Classy는 공식 펌웨어로 설치되지 않아 업데이트로 교체할 수 없습니다.",
-  "To update, install the new firmware with Innioasis Updater CE (innioasis.app).": "업데이트하려면 Innioasis Updater CE(innioasis.app)로 새 펌웨어를 설치하세요."
+  "To update, install the new firmware with Innioasis Updater CE (innioasis.app).": "업데이트하려면 Innioasis Updater CE(innioasis.app)로 새 펌웨어를 설치하세요.",
+  "Cannot Verify Update": "업데이트를 검증할 수 없음",
+  "The downloaded update could not be verified, so nothing was changed.": "다운로드한 업데이트를 검증할 수 없어 아무것도 변경되지 않았습니다.",
+  "Try again later or on another Wi-Fi network, or install the new firmware with Innioasis Updater CE (innioasis.app).": "나중에 또는 다른 Wi-Fi 네트워크에서 다시 시도하거나, Innioasis Updater CE(innioasis.app)로 새 펌웨어를 설치하세요."
 }
