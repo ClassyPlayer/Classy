@@ -47,6 +47,7 @@ class FliwheelBridge {
         if (!ensureLoaded()) return false
 
         val bundle = GameLibrary.bundleDir(bundleDir)
+        rotateLog()
         log("init: ${bundle.absolutePath}")
         handle = try {
             startCore(bundle, GameLibrary.saveDir(bundle, saveRoots))
@@ -343,11 +344,25 @@ class FliwheelBridge {
             return isLoaded
         }
 
+        private const val LOG_NAME = "y1_game_log.txt"
+        private const val LOG_MAX_BYTES = 512 * 1024L
+
+        /**
+         * At a game start (before the core opens the log): a log larger than [LOG_MAX_BYTES] becomes
+         * y1_game_log.old.txt, in place of the last one. The core adds a line every few seconds while a game runs.
+         */
+        private fun rotateLog() {
+            try {
+                val log = StoragePaths.primaryFile(LOG_NAME)
+                if (log.length() > LOG_MAX_BYTES) log.renameTo(StoragePaths.primaryFile("y1_game_log.old.txt"))
+            } catch (_: Exception) {}
+        }
+
         /** Appends to y1_game_log.txt on the internal storage; the core writes its own lines there too. */
         fun log(message: String) {
             Log.i(TAG, message)
             try {
-                FileWriter(StoragePaths.primaryFile("y1_game_log.txt"), true).use {
+                FileWriter(StoragePaths.primaryFile(LOG_NAME), true).use {
                     val time = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())
                     it.write("$time [FliwheelBridge] $message\n")
                 }
