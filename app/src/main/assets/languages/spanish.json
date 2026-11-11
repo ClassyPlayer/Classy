@@ -612,7 +612,7 @@
   "Network & Connections": "Red y conexiones",
   "Control & Feedback": "Control y respuesta",
   "Games": "Juegos",
-  "No iPod games found.\nCopy decrypted game folders or .ipg files into the \"Games\" folder on your SD card.": "No se encontraron juegos de iPod.\nCopia las carpetas de juegos descifradas o los archivos .ipg en la carpeta \"Games\" de tu tarjeta SD.",
+  "No games found.\nCopy iPod games (.ipg files or game folders) into the \"Games\" folder on your SD card, then select Rescan Games.": "No se encontraron juegos.\nCopia juegos de iPod (archivos .ipg o carpetas de juegos) en la carpeta \"Games\" de la tarjeta SD y luego selecciona Volver a buscar juegos.",
   "Rescan Games": "Volver a buscar juegos",
   "Indexing games...": "Indexando juegos...",
   "Extracting %s...": "Extrayendo %s...",

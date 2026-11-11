@@ -445,7 +445,7 @@
   "Do you want to switch to Rockbox instantly without rebooting?": "Czy chcesz natychmiast przełączyć się na Rockbox bez ponownego uruchamiania?",
   "Rockbox is not installed on this device.\nPlease install the Rockbox app (.apk) first.": "Rockbox nie jest zainstalowany na tym urządzeniu.\nNajpierw zainstaluj aplikację Rockbox (.apk).",
   "Games": "Gry",
-  "No iPod games found.\nCopy decrypted game folders or .ipg files into the \"Games\" folder on your SD card.": "Nie znaleziono gier iPoda.\nSkopiuj odszyfrowane foldery gier lub pliki .ipg do folderu \"Games\" na karcie SD.",
+  "No games found.\nCopy iPod games (.ipg files or game folders) into the \"Games\" folder on your SD card, then select Rescan Games.": "Nie znaleziono gier.\nSkopiuj gry z iPoda (pliki .ipg lub foldery gier) do folderu \"Games\" na karcie SD, a następnie wybierz Przeskanuj gry.",
   "Rescan Games": "Przeskanuj gry",
   "Indexing games...": "Indeksowanie gier...",
   "Extracting %s...": "Rozpakowywanie %s...",

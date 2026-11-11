@@ -612,7 +612,7 @@
   "Network & Connections": "网络与连接",
   "Control & Feedback": "控制与反馈",
   "Games": "游戏",
-  "No iPod games found.\nCopy decrypted game folders or .ipg files into the \"Games\" folder on your SD card.": "未找到 iPod 游戏。\n请将已解密的游戏文件夹或 .ipg 文件复制到 SD 卡上的“Games”文件夹。",
+  "No games found.\nCopy iPod games (.ipg files or game folders) into the \"Games\" folder on your SD card, then select Rescan Games.": "未找到游戏。\n请将 iPod 游戏（.ipg 文件或游戏文件夹）复制到 SD 卡上的“Games”文件夹，然后选择“重新扫描游戏”。",
   "Rescan Games": "重新扫描游戏",
   "Indexing games...": "正在索引游戏...",
   "Extracting %s...": "正在解压 %s...",

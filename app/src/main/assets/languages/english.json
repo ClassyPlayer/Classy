@@ -478,7 +478,7 @@
   "Network & Connections": "Network & Connections",
   "Control & Feedback": "Control & Feedback",
   "Games": "Games",
-  "No iPod games found.\nCopy decrypted game folders or .ipg files into the \"Games\" folder on your SD card.": "No iPod games found.\nCopy decrypted game folders or .ipg files into the \"Games\" folder on your SD card.",
+  "No games found.\nCopy iPod games (.ipg files or game folders) into the \"Games\" folder on your SD card, then select Rescan Games.": "No games found.\nCopy iPod games (.ipg files or game folders) into the \"Games\" folder on your SD card, then select Rescan Games.",
   "Rescan Games": "Rescan Games",
   "Indexing games...": "Indexing games...",
   "Extracting %s...": "Extracting %s...",

@@ -101,7 +101,7 @@ class GamesController(
             rows += RowSpec(progress ?: localize("Indexing games..."), RowLook.INFO, key = KEY_PROGRESS)
         } else {
             if (list.isNullOrEmpty()) rows += RowSpec(
-                localize("No iPod games found.\nCopy decrypted game folders or .ipg files into the \"Games\" folder on your SD card."),
+                localize("No games found.\nCopy iPod games (.ipg files or game folders) into the \"Games\" folder on your SD card, then select Rescan Games."),
                 RowLook.INFO
             )
             val rescan = ListItemViewFactory.createTablerListButton(activity, TablerIcons.REFRESH, localize("Rescan Games"))
