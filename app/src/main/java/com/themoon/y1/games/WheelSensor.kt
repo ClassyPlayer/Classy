@@ -2,6 +2,7 @@ package com.themoon.y1.games
 
 import android.os.SystemClock
 import java.io.File
+import java.io.FileInputStream
 import java.io.FileOutputStream
 
 /**
@@ -19,6 +20,8 @@ class WheelSensor(private val onInputs: (List<GameInput>) -> Unit) {
     @Volatile
     private var thread: Thread? = null
     private val tracker = WheelTracker()
+    /** One buffer for all reads (only the poll thread reads): readText() made a stream, a decoder and a String each time. */
+    private val buffer = ByteArray(32)
 
     val isActive: Boolean get() = thread != null
 
@@ -41,6 +44,15 @@ class WheelSensor(private val onInputs: (List<GameInput>) -> Unit) {
         if (lift.isNotEmpty()) onInputs(lift)
     }
 
+    /** The pads a finger covers; 0 with no finger, or when the file says "Not in test mode". */
+    private fun readMask(): Int = try {
+        // A new open for each read: the kernel makes the text at a read from the start of the file
+        val n = FileInputStream(TEST_MODE).use { it.read(buffer) }
+        if (n > 0) parseMask(buffer, n) else 0
+    } catch (_: Exception) {
+        0
+    }
+
     private fun poll() {
         while (thread === Thread.currentThread()) {
             val inputs = tracker.onMask(readMask(), SystemClock.uptimeMillis())
@@ -57,11 +69,23 @@ class WheelSensor(private val onInputs: (List<GameInput>) -> Unit) {
         private const val POLL_MS = 4L
         private val TEST_MODE = File("/proc/tpd_testAdcCh")
 
-        /** The pads a finger covers; 0 with no finger, or when the file says "Not in test mode". */
-        private fun readMask(): Int = try {
-            TEST_MODE.readText().trim().toIntOrNull() ?: 0
-        } catch (_: Exception) {
-            0
+        /**
+         * The pad mask in the first [length] bytes of [bytes]: a decimal number, with white space around it; 0 for
+         * anything else (no finger, or "Not in test mode").
+         */
+        internal fun parseMask(bytes: ByteArray, length: Int): Int {
+            var i = 0
+            while (i < length && bytes[i].toInt().toChar().isWhitespace()) i++
+            val start = i
+            var value = 0
+            while (i < length && bytes[i] in '0'.code.toByte()..'9'.code.toByte()) {
+                if (value > (Int.MAX_VALUE - 9) / 10) return 0
+                value = value * 10 + (bytes[i] - '0'.code.toByte())
+                i++
+            }
+            if (i == start) return 0
+            while (i < length) if (!bytes[i++].toInt().toChar().isWhitespace()) return 0
+            return value
         }
 
         /** Back to scroll steps, at the app start: after the app died during a game, the wheel is still in test mode. */
