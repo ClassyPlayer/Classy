@@ -133,7 +133,8 @@ class GamePlayerController(
     fun onActivityPause() {
         isInBackground = true
         if (bridge != null && !isMenuOpen) openMenu(dropRelease = false)
-        bridge?.flushSaves()
+        // The core can take seconds to write the saves: not on the main thread
+        bridge?.let { b -> work.execute { b.flushSaves() } }
     }
 
     fun onActivityResume() {
