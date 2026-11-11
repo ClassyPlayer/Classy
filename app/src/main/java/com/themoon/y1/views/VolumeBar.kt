@@ -18,7 +18,8 @@ import com.themoon.y1.controllers.player.NowPlayingTheme
 /**
  * The volume bar, at the iPod places (no floating box):
  * - Now Playing: the volume row replaces the progress bar row (the iPod classic does this).
- * - Video player: the same bar replaces the time row at the bottom of the video (also at the bottom of a game).
+ * - Video player: the same bar replaces the time row at the bottom of the video. In a game it shows at the top: the
+ *   bottom is where the paddle (Vortex) and the last rows (Tetris) are.
  * - Other screens (the volume buttons): the bar replaces the status bar title, so the list stays visible.
  * The bar goes away [SHOW_MS] after the last change.
  */
@@ -116,8 +117,11 @@ object VolumeBar {
         var strip = frame.findViewWithTag<LinearLayout>(TAG_STRIP)
         if (strip == null) {
             strip = buildStrip(main, d, iconHeight = 18, barHeight = 20, iconGap = 10)
-            val lp = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM)
-            strip.setPadding((18 * d).toInt(), 0, (18 * d).toInt(), (14 * d).toInt())
+            val atTop = frameId == R.id.layout_game_player_mode
+            val lp = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+                if (atTop) Gravity.TOP else Gravity.BOTTOM)
+            val edge = (14 * d).toInt()
+            strip.setPadding((18 * d).toInt(), if (atTop) edge else 0, (18 * d).toInt(), if (atTop) 0 else edge)
             frame.addView(strip, lp)
         }
         val row = if (frameId == R.id.layout_video_player_mode) main.findViewById<View>(R.id.video_progress)?.parent as? View else null
