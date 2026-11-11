@@ -45,7 +45,9 @@ This patched jar removes the title bar (`setTitle(null)`), hides the circular sp
 |---|---|---|
 | `android.policy.jar` | 117,716 | `e4a0adb8281e5940220ad810d48bd797ddaf4e961d4cc7ef1a1f9533b4f6880a` |
 
-`scripts/build-rom.sh` installs it to `/system/framework/android.policy.jar` (root:root 644) and removes `/system/framework/android.policy.odex` so Dalvik re-optimizes the jar into `/data/dalvik-cache`. Pair with [`tools/swap_boot_strings.py`](../swap_boot_strings.py) for `framework-res.apk` boot message text ("Updating X of Y", "Starting up…", "Finishing up…").
+`scripts/build-rom.sh y2` installs it to `/system/framework/android.policy.jar` (root:root 644) and removes `/system/framework/android.policy.odex` so Dalvik re-optimizes the jar into `/data/dalvik-cache`. Pair with [`tools/swap_boot_strings.py`](../swap_boot_strings.py) for `framework-res.apk` boot message text ("Updating X of Y", "Starting up…", "Finishing up…").
+
+Y1 ROMs (type a|b, Android 4.2) keep the stock jar and boot strings: this jar is the Android 4.4 one, and the app does not install it below Android 4.4 or on a device that is not a Y2.
 
 
 ## Format notes

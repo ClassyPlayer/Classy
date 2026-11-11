@@ -367,22 +367,31 @@ audit_rom_contents() {
         errors=$((errors + 1))
     fi
 
-    if [ ! -f "$sys_mount/framework/android.policy.jar" ]; then
+    # The boot screen jar is built from the Y2's Android 4.4 framework: Y1 ROMs (Android 4.2) keep the stock jar
+    if [ "$rom_type" = "y2" ]; then
+        if [ ! -f "$sys_mount/framework/android.policy.jar" ]; then
+            echo "audit fail: /system/framework/android.policy.jar missing" >&2
+            errors=$((errors + 1))
+        elif [ "$(sha256_of "$sys_mount/framework/android.policy.jar")" != "$BOOT_POLICY_JAR_SHA256" ]; then
+            echo "audit fail: /system/framework/android.policy.jar is not the patched Classy boot screen jar" >&2
+            errors=$((errors + 1))
+        fi
+
+        if [ -f "$sys_mount/framework/android.policy.odex" ]; then
+            echo "audit fail: stale /system/framework/android.policy.odex still present" >&2
+            errors=$((errors + 1))
+        fi
+
+        if [ -f "$sys_mount/framework/framework-res.apk" ] \
+            && ! python3 "$REPO_ROOT/tools/swap_boot_strings.py" "$sys_mount/framework/framework-res.apk" --check >/dev/null 2>&1; then
+            echo "audit fail: framework-res.apk still has stock boot strings" >&2
+            errors=$((errors + 1))
+        fi
+    elif [ ! -f "$sys_mount/framework/android.policy.jar" ]; then
         echo "audit fail: /system/framework/android.policy.jar missing" >&2
         errors=$((errors + 1))
-    elif [ "$(sha256_of "$sys_mount/framework/android.policy.jar")" != "$BOOT_POLICY_JAR_SHA256" ]; then
-        echo "audit fail: /system/framework/android.policy.jar is not the patched Classy boot screen jar" >&2
-        errors=$((errors + 1))
-    fi
-
-    if [ -f "$sys_mount/framework/android.policy.odex" ]; then
-        echo "audit fail: stale /system/framework/android.policy.odex still present" >&2
-        errors=$((errors + 1))
-    fi
-
-    if [ -f "$sys_mount/framework/framework-res.apk" ] \
-        && ! python3 "$REPO_ROOT/tools/swap_boot_strings.py" "$sys_mount/framework/framework-res.apk" --check >/dev/null 2>&1; then
-        echo "audit fail: framework-res.apk still has stock boot strings" >&2
+    elif [ "$(sha256_of "$sys_mount/framework/android.policy.jar")" = "$BOOT_POLICY_JAR_SHA256" ]; then
+        echo "audit fail: /system/framework/android.policy.jar is the Android 4.4 boot screen jar (Y1 runs Android 4.2)" >&2
         errors=$((errors + 1))
     fi
 
@@ -661,15 +670,21 @@ if [ -f "$MOUNT_SYS/framework/framework-res.apk" ]; then
     sudo chmod 644 "$MOUNT_SYS/framework/framework-res.apk"
     sudo chown root:root "$MOUNT_SYS/framework/framework-res.apk"
 
-    echo "==> Patching boot screen (android.policy.jar + boot strings)"
-    verify_sha256 "$REPO_ROOT/tools/rom_assets/android.policy.jar" "$BOOT_POLICY_JAR_SHA256"
-    sudo cp -f "$REPO_ROOT/tools/rom_assets/android.policy.jar" "$MOUNT_SYS/framework/android.policy.jar"
-    sudo rm -f "$MOUNT_SYS/framework/android.policy.odex"
-    sudo chmod 644 "$MOUNT_SYS/framework/android.policy.jar"
-    sudo chown root:root "$MOUNT_SYS/framework/android.policy.jar"
-    sudo python3 "$REPO_ROOT/tools/swap_boot_strings.py" "$MOUNT_SYS/framework/framework-res.apk"
-    sudo chmod 644 "$MOUNT_SYS/framework/framework-res.apk"
-    sudo chown root:root "$MOUNT_SYS/framework/framework-res.apk"
+    # The jar is the Y2's Android 4.4 android.policy.jar with the patch: in the Y1's Android 4.2 it does not match
+    # the framework (and its odex files), so Y1 ROMs keep the stock jar and the stock boot strings
+    if [ "$TYPE" = "y2" ]; then
+        echo "==> Patching boot screen (android.policy.jar + boot strings)"
+        verify_sha256 "$REPO_ROOT/tools/rom_assets/android.policy.jar" "$BOOT_POLICY_JAR_SHA256"
+        sudo cp -f "$REPO_ROOT/tools/rom_assets/android.policy.jar" "$MOUNT_SYS/framework/android.policy.jar"
+        sudo rm -f "$MOUNT_SYS/framework/android.policy.odex"
+        sudo chmod 644 "$MOUNT_SYS/framework/android.policy.jar"
+        sudo chown root:root "$MOUNT_SYS/framework/android.policy.jar"
+        sudo python3 "$REPO_ROOT/tools/swap_boot_strings.py" "$MOUNT_SYS/framework/framework-res.apk"
+        sudo chmod 644 "$MOUNT_SYS/framework/framework-res.apk"
+        sudo chown root:root "$MOUNT_SYS/framework/framework-res.apk"
+    else
+        echo "==> Y1 (Android 4.2): stock boot screen kept (the Classy boot screen jar is for Android 4.4)"
+    fi
 fi
 
 # Y2 Solar base only: strip Solar before installing Classy. Type a|b skip this (Y1 path unchanged).
