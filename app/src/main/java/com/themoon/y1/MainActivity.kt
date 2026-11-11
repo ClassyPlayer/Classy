@@ -63,6 +63,8 @@ import com.themoon.y1.controllers.storage.StorageController
 import com.themoon.y1.controllers.sync.JellyfinUiController
 import com.themoon.y1.controllers.videos.VideoBrowserController
 import com.themoon.y1.controllers.videos.VideoPlayerController
+import com.themoon.y1.controllers.games.GamePlayerController
+import com.themoon.y1.controllers.games.GamesController
 import com.themoon.y1.managers.AssetInstaller
 import com.themoon.y1.managers.AudioPlayerManager
 import com.themoon.y1.managers.BluetoothAvrcpManager
@@ -126,6 +128,8 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
         const val STATE_EQUALIZER = 15
         const val STATE_FM_RADIO = 16
         const val STATE_JELLYFIN = 17
+        const val STATE_GAMES = 18
+        const val STATE_GAME_PLAYER = 19
 
         const val BROWSER_ROOT = 0
         const val BROWSER_FOLDER = 1
@@ -256,6 +260,8 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     lateinit var layoutMusicQuizMode: View
     lateinit var layoutVideosMode: View
     lateinit var layoutVideoPlayerMode: View
+    lateinit var layoutGamesMode: View
+    lateinit var layoutGamePlayerMode: View
 
     lateinit var ivAlbumArt: ImageView
     var ivAlbumReflection: ImageView? = null
@@ -298,6 +304,21 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     lateinit var videoBrowserController: VideoBrowserController
     fun isVideosControllerInitialized(): Boolean = ::videoBrowserController.isInitialized
     lateinit var videoPlayerController: VideoPlayerController
+    lateinit var gamesController: GamesController
+    lateinit var gamePlayerController: GamePlayerController
+
+    /** The Games list unpacks or reads the game folders on the card. */
+    fun isGameScanRunning(): Boolean = ::gamesController.isInitialized && gamesController.isScanning
+
+    /** The card was shared over USB: the Games list scans the folders again. */
+    fun forgetGames() {
+        if (::gamesController.isInitialized) gamesController.forget()
+    }
+
+    /** Before the card is shared over USB: the game on the screen ends (its save then runs on the game worker). */
+    fun endGameForUsbShare() {
+        if (::gamePlayerController.isInitialized) gamePlayerController.endForUsbShare()
+    }
     lateinit var bluetoothController: BluetoothController
     lateinit var wifiController: WifiController
     lateinit var wifiKeyboardController: WifiKeyboardController
@@ -334,6 +355,8 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
         prefs = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
         audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
         vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+        // The app may have died during a game: the wheel then still reports pads, and no list would scroll
+        com.themoon.y1.games.WheelSensor.resetTestMode()
 
         window.setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN)
         setContentView(R.layout.activity_main)
@@ -500,10 +523,12 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
         updateScreenOffFeedback(true)
         updateStatusBarClock()
         applyTheme()
+        if (::gamePlayerController.isInitialized) gamePlayerController.onActivityResume()
     }
 
     override fun onPause() {
         super.onPause()
+        if (::gamePlayerController.isInitialized) gamePlayerController.onActivityPause()
         systemNotifications.show()
         AudioPlayerManager.getInstance().savePlaybackState(sync = false)
     }
@@ -578,6 +603,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
             STATE_EQUALIZER -> ScreenState.Equalizer
             STATE_FM_RADIO -> ScreenState.FmRadio
             STATE_JELLYFIN -> ScreenState.Jellyfin()
+            STATE_GAMES -> ScreenState.Games
             else -> ScreenState.MainMenu
         }
         changeScreen(screenState)
@@ -616,6 +642,8 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
             is ScreenState.MusicQuiz -> STATE_QUIZ
             is ScreenState.Videos -> STATE_VIDEOS
             is ScreenState.VideoPlayer -> STATE_VIDEO_PLAYER
+            is ScreenState.Games -> STATE_GAMES
+            is ScreenState.GamePlayer -> STATE_GAME_PLAYER
         }
     }
 
@@ -1172,6 +1200,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
             }
             STATE_EQUALIZER -> t("Equalizer")
             STATE_JELLYFIN -> t("Jellyfin")
+            STATE_GAMES -> t("Games")
             else -> t("Classy")
         }
     }

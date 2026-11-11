@@ -25,8 +25,9 @@ object LyricsKeepScreenOn {
  * The lock has a time limit and each progress tick renews it, so it also ends when the ticks stop. ON_AFTER_RELEASE
  * starts Android's screen timeout again at the release: after a pause the screen stays on for the full Backlight Timer.
  * While the lock holds, the app's own backlight timer (PowerBacklightManager) also starts again at each renewal.
+ * A game holds the screen the same way while it runs ([tag] names the lock).
  */
-class LyricsScreenHold(private val context: Context) {
+class LyricsScreenHold(private val context: Context, private val tag: String = "Y1:LyricsKeepScreenOn") {
     private var lock: PowerManager.WakeLock? = null
     private var renewedAt = 0L
 
@@ -49,7 +50,7 @@ class LyricsScreenHold(private val context: Context) {
             @Suppress("DEPRECATION") // SCREEN_BRIGHT_WAKE_LOCK: the only screen lock without a window flag (API 19)
             val l = lock ?: (context.getSystemService(Context.POWER_SERVICE) as PowerManager).newWakeLock(
                 PowerManager.SCREEN_BRIGHT_WAKE_LOCK or PowerManager.ON_AFTER_RELEASE,
-                "Y1:LyricsKeepScreenOn"
+                tag
             ).also {
                 it.setReferenceCounted(false)
                 lock = it

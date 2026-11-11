@@ -128,6 +128,20 @@ object TablerIcons {
         "M12 6l0 13",
         "M21 6l0 13"
     )
+    val DEVICE_GAMEPAD: Array<String> = arrayOf(
+        "M2 6m0 2a2 2 0 0 1 2 -2h16a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-16a2 2 0 0 1 -2 -2z",
+        "M6 12h4m-2 -2v4",
+        "M15 11l0 .01",
+        "M18 13l0 .01"
+    )
+    val PLAYER_PLAY: Array<String> = arrayOf(
+        "M7 4v16l13 -8z"
+    )
+    val LOGOUT: Array<String> = arrayOf(
+        "M14 8v-2a2 2 0 0 0 -2 -2h-7a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h7a2 2 0 0 0 2 -2v-2",
+        "M9 12h12l-3 -3",
+        "M18 15l3 -3"
+    )
     val FOLDER: Array<String> = arrayOf(
         "M5 4h4l3 3h7a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-11a2 2 0 0 1 2 -2"
     )

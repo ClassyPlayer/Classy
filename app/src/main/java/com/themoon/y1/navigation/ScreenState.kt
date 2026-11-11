@@ -24,6 +24,10 @@ sealed interface ScreenState {
     data object MusicQuiz : ScreenState
     data class Videos(val mode: VideoMode = VideoMode.Root) : ScreenState
     data class VideoPlayer(val videoFile: File) : ScreenState
+    /** Main menu → Games: the iPod games in the Games folders. */
+    data object Games : ScreenState
+    /** A running game ([bundleDir]: its folder), full screen. */
+    data class GamePlayer(val bundleDir: File) : ScreenState
     data object CoverFlow : ScreenState
     data object Playlists : ScreenState
     data class M3uPlaylistSongs(val m3uFile: File) : ScreenState
