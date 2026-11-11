@@ -113,6 +113,12 @@ class UpdateSignatureTest {
     }
 
     @Test
+    fun removedSignedEntry_isRejected() {
+        // The signature files stay, but AndroidManifest.xml is gone
+        assertNull(UpdateSignature.verifiedSigners(rewrite(signedA, "no-manifest.apk", drop = "AndroidManifest.xml")))
+    }
+
+    @Test
     fun entryThatOnlyOneOfTwoSignersSigned_isRejected() {
         // Signed with A, then an entry added and the whole APK signed with B: the new entry has only B
         val withExtra = rewrite(signedA, "a-extra.apk", extra = "assets/extra.bin")
@@ -142,17 +148,19 @@ class UpdateSignatureTest {
         assertNull(UpdateSignature.verifiedSigners(File(dir, "broken.apk").apply { writeText("not a zip") }))
     }
 
-    /** Copies [src] entry by entry (with [change] applied to the data), and adds an unsigned entry [extra]. */
+    /** Copies [src] entry by entry (with [change] applied to the data, without [drop]), and adds an unsigned entry [extra]. */
     private fun rewrite(
         src: File,
         name: String,
         extra: String? = null,
+        drop: String? = null,
         change: (String, ByteArray) -> ByteArray = { _, data -> data }
     ): File {
         val out = File(dir, name)
         ZipFile(src).use { zip ->
             ZipOutputStream(out.outputStream()).use { zos ->
                 for (entry in zip.entries()) {
+                    if (entry.name == drop) continue
                     val data = zip.getInputStream(entry).use { it.readBytes() }
                     zos.putNextEntry(ZipEntry(entry.name))
                     zos.write(change(entry.name, data))

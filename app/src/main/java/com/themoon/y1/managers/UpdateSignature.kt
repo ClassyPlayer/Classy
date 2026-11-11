@@ -49,6 +49,7 @@ object UpdateSignature {
         null
     }
 
+    /** [verifiedSigners] for an open, verifying [jar]. */
     private fun signersOf(jar: JarFile): Set<String>? {
         var signers: Set<String>? = null
         val names = HashSet<String>()
@@ -64,6 +65,10 @@ object UpdateSignature {
             if (entrySigners.isEmpty()) return null
             if (signers == null) signers = entrySigners else if (signers != entrySigners) return null
         }
+        // Each entry that the signed manifest lists must be there: an APK without its AndroidManifest.xml, for example,
+        // would replace the firmware copy with an app that Android cannot start
+        val listed = jar.manifest?.entries?.keys ?: return null
+        if (!names.containsAll(listed)) return null
         return signers
     }
 
