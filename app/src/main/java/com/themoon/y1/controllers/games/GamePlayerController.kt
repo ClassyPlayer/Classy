@@ -234,7 +234,13 @@ class GamePlayerController(
         screenHold.update(false)
         stopWheel()
         keys.reset()
-        val b = bridge ?: return
+        val b = bridge
+        if (b == null) {
+            // A game that has loaded, but whose screen callback has not run yet (it then sees the new session and ends
+            // it later): end it in the queue now, so that a USB share that waits for the queue does not start before
+            if (workThread.isInitialized()) work.execute { FliwheelBridge.endLeftover() }
+            return
+        }
         bridge = null
         stopRenderThread()
         work.execute { b.saveAndDestroy() }
