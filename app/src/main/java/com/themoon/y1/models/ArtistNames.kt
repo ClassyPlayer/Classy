@@ -24,6 +24,12 @@ object ArtistNames {
         return names
     }
 
+    /** [names] with one entry for each name ignoring case: the first spelling stays. */
+    fun distinctIgnoringCase(names: Iterable<String>): List<String> {
+        val seen = HashSet<String>()
+        return names.filter { seen.add(it.lowercase(Locale.US)) }
+    }
+
     /** The names of [raw] for a label: "Beau Black, Alex Cartana". */
     fun display(raw: String?): String = split(raw).joinToString(", ")
 

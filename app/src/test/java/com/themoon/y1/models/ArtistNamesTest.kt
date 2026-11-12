@@ -54,6 +54,12 @@ class ArtistNamesTest {
     }
 
     @Test
+    fun distinctIgnoringCase_keepsTheFirstSpelling() {
+        assertEquals(listOf("Queen", "ABBA"), ArtistNames.distinctIgnoringCase(listOf("Queen", "ABBA", "queen", "Abba")))
+        assertEquals(emptyList<String>(), ArtistNames.distinctIgnoringCase(emptyList()))
+    }
+
+    @Test
     fun songItem_matchesTrackOrAlbumArtist() {
         val song = SongItem(File("/storage/sdcard1/Music/a.mp3"), "T", "Beau Black;Alex Cartana", "Album", null, null, "Disney;Disney Junior")
         assertTrue(song.matchesArtist("Alex Cartana", trackArtist = true))

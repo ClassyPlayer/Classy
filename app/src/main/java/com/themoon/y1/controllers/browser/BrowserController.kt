@@ -367,6 +367,8 @@ class BrowserController(
             artistsHideCompilations()
         val activeLibrary = if (isAudiobookLibraryMode) MainActivity.audiobookLibrary else MainActivity.customLibrary
         val uniqueCategories = HashSet<String>()
+        // Artist matching ignores case, so "Queen" and "queen" become one row (see below)
+        val artistNames = ArrayList<String>()
         val albumSongs = ArrayList<SongItem>()
 
         for (song in activeLibrary) {
@@ -393,11 +395,11 @@ class BrowserController(
             }
             // "A;B" is listed as A and as B
             if (type == "ARTIST") {
-                uniqueCategories.addAll(song.getAlbumArtists())
+                artistNames.addAll(song.getAlbumArtists())
                 continue
             }
             if (type == "TRACK_ARTIST" || type == "GENRE_ARTIST") {
-                uniqueCategories.addAll(song.getArtists())
+                artistNames.addAll(song.getArtists())
                 continue
             }
             val v = when (type) {
@@ -407,6 +409,7 @@ class BrowserController(
             }
             uniqueCategories.add(v)
         }
+        uniqueCategories.addAll(com.themoon.y1.models.ArtistNames.distinctIgnoringCase(artistNames))
 
         val categories = ArrayList(uniqueCategories)
         Collections.sort(categories, java.lang.String.CASE_INSENSITIVE_ORDER)
