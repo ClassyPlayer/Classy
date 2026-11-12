@@ -9,11 +9,13 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
 import com.themoon.y1.MainActivity
+import com.themoon.y1.R
 import com.themoon.y1.StoragePaths
 import com.themoon.y1.ThemeManager
 import com.themoon.y1.core.TimeFormat
 import com.themoon.y1.lists.ArtRow
 import com.themoon.y1.lists.RowTexts
+import com.themoon.y1.managers.AlbumCoverManager
 import com.themoon.y1.managers.AudioPlayerManager
 import com.themoon.y1.models.SongItem
 import com.themoon.y1.podcasts.PodcastDownloadManager
@@ -26,10 +28,14 @@ import java.util.Collections
 import java.util.Date
 
 class SongListAdapter(
-    private val items: List<SongItem>
+    private val items: List<SongItem>,
+    /** Playlist rows: the album cover at the left and the title over the artist (the album rows' look). */
+    private val artRows: Boolean = false,
+    /** The rows are the episodes of a podcast channel (Podcasts), not songs of the library. */
+    private val isPodcast: Boolean = false
 ) : BaseAdapter(), RowTexts {
 
-    private val showShuffleRow: Boolean = determineShuffleRow(items)
+    private val showShuffleRow: Boolean = !isPodcast && determineShuffleRow(items)
 
     fun hasShuffleRow(): Boolean = showShuffleRow
 
@@ -65,12 +71,13 @@ class SongListAdapter(
         val song = items[songPosition]
 
         val main = MainActivity.instance
+        if (artRows && main != null) return getArtRowView(main, convertView, song, position, songPosition)
         var iconCode = if (main != null && main.isAudiobookLibraryMode) "\uE310" else "\uE405"
         var displayTitle = song.title
         var customColor = 0
 
         if (main != null) {
-            if (main.currentBrowserMode == 14) {
+            if (isPodcast) {
                 val audioUrl = song.genre
                 val channelName = song.artist
                 val pubDate = song.year
@@ -168,7 +175,7 @@ class SongListAdapter(
             }
         }
 
-        if (main != null && main.currentBrowserMode == 14) {
+        if (main != null && isPodcast) {
             val safeChannel = song.artist.replace("[\\\\/:*?\"<>|]".toRegex(), "_")
             val safeTitle = song.title.replace("[\\\\/:*?\"<>|]".toRegex(), "_") + ".mp3"
             val localFile = File(StoragePaths.getPodcastChannelDir(safeChannel), safeTitle)
@@ -197,7 +204,7 @@ class SongListAdapter(
             main.virtualListSelectedIndex = position
             main.clickFeedback()
 
-            if (main.currentBrowserMode == 14) {
+            if (isPodcast) {
                 val audioUrl = song.genre
                 val imageUrl = song.album
                 val channelName = song.artist
@@ -206,7 +213,9 @@ class SongListAdapter(
                 val safeTitle = song.title.replace("[\\\\/:*?\"<>|]".toRegex(), "_") + ".mp3"
                 val localFile = File(StoragePaths.getPodcastChannelDir(safeChannel), safeTitle)
 
-                if (localFile.exists() && localFile.length() > 0) {
+                // A file that still downloads is not complete: it is not played (the episode screen offers Stream)
+                val pdm = PodcastDownloadManager.getInstance()
+                if (localFile.exists() && localFile.length() > 0 && !pdm.isDownloading(audioUrl)) {
                     var savedPos = main.prefs.getInt("book_pos_" + localFile.absolutePath, 0)
                     if (savedPos == 0) {
                         val streamKey = "/PODCAST_STREAM/$safeChannel/$safeTitle"
@@ -219,7 +228,7 @@ class SongListAdapter(
                     for (ep in items) {
                         val epTitle = ep.title.replace("[\\\\/:*?\"<>|]".toRegex(), "_") + ".mp3"
                         val epFile = File(StoragePaths.getPodcastChannelDir(safeChannel), epTitle)
-                        if (epFile.exists() && epFile.length() > 0) {
+                        if (epFile.exists() && epFile.length() > 0 && !pdm.isDownloading(ep.genre)) {
                             playList.add(epFile)
                             if (epFile.absolutePath == localFile.absolutePath) {
                                 targetIdx = playList.size - 1
@@ -304,6 +313,45 @@ class SongListAdapter(
         row.setOnLongClickListener(null)
 
         return row
+    }
+
+    private fun getArtRowView(main: MainActivity, convertView: View?, song: SongItem, position: Int, songPosition: Int): View {
+        val art = ArtRow.of(convertView, main)
+        val path = song.file.absolutePath
+        val artist = song.artist.takeUnless { it.isBlank() || it.equals("Unknown Artist", ignoreCase = true) } ?: ""
+        art.bind(song.title, artist)
+        art.image.tag = path
+
+        val covers = AlbumCoverManager.getInstance()
+        val cover = covers.getThumbnailDirect(AlbumCoverManager.getAlbumKey(song.file, song.album))
+        if (cover != null) {
+            art.image.setImageBitmap(cover)
+        } else {
+            art.image.setImageResource(R.drawable.default_album)
+            covers.loadCoverAsync(song, object : AlbumCoverManager.CoverCallback {
+                override fun onCoverLoaded(albumKey: String, cover: Bitmap?, reflection: Bitmap?) {
+                    if (cover != null && art.image.tag == path) art.image.setImageBitmap(cover)
+                }
+            })
+        }
+
+        art.view.setOnClickListener {
+            main.virtualListSelectedIndex = position
+            main.clickFeedback()
+            AudioPlayerManager.getInstance().playTrackList(main.virtualSongList, songPosition)
+            main.changeScreen(3)
+        }
+        art.view.setOnLongClickListener {
+            main.clickFeedback()
+            main.isLongPressConsumed = true
+            when (main.currentBrowserMode) {
+                5 -> main.showRemoveFromFavoritesDialog(song.file)
+                7 -> main.showRemoveFromPlaylistDialog(song.file)
+                else -> main.showAddToPlaylistDialog(song.file)
+            }
+            true
+        }
+        return art.view
     }
 
     private fun applyDefaultFocusListener(btn: View, position: Int, title: String, customColor: Int) {

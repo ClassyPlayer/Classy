@@ -99,9 +99,11 @@ def read_compilation(local_path: Path, tags):
 
 def scan_folder(local_root: Path, device_root: str):
     entries = []
-    for dirpath, _dirnames, filenames in os.walk(local_root):
+    for dirpath, dirnames, filenames in os.walk(local_root):
+        # Skip hidden files and folders, as the app scan does (macOS "._<name>" AppleDouble files, ".Trashes").
+        dirnames[:] = [d for d in dirnames if not d.startswith(".")]
         for name in filenames:
-            if Path(name).suffix.lower() not in AUDIO_EXTENSIONS:
+            if name.startswith(".") or Path(name).suffix.lower() not in AUDIO_EXTENSIONS:
                 continue
             local_path = Path(dirpath) / name
             rel = local_path.relative_to(local_root)

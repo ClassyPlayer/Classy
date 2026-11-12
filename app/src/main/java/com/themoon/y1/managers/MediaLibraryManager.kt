@@ -63,6 +63,7 @@ class MediaLibraryManager private constructor() {
         var count = 0
         val files = folder.listFiles() ?: return 0
         for (f in files) {
+            if (isHiddenName(f.name)) continue
             if (f.isDirectory) {
                 count += countAudioFiles(f)
             } else if (isAudioFile(f)) {
@@ -91,7 +92,7 @@ class MediaLibraryManager private constructor() {
                     val it = musicLibrary.iterator()
                     while (it.hasNext()) {
                         val item = it.next()
-                        if (!item.file.exists() || !StoragePaths.isUnderMusic(item.file)) {
+                        if (!item.file.exists() || !StoragePaths.isUnderMusic(item.file) || hasHiddenPart(item.file.absolutePath)) {
                             trackNumberMap.remove(item.file.absolutePath)
                             it.remove()
                         }
@@ -102,7 +103,7 @@ class MediaLibraryManager private constructor() {
                     val it = audiobookLibrary.iterator()
                     while (it.hasNext()) {
                         val item = it.next()
-                        if (!item.file.exists() || !StoragePaths.isUnderAudiobooks(item.file)) {
+                        if (!item.file.exists() || !StoragePaths.isUnderAudiobooks(item.file) || hasHiddenPart(item.file.absolutePath)) {
                             trackNumberMap.remove(item.file.absolutePath)
                             it.remove()
                         }
@@ -366,6 +367,7 @@ class MediaLibraryManager private constructor() {
         val files = folder.listFiles() ?: return scanned
 
         for (f in files) {
+            if (isHiddenName(f.name)) continue
             if (f.isDirectory) {
                 scanned = scanDirectory(f, targetList, existingMap, blacklist, scanned, total, isAudiobook, listener)
             } else if (isAudioFile(f)) {
@@ -587,7 +589,7 @@ class MediaLibraryManager private constructor() {
     }
 
     private fun isUsableCachedFile(f: File, isAudiobook: Boolean): Boolean {
-        if (!f.exists() || f.length() < 1024L) return false
+        if (!f.exists() || f.length() < 1024L || hasHiddenPart(f.absolutePath)) return false
         return if (isAudiobook) StoragePaths.isUnderAudiobooks(f) else StoragePaths.isUnderMusic(f)
     }
 
@@ -684,6 +686,16 @@ class MediaLibraryManager private constructor() {
     }
 
     companion object {
+        /**
+         * Hidden files and folders (name starts with "."): the scan skips them. They are not songs: macOS writes a
+         * "._<name>" AppleDouble file (about 4 KB, no audio) beside each file that it copies to a FAT or exFAT card,
+         * and folders such as ".Trashes".
+         */
+        internal fun isHiddenName(name: String): Boolean = name.startsWith(".")
+
+        /** A hidden file or folder is part of [path]: an entry of an older scan (or of the cache) to remove. */
+        internal fun hasHiddenPart(path: String): Boolean = path.split('/').any(::isHiddenName)
+
         @Volatile
         private var instance: MediaLibraryManager? = null
         fun getInstance(): MediaLibraryManager {
