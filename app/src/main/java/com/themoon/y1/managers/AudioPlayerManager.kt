@@ -349,7 +349,8 @@ class AudioPlayerManager private constructor() {
                     }
                     LastFmScrobbler.getInstance(main).rearmCurrentTrack()
                 } else if (repeatMode == 2) {
-                    nextTrack()
+                    // A track that ended has its bookmark at its end: the next pass must start each track at 0.
+                    nextTrack(fromStart = true)
                 } else {
                     if (main.currentIndex < main.currentPlaylist.size - 1) {
                         nextTrack()
@@ -650,7 +651,8 @@ class AudioPlayerManager private constructor() {
         main?.updatePlayerUI()
     }
 
-    fun nextTrack() {
+    /** [fromStart]: start the next track at 0, not at its audiobook or podcast bookmark. */
+    fun nextTrack(fromStart: Boolean = false) {
         saveAudiobookBookmarkIfNeeded()
         val main = MainActivity.instance ?: return
         if (main.currentPlaylist.isEmpty()) return
@@ -666,7 +668,7 @@ class AudioPlayerManager private constructor() {
         }
 
         main.currentIndex = (main.currentIndex + 1) % main.currentPlaylist.size
-        prepareMusicTrack(main.currentIndex)
+        prepareMusicTrack(main.currentIndex, fromStart = fromStart)
         main.updatePlayerUI()
     }
 
@@ -706,7 +708,7 @@ class AudioPlayerManager private constructor() {
         if (savePosition) savePlaybackPositionOnly(sync = true)
     }
 
-    fun prepareMusicTrack(index: Int, initialSeekMs: Long = 0L, initialDurationMs: Long = 0L) {
+    fun prepareMusicTrack(index: Int, initialSeekMs: Long = 0L, initialDurationMs: Long = 0L, fromStart: Boolean = false) {
         val main = MainActivity.instance ?: return
         if (main.currentPlaylist.isEmpty()) return
 
@@ -747,7 +749,7 @@ class AudioPlayerManager private constructor() {
 
         val effectiveSeekMs = if (initialSeekMs > 0) {
             initialSeekMs
-        } else if (isAudiobookOrPodcast) {
+        } else if (isAudiobookOrPodcast && !fromStart) {
             main.prefs.getInt("book_pos_" + track.absolutePath, 0).toLong()
         } else {
             0L
