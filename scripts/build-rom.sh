@@ -461,6 +461,10 @@ audit_rom_contents() {
             echo "audit fail: Generic.kl is not identical to Stock.kl" >&2
             errors=$((errors + 1))
         fi
+        if ! cmp -s "$sys_mount/usr/keylayout/mtk-kpd.kl" "$SCRIPT_DIR/Stock.kl"; then
+            echo "audit fail: mtk-kpd.kl is not identical to scripts/Stock.kl (Y1 wheel would send DPAD_UP/DOWN)" >&2
+            errors=$((errors + 1))
+        fi
     fi
 
     if [ -n "$user_mount" ] && [ -d "$user_mount" ]; then
@@ -786,10 +790,13 @@ if [ "$TYPE" = "y2" ]; then
     done
 else
     echo "==> Pinning Y1 keylayout (scripts/Stock.kl)"
-    sudo cp "$SCRIPT_DIR/Stock.kl" "$MOUNT_SYS/usr/keylayout/Stock.kl"
-    sudo cp "$SCRIPT_DIR/Stock.kl" "$MOUNT_SYS/usr/keylayout/Generic.kl"
-    sudo chmod 644 "$MOUNT_SYS/usr/keylayout/Stock.kl" "$MOUNT_SYS/usr/keylayout/Generic.kl"
-    sudo chown root:root "$MOUNT_SYS/usr/keylayout/Stock.kl" "$MOUNT_SYS/usr/keylayout/Generic.kl"
+    # mtk-kpd.kl too: the Y1 keypad/wheel device is named mtk-kpd, so Android reads that file
+    # (not Generic.kl) and its stock content sends DPAD_UP/DOWN for the wheel, which the launcher ignores.
+    for kl_name in Stock.kl Generic.kl mtk-kpd.kl; do
+        sudo cp "$SCRIPT_DIR/Stock.kl" "$MOUNT_SYS/usr/keylayout/$kl_name"
+        sudo chmod 644 "$MOUNT_SYS/usr/keylayout/$kl_name"
+        sudo chown root:root "$MOUNT_SYS/usr/keylayout/$kl_name"
+    done
 fi
 
 audit_rom_contents "$BASE_DIR" "$MOUNT_SYS" "$MOUNT_USER" "$TYPE"
