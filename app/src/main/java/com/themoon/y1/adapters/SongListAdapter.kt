@@ -208,7 +208,9 @@ class SongListAdapter(
                 val safeTitle = song.title.replace("[\\\\/:*?\"<>|]".toRegex(), "_") + ".mp3"
                 val localFile = File(StoragePaths.getPodcastChannelDir(safeChannel), safeTitle)
 
-                if (localFile.exists() && localFile.length() > 0) {
+                // A file that still downloads is not complete: it is not played (the episode screen offers Stream)
+                val pdm = PodcastDownloadManager.getInstance()
+                if (localFile.exists() && localFile.length() > 0 && !pdm.isDownloading(audioUrl)) {
                     var savedPos = main.prefs.getInt("book_pos_" + localFile.absolutePath, 0)
                     if (savedPos == 0) {
                         val streamKey = "/PODCAST_STREAM/$safeChannel/$safeTitle"
@@ -221,7 +223,7 @@ class SongListAdapter(
                     for (ep in items) {
                         val epTitle = ep.title.replace("[\\\\/:*?\"<>|]".toRegex(), "_") + ".mp3"
                         val epFile = File(StoragePaths.getPodcastChannelDir(safeChannel), epTitle)
-                        if (epFile.exists() && epFile.length() > 0) {
+                        if (epFile.exists() && epFile.length() > 0 && !pdm.isDownloading(ep.genre)) {
                             playList.add(epFile)
                             if (epFile.absolutePath == localFile.absolutePath) {
                                 targetIdx = playList.size - 1

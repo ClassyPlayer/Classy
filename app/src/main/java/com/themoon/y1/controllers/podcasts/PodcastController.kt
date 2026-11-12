@@ -188,7 +188,7 @@ class PodcastController(
         val info = ArrayList<String>()
         val actions = ArrayList<ActionScreens.Action>()
 
-        if (localFile.exists() && localFile.length() > 0) {
+        if (localFile.exists() && localFile.length() > 0 && !downloadManager.isDownloading(audioUrl)) {
             actions += ActionScreens.Action(localize("Play (Downloaded)")) {
                 val streamKey = "/PODCAST_STREAM/$safeChannel/$safeTitle"
                 var savedPos = prefs.getInt("book_pos_${localFile.absolutePath}", 0)
