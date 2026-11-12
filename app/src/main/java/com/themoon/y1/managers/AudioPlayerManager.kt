@@ -732,7 +732,7 @@ class AudioPlayerManager private constructor() {
                 main.consecutiveErrorCount = 0
             } else {
                 Notice.error(main, "Corrupted file detected. Skipping...")
-                Handler(Looper.getMainLooper()).postDelayed({ nextTrack() }, 1500)
+                Handler(Looper.getMainLooper()).postDelayed({ nextTrack(fromStart) }, 1500)
             }
             return
         }
@@ -918,7 +918,7 @@ class AudioPlayerManager private constructor() {
                 player.setOnCompletionListener { handleTrackCompletion() }
                 player.setOnErrorListener { _, what, extra ->
                     if (isFlac && flacLegacyFailedPaths.add(track.absolutePath)) {
-                        prepareMusicTrack(index)
+                        prepareMusicTrack(index, fromStart = fromStart)
                     } else {
                         handleTrackError("Legacy Player Error: $what (extra $extra)")
                     }
@@ -1028,7 +1028,7 @@ class AudioPlayerManager private constructor() {
                 main.updatePlayerUI()
                 main.consecutiveErrorCount = 0
             } else {
-                Handler(Looper.getMainLooper()).postDelayed({ nextTrack() }, 2000)
+                Handler(Looper.getMainLooper()).postDelayed({ nextTrack(fromStart) }, 2000)
             }
         }
     }
