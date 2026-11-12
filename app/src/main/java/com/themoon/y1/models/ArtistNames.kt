@@ -27,10 +27,10 @@ object ArtistNames {
     /** The names of [raw] for a label: "Beau Black, Alex Cartana". */
     fun display(raw: String?): String = split(raw).joinToString(", ")
 
-    /** True if [target] is one of the names in [raw] (ignoring case). */
+    /** True if [target] is one of the names in [raw], or all of [raw] (ignoring case). */
     fun contains(raw: String?, target: String?): Boolean {
         val t = target?.trim()
-        if (t.isNullOrEmpty()) return false
-        return split(raw).any { it.equals(t, ignoreCase = true) }
+        if (t.isNullOrEmpty() || raw == null) return false
+        return raw.trim().equals(t, ignoreCase = true) || split(raw).any { it.equals(t, ignoreCase = true) }
     }
 }

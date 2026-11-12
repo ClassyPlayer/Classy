@@ -46,6 +46,14 @@ class ArtistNamesTest {
     }
 
     @Test
+    fun contains_matchesTheWholeTagValue() {
+        // Now Playing → Browse Artist and old saved queries can give the full "A;B" value
+        assertTrue(ArtistNames.contains("Beau Black;Alex Cartana", "Beau Black;Alex Cartana"))
+        assertTrue(ArtistNames.contains("Beau Black;Alex Cartana", "beau black;alex cartana"))
+        assertFalse(ArtistNames.contains(null, "Queen"))
+    }
+
+    @Test
     fun songItem_matchesTrackOrAlbumArtist() {
         val song = SongItem(File("/storage/sdcard1/Music/a.mp3"), "T", "Beau Black;Alex Cartana", "Album", null, null, "Disney;Disney Junior")
         assertTrue(song.matchesArtist("Alex Cartana", trackArtist = true))
