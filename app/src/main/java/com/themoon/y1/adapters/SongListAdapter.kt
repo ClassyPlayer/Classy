@@ -25,11 +25,13 @@ import java.util.Calendar
 import java.util.Collections
 import java.util.Date
 
+/** [isPodcast]: the rows are the episodes of a podcast channel (Podcasts), not songs of the library. */
 class SongListAdapter(
-    private val items: List<SongItem>
+    private val items: List<SongItem>,
+    private val isPodcast: Boolean = false
 ) : BaseAdapter(), RowTexts {
 
-    private val showShuffleRow: Boolean = determineShuffleRow(items)
+    private val showShuffleRow: Boolean = !isPodcast && determineShuffleRow(items)
 
     fun hasShuffleRow(): Boolean = showShuffleRow
 
@@ -70,7 +72,7 @@ class SongListAdapter(
         var customColor = 0
 
         if (main != null) {
-            if (main.currentBrowserMode == 14) {
+            if (isPodcast) {
                 val audioUrl = song.genre
                 val channelName = song.artist
                 val pubDate = song.year
@@ -168,7 +170,7 @@ class SongListAdapter(
             }
         }
 
-        if (main != null && main.currentBrowserMode == 14) {
+        if (main != null && isPodcast) {
             val safeChannel = song.artist.replace("[\\\\/:*?\"<>|]".toRegex(), "_")
             val safeTitle = song.title.replace("[\\\\/:*?\"<>|]".toRegex(), "_") + ".mp3"
             val localFile = File(StoragePaths.getPodcastChannelDir(safeChannel), safeTitle)
@@ -197,7 +199,7 @@ class SongListAdapter(
             main.virtualListSelectedIndex = position
             main.clickFeedback()
 
-            if (main.currentBrowserMode == 14) {
+            if (isPodcast) {
                 val audioUrl = song.genre
                 val imageUrl = song.album
                 val channelName = song.artist

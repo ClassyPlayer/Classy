@@ -119,7 +119,7 @@ class PodcastController(
     fun buildEpisodesUI(channelName: String, rssUrl: String) {
         val title = "${localize("Podcast")}: $channelName"
         episodes?.takeIf { it.first == rssUrl }?.let {
-            showEpisodes(title, channelName, it.second)
+            showEpisodes(title, it.second)
             return
         }
         screen.show(ListSpec(title))
@@ -129,7 +129,7 @@ class PodcastController(
                 val list = repository.fetchEpisodes(rssUrl, channelName)
                 activity.runOnUiThread {
                     episodes = rssUrl to list
-                    if (shown == state) showEpisodes(title, channelName, list)
+                    if (shown == state) showEpisodes(title, list)
                 }
             } catch (e: Exception) {
                 activity.runOnUiThread {
@@ -143,15 +143,9 @@ class PodcastController(
         }.start()
     }
 
-    private fun showEpisodes(title: String, channelName: String, list: List<SongItem>) {
-        listVirtualSongs.setOnItemClickListener { _, _, position, _ ->
-            clickFeedback()
-            if (position in list.indices) {
-                val ep = list[position]
-                showActionDialog(ep.title, ep.genre, ep.album, channelName)
-            }
-        }
-        screen.show(ListSpec(title, adapter = SongListAdapter(list), empty = localize("No Episodes")))
+    /** A click on an episode opens its action screen, or plays it when it is downloaded (see [SongListAdapter]). */
+    private fun showEpisodes(title: String, list: List<SongItem>) {
+        screen.show(ListSpec(title, adapter = SongListAdapter(list, isPodcast = true), empty = localize("No Episodes")))
     }
 
     private fun manageSpec(): ListSpec {
