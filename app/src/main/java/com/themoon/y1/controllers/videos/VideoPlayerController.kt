@@ -80,10 +80,12 @@ class VideoPlayerController(
         val d = activity.resources.displayMetrics.density
         val diamondHeight = Math.round(VideoScrub.DIAMOND_HEIGHT_DP * d)
         ScrubBarStyle.apply(bar, barHeight, Math.round(VideoScrub.DIAMOND_WIDTH_DP * d), diamondHeight, ScrubBarStyle.Direct, marginsY = true)
-        // The row measures only the bar height: keep space above it for the top of the diamond
+        // The row measures only the bar height: keep space above it for the top of the diamond, and let the diamond
+        // tips go into the padding (the row clips its children to the padding by default)
         val oy = ScrubBarGeometry.outsetY(diamondHeight, barHeight)
-        layoutVideoControls?.let { row ->
+        (layoutVideoControls as? ViewGroup)?.let { row ->
             if (row.paddingTop < oy) row.setPadding(row.paddingLeft, oy, row.paddingRight, row.paddingBottom)
+            row.clipToPadding = false
         }
     }
 
