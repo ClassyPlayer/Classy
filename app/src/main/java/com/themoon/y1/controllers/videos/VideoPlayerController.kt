@@ -20,6 +20,8 @@ import com.themoon.y1.core.TimeFormat
 import com.themoon.y1.managers.VideoPlayerManager
 import com.themoon.y1.managers.VirtualVolumeManager
 import com.themoon.y1.navigation.ScreenState
+import com.themoon.y1.views.ScrubBarGeometry
+import com.themoon.y1.views.ScrubBarStyle
 import java.io.File
 
 /**
@@ -61,6 +63,27 @@ class VideoPlayerController(
             refreshOverlay()
             updateScreenHold()
             progressHandler.postDelayed(this, 1000)
+        }
+    }
+
+    init {
+        styleScrubBar()
+    }
+
+    /**
+     * The scrub bar has the bar of the progress bar at the same place, and the diamond on the end of the fill, as in
+     * Now Playing. With the SeekBar defaults the bar was shorter at both ends and the diamond was not on the fill end.
+     */
+    private fun styleScrubBar() {
+        val bar = seekVideoScrub ?: return
+        val barHeight = videoProgressBar?.layoutParams?.height ?: return
+        val d = activity.resources.displayMetrics.density
+        val diamondHeight = Math.round(VideoScrub.DIAMOND_HEIGHT_DP * d)
+        ScrubBarStyle.apply(bar, barHeight, Math.round(VideoScrub.DIAMOND_WIDTH_DP * d), diamondHeight, ScrubBarStyle.Direct, marginsY = true)
+        // The row measures only the bar height: keep space above it for the top of the diamond
+        val oy = ScrubBarGeometry.outsetY(diamondHeight, barHeight)
+        layoutVideoControls?.let { row ->
+            if (row.paddingTop < oy) row.setPadding(row.paddingLeft, oy, row.paddingRight, row.paddingBottom)
         }
     }
 
@@ -144,7 +167,9 @@ class VideoPlayerController(
         tvVideoTimeCurrent?.text = formatTime(pos)
         tvVideoTimeTotal?.text = "-" + formatTime(Math.max(0, dur - pos))
         if (videoProgressBar != null && dur > 0) {
-            videoProgressBar.progress = ((pos.toLong() * 100) / dur).toInt()
+            // The same max as the scrub bar, so that the fill does not move when scrub mode opens
+            videoProgressBar.max = dur
+            videoProgressBar.progress = pos
         }
         if (scrub.isActive) {
             seekVideoScrub?.max = if (dur > 0) dur else 1000
