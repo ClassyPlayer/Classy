@@ -67,7 +67,15 @@ object RowFocus {
         if (list is ListView && ListEdges.focusRow(list, position)) return
         val first = list.firstVisiblePosition
         val row = if (position in first..list.lastVisiblePosition) list.getChildAt(position - first) else null
-        if (row?.requestFocus() == true) return
+        if (row?.requestFocus() == true) {
+            // Android 4.2 does not scroll a ListView to a row that only got the focus: with List Edges = Cut
+            // a step down stopped at the row that was half on the screen. Fade mode scrolls in ListEdges.revealRow.
+            if (list is ListView) {
+                val delta = ListEdges.revealDelta(row.top, row.bottom, list.paddingTop, list.height - list.paddingBottom, 0, false, false)
+                if (delta != 0) list.setSelectionFromTop(position, row.top - delta - list.paddingTop)
+            }
+            return
+        }
         list.setSelection(position)
         // The row view exists after the next layout
         list.post { list.getChildAt(position - list.firstVisiblePosition)?.requestFocus() }
