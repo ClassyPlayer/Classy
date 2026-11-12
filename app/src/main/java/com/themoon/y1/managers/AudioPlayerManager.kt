@@ -918,7 +918,8 @@ class AudioPlayerManager private constructor() {
                 player.setOnCompletionListener { handleTrackCompletion() }
                 player.setOnErrorListener { _, what, extra ->
                     if (isFlac && flacLegacyFailedPaths.add(track.absolutePath)) {
-                        prepareMusicTrack(index, fromStart = fromStart)
+                        // After the track started, the bookmark has its position: resume there.
+                        prepareMusicTrack(index, fromStart = fromStart && legacyPlayerPath == null)
                     } else {
                         handleTrackError("Legacy Player Error: $what (extra $extra)")
                     }
