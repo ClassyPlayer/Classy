@@ -72,17 +72,11 @@ class CategoryListAdapter(
                     if (!song.matchesGenre(genreFilter)) {
                         continue
                     }
-                    if (artistFilter.isNotEmpty()) {
-                        val matchField = if (isTrackArtist) song.artist else song.albumArtist
-                        if (!artistFilter.equals(matchField, ignoreCase = true)) {
-                            continue
-                        }
-                    }
-                } else if (type == "ALBUM" && artistFilter.isNotEmpty()) {
-                    val matchField = if (isTrackArtist) song.artist else song.albumArtist
-                    if (!artistFilter.equals(matchField, ignoreCase = true)) {
+                    if (artistFilter.isNotEmpty() && !song.matchesArtist(artistFilter, isTrackArtist)) {
                         continue
                     }
+                } else if (type == "ALBUM" && artistFilter.isNotEmpty() && !song.matchesArtist(artistFilter, isTrackArtist)) {
+                    continue
                 }
 
                 val c = counts[song.album]
@@ -163,8 +157,7 @@ class CategoryListAdapter(
                 val isTrack = bc.categoryArtistFilterIsTrackArtist
                 for (song in activeLibrary) {
                     if (song.matchesGenre(bc.categoryGenreFilter)) {
-                        val matchField = if (isTrack) song.artist else song.albumArtist
-                        if (bc.categoryArtistFilter.equals(matchField, ignoreCase = true)) {
+                        if (song.matchesArtist(bc.categoryArtistFilter, isTrack)) {
                             allCount++
                         }
                     }
@@ -173,8 +166,7 @@ class CategoryListAdapter(
                 val isTrackArtistMode = bc.categoryArtistFilterIsTrackArtist
                 val hideCompilationTracks = isTrackArtistMode && bc.artistsHideCompilations()
                 for (song in activeLibrary) {
-                    val matchField = if (isTrackArtistMode) song.artist else song.albumArtist
-                    if (bc.categoryArtistFilter == matchField &&
+                    if (song.matchesArtist(bc.categoryArtistFilter, isTrackArtistMode) &&
                         !com.themoon.y1.models.Compilations.hiddenFromArtists(song, hideCompilationTracks)
                     ) {
                         allCount++
@@ -218,8 +210,7 @@ class CategoryListAdapter(
                 val isTrack = bc.categoryArtistFilterIsTrackArtist
                 for (song in activeLibrary) {
                     if (song.matchesGenre(bc.categoryGenreFilter)) {
-                        val matchField = if (isTrack) song.artist else song.albumArtist
-                        if (bc.categoryArtistFilter.equals(matchField, ignoreCase = true)) {
+                        if (song.matchesArtist(bc.categoryArtistFilter, isTrack)) {
                             tracks.add(song.file)
                         }
                     }
@@ -228,8 +219,7 @@ class CategoryListAdapter(
                 val isTrack = bc.categoryArtistFilterIsTrackArtist
                 val hideCompilationTracks = isTrack && bc.artistsHideCompilations()
                 for (song in activeLibrary) {
-                    val matchField = if (isTrack) song.artist else song.albumArtist
-                    if (bc.categoryArtistFilter == matchField &&
+                    if (song.matchesArtist(bc.categoryArtistFilter, isTrack) &&
                         !com.themoon.y1.models.Compilations.hiddenFromArtists(song, hideCompilationTracks)
                     ) {
                         tracks.add(song.file)
@@ -258,7 +248,7 @@ class CategoryListAdapter(
         val displayName = name
         ivCover.tag = lookupKey
         val songCount = albumSongCounts?.get(lookupKey) ?: albumSongCounts?.get(name) ?: 0
-        val artist = albumArtist ?: albumArtistsMap?.get(name)
+        val artist = (albumArtist ?: albumArtistsMap?.get(name))?.let { com.themoon.y1.models.ArtistNames.display(it) }
         art.bind(displayName, if (isAudiobook) {
             if (songCount == 1) t1File() else "$songCount ${tFiles()}"
         } else if (showAlbumArtist && !artist.isNullOrBlank() && !artist.equals("Unknown Artist", ignoreCase = true)) {

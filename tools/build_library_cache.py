@@ -115,11 +115,12 @@ def scan_folder(local_root: Path, device_root: str):
                 if audio is not None and audio.tags:
                     tags = audio.tags
                     title = first_tag(tags, "title")
-                    artist = first_tag(tags, "artist")
+                    # Every value, as the app reads them: "A; B" is listed as A and as B
+                    artist = all_tags(tags, "artist")
                     album = first_tag(tags, "album")
                     year = first_tag(tags, "date", "year", "originaldate")[:4]
                     genre = all_tags(tags, "genre")
-                    album_artist = first_tag(tags, "albumartist", "album artist")
+                    album_artist = all_tags(tags, "albumartist", "album artist")
                     composer = first_tag(tags, "composer")
                     track_num = extract_track_number(first_tag(tags, "tracknumber", "track"))
                     compilation = read_compilation(local_path, tags)

@@ -373,15 +373,13 @@ class BrowserController(
             if (compilationsOnly && !song.isCompilation) continue
             if (com.themoon.y1.models.Compilations.hiddenFromArtists(song, hideCompilationTracks)) continue
             if (type == "ALBUM" && categoryArtistFilter.isNotEmpty()) {
-                val matchField = if (categoryArtistFilterIsTrackArtist) song.artist else song.albumArtist
-                if (categoryArtistFilter != matchField) continue
+                if (!song.matchesArtist(categoryArtistFilter, categoryArtistFilterIsTrackArtist)) continue
             } else if (type == "GENRE_ARTIST") {
                 if (!song.matchesGenre(categoryGenreFilter)) continue
             } else if (type == "GENRE_ALBUM") {
                 if (!song.matchesGenre(categoryGenreFilter)) continue
                 if (categoryArtistFilter.isNotEmpty()) {
-                    val matchField = if (categoryArtistFilterIsTrackArtist) song.artist else song.albumArtist
-                    if (!categoryArtistFilter.equals(matchField, ignoreCase = true)) continue
+                    if (!song.matchesArtist(categoryArtistFilter, categoryArtistFilterIsTrackArtist)) continue
                 }
             }
 
@@ -393,9 +391,16 @@ class BrowserController(
                 uniqueCategories.addAll(song.getGenres())
                 continue
             }
+            // "A;B" is listed as A and as B
+            if (type == "ARTIST") {
+                uniqueCategories.addAll(song.getAlbumArtists())
+                continue
+            }
+            if (type == "TRACK_ARTIST" || type == "GENRE_ARTIST") {
+                uniqueCategories.addAll(song.getArtists())
+                continue
+            }
             val v = when (type) {
-                "ARTIST" -> song.albumArtist
-                "TRACK_ARTIST", "GENRE_ARTIST" -> song.artist
                 "YEAR" -> song.year
                 "COMPOSER" -> song.composer
                 else -> "Unknown"
@@ -474,13 +479,13 @@ class BrowserController(
                 var isMatch = false
                 when {
                     virtualQueryType == "ALL" || virtualQueryType == "RECENT" -> isMatch = true
-                    virtualQueryType == "ARTIST" && song.artist == virtualQueryValue ->
+                    virtualQueryType == "ARTIST" && song.matchesArtist(virtualQueryValue, trackArtist = true) ->
                         isMatch = !com.themoon.y1.models.Compilations.hiddenFromArtists(song, hideCompilationTracks)
-                    virtualQueryType == "ARTIST_ALL_ALBUMS" && song.albumArtist == virtualQueryValue -> isMatch = true
+                    virtualQueryType == "ARTIST_ALL_ALBUMS" && song.matchesArtist(virtualQueryValue, trackArtist = false) -> isMatch = true
                     virtualQueryType == "ALBUM" && AlbumKey.matches(song, virtualQueryValue, virtualQueryAlbumArtist) -> {
                         if (categoryArtistFilter.isNotEmpty()) {
-                            val matchField = if (categoryArtistFilterIsTrackArtist) song.artist else song.albumArtist
-                            isMatch = (categoryArtistFilter.equals(matchField, ignoreCase = true) || categoryArtistFilter.equals(song.artist, ignoreCase = true)) &&
+                            isMatch = (song.matchesArtist(categoryArtistFilter, categoryArtistFilterIsTrackArtist) ||
+                                song.matchesArtist(categoryArtistFilter, trackArtist = true)) &&
                                 !com.themoon.y1.models.Compilations.hiddenFromArtists(song, hideCompilationTracks)
                         } else {
                             isMatch = true
@@ -490,15 +495,13 @@ class BrowserController(
                     virtualQueryType == "YEAR" && song.year == virtualQueryValue -> isMatch = true
                     virtualQueryType == "GENRE" && song.matchesGenre(virtualQueryValue) -> isMatch = true
                     virtualQueryType == "GENRE_ARTIST_SONGS" -> {
-                        val matchField = if (categoryArtistFilterIsTrackArtist) song.artist else song.albumArtist
                         isMatch = song.matchesGenre(categoryGenreFilter) &&
-                            (categoryArtistFilter.isEmpty() || categoryArtistFilter.equals(matchField, ignoreCase = true))
+                            (categoryArtistFilter.isEmpty() || song.matchesArtist(categoryArtistFilter, categoryArtistFilterIsTrackArtist))
                     }
                     virtualQueryType == "GENRE_ALBUM_SONGS" -> {
-                        val matchField = if (categoryArtistFilterIsTrackArtist) song.artist else song.albumArtist
                         isMatch = AlbumKey.matches(song, virtualQueryValue, virtualQueryAlbumArtist) &&
                             song.matchesGenre(categoryGenreFilter) &&
-                            (categoryArtistFilter.isEmpty() || categoryArtistFilter.equals(matchField, ignoreCase = true))
+                            (categoryArtistFilter.isEmpty() || song.matchesArtist(categoryArtistFilter, categoryArtistFilterIsTrackArtist))
                     }
                     virtualQueryType == "COMPOSER" && song.composer == virtualQueryValue -> isMatch = true
                     virtualQueryType == "COMPILATION_ALBUM" && song.isCompilation &&
