@@ -747,6 +747,10 @@ class AudioPlayerManager private constructor() {
                 track.absolutePath.contains("/Podcasts", ignoreCase = true) ||
                 track.absolutePath.startsWith("/PODCAST_STREAM")
 
+        // A track that plays again from 0: its bookmark from the last play is old, so a retry must not use it.
+        if (fromStart && isAudiobookOrPodcast && initialSeekMs <= 0) {
+            main.prefs.edit().putInt("book_pos_" + track.absolutePath, 0).apply()
+        }
         val effectiveSeekMs = if (initialSeekMs > 0) {
             initialSeekMs
         } else if (isAudiobookOrPodcast && !fromStart) {
@@ -918,8 +922,7 @@ class AudioPlayerManager private constructor() {
                 player.setOnCompletionListener { handleTrackCompletion() }
                 player.setOnErrorListener { _, what, extra ->
                     if (isFlac && flacLegacyFailedPaths.add(track.absolutePath)) {
-                        // After the track started, the bookmark has its position: resume there.
-                        prepareMusicTrack(index, fromStart = fromStart && legacyPlayerPath == null)
+                        prepareMusicTrack(index)
                     } else {
                         handleTrackError("Legacy Player Error: $what (extra $extra)")
                     }
