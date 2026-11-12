@@ -12,8 +12,10 @@ import android.widget.FrameLayout
 import android.widget.ProgressBar
 import android.widget.SeekBar
 import android.widget.TextView
+import com.themoon.y1.MainActivity
 import com.themoon.y1.R
 import com.themoon.y1.controllers.ScreenController
+import com.themoon.y1.controllers.player.LyricsScreenHold
 import com.themoon.y1.core.TimeFormat
 import com.themoon.y1.managers.VideoPlayerManager
 import com.themoon.y1.managers.VirtualVolumeManager
@@ -25,6 +27,7 @@ import java.io.File
  * progress updates, time formatting, and Click Wheel controls: the wheel changes the volume, and the centre
  * button opens scrub mode ([VideoScrub]), where the wheel moves the playhead.
  * The title and the time bar hide while the video plays, and show at each button push ([VideoOverlayLogic]).
+ * The screen stays on while the video plays; on pause, at the end and on exit the Backlight Timer applies again.
  */
 class VideoPlayerController(
     private val activity: Activity,
@@ -49,11 +52,14 @@ class VideoPlayerController(
     private var currentVideoFile: File? = null
     private val overlay = VideoOverlayLogic()
     private val overlayTask = Runnable { refreshOverlay() }
+    /** A screen wake lock, as for lyrics and games. Each progress tick renews or releases it. */
+    private val screenHold = LyricsScreenHold(activity, "Y1:VideoKeepScreenOn")
 
     private val updateProgressTask = object : Runnable {
         override fun run() {
             updateProgressUI()
             refreshOverlay()
+            updateScreenHold()
             progressHandler.postDelayed(this, 1000)
         }
     }
@@ -89,7 +95,17 @@ class VideoPlayerController(
     fun stop() {
         progressHandler.removeCallbacks(updateProgressTask)
         progressHandler.removeCallbacks(overlayTask)
+        screenHold.update(false)
         VideoPlayerManager.getInstance().stopAndRelease()
+    }
+
+    /**
+     * Holds the screen on only while the video plays and the user can see it: the hold ends within one tick after a
+     * pause (also the pause for a USB share), at the end of the video, and when the screen goes off.
+     */
+    private fun updateScreenHold() {
+        val onScreen = (activity as? MainActivity)?.isOnScreen != false
+        screenHold.update(onScreen && VideoPlayerManager.getInstance().isPlaying())
     }
 
     /** A new video or a button push: show the title and the time bar, and start the hide delay again. */
