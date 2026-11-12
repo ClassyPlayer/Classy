@@ -413,17 +413,33 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
             android.util.Log.i("Classy", "Secondary storage not ready yet at onCreate, will load library once mounted")
             playbackRestored = AudioPlayerManager.getInstance().restoreLastPlaybackState(this)
         } else {
-            runMigrationsAsync {
-                loadLibraryCache {
-                    if (!playbackRestored) {
-                        playbackRestored = AudioPlayerManager.getInstance().restoreLastPlaybackState(this)
-                    }
-                    val mgr = com.themoon.y1.migrations.MigrationManager.getInstance(applicationContext)
-                    if (mgr.isPendingMediaRescan() && !isCustomScanning) {
-                        scanVideos()
-                        startMediaLibraryScan()
+            val startLibraryLoad = {
+                runMigrationsAsync {
+                    loadLibraryCache {
+                        if (!playbackRestored) {
+                            playbackRestored = AudioPlayerManager.getInstance().restoreLastPlaybackState(this)
+                        }
+                        val mgr = com.themoon.y1.migrations.MigrationManager.getInstance(applicationContext)
+                        if (mgr.isPendingMediaRescan() && !isCustomScanning) {
+                            scanVideos()
+                            startMediaLibraryScan()
+                        }
                     }
                 }
+            }
+            if (android.os.Environment.getExternalStorageState() == android.os.Environment.MEDIA_MOUNTED) {
+                startLibraryLoad()
+            } else {
+                // Y1: a big microSD card in /storage/sdcard0 mounts ~20 s after boot; a cache read before that finds no
+                // files and the library stayed empty. shortcut: polls up to 2 min, upgrade to a MEDIA_MOUNTED receiver.
+                Thread({
+                    var waitedMs = 0
+                    while (android.os.Environment.getExternalStorageState() != android.os.Environment.MEDIA_MOUNTED && waitedMs < 120_000) {
+                        try { Thread.sleep(500) } catch (_: InterruptedException) { break }
+                        waitedMs += 500
+                    }
+                    runOnUiThread { startLibraryLoad() }
+                }, "y1-wait-primary-storage").start()
             }
         }
 
