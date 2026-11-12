@@ -17,6 +17,7 @@ import com.themoon.y1.lists.ArtRow
 import com.themoon.y1.lists.RowTexts
 import com.themoon.y1.managers.AlbumCoverManager
 import com.themoon.y1.managers.AudioPlayerManager
+import com.themoon.y1.models.ArtistNames
 import com.themoon.y1.models.SongItem
 import com.themoon.y1.podcasts.PodcastDownloadManager
 import com.themoon.y1.views.ClassicMenuStyle
@@ -318,7 +319,7 @@ class SongListAdapter(
     private fun getArtRowView(main: MainActivity, convertView: View?, song: SongItem, position: Int, songPosition: Int): View {
         val art = ArtRow.of(convertView, main)
         val path = song.file.absolutePath
-        val artist = song.artist.takeUnless { it.isBlank() || it.equals("Unknown Artist", ignoreCase = true) } ?: ""
+        val artist = ArtistNames.display(song.artist).takeUnless { it.isBlank() || it.equals("Unknown Artist", ignoreCase = true) } ?: ""
         art.bind(song.title, artist)
         art.image.tag = path
 
