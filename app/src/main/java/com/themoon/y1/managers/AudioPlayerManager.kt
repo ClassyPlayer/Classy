@@ -223,11 +223,7 @@ class AudioPlayerManager private constructor() {
             // Partial wake lock while it plays: music continues when Android turns the screen off.
             setWakeMode(C.WAKE_MODE_LOCAL)
             val initialRepeatMode = MainActivity.instance?.prefs?.let { Prefs.REPEAT_MODE.get(it) } ?: 0
-            repeatMode = when (initialRepeatMode) {
-                1 -> Player.REPEAT_MODE_ONE
-                2 -> Player.REPEAT_MODE_ALL
-                else -> Player.REPEAT_MODE_OFF
-            }
+            repeatMode = exoRepeatMode(initialRepeatMode, exoHoldsWholeQueue())
             addListener(object : Player.EventListener {
                 override fun onPlayerStateChanged(playWhenReady: Boolean, playbackState: Int) {
                     isPlayingActive = playWhenReady && (playbackState == Player.STATE_READY || playbackState == Player.STATE_BUFFERING)
@@ -327,14 +323,14 @@ class AudioPlayerManager private constructor() {
 
     fun setRepeatMode(mode: Int) {
         if (exoPlayer != null && !isUsingLegacyPlayer) {
-            val exoRepeatMode = when (mode) {
-                1 -> Player.REPEAT_MODE_ONE
-                2 -> Player.REPEAT_MODE_ALL
-                else -> Player.REPEAT_MODE_OFF
-            }
-            exoPlayer?.repeatMode = exoRepeatMode
+            exoPlayer?.repeatMode = exoRepeatMode(mode, exoHoldsWholeQueue())
         }
     }
+
+    /** ExoPlayer holds the whole play queue: the gapless queue, or the one track of a podcast stream. */
+    private fun exoHoldsWholeQueue(): Boolean =
+        isGaplessQueueActive ||
+            MainActivity.instance?.currentPlaylist?.singleOrNull()?.absolutePath?.startsWith("/PODCAST_STREAM") == true
 
     fun getCurrentSpeed(): Float = currentSpeed
 
@@ -421,13 +417,13 @@ class AudioPlayerManager private constructor() {
             main.currentIndex = targetIndex
         }
 
+        isGaplessQueueActive = !isShuffle && shouldUseGaplessQueue(main.currentPlaylist)
         if (!isUsingLegacyPlayer && exoPlayer != null) {
             exoPlayer?.shuffleModeEnabled = isShuffle
             setRepeatMode(repeatPref)
         }
         main.isPausedByHand = false
 
-        isGaplessQueueActive = !isShuffle && shouldUseGaplessQueue(main.currentPlaylist)
         if (isGaplessQueueActive) {
             val mediaItems = ArrayList<MediaItem>()
             for (f in main.currentPlaylist) {
@@ -441,12 +437,7 @@ class AudioPlayerManager private constructor() {
                 exo.stop()
                 exo.setMediaItems(mediaItems, main.currentIndex, if (initialSeekMs > 0) initialSeekMs else 0L)
                 exo.shuffleModeEnabled = false
-                val exoRepeatMode = when (repeatPref) {
-                    1 -> Player.REPEAT_MODE_ONE
-                    2 -> Player.REPEAT_MODE_ALL
-                    else -> Player.REPEAT_MODE_OFF
-                }
-                exo.repeatMode = exoRepeatMode
+                exo.repeatMode = exoRepeatMode(repeatPref, gapless = true)
                 exo.setPlaybackParameters(PlaybackParameters(currentSpeed, 1.0f))
                 exo.prepare()
                 if (!main.isPausedByHand) exo.playWhenReady = true
@@ -503,6 +494,8 @@ class AudioPlayerManager private constructor() {
 
             exoPlayer?.setMediaSource(mediaSource)
             exoPlayer?.prepare()
+            // The stream is the whole queue: Repeat All repeats the stream.
+            exoPlayer?.repeatMode = exoRepeatMode(Prefs.REPEAT_MODE.get(main.prefs), gapless = true)
             applyMasterVolume()
 
             if (offsetMs > 0) {
@@ -987,6 +980,8 @@ class AudioPlayerManager private constructor() {
 
                 exoPlayer?.setMediaSource(mediaSource)
                 exoPlayer?.prepare()
+                // Only this track is in ExoPlayer: Repeat All goes to the next track in handleTrackCompletion.
+                exoPlayer?.repeatMode = exoRepeatMode(Prefs.REPEAT_MODE.get(main.prefs), gapless = false)
 
                 val isShuffle = Prefs.SHUFFLE.get(main.prefs)
                 exoPlayer?.shuffleModeEnabled = isShuffle
@@ -2055,12 +2050,12 @@ class AudioPlayerManager private constructor() {
 
             val isShuffle = Prefs.SHUFFLE.get(main.prefs)
             val repeatPref = Prefs.REPEAT_MODE.get(main.prefs)
+            isGaplessQueueActive = !isShuffle && shouldUseGaplessQueue(main.currentPlaylist)
             if (!isUsingLegacyPlayer && exoPlayer != null) {
                 exoPlayer?.shuffleModeEnabled = isShuffle
                 setRepeatMode(repeatPref)
             }
 
-            isGaplessQueueActive = !isShuffle && shouldUseGaplessQueue(main.currentPlaylist)
             if (isGaplessQueueActive) {
                 val mediaItems = ArrayList<MediaItem>()
                 for (f in main.currentPlaylist) {
@@ -2074,12 +2069,7 @@ class AudioPlayerManager private constructor() {
                     exo.stop()
                     exo.setMediaItems(mediaItems, main.currentIndex, savedPos)
                     exo.shuffleModeEnabled = false
-                    val exoRepeatMode = when (repeatPref) {
-                        1 -> Player.REPEAT_MODE_ONE
-                        2 -> Player.REPEAT_MODE_ALL
-                        else -> Player.REPEAT_MODE_OFF
-                    }
-                    exo.repeatMode = exoRepeatMode
+                    exo.repeatMode = exoRepeatMode(repeatPref, gapless = true)
                     exo.setPlaybackParameters(PlaybackParameters(currentSpeed, 1.0f))
                     exo.playWhenReady = false
                     exo.prepare()
@@ -2118,6 +2108,17 @@ class AudioPlayerManager private constructor() {
          */
         internal fun shouldWriteQueue(stamp: List<Int>, saved: List<Int>?, incomplete: List<Int>?): Boolean =
             stamp != saved && stamp != incomplete
+
+        /**
+         * ExoPlayer's repeat mode for the Repeat setting [pref] (0 Off, 1 One, 2 All). [gapless]: ExoPlayer holds the
+         * whole play queue. Otherwise ExoPlayer holds only the current track, and Repeat All must let the track end
+         * (STATE_ENDED), so that handleTrackCompletion starts the next track; REPEAT_MODE_ALL would repeat the one track.
+         */
+        internal fun exoRepeatMode(pref: Int, gapless: Boolean): Int = when (pref) {
+            1 -> Player.REPEAT_MODE_ONE
+            2 -> if (gapless) Player.REPEAT_MODE_ALL else Player.REPEAT_MODE_OFF
+            else -> Player.REPEAT_MODE_OFF
+        }
     }
 }
 
