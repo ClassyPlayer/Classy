@@ -57,9 +57,12 @@ class ArtRow private constructor(context: Context, inListView: Boolean) {
         setTextSize(TypedValue.COMPLEX_UNIT_PX, 15f * density)
         setTypeface(ThemeManager.getCustomFont(), Typeface.NORMAL)
         isSingleLine = true
+        // Cut with "…" in the list; a long line scrolls on the focused row, as the title does
         ellipsize = TextUtils.TruncateAt.END
+        marqueeRepeatLimit = -1
+        isHorizontalFadingEdgeEnabled = true
         layoutParams = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
         ).apply { topMargin = dp(1) }
     }
 
@@ -109,6 +112,8 @@ class ArtRow private constructor(context: Context, inListView: Boolean) {
         subtitle.setTextColor(if (focused) focusedText else ThemeManager.getTextColorSecondary())
         arrow.visibility = if (focused) View.VISIBLE else View.GONE
         title.isSelected = focused
+        subtitle.ellipsize = if (focused) TextUtils.TruncateAt.MARQUEE else TextUtils.TruncateAt.END
+        subtitle.isSelected = focused
     }
 
     private fun dp(value: Int): Int = (value * density).toInt()
