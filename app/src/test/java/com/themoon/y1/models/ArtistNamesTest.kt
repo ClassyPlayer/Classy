@@ -68,4 +68,13 @@ class ArtistNamesTest {
         assertEquals(listOf("Beau Black", "Alex Cartana"), song.getArtists())
         assertEquals(listOf("Disney", "Disney Junior"), song.getAlbumArtists())
     }
+
+    @Test
+    fun theSameCaseRuleListsAndMatchesANameOnce() {
+        // "Σ" and "ς" differ after lowercase(), but equals(ignoreCase = true) treats them as one name
+        assertEquals(listOf("ΑΣ"), ArtistNames.split("ΑΣ;Ας"))
+        assertEquals(listOf("ΑΣ"), ArtistNames.distinctIgnoringCase(listOf("ΑΣ", "Ας")))
+        assertTrue(ArtistNames.contains("ΑΣ", "Ας"))
+        assertEquals(listOf("Queen", "Abba"), ArtistNames.distinctIgnoringCase(listOf("Queen", "queen", "Abba", "ABBA")))
+    }
 }

@@ -1,6 +1,5 @@
 package com.themoon.y1.models
 
-import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -17,18 +16,25 @@ object ArtistNames {
     fun split(raw: String?): List<String> {
         if (raw.isNullOrBlank()) return emptyList()
         cache[raw]?.let { return it }
-        val seen = HashSet<String>()
+        val seen = ignoringCase()
         val names = raw.split(SEPARATORS).map { it.trim() }
-            .filter { it.isNotEmpty() && seen.add(it.lowercase(Locale.US)) }
+            .filter { it.isNotEmpty() && seen.add(it) }
         cache[raw] = names
         return names
     }
 
     /** [names] with one entry for each name ignoring case: the first spelling stays. */
     fun distinctIgnoringCase(names: Iterable<String>): List<String> {
-        val seen = HashSet<String>()
-        return names.filter { seen.add(it.lowercase(Locale.US)) }
+        val seen = ignoringCase()
+        return names.filter { seen.add(it) }
     }
+
+    /**
+     * A set that treats names as equal by the same rule as `equals(ignoreCase = true)` in [contains] (character by
+     * character), so a name that matches the same songs is never listed twice (also "Σ" and "ς", which differ after
+     * lowercase()).
+     */
+    private fun ignoringCase() = java.util.TreeSet<String>(String.CASE_INSENSITIVE_ORDER)
 
     /** The names of [raw] for a label: "Beau Black, Alex Cartana". */
     fun display(raw: String?): String = split(raw).joinToString(", ")
