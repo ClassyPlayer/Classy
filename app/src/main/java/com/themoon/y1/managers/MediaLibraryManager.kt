@@ -202,7 +202,8 @@ class MediaLibraryManager private constructor() {
         val albumArtist: String,
         val composer: String,
         val compilationTag: Boolean,
-        val trackNum: Int
+        val trackNum: Int,
+        val durationMs: Long = 0L
     )
 
     internal fun extractAudioMetadata(f: File, isAudiobook: Boolean): ExtractedAudioMetadata {
@@ -218,6 +219,7 @@ class MediaLibraryManager private constructor() {
         var composer: String? = null
         var compilation = false
         var trackNum = 0
+        var durationMs = 0L
 
         try {
             val lower = f.name.lowercase(java.util.Locale.US)
@@ -293,6 +295,7 @@ class MediaLibraryManager private constructor() {
                     aa = mmr.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_ALBUMARTIST)
                     cp = mmr.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_COMPOSER)
                     cpl = mmr.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_COMPILATION)
+                    durationMs = mmr.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
                 } catch (_: Throwable) {
                 } finally {
                     try { fis?.close() } catch (_: Throwable) {}
@@ -300,6 +303,8 @@ class MediaLibraryManager private constructor() {
                 }
             }
 
+            // The FLAC, Ogg, Opus and ALAC readers above give no length
+            if (durationMs <= 0L) durationMs = readDurationMs(f)
             if (!t.isNullOrBlank()) title = t
             if (!a.isNullOrBlank()) {
                 artist = a
@@ -347,8 +352,26 @@ class MediaLibraryManager private constructor() {
             albumArtist = albumArtist ?: artist,
             composer = composer ?: "Unknown Composer",
             compilationTag = compilation,
-            trackNum = trackNum
+            trackNum = trackNum,
+            durationMs = durationMs
         )
+    }
+
+    /** The length of [f] in milliseconds from Android's MediaMetadataRetriever; 0 if it cannot tell. */
+    internal fun readDurationMs(f: File): Long {
+        var mmr: android.media.MediaMetadataRetriever? = null
+        var fis: java.io.FileInputStream? = null
+        return try {
+            mmr = android.media.MediaMetadataRetriever()
+            fis = java.io.FileInputStream(f)
+            mmr.setDataSource(fis.fd)
+            mmr.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
+        } catch (_: Throwable) {
+            0L
+        } finally {
+            try { fis?.close() } catch (_: Throwable) {}
+            try { mmr?.release() } catch (_: Throwable) {}
+        }
     }
 
     internal fun scanDirectory(
@@ -409,6 +432,7 @@ class MediaLibraryManager private constructor() {
                     existingItem.albumArtist = meta.albumArtist
                     existingItem.composer = meta.composer
                     existingItem.compilationTag = meta.compilationTag
+                    existingItem.durationMs = meta.durationMs
                     existingItem.dateModified = currentModified
                     existingItem.fileSize = currentSize
 
@@ -428,6 +452,7 @@ class MediaLibraryManager private constructor() {
                 } else {
                     val song = SongItem(f, meta.title, meta.artist, meta.album, meta.year, meta.genre, meta.albumArtist, meta.composer)
                     song.compilationTag = meta.compilationTag
+                    song.durationMs = meta.durationMs
                     song.dateModified = currentModified
                     song.fileSize = currentSize
                     targetList.add(song)
@@ -518,6 +543,10 @@ class MediaLibraryManager private constructor() {
                 if (song.fileSize > 0L) {
                     w.write(",\"fileSize\":")
                     w.write(song.fileSize.toString())
+                }
+                if (song.durationMs > 0L) {
+                    w.write(",\"durationMs\":")
+                    w.write(song.durationMs.toString())
                 }
                 // Only for compilation tracks: a missing field reads as false (also in caches from before).
                 if (song.compilationTag) w.write(",\"compilation\":true")
@@ -622,6 +651,7 @@ class MediaLibraryManager private constructor() {
                 song.compilationTag = o.optBoolean("compilation", false)
                 song.dateModified = o.optLong("dateModified", o.optLong("modified", 0L))
                 song.fileSize = o.optLong("fileSize", o.optLong("size", 0L))
+                song.durationMs = o.optLong("durationMs", 0L)
                 target.add(song)
                 trackNumbers[f.absolutePath] = o.optInt("trackNum", 0)
             } catch (ignored: Throwable) {}

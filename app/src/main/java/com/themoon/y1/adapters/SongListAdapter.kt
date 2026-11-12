@@ -1,6 +1,7 @@
 package com.themoon.y1.adapters
 
 import android.graphics.Bitmap
+import android.media.MediaMetadataRetriever
 import android.view.View
 import android.view.ViewGroup
 import android.widget.AbsListView
@@ -29,7 +30,7 @@ import java.util.Date
 
 class SongListAdapter(
     private val items: List<SongItem>,
-    /** Playlist rows: the album cover at the left and the title over the artist (the album rows' look). */
+    /** Playlist rows: the cover, the title over the artist, and the track length at the right. */
     private val artRows: Boolean = false
 ) : BaseAdapter(), RowTexts {
 
@@ -315,8 +316,11 @@ class SongListAdapter(
         val art = ArtRow.of(convertView, main)
         val path = song.file.absolutePath
         val artist = song.artist.takeUnless { it.isBlank() || it.equals("Unknown Artist", ignoreCase = true) } ?: ""
-        art.bind(song.title, artist)
+        // The scan keeps the length; a library cache from before it did is read from the file once
+        val length = if (song.durationMs > 0L) TimeFormat.format(song.durationMs) else durations[path]
+        art.bind(song.title, artist, length ?: "")
         art.image.tag = path
+        if (length == null) loadDuration(path, art)
 
         val covers = AlbumCoverManager.getInstance()
         val cover = covers.getThumbnailDirect(AlbumCoverManager.getAlbumKey(song.file, song.album))
@@ -402,6 +406,32 @@ class SongListAdapter(
         const val VIEW_TYPE_SONG: Int = 1
 
         private var shuffleTileBitmap: Bitmap? = null
+
+        // Lengths of songs whose cache entry has none, read when a row first shows (kept until Classy restarts)
+        private val durations = java.util.concurrent.ConcurrentHashMap<String, String>()
+        private val durationWorker = java.util.concurrent.Executors.newSingleThreadExecutor()
+        private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
+
+        private fun loadDuration(path: String, art: ArtRow) {
+            durationWorker.execute {
+                var text = durations[path] ?: ""
+                if (!durations.containsKey(path)) {
+                    val mmr = MediaMetadataRetriever()
+                    try {
+                        mmr.setDataSource(path)
+                        val ms = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
+                        if (ms > 0) text = TimeFormat.format(ms)
+                    } catch (e: Exception) {
+                        // No length for this file: the row shows none
+                    } finally {
+                        try { mmr.release() } catch (e: Exception) {}
+                    }
+                    durations[path] = text
+                }
+                // Not View.post: from a worker thread it is lost while the row is not attached (Android 4.4)
+                mainHandler.post { if (art.image.tag == path) art.setTrailing(text) }
+            }
+        }
 
         private fun determineShuffleRow(items: List<SongItem>?): Boolean {
             if (items.isNullOrEmpty()) return false

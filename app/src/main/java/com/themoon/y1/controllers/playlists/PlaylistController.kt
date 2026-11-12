@@ -164,7 +164,9 @@ class PlaylistController(
     private fun taggedRow(file: File, byPath: Map<String, SongItem>): SongItem {
         val song = byPath[file.absolutePath]
         val title = song?.title?.takeIf { it.isNotBlank() } ?: file.nameWithoutExtension
-        return SongItem(file, title, song?.artist, song?.album)
+        val row = SongItem(file, title, song?.artist, song?.album)
+        row.durationMs = song?.durationMs ?: 0L
+        return row
     }
 
     fun parseM3uFile(m3uFile: File): List<SongItem> {

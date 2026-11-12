@@ -66,6 +66,17 @@ class ArtRow private constructor(context: Context, inListView: Boolean) {
         ).apply { topMargin = dp(1) }
     }
 
+    /** Text at the right edge (a track length). With it the row shows no chevron: the row does not open a list. */
+    private val trailing = TextView(context).apply {
+        setTextSize(TypedValue.COMPLEX_UNIT_PX, 15f * density)
+        setTypeface(ThemeManager.getCustomFont(), Typeface.NORMAL)
+        isSingleLine = true
+        visibility = View.GONE
+        layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT
+        ).apply { leftMargin = dp(8) }
+    }
+
     private val arrow = TextView(context).apply {
         text = "〉"
         setTextSize(TypedValue.COMPLEX_UNIT_PX, 18f * density)
@@ -85,6 +96,7 @@ class ArtRow private constructor(context: Context, inListView: Boolean) {
         text.addView(title)
         text.addView(subtitle)
         view.addView(text)
+        view.addView(trailing)
         view.addView(arrow)
         ClassicMenuStyle.apply(view, title, arrow, HEIGHT_DP)
         view.tag = this
@@ -93,11 +105,18 @@ class ArtRow private constructor(context: Context, inListView: Boolean) {
     }
 
     /** Sets the texts; an empty [line2] shows no second line. The image stays: set it with [image]. */
-    fun bind(line1: String, line2: String) {
+    fun bind(line1: String, line2: String, right: String? = null) {
         title.text = line1
         subtitle.text = line2
         subtitle.visibility = if (line2.isEmpty()) View.GONE else View.VISIBLE
+        trailing.text = right ?: ""
+        trailing.visibility = if (right == null) View.GONE else View.VISIBLE
         showFocus(view.isFocused)
+    }
+
+    /** Sets the right-edge text of a row bound with one (it may come later than the row). */
+    fun setTrailing(right: String) {
+        trailing.text = right
     }
 
     private fun showFocus(focused: Boolean) {
@@ -110,7 +129,8 @@ class ArtRow private constructor(context: Context, inListView: Boolean) {
         val focusedText = ThemeManager.getListButtonFocusedTextColor()
         title.setTextColor(if (focused) focusedText else ThemeManager.getTextColorPrimary())
         subtitle.setTextColor(if (focused) focusedText else ThemeManager.getTextColorSecondary())
-        arrow.visibility = if (focused) View.VISIBLE else View.GONE
+        trailing.setTextColor(if (focused) focusedText else ThemeManager.getTextColorSecondary())
+        arrow.visibility = if (focused && trailing.visibility != View.VISIBLE) View.VISIBLE else View.GONE
         title.isSelected = focused
         subtitle.ellipsize = if (focused) TextUtils.TruncateAt.MARQUEE else TextUtils.TruncateAt.END
         subtitle.isSelected = focused

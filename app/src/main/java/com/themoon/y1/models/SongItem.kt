@@ -34,6 +34,9 @@ class SongItem {
     var albumArtist: String
     var composer: String
 
+    /** Length in milliseconds from the library scan; 0 when not known (a cache from before it was kept). */
+    var durationMs: Long = 0L
+
     /** The compilation flag of the tags (ID3 TCMP, MP4 cpil, Vorbis COMPILATION). The library cache keeps it. */
     var compilationTag: Boolean = false
 
