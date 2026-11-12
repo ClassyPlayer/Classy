@@ -121,7 +121,7 @@ class PlaylistController(
         for (song in songs) {
             main?.virtualSongList?.add(song.file)
         }
-        screen.show(ListSpec(localize("Playlist") + ": " + m3uFile.nameWithoutExtension, adapter = SongListAdapter(songs),
+        screen.show(ListSpec(localize("Playlist") + ": " + m3uFile.nameWithoutExtension, adapter = SongListAdapter(songs, artRows = true),
             empty = localize("No Songs")))
     }
 
@@ -145,24 +145,32 @@ class PlaylistController(
 
     private fun showSmartPlaylistSongs(state: ScreenState.SmartPlaylistSongs, files: List<File>) {
         val main = activity as? com.themoon.y1.MainActivity
-        val byPath = HashMap<String, SongItem>()
-        for (song in com.themoon.y1.MainActivity.customLibrary) byPath[song.file.absolutePath] = song
+        val byPath = libraryByPath()
         val rows = ArrayList<SongItem>()
-        for (file in files) {
-            val song = byPath[file.absolutePath]
-            val title = song?.title?.takeIf { it.isNotBlank() } ?: file.nameWithoutExtension
-            val artist = song?.artist?.takeIf { it.isNotBlank() && !it.equals("Unknown Artist", ignoreCase = true) }
-            rows.add(SongItem(file, if (artist != null) "$title — $artist" else title, song?.artist, song?.album))
-        }
+        for (file in files) rows.add(taggedRow(file, byPath))
         main?.virtualSongList?.clear()
         main?.virtualSongList?.addAll(files)
         main?.virtualListSelectedIndex = 0
-        screen.show(ListSpec(smartPlaylistTitle(state.kind), adapter = SongListAdapter(rows), empty = localize("No Songs")))
+        screen.show(ListSpec(smartPlaylistTitle(state.kind), adapter = SongListAdapter(rows, artRows = true), empty = localize("No Songs")))
+    }
+
+    private fun libraryByPath(): HashMap<String, SongItem> {
+        val byPath = HashMap<String, SongItem>()
+        for (song in com.themoon.y1.MainActivity.customLibrary) byPath[song.file.absolutePath] = song
+        return byPath
+    }
+
+    /** A playlist row with the title, artist and album of the library tags; the file name when the library does not have the file. */
+    private fun taggedRow(file: File, byPath: Map<String, SongItem>): SongItem {
+        val song = byPath[file.absolutePath]
+        val title = song?.title?.takeIf { it.isNotBlank() } ?: file.nameWithoutExtension
+        return SongItem(file, title, song?.artist, song?.album)
     }
 
     fun parseM3uFile(m3uFile: File): List<SongItem> {
         val songs = ArrayList<SongItem>()
         if (!m3uFile.exists()) return songs
+        val byPath = libraryByPath()
 
         try {
             val br = BufferedReader(InputStreamReader(FileInputStream(m3uFile), "UTF-8"))
@@ -178,12 +186,7 @@ class PlaylistController(
                 }
 
                 if (audioFile.exists() && isAudioFile(audioFile)) {
-                    var title = audioFile.name
-                    val dotIdx = title.lastIndexOf(".")
-                    if (dotIdx > 0) {
-                        title = title.substring(0, dotIdx)
-                    }
-                    songs.add(SongItem(audioFile, title, "M3U Playlist", ""))
+                    songs.add(taggedRow(audioFile, byPath))
                 }
             }
             br.close()
