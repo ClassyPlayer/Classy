@@ -132,7 +132,8 @@ class PlaylistController(
 
     /**
      * Recently Played (newest first) or Top 25 Most Played (most plays first), from [PlayHistoryManager].
-     * Rows are "title — artist". Not alphabetical, so no index bar. A song plays the list from that song.
+     * Rows show the cover, with the title over the artist. Not alphabetical, so no index bar. A song plays the list
+     * from that song.
      */
     fun buildSmartPlaylistUI(state: ScreenState.SmartPlaylistSongs) {
         // Empty until the list comes from the worker thread (a few ms)
