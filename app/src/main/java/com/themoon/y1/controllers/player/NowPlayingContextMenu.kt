@@ -3,6 +3,7 @@ package com.themoon.y1.controllers.player
 import com.themoon.y1.MainActivity
 import com.themoon.y1.cast.PlayOnMenu
 import com.themoon.y1.controllers.settings.ActionScreens
+import com.themoon.y1.models.ArtistNames
 import com.themoon.y1.models.SongItem
 import java.io.File
 
@@ -42,7 +43,9 @@ object NowPlayingContextMenu {
             }
             val artist = if (songItem.albumArtist.isNotEmpty()) songItem.albumArtist else songItem.artist
             if (artist.isNotEmpty()) {
-                rows += ActionScreens.Action(localize("Browse Artist")) { onBrowseArtist(artist) }
+                // "A;B" opens the songs of A, as the Artists list shows A and B on their own
+                val firstArtist = ArtistNames.split(artist).firstOrNull() ?: artist
+                rows += ActionScreens.Action(localize("Browse Artist")) { onBrowseArtist(firstArtist) }
             }
         }
         // Play On: the speaker list of Main menu → Play On opens over this menu (Back comes back to it)

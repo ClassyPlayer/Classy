@@ -32,6 +32,8 @@ class MediaLibraryManager private constructor() {
     var isScanning: Boolean = false
         private set
 
+    private val isFillingLengths = java.util.concurrent.atomic.AtomicBoolean(false)
+
     interface ScanProgressListener {
         fun onProgress(scanned: Int, total: Int)
         fun onComplete(musicCount: Int, booksCount: Int)
@@ -203,7 +205,8 @@ class MediaLibraryManager private constructor() {
         val albumArtist: String,
         val composer: String,
         val compilationTag: Boolean,
-        val trackNum: Int
+        val trackNum: Int,
+        val durationMs: Long = 0L
     )
 
     internal fun extractAudioMetadata(f: File, isAudiobook: Boolean): ExtractedAudioMetadata {
@@ -219,6 +222,7 @@ class MediaLibraryManager private constructor() {
         var composer: String? = null
         var compilation = false
         var trackNum = 0
+        var durationMs = 0L
 
         try {
             val lower = f.name.lowercase(java.util.Locale.US)
@@ -244,6 +248,7 @@ class MediaLibraryManager private constructor() {
                 if (tags.size > 8 && tags[8] != null) aa = tags[8] as? String
                 if (tags.size > 9 && tags[9] != null) cp = tags[9] as? String
                 if (tags.size > 10 && tags[10] != null) cpl = tags[10] as? String
+                if (tags.size > 11) durationMs = tags[11] as? Long ?: 0L
             } else if (lower.endsWith(".flac")) {
                 val tags = apm.extractFlacMetadata(f, false)
                 if (tags[0] != null) t = tags[0] as? String
@@ -255,6 +260,7 @@ class MediaLibraryManager private constructor() {
                 if (tags.size > 8 && tags[8] != null) aa = tags[8] as? String
                 if (tags.size > 9 && tags[9] != null) cp = tags[9] as? String
                 if (tags.size > 10 && tags[10] != null) cpl = tags[10] as? String
+                if (tags.size > 11) durationMs = tags[11] as? Long ?: 0L
             } else if (lower.endsWith(".m4a") || lower.endsWith(".m4b")) {
                 val tags = apm.extractAlacMetadata(f, false)
                 if (tags[0] != null) t = tags[0] as? String
@@ -266,6 +272,7 @@ class MediaLibraryManager private constructor() {
                 if (tags.size > 8 && tags[8] != null) aa = tags[8] as? String
                 if (tags.size > 9 && tags[9] != null) cp = tags[9] as? String
                 if (tags.size > 10 && tags[10] != null) cpl = tags[10] as? String
+                if (tags.size > 11) durationMs = tags[11] as? Long ?: 0L
             } else if (lower.endsWith(".ogg")) {
                 val tags = apm.extractOggVorbisMetadata(f, false)
                 if (tags[0] != null) t = tags[0] as? String
@@ -277,6 +284,7 @@ class MediaLibraryManager private constructor() {
                 if (tags.size > 8 && tags[8] != null) aa = tags[8] as? String
                 if (tags.size > 9 && tags[9] != null) cp = tags[9] as? String
                 if (tags.size > 10 && tags[10] != null) cpl = tags[10] as? String
+                if (tags.size > 11) durationMs = tags[11] as? Long ?: 0L
             } else {
                 var mmr: android.media.MediaMetadataRetriever? = null
                 var fis: java.io.FileInputStream? = null
@@ -294,6 +302,7 @@ class MediaLibraryManager private constructor() {
                     aa = mmr.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_ALBUMARTIST)
                     cp = mmr.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_COMPOSER)
                     cpl = mmr.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_COMPILATION)
+                    durationMs = mmr.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
                 } catch (_: Throwable) {
                 } finally {
                     try { fis?.close() } catch (_: Throwable) {}
@@ -348,8 +357,31 @@ class MediaLibraryManager private constructor() {
             albumArtist = albumArtist ?: artist,
             composer = composer ?: "Unknown Composer",
             compilationTag = compilation,
-            trackNum = trackNum
+            trackNum = trackNum,
+            durationMs = durationMs
         )
+    }
+
+    /**
+     * Only the length of [f] in milliseconds; 0 if it cannot tell. FLAC, Ogg, Opus and MP4 from their headers,
+     * other types (and a header with no length) from Android's MediaMetadataRetriever.
+     */
+    fun readLengthMs(f: File): Long {
+        // A header with no length (0): Android's reader can still know it
+        AudioLength.fromHeaders(f)?.takeIf { it > 0L }?.let { return it }
+        var mmr: android.media.MediaMetadataRetriever? = null
+        var fis: java.io.FileInputStream? = null
+        return try {
+            mmr = android.media.MediaMetadataRetriever()
+            fis = java.io.FileInputStream(f)
+            mmr.setDataSource(fis.fd)
+            mmr.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
+        } catch (_: Throwable) {
+            0L
+        } finally {
+            try { fis?.close() } catch (_: Throwable) {}
+            try { mmr?.release() } catch (_: Throwable) {}
+        }
     }
 
     internal fun scanDirectory(
@@ -411,6 +443,7 @@ class MediaLibraryManager private constructor() {
                     existingItem.albumArtist = meta.albumArtist
                     existingItem.composer = meta.composer
                     existingItem.compilationTag = meta.compilationTag
+                    existingItem.durationMs = meta.durationMs
                     existingItem.dateModified = currentModified
                     existingItem.fileSize = currentSize
 
@@ -430,6 +463,7 @@ class MediaLibraryManager private constructor() {
                 } else {
                     val song = SongItem(f, meta.title, meta.artist, meta.album, meta.year, meta.genre, meta.albumArtist, meta.composer)
                     song.compilationTag = meta.compilationTag
+                    song.durationMs = meta.durationMs
                     song.dateModified = currentModified
                     song.fileSize = currentSize
                     targetList.add(song)
@@ -450,7 +484,79 @@ class MediaLibraryManager private constructor() {
         return scanned
     }
 
-    fun saveLibraryCache() {
+    /**
+     * Reads the length of each song that has none (a library cache from before the scan kept the length) on a
+     * low-priority worker, and saves the cache. [onDone] runs on the worker when no song in the lists is left
+     * to read. Only one fill runs at a time.
+     */
+    fun fillMissingLengths(onDone: () -> Unit) {
+        if (!isFillingLengths.compareAndSet(false, true)) return
+        val worker = Thread({
+            try {
+                android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND)
+                val songs = ArrayList<SongItem>()
+                synchronized(musicLibrary) { musicLibrary.filterTo(songs) { it.durationMs <= 0L } }
+                synchronized(audiobookLibrary) { audiobookLibrary.filterTo(songs) { it.durationMs <= 0L } }
+                // Each path read, with its length (0: not known)
+                val read = HashMap<String, Long>()
+                var filled = 0
+                for (song in songs) {
+                    if (song.durationMs > 0L) continue
+                    val ms = readLengthMs(song.file)
+                    read[song.file.absolutePath] = ms
+                    if (ms <= 0L) continue
+                    song.durationMs = ms
+                    filled++
+                    if (filled % 500 == 0) saveLibraryCache()
+                }
+                // A cache load during the fill puts new song objects into the lists: give them the lengths too
+                var missed = false
+                for (list in listOf(musicLibrary, audiobookLibrary)) synchronized(list) {
+                    for (song in list) {
+                        if (song.durationMs > 0L) continue
+                        val ms = read[song.file.absolutePath]
+                        if (ms == null) missed = true else if (ms > 0L) song.durationMs = ms
+                    }
+                }
+                val saved = filled == 0 || saveLibraryCache()
+                // A cache load between the last pass and the save puts new song objects without the lengths into
+                // the lists (and the save then wrote them): look again after the save
+                val lost = hasMissingLengths(read)
+                Log.i(tag, "Track lengths: filled $filled of ${songs.size}, saved $saved, lost $lost")
+                // A song that came into the lists during the fill, a cache that was not saved, or lengths that a cache
+                // load replaced: the next cache load continues
+                if (!missed && saved && !lost) onDone()
+            } catch (t: Throwable) {
+                Log.e(tag, "Track length fill error: ${t.message}", t)
+            } finally {
+                isFillingLengths.set(false)
+            }
+        }, "y1-length-fill")
+        try {
+            worker.start()
+        } catch (t: Throwable) {
+            isFillingLengths.set(false)
+        }
+    }
+
+    /**
+     * True when a song in the lists has no length but the fill read one for its path ([read]), or was not read at
+     * all: a cache load replaced the song objects after the fill gave them their lengths.
+     */
+    internal fun hasMissingLengths(read: Map<String, Long>): Boolean {
+        for (list in listOf(musicLibrary, audiobookLibrary)) synchronized(list) {
+            for (song in list) {
+                if (song.durationMs > 0L) continue
+                val ms = read[song.file.absolutePath] ?: return true
+                if (ms > 0L) return true
+            }
+        }
+        return false
+    }
+
+    /** The scan and the length fill can both save the cache: one at a time, as they write the same temp file. */
+    @Synchronized
+    fun saveLibraryCache(): Boolean {
         val cacheFile = StoragePaths.primaryFile(".y1_library_cache.json")
         val tempFile = StoragePaths.primaryFile(".y1_library_cache.json.tmp")
         var bw: BufferedWriter? = null
@@ -473,7 +579,7 @@ class MediaLibraryManager private constructor() {
                 if (cacheFile.exists()) {
                     cacheFile.delete()
                 }
-                tempFile.renameTo(cacheFile)
+                return tempFile.renameTo(cacheFile)
             }
         } catch (t: Throwable) {
             Log.e(tag, "Failed to save library cache: ${t.message}")
@@ -485,6 +591,7 @@ class MediaLibraryManager private constructor() {
                 bw?.close()
             } catch (ignored: Throwable) {}
         }
+        return false
     }
 
     internal fun writeSongListJson(w: Writer, list: List<SongItem>) {
@@ -520,6 +627,10 @@ class MediaLibraryManager private constructor() {
                 if (song.fileSize > 0L) {
                     w.write(",\"fileSize\":")
                     w.write(song.fileSize.toString())
+                }
+                if (song.durationMs > 0L) {
+                    w.write(",\"durationMs\":")
+                    w.write(song.durationMs.toString())
                 }
                 // Only for compilation tracks: a missing field reads as false (also in caches from before).
                 if (song.compilationTag) w.write(",\"compilation\":true")
@@ -624,6 +735,7 @@ class MediaLibraryManager private constructor() {
                 song.compilationTag = o.optBoolean("compilation", false)
                 song.dateModified = o.optLong("dateModified", o.optLong("modified", 0L))
                 song.fileSize = o.optLong("fileSize", o.optLong("size", 0L))
+                song.durationMs = o.optLong("durationMs", 0L)
                 target.add(song)
                 trackNumbers[f.absolutePath] = o.optInt("trackNum", 0)
             } catch (ignored: Throwable) {}

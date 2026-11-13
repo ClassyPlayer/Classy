@@ -12,6 +12,7 @@ import com.themoon.y1.managers.AutoThemeManager
 import com.themoon.y1.managers.BacklightTimer
 import com.themoon.y1.managers.ButtonVibration
 import com.themoon.y1.managers.ClickVolume
+import com.themoon.y1.managers.UpdateChannel
 import com.themoon.y1.managers.UsbDrive
 import com.themoon.y1.managers.VolumeSteps
 import com.themoon.y1.models.AlbumKey
@@ -56,8 +57,8 @@ open class PrefKey(
 
 /** A key with a type and a default value. [set] writes at once (commit), [setAsync] in the background (apply). */
 abstract class Pref<T>(
-    key: String, val default: T, group: PrefGroup, resettable: Boolean = false,
-) : PrefKey(key, group, resettable) {
+    key: String, val default: T, group: PrefGroup, resettable: Boolean = false, inBackup: Boolean = true,
+) : PrefKey(key, group, resettable, inBackup) {
     abstract fun get(prefs: SharedPreferences): T
     abstract fun put(editor: SharedPreferences.Editor, value: T): SharedPreferences.Editor
     fun set(prefs: SharedPreferences, value: T): Boolean = put(prefs.edit(), value).commit()
@@ -78,8 +79,8 @@ class IntPref(key: String, default: Int, group: PrefGroup, resettable: Boolean =
     override fun put(editor: SharedPreferences.Editor, value: Int): SharedPreferences.Editor = editor.putInt(key, value)
 }
 
-class StringPref(key: String, default: String, group: PrefGroup, resettable: Boolean = false) :
-    Pref<String>(key, default, group, resettable) {
+class StringPref(key: String, default: String, group: PrefGroup, resettable: Boolean = false, inBackup: Boolean = true) :
+    Pref<String>(key, default, group, resettable, inBackup) {
     override fun get(prefs: SharedPreferences): String = prefs.getString(key, default) ?: default
     override fun put(editor: SharedPreferences.Editor, value: String): SharedPreferences.Editor = editor.putString(key, value)
 }
@@ -121,6 +122,8 @@ object Prefs {
     /** Band levels of the custom EQ profiles: "eq_custom_<name>_band_<n>" ([com.themoon.y1.managers.AudioEffectPlan.bandLevelKey]). */
     val EQ_BANDS = add(PrefFamily("eq_custom_", PrefGroup.PLAYBACK))
     val SOUND_CHECK = add(BoolPref("sound_check_enabled", false, PrefGroup.PLAYBACK, resettable = true))
+    /** Both channels play the mix of left and right ([com.themoon.y1.managers.MonoAudioProcessor]). */
+    val MONO_AUDIO = add(BoolPref("mono_audio", false, PrefGroup.PLAYBACK, resettable = true))
     /** A volume step (1..30); -1 = no limit. */
     val VOLUME_LIMIT = add(IntPref(VolumeSteps.PREF_LIMIT, -1, PrefGroup.PLAYBACK, resettable = true))
     /** An old EQ key. No code reads it; Reset removes it. */
@@ -198,6 +201,13 @@ object Prefs {
     val LASTFM_PASSWORD = add(PrefKey("lastfm_password", PrefGroup.ACCOUNT, inBackup = false))
     val LAST_LANG_VERSION = add(PrefKey("last_lang_version", PrefGroup.INSTALL, inBackup = false))
     val LAST_THEME_VERSION = add(PrefKey("last_installed_theme_version", PrefGroup.INSTALL, inBackup = false))
+    /**
+     * Update Channel chosen in Settings ([UpdateChannel]); it holds only for the builds in [UPDATE_CHANNEL_BUILDS].
+     * Not in the backup: a backup of another player must not move this one to another channel.
+     */
+    val UPDATE_CHANNEL = add(StringPref(UpdateChannel.PREF, "", PrefGroup.INSTALL, inBackup = false))
+    /** The version names, comma-separated, that [UPDATE_CHANNEL] holds for. */
+    val UPDATE_CHANNEL_BUILDS = add(StringPref(UpdateChannel.PREF_BUILDS, "", PrefGroup.INSTALL, inBackup = false))
     /** An old key. No code reads it. */
     val REBOOT_TO_THEME = add(PrefKey("reboot_to_theme", PrefGroup.LEGACY, inBackup = false))
 

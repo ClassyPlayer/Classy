@@ -17,4 +17,12 @@ class OtaUpdateChannelTest {
         assertEquals(OtaUpdateManager.UPDATE_JSON_URL_Y1, OtaUpdateManager.updateJsonUrl(17))
         assertEquals(OtaUpdateManager.UPDATE_JSON_URL_Y1, OtaUpdateManager.updateJsonUrl(18))
     }
+
+    @Test
+    fun betaChannel_looksForTheMetadataFileOfThePlayer() {
+        assertEquals("update.json", OtaUpdateManager.manifestName(19))
+        assertEquals("update-y1.json", OtaUpdateManager.manifestName(17))
+        // The Stable URL and the Beta file name agree
+        for (sdk in listOf(17, 19)) assertEquals(true, OtaUpdateManager.updateJsonUrl(sdk).endsWith("/" + OtaUpdateManager.manifestName(sdk)))
+    }
 }

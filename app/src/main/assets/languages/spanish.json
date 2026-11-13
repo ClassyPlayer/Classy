@@ -317,7 +317,7 @@
   "Scan Complete!\nFound": "¡Escaneo completo!\nCanales encontrados: ",
   "channels.\nTuning to": ".\nCambiando a ",
   "No stations found.": "No se encontraron canales.",
-  "No .m3u files found in Y1_Playlists": "No se encontraron archivos .m3u en Y1_Playlists",
+  "No .m3u files found in Playlists": "No se encontraron archivos .m3u en Playlists",
   "Computer Connected": "Conectado al ordenador",
   "Not Now": "Ahora no",
   "Use the microSD card as a USB drive?": "¿Usar la tarjeta microSD como unidad USB?",
@@ -522,6 +522,7 @@
   "Repeat": "Repetir",
   "Speed": "Velocidad",
   "Sound Check": "Ajuste de volumen",
+  "Mono Audio": "Audio mono",
   "Volume Limit": "Límite de volumen",
   "Corrupted File": "Archivo dañado",
   "EQUALIZER": "ECUALIZADOR",
@@ -756,5 +757,13 @@
   "Try again later or on another Wi-Fi network, or install the new firmware with Innioasis Updater CE (innioasis.app).": "Inténtalo de nuevo más tarde o con otra red Wi-Fi, o instala el nuevo firmware con Innioasis Updater CE (innioasis.app).",
   "This update needs a newer Android version than this player has, so nothing was changed.": "Esta actualización necesita una versión de Android más reciente que la de este reproductor, así que no se cambió nada.",
   "Keep this version until there is an update for this player.": "Mantén esta versión hasta que haya una actualización para este reproductor.",
-  "Games could not start on this Android version.": "Los juegos no se pudieron iniciar en esta versión de Android."
+  "Games could not start on this Android version.": "Los juegos no se pudieron iniciar en esta versión de Android.",
+  "Update Channel": "Canal de actualización",
+  "Stable": "Estable",
+  "Beta": "Beta",
+  "Use Beta": "Usar beta",
+  "Beta versions get new features first and can have bugs.": "Las versiones beta reciben las novedades primero y pueden tener errores.",
+  "To leave, choose Stable: the player then waits for the next stable version.": "Para salir, elige Estable: el reproductor esperará a la próxima versión estable.",
+  "This version is newer than the latest stable version.": "Esta versión es más nueva que la última versión estable.",
+  "Check again when the next stable version is out.": "Vuelve a comprobar cuando salga la próxima versión estable."
 }

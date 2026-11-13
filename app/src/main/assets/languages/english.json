@@ -361,7 +361,7 @@
   "Scan Complete!\nFound": "Scan Complete!\nFound",
   "channels.\nTuning to": "channels.\nTuning to",
   "No stations found.": "No stations found.",
-  "No .m3u files found in Y1_Playlists": "No .m3u files found in Y1_Playlists",
+  "No .m3u files found in Playlists": "No .m3u files found in Playlists",
   " minutes": " minutes",
   "Sleep Timer": "Sleep Timer",
   "Sleep timer cancelled": "Sleep timer cancelled",
@@ -385,6 +385,7 @@
   "Repeat": "Repeat",
   "Speed": "Speed",
   "Sound Check": "Sound Check",
+  "Mono Audio": "Mono Audio",
   "Volume Limit": "Volume Limit",
   "No playable audio files found.": "No playable audio files found.",
   "Corrupted File": "Corrupted File",
@@ -756,5 +757,13 @@
   "Try again later or on another Wi-Fi network, or install the new firmware with Innioasis Updater CE (innioasis.app).": "Try again later or on another Wi-Fi network, or install the new firmware with Innioasis Updater CE (innioasis.app).",
   "This update needs a newer Android version than this player has, so nothing was changed.": "This update needs a newer Android version than this player has, so nothing was changed.",
   "Keep this version until there is an update for this player.": "Keep this version until there is an update for this player.",
-  "Games could not start on this Android version.": "Games could not start on this Android version."
+  "Games could not start on this Android version.": "Games could not start on this Android version.",
+  "Update Channel": "Update Channel",
+  "Stable": "Stable",
+  "Beta": "Beta",
+  "Use Beta": "Use Beta",
+  "Beta versions get new features first and can have bugs.": "Beta versions get new features first and can have bugs.",
+  "To leave, choose Stable: the player then waits for the next stable version.": "To leave, choose Stable: the player then waits for the next stable version.",
+  "This version is newer than the latest stable version.": "This version is newer than the latest stable version.",
+  "Check again when the next stable version is out.": "Check again when the next stable version is out."
 }

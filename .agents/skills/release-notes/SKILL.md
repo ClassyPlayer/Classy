@@ -16,7 +16,8 @@ Use this skill to write or update GitHub Release descriptions on `ClassyPlayer/C
 Every GitHub release body must follow this exact structure:
 
 1. **Human-readable changelog first**:
-   - Start immediately with the changelog bullets (or a short one-sentence overview for major milestone releases, followed by bullets).
+   - For a beta (a GitHub pre-release, tag `YYYYMMDD-beta` or `YYYYMMDD-beta.N`), the first line says it is a beta, for example: `This is a beta release. To get it on the player, choose Settings > General > System Update > Update Channel > Beta.` The bullets follow after a blank line.
+   - Otherwise, start immediately with the changelog bullets (or a short one-sentence overview for major milestone releases, followed by bullets).
    - Do **not** include a top-level `### Classy Release` heading or "Automated build with full support..." boilerplate.
    - Focus on what changed for the user (features, UI changes, audio/hardware behavior, bug fixes) with light technical context where helpful (for example, `mtkbt` daemon, `libaudiocustparam.so`, `/system/app`, `.y1_thumbs_cache`).
 2. **Release assets table**:
@@ -39,12 +40,23 @@ Every GitHub release body must follow this exact structure:
 | `Classy-<TAG>.apk` | All devices (Y1 / Y2) | Standalone launcher APK (sideload or install) |
 | `update.json` | All devices | OTA update metadata for in-app updater |
 | `rom_y2.zip` | Innioasis Y2 (MT6582) | Complete flashable ROM with dual-storage, watchdog & clickwheel keylayout |
-| `rom_y1_type_a.zip` (`rom.zip`) | Innioasis Y1 (Type A) | Flashable ROM for Y1 players with original firmware 2.0.0 or higher |
-| `rom_y1_type_b.zip` (`rom_type_b.zip`) | Innioasis Y1 (Type B) | Flashable ROM for Y1 players with original firmware below 2.0.0 |
+| `rom_y1_type_a.zip` | Innioasis Y1 (Type A) | Flashable ROM for Y1 players with original firmware 2.0.0 or higher |
+| `rom_y1_type_b.zip` | Innioasis Y1 (Type B) | Flashable ROM for Y1 players with original firmware below 2.0.0 |
 | `SHA256SUMS.txt` | All files | SHA-256 integrity checksums |
 
 Full changelog: https://github.com/ClassyPlayer/Classy/compare/<PREV_TAG>...<TAG>
 ```
+
+## Tags and the compare range
+
+Tags are based on the build date. The first build of a day has no number: `20261114` (stable) or `20261114-beta` (beta). From the second build of that day there is a number, from one counter shared by both channels: `20261114-vN` (stable) or `20261114-beta.N` (beta). Older tags also include `YYYYMMDD-build.N`. The `y1-exp.N` pre-releases are hand-made test builds: never use them as `<PREV_TAG>`.
+
+Choose `<PREV_TAG>` by the kind of release:
+
+- A beta compares against the previous release of either kind (beta or stable).
+- A stable release compares against the previous stable release, so its notes cover all the betas in between. Write them for players who skipped the betas: describe the end result, not each beta's fixes to features that were new in those betas.
+
+A promoted stable release is a new build of the same commit as its beta, so `git log <PREV_STABLE>..<STABLE_TAG>` already covers the betas. See [RELEASING.md](../../../RELEASING.md) for the release process.
 
 ## Humanizer Writing Rules
 
@@ -60,11 +72,11 @@ Apply the [blader/humanizer](https://github.com/blader/humanizer/raw/refs/heads/
 
 ## Workflow for Updating a New Release
 
-Note: Triggering the **Build & Release** workflow manually from GitHub Actions (or pushing a release tag) publishes an automated GitHub Release using a static template that still contains the legacy `Flashing Instructions` block unless overwritten. Merging to `main` no longer deploys a release automatically. After a release is published (or when preparing release notes):
+Note: Triggering the **Build & Release** workflow manually from GitHub Actions (or pushing a release tag) publishes a pre-release (`channel: beta`, the default) or a release marked Latest (`channel: stable`). The release body comes from a static template that still contains the legacy `Flashing Instructions` block unless overwritten. Merging to `main` no longer deploys a release automatically. After a release is published (or when preparing release notes):
 
-1. **List releases and find the tag range**:
+1. **List releases and find the tag range** (pick `<PREV_TAG>` as described in [Tags and the compare range](#tags-and-the-compare-range); `gh release list` marks betas as `Pre-release` and the newest stable release as `Latest`):
    ```bash
-   gh release list --repo ClassyPlayer/Classy --limit 10
+   gh release list --repo ClassyPlayer/Classy --limit 20
    git fetch --tags origin
    git log --format="- %h %s%n%w(0,4,4)%b" <PREV_TAG>..<NEW_TAG>
    ```

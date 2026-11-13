@@ -52,6 +52,48 @@ class MusicQuizEngineTest {
     }
 
     @Test
+    fun testResetSession_flacLibrary() {
+        val engine = newEngine()
+        val flacSongs = (1..4).map { createSong("Song $it", path = "/storage/sdcard0/Music/Song $it.flac") }
+        assertTrue(engine.resetSession(flacSongs))
+        assertNotNull(engine.nextQuestion { _, song -> song.title })
+
+        // MediaPlayer on Android 4.4 cannot open Opus
+        val opusSongs = (1..4).map { createSong("Song $it", path = "/storage/sdcard0/Music/Song $it.opus") }
+        assertFalse(engine.resetSession(opusSongs))
+    }
+
+    @Test
+    fun testFailedPreview_songNotAskedAgain() {
+        val engine = newEngine()
+        val songs = (1..5).map { createSong("Song $it", path = "/storage/sdcard0/Music/Song $it.flac") }
+        engine.resetSession(songs)
+        engine.onPreviewFailed(songs[0].file)
+
+        for (i in 0 until 50) {
+            val q = engine.nextQuestion { _, s -> s.title }
+            assertNotNull(q)
+            assertTrue("A song whose clip failed must not be asked again", q!!.song.file != songs[0].file)
+        }
+
+        // When no clip plays, the quiz continues with all songs
+        songs.forEach { engine.onPreviewFailed(it.file) }
+        assertNotNull(engine.nextQuestion { _, s -> s.title })
+
+        // Three failed songs with cover art and one playable song without: no cover question about a failed song
+        val coverSongs = (1..4).map { createSong("Cover $it", album = "Album $it", path = "/storage/sdcard0/Music/Cover $it.flac") }
+        engine.resetSession(coverSongs)
+        engine.coverArtPredicate = { it.album != "Album 4" }
+        coverSongs.take(3).forEach { engine.onPreviewFailed(it.file) }
+        for (i in 0 until 50) {
+            val q = engine.nextQuestion { _, s -> s.title }
+            assertNotNull(q)
+            assertEquals(coverSongs[3].file, q!!.song.file)
+            assertTrue(q.type != MusicQuizEngine.TYPE_ALBUM_COVER)
+        }
+    }
+
+    @Test
     fun testQuestionsPerRound_isSix() {
         val engine = newEngine()
         val songs = (1..10).map { createSong("Song $it") }

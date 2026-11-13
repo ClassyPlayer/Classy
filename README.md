@@ -57,6 +57,7 @@ The album covers in the screenshots are from Creative Commons albums, for exampl
 - Library browsing by Artists, Album Artists, Albums, Compilations, Songs, Genres, Composers, Playlists, Folders, and Favorites. The Artists view splits by individual track artist tags so guest features appear distinctly, while Album Artists groups releases by main artist. Settings > Main Menu Items and Music Menu Items hide menu items; the Main Menu items can also move.
 - Cover Flow in the iPod order (album artist, then album title) and layout, smooth also on a fast wheel turn.
 - Smart playlists Recently Played and Top 25 Most Played (Music > Playlists), from the play history.
+- M3U playlists (`.m3u`, `.m3u8`) in the `Playlists` folder on the microSD card (internal storage without a card), so they can be copied from a computer. Relative song paths are read from the playlist's folder first. Playlists in the old `Y1_Playlists` folder move there on the first launch.
 - Audio format support covering MP3, FLAC, WAV, OGG Vorbis, Opus (including Opus audio inside `.ogg` containers), ALAC/M4A, and AAC.
 - Gapless playback for albums and playlists containing 15 tracks or fewer (see [Known limitations](#known-limitations)).
 - Shuffle Songs in the Music menu, and a Shuffle shortcut pinned to the top of the All Songs list, matching original Y1 firmware behavior.
@@ -67,6 +68,7 @@ The album covers in the screenshots are from Creative Commons albums, for exampl
 
 - 30 volume steps of 2 dB each. Each output (speaker, headphones, Bluetooth) keeps its own volume.
 - The Equalizer, Bass Boost and Virtualizer run only when they change the sound.
+- Settings > Playback > Mono Audio plays the left and the right channel on both sides, for listening with one earbud (also on Bluetooth). FLAC files and videos stay stereo. The Virtualizer does not run while Mono Audio is on.
 - Each button push does one action, on release. Each wheel step gives one click and one vibration; Click Volume and Vibration Strength set their levels.
 - Settings in iPod-style groups (Playback, Display, Now Playing, Status Bar, Appearance, Menus, Controls and more) with On/Off switches. Export Settings and Import Settings save and load all settings as one JSON file.
 - A long press of the Power button opens a Power screen (Restart, Power Off) that the click wheel controls.
@@ -113,9 +115,13 @@ Prebuilt firmware packages with Classy preinstalled as the default system launch
 
 To flash via the updater:
 
-1. Download the archive matching your device from [Releases](https://github.com/ClassyPlayer/Classy/releases) and ensure it is named `rom.zip` (required by the updater tool).
-2. Open the [Innioasis Updater](https://www.innioasis.com/pages/download), choose `rom.zip` as the local firmware package, and follow the on-screen steps.
-3. Once the flashing process completes and the player restarts, Classy starts automatically.
+1. Download the archive matching your device from [Releases](https://github.com/ClassyPlayer/Classy/releases). Keep its file name (for example `rom_y2.zip`). Do not rename it to `rom.zip`: the updater reads the player model from the file name.
+2. Open [Innioasis Updater CE](https://innioasis.app). If you installed a firmware file before, click **Settings** > **Clear Firmware Cache** first (see the note below).
+3. Click **Install from a file…** > **Browse Files…**, choose the archive, click **Install / Restore**, and follow the on-screen steps.
+4. Once the flashing process completes and the player restarts, Classy starts automatically.
+
+> [!NOTE]
+> Updater CE extracts a local archive to a folder named after the file (`.rom_y2_extracted` for `rom_y2.zip`). When that folder is complete, it uses it again for the next archive with the same name, also from a different release, and installs the old firmware. **Clear Firmware Cache** deletes these folders. You can also delete the folder yourself from the updater's `downloads` folder: `%LOCALAPPDATA%\Updater CE\downloads` (Windows), `~/Library/Application Support/Innioasis Updater/downloads` (macOS) or `~/.local/share/updater-ce/downloads` (Linux).
 
 > [!WARNING]
 > Keep the device connected and powered until the update finishes. Do not unplug the cable during the flash.
@@ -124,25 +130,28 @@ To flash via the updater:
 
 Use this method to update the app on an existing device without reflashing the full system partition.
 
-1. Uninstall the existing launcher package first:
+1. Download `Classy-<version>.apk` from [Releases](https://github.com/ClassyPlayer/Classy/releases).
+2. Install the APK over the installed app via ADB:
    ```bash
-   adb uninstall com.themoon.y1
-   ```
-   If pre-installed as a system application, uninstall it for the current user:
-   ```bash
-   adb shell pm uninstall --user 0 com.themoon.y1
+   adb install -r Classy-<version>.apk
    ```
    > [!NOTE]
-   > Uninstalling is required due to differing APK signature keys between builds. Your music library, custom themes in `/storage/sdcard0/Y1_Themes`, and `.scrobbler.log` on storage remain untouched.
-2. Download `Classy-<version>.apk` from [Releases](https://github.com/ClassyPlayer/Classy/releases).
-3. Install the APK via ADB:
-   ```bash
-   adb install Classy-<version>.apk
-   ```
-4. Optional step if Bluetooth pairing prompts for elevated permissions unavailable through the interface:
+   > Releases are signed with one key, so the update keeps your settings, music library, custom themes in `/storage/sdcard0/Y1_Themes`, and `.scrobbler.log`. If the player runs an older release signed with a different key, the install fails with `INSTALL_FAILED_UPDATE_INCOMPATIBLE`: flash the firmware with Method 1 instead. A full flash erases the internal storage, so first copy your music and other files from it to a computer. Music on the microSD card stays.
+3. Optional step if Bluetooth pairing prompts for elevated permissions unavailable through the interface:
    ```bash
    adb shell pm grant com.themoon.y1 android.permission.WRITE_SECURE_SETTINGS
    ```
+
+### Update channels
+
+Settings > General > System Update installs new releases over Wi-Fi. Settings > General > System Update > Update Channel chooses where they come from:
+
+- **Stable**: tested releases, marked Latest on [Releases](https://github.com/ClassyPlayer/Classy/releases).
+- **Beta**: new features before they reach Stable, with a higher chance of bugs. A player on Beta also gets a stable release when it is newer than the last beta.
+
+To join the beta, choose Beta and check for updates. To leave it, choose Stable. The player then waits for the next stable release, because it cannot go back to an older version.
+
+By default the player follows the channel of the build that is installed. A firmware or APK you install by hand sets the player to the channel of that build. Beta firmware zips and APKs are on the releases marked Pre-release.
 
 ## Pre-building the library cache
 
@@ -177,7 +186,7 @@ Last.fm API credentials are not included in this repository. To compile with scr
 - The iPod Classic interface uses [Nimbus Sans](https://en.wikipedia.org/wiki/Nimbus_Sans) (URW++), a metric-compatible alternative to Helvetica.
 - Distributed under upstream's license terms; see [LICENSE](LICENSE) for personal and educational use guidelines.
 
-Version history is documented on [GitHub Releases](https://github.com/ClassyPlayer/Classy/releases).
+Version history is documented on [GitHub Releases](https://github.com/ClassyPlayer/Classy/releases). Maintainers publish releases as described in [RELEASING.md](RELEASING.md).
 
 ## Contributors
 
@@ -189,6 +198,8 @@ Version history is documented on [GitHub Releases](https://github.com/ClassyPlay
     <tr>
       <td align="center" valign="top" width="14.28%"><a href="https://potoniec.eu/"><img src="https://avatars.githubusercontent.com/u/32539363?v=4?s=100" width="100px;" alt="Jonasz Potoniec"/><br /><sub><b>Jonasz Potoniec</b></sub></a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/ferrolho"><img src="https://avatars.githubusercontent.com/u/4166093?v=4?s=100" width="100px;" alt="Henrique Ferrolho"/><br /><sub><b>Henrique Ferrolho</b></sub></a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/FabianZettl"><img src="https://avatars.githubusercontent.com/u/95052821?v=4?s=100" width="100px;" alt="Fabian Zettl"/><br /><sub><b>Fabian Zettl</b></sub></a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/andsuor"><img src="https://avatars.githubusercontent.com/u/17765585?v=4?s=100" width="100px;" alt="andsuor"/><br /><sub><b>andsuor</b></sub></a></td>
     </tr>
   </tbody>
 </table>

@@ -356,7 +356,7 @@
   "Scan Complete!\nFound": "スキャン完了！\n見つかったチャンネル: ",
   "channels.\nTuning to": "個。\n移動中: ",
   "No stations found.": "チャンネルが見つかりません。",
-  "No .m3u files found in Y1_Playlists": "Y1_Playlistsに.m3uファイルが見つかりません",
+  "No .m3u files found in Playlists": "Playlistsに.m3uファイルが見つかりません",
   " minutes": " 分",
   "Sleep Timer": "スリープタイマー",
   "Sleep timer cancelled": "スリープタイマーを解除しました",
@@ -380,6 +380,7 @@
   "Repeat": "リピート",
   "Speed": "再生速度",
   "Sound Check": "音量の自動調整",
+  "Mono Audio": "モノラルオーディオ",
   "Volume Limit": "音量制限",
   "No playable audio files found.": "再生可能なオーディオファイルが見つかりません。",
   "Corrupted File": "破損したファイル",
@@ -756,5 +757,13 @@
   "Try again later or on another Wi-Fi network, or install the new firmware with Innioasis Updater CE (innioasis.app).": "後でもう一度、または別の Wi-Fi ネットワークでお試しいただくか、Innioasis Updater CE（innioasis.app）で新しいファームウェアをインストールしてください。",
   "This update needs a newer Android version than this player has, so nothing was changed.": "このアップデートには、このプレーヤーより新しい Android バージョンが必要です。何も変更されていません。",
   "Keep this version until there is an update for this player.": "このプレーヤー向けのアップデートが出るまで、このバージョンをお使いください。",
-  "Games could not start on this Android version.": "この Android バージョンではゲームを起動できませんでした。"
+  "Games could not start on this Android version.": "この Android バージョンではゲームを起動できませんでした。",
+  "Update Channel": "アップデートチャンネル",
+  "Stable": "安定版",
+  "Beta": "ベータ版",
+  "Use Beta": "ベータ版を使う",
+  "Beta versions get new features first and can have bugs.": "ベータ版は新機能をいち早く利用できますが、不具合がある場合があります。",
+  "To leave, choose Stable: the player then waits for the next stable version.": "やめるには安定版を選んでください。プレーヤーは次の安定版を待ちます。",
+  "This version is newer than the latest stable version.": "このバージョンは最新の安定版より新しいです。",
+  "Check again when the next stable version is out.": "次の安定版が出たら、もう一度確認してください。"
 }

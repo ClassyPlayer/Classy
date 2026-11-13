@@ -38,7 +38,7 @@ class PrefsTest {
             "toggle_style", "sound_check_enabled", "video_stretch_fill", "album_tilt_enabled", "lyrics_keep_screen_on",
             "show_total_time", "show_spectrum", "lyrics_script", "backlight_timer_index", "click_volume",
             "screen_off_control", "double_click_favorite", "repeat_mode", "loop_scroll_on", "list_edges_fade",
-            "eq_preset", "eq_profile_id", "group_albums_by_artist", "cover_pan_zoom"
+            "eq_preset", "eq_profile_id", "group_albums_by_artist", "cover_pan_zoom", "mono_audio"
         )
         assertEquals(before, Prefs.RESETTABLE.map { it.key }.toSet())
     }
@@ -59,7 +59,7 @@ class PrefsTest {
     fun backupExclusionsAreTheSameAsBefore() {
         assertEquals(
             setOf("lastfm_username", "lastfm_password", "has_saved_playback_state", "last_lang_version",
-                "last_installed_theme_version", "reboot_to_theme"),
+                "last_installed_theme_version", "reboot_to_theme", "update_channel", "update_channel_builds"),
             Prefs.ALL.filter { !it.inBackup }.map { it.key }.toSet()
         )
         assertEquals(setOf("last_played_", "album_art_"), Prefs.FAMILIES.filter { !it.inBackup }.map { it.prefix }.toSet())

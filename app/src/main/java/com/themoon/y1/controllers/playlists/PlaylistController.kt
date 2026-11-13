@@ -32,7 +32,7 @@ import java.util.ArrayList
 
 /**
  * Controller for M3U playlist browsing, song listing, creation, and editing:
- * - Lists M3U / M3U8 playlists in `Playlists/` folder
+ * - Lists M3U / M3U8 playlists in the `Playlists` folders (microSD card, internal storage; [StoragePaths.getPlaylistsDirs])
  * - Parses playlist track sequences without losing custom ordering
  * - Displays smart popup dialogs for "Add to Playlist" and "Delete Playlist"
  * - Handles track deletion from individual M3U playlists
@@ -86,16 +86,21 @@ class PlaylistController(
 
     override fun title(): String? = screen.title
 
-    /** The smart playlists, then the M3U files of the Playlists folder (A to Z). Opens at the last opened playlist. */
-    fun buildPlaylistsUI() {
-        val playlistDir = StoragePaths.getPlaylistsDir()
-        if (!playlistDir.exists()) {
-            playlistDir.mkdirs()
+    /** The M3U files of each Playlists folder, A to Z. */
+    private fun playlistFiles(): List<File> {
+        val files = ArrayList<File>()
+        for (dir in StoragePaths.getPlaylistsDirs()) {
+            for (f in dir.listFiles() ?: emptyArray()) {
+                val name = f.name.lowercase()
+                if (f.isFile && (name.endsWith(".m3u") || name.endsWith(".m3u8"))) files.add(f)
+            }
         }
-        val m3uFiles = (playlistDir.listFiles() ?: emptyArray()).filter { f ->
-            val name = f.name.lowercase()
-            f.isFile && (name.endsWith(".m3u") || name.endsWith(".m3u8"))
-        }.sortedWith { f1, f2 -> f1.name.compareTo(f2.name, ignoreCase = true) }
+        return files.sortedWith { f1, f2 -> f1.name.compareTo(f2.name, ignoreCase = true) }
+    }
+
+    /** The smart playlists, then the M3U files of the Playlists folders (A to Z). Opens at the last opened playlist. */
+    fun buildPlaylistsUI() {
+        val m3uFiles = playlistFiles()
 
         val rows = ArrayList<RowSpec>()
         // iPod smart playlists first
@@ -104,14 +109,21 @@ class PlaylistController(
                 (activity as? com.themoon.y1.MainActivity)?.changeScreen(ScreenState.SmartPlaylistSongs(kind))
             })
         }
-        for (m3u in m3uFiles) {
-            rows += RowSpec(m3u.nameWithoutExtension, onClick = {
+        val labels = PlaylistPaths.labels(m3uFiles, ::storageName)
+        for ((i, m3u) in m3uFiles.withIndex()) {
+            rows += RowSpec(labels[i], onClick = {
                 currentM3uFile = m3u
                 onPlaylistSelected(m3u)
             }, onHold = { showDeletePlaylistDialog(m3u) })
         }
-        if (m3uFiles.isEmpty()) rows += RowSpec(localize("No .m3u files found in Y1_Playlists"), color = ThemeManager.getTextColorSecondary())
+        if (m3uFiles.isEmpty()) rows += RowSpec(localize("No .m3u files found in Playlists"), color = ThemeManager.getTextColorSecondary())
         screen.show(ListSpec(localize("Playlists"), rows, focus = Focus.LAST))
+    }
+
+    /** The storage of a playlist, for telling apart playlists of the same name. */
+    private fun storageName(file: File): String {
+        val storage = localize(if (StoragePaths.isOnSecondary(file)) "MicroSD Card" else "Internal Storage")
+        return if (file.parentFile?.name == StoragePaths.LEGACY_PLAYLISTS_DIR) "$storage, ${StoragePaths.LEGACY_PLAYLISTS_DIR}" else storage
     }
 
     fun buildM3uSongsUI(m3uFile: File) {
@@ -165,7 +177,9 @@ class PlaylistController(
     private fun taggedRow(file: File, byPath: Map<String, SongItem>): SongItem {
         val song = byPath[file.absolutePath]
         val title = song?.title?.takeIf { it.isNotBlank() } ?: file.nameWithoutExtension
-        return SongItem(file, title, song?.artist, song?.album)
+        val row = SongItem(file, title, song?.artist, song?.album)
+        row.durationMs = song?.durationMs ?: 0L
+        return row
     }
 
     fun parseM3uFile(m3uFile: File): List<SongItem> {
@@ -180,11 +194,11 @@ class PlaylistController(
                 val raw = line?.trim() ?: continue
                 if (raw.isEmpty() || raw.startsWith("#")) continue
 
-                val normalized = raw.replace("\\", "/")
-                var audioFile = File(normalized)
-                if (!audioFile.isAbsolute) {
-                    audioFile = File(musicRootFolder, normalized)
-                }
+                var audioFile = PlaylistPaths.resolve(raw, m3uFile.parentFile, musicRootFolder)
+                // "./" and "../" parts: the library keys and the play queue use the plain absolute path. Only when
+                // it is the same file: after a link, ".." goes up from the target of the link, not from the link.
+                val plain = File(PlaylistPaths.normalize(audioFile.path))
+                if (plain.path != audioFile.path && plain.exists() && PlaylistPaths.sameFile(plain, audioFile)) audioFile = plain
 
                 if (audioFile.exists() && isAudioFile(audioFile)) {
                     songs.add(taggedRow(audioFile, byPath))
@@ -240,16 +254,8 @@ class PlaylistController(
             } catch (ignored: Exception) {}
         }
 
-        val files = playlistDir.listFiles()
-        val playlistFiles = ArrayList<File>()
-        if (files != null) {
-            for (f in files) {
-                val name = f.name.lowercase()
-                if (f.isFile && (name.endsWith(".m3u") || name.endsWith(".m3u8")) && f.name != "On-The-Go.m3u8") {
-                    playlistFiles.add(f)
-                }
-            }
-        }
+        val allFiles = playlistFiles()
+        val labels = PlaylistPaths.labels(allFiles, ::storageName)
 
         // A list of targets: On-The-Go, a new playlist, then each playlist. Back cancels.
         val targets = ArrayList<ActionScreens.Action>()
@@ -264,18 +270,23 @@ class PlaylistController(
                 count++
             } while (newPlaylistFile.exists())
 
-            writeSongToM3uFile(newPlaylistFile, songFile, false)
-            Notice.show(
-                activity,
-                localize("Created Playlist ") + (count - 1) + " " + localize("successfully!")
-            )
+            if (writeSongToM3uFile(newPlaylistFile, songFile, false)) {
+                Notice.show(
+                    activity,
+                    localize("Created Playlist ") + (count - 1) + " " + localize("successfully!")
+                )
+            } else {
+                Notice.error(activity, localize("Failed to save."))
+            }
         }
-        for (targetM3u in playlistFiles) {
-            val dotIdx = targetM3u.name.lastIndexOf(".")
-            val cleanName = if (dotIdx > 0) targetM3u.name.substring(0, dotIdx) else targetM3u.name
-            targets += ActionScreens.Action(cleanName) {
-                writeSongToM3uFile(targetM3u, songFile, true)
-                Notice.show(activity, localize("Added to playlist successfully!"))
+        for ((i, targetM3u) in allFiles.withIndex()) {
+            if (targetM3u == onTheGoFile) continue
+            targets += ActionScreens.Action(labels[i]) {
+                if (writeSongToM3uFile(targetM3u, songFile, true)) {
+                    Notice.show(activity, localize("Added to playlist successfully!"))
+                } else {
+                    Notice.error(activity, localize("Failed to save."))
+                }
             }
         }
         ActionScreens.open(ActionScreens.Spec(localize("Add to Playlist"), actions = targets))
@@ -294,20 +305,28 @@ class PlaylistController(
                 bw.close()
             } catch (ignored: Exception) {}
         }
-        writeSongToM3uFile(onTheGoFile, songFile, true)
-        Notice.show(activity, localize("Added to On-The-Go."))
+        if (writeSongToM3uFile(onTheGoFile, songFile, true)) {
+            Notice.show(activity, localize("Added to On-The-Go."))
+        } else {
+            Notice.error(activity, localize("Failed to save."))
+        }
     }
 
-    fun writeSongToM3uFile(m3uFile: File, songFile: File, append: Boolean) {
-        try {
+    /** Writes [songFile] to [m3uFile] (a new file when not [append]). False when it could not be written. */
+    fun writeSongToM3uFile(m3uFile: File, songFile: File, append: Boolean): Boolean {
+        return try {
+            // A playlist made on a computer may not end with a line break: the new path goes on a line of its own
+            val newLineFirst = append && PlaylistPaths.endsWithoutLineBreak(m3uFile)
             val bw = BufferedWriter(OutputStreamWriter(FileOutputStream(m3uFile, append), "UTF-8"))
-            if (!append) {
-                bw.write("#EXTM3U\n")
+            bw.use {
+                if (!append) it.write("#EXTM3U\n")
+                if (newLineFirst) it.write("\n")
+                it.write(songFile.absolutePath + "\n")
             }
-            bw.write(songFile.absolutePath + "\n")
-            bw.close()
+            true
         } catch (e: Exception) {
             e.printStackTrace()
+            false
         }
     }
 

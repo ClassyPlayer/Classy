@@ -428,7 +428,7 @@ footer .credits { margin: 10px 0; font-size: 13px; gap: 6px 32px; }
     <div class="card"><h3>Upload from a browser</h3><p>Turn on the web server and drag files into a page on your computer. No cable.</p></div>
     <div class="card"><h3>Correct time</h3><p><em>Sync Time Now</em> sets the clock from the internet, in your time zone.</p></div>
     <div class="card"><h3>Last.fm</h3><p>Scrobbles wait on the Y2 and go to Last.fm when Wi-Fi is on. Sign in with a QR code.</p></div>
-    <div class="card"><h3>Updates</h3><p><em>Settings → General → System Update</em> gets the newest release from GitHub and installs it.</p></div>
+    <div class="card"><h3>Updates</h3><p><em>Settings → General → System Update</em> gets the newest release from GitHub and installs it. Choose <em>Update Channel → Beta</em> to try new features before they reach everyone.</p></div>
   </div>
 </section>
 
@@ -515,14 +515,14 @@ footer .credits { margin: 10px 0; font-size: 13px; gap: 6px 32px; }
             <li>In Updater CE, choose <strong>Y2</strong> as the device model and <strong>Inniclassic</strong> as the software. Select a release and click <strong>Install / Restore</strong>.</li>
             <li>Power off the Y2 and connect it only when the updater asks. When the Y2 restarts, it starts in the main menu.</li>
           </ol>
-          <p style="margin-top:12px">Manual install: download <code>rom_y2.zip</code> from the <a data-link="download" href="#">latest release</a>, rename it to <code>rom.zip</code>, and choose it in the updater as the local firmware package.</p>
+          <p style="margin-top:12px">Manual install: download <code>rom_y2.zip</code> from the <a data-link="download" href="#">latest release</a> and keep its name (do not rename it to <code>rom.zip</code>). In Updater CE, click <strong>Install from a file…</strong> → <strong>Browse Files…</strong>, choose the file and click <strong>Install / Restore</strong>. Updater CE uses the extracted files of an earlier file with the same name again: if you installed a firmware file before, first click <strong>Settings</strong> → <strong>Clear Firmware Cache</strong>.</p>
           <p class="warn">A full flash erases the internal storage. Music on the microSD card stays. Keep the cable in until the update is done.</p>
         </div>
         <div class="card">
           <h3>App only (APK)</h3>
           <p>On a Y2 that already runs this firmware (ADB is on), connect the USB cable:</p>
-<pre><code>adb install -r InniClassic-&lt;version&gt;.apk</code></pre>
-          <p style="margin-top:12px">The update keeps your settings, music, playlists and <code>.scrobbler.log</code>. The firmware installs the app as a system app, so <code>adb uninstall</code> cannot remove it: for an APK with a different signing key, flash the firmware of that release.</p>
+<pre><code>adb install -r Classy-&lt;version&gt;.apk</code></pre>
+          <p style="margin-top:12px">The update keeps your settings, music, playlists and <code>.scrobbler.log</code>. The firmware installs the app as a system app, so <code>adb uninstall</code> cannot remove it. Releases are signed with one key. If the Y2 runs an older release with a different key, flash the firmware instead.</p>
         </div>
       </div>
       <div class="card" style="margin-top:20px">

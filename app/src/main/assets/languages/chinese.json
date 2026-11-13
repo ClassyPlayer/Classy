@@ -317,7 +317,7 @@
   "Scan Complete!\nFound": "扫描完成！\n找到频道数: ",
   "channels.\nTuning to": "个。\n正在移动至: ",
   "No stations found.": "未找到频道。",
-  "No .m3u files found in Y1_Playlists": "在 Y1_Playlists 中未找到 .m3u 文件",
+  "No .m3u files found in Playlists": "在 Playlists 中未找到 .m3u 文件",
   "Computer Connected": "已连接电脑",
   "Not Now": "暂不",
   "Use the microSD card as a USB drive?": "将microSD卡用作USB驱动器？",
@@ -522,6 +522,7 @@
   "Repeat": "重复播放",
   "Speed": "播放速度",
   "Sound Check": "音量平衡",
+  "Mono Audio": "单声道音频",
   "Volume Limit": "音量限制",
   "Corrupted File": "损坏的文件",
   "EQUALIZER": "均衡器",
@@ -756,5 +757,13 @@
   "Try again later or on another Wi-Fi network, or install the new firmware with Innioasis Updater CE (innioasis.app).": "请稍后或连接其他 Wi-Fi 网络后重试，或使用 Innioasis Updater CE（innioasis.app）安装新固件。",
   "This update needs a newer Android version than this player has, so nothing was changed.": "此更新需要比本播放器更新的 Android 版本，因此未做任何更改。",
   "Keep this version until there is an update for this player.": "请继续使用当前版本，直到有适用于本播放器的更新。",
-  "Games could not start on this Android version.": "游戏无法在此 Android 版本上启动。"
+  "Games could not start on this Android version.": "游戏无法在此 Android 版本上启动。",
+  "Update Channel": "更新渠道",
+  "Stable": "稳定版",
+  "Beta": "测试版",
+  "Use Beta": "使用测试版",
+  "Beta versions get new features first and can have bugs.": "测试版会率先获得新功能，但可能存在错误。",
+  "To leave, choose Stable: the player then waits for the next stable version.": "如要退出，请选择稳定版：播放器将等待下一个稳定版本。",
+  "This version is newer than the latest stable version.": "此版本比最新的稳定版本更新。",
+  "Check again when the next stable version is out.": "下一个稳定版本发布后请再次检查。"
 }

@@ -121,11 +121,11 @@ require_cmd() {
 case "$TYPE" in
     a)
         BASE_URL="https://github.com/rockbox-y1/rockbox/releases/download/type-a-base/rom.zip"
-        OUTPUT="${OUTPUT:-$REPO_ROOT/rom.zip}"
+        OUTPUT="${OUTPUT:-$REPO_ROOT/rom_y1_type_a.zip}"
         ;;
     b)
         BASE_URL="https://github.com/rockbox-y1/rockbox/releases/download/type-b-base/rom.zip"
-        OUTPUT="${OUTPUT:-$REPO_ROOT/rom_type_b.zip}"
+        OUTPUT="${OUTPUT:-$REPO_ROOT/rom_y1_type_b.zip}"
         ;;
     y2)
         BASE_URL="$Y2_BASE_URL"

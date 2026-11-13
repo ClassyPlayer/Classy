@@ -11,6 +11,7 @@ import android.net.wifi.WifiManager
 import android.os.Handler
 import android.os.Looper
 import android.view.KeyEvent
+import com.themoon.y1.AppPrefs
 import com.themoon.y1.StoragePaths
 import com.themoon.y1.controllers.settings.ActionScreens
 import com.themoon.y1.views.Notice
@@ -62,6 +63,12 @@ class OtaUpdateManager(
          */
         fun updateJsonUrl(sdk: Int = android.os.Build.VERSION.SDK_INT): String =
             if (sdk < android.os.Build.VERSION_CODES.KITKAT) UPDATE_JSON_URL_Y1 else UPDATE_JSON_URL
+
+        /** The release asset name of the update metadata for Android [sdk], as [updateJsonUrl] (for the Beta channel). */
+        fun manifestName(sdk: Int = android.os.Build.VERSION.SDK_INT): String =
+            if (sdk < android.os.Build.VERSION_CODES.KITKAT) MANIFEST_Y1 else UpdateChannel.MANIFEST
+
+        const val MANIFEST_Y1 = "update-y1.json"
 
         fun extractBuildNumber(suffix: String?): Int {
             if (suffix.isNullOrEmpty()) return 0
@@ -221,19 +228,26 @@ class OtaUpdateManager(
 
                 ActionScreens.update(key, listOf(localize("Checking for updates...")))
 
+                var myVersionName = "1.0"
+                var myVersionCode = 1
+                try {
+                    val pInfo = activity.packageManager.getPackageInfo(activity.packageName, 0)
+                    myVersionName = pInfo.versionName ?: "1.0"
+                    myVersionCode = pInfo.versionCode
+                } catch (_: Exception) {}
+
+                val channel = UpdateChannel.current(AppPrefs.get(activity), myVersionName)
                 val client = getUpdateHttpClient()
-                val request = Request.Builder()
-                    .url(updateJsonUrl())
-                    .header("User-Agent", "Classy-OTA")
-                    .build()
-
-                val response = client.newCall(request).execute()
-                if (!response.isSuccessful) {
-                    throw Exception("HTTP ${response.code()}")
+                // The channel picks the release, the player picks the metadata file in it (update.json or update-y1.json).
+                // Stable: the release marked Latest. Beta: the newest release with that file, a beta or not
+                val manifest = manifestName()
+                val manifestUrl = if (channel == UpdateChannel.BETA) {
+                    UpdateChannel.newestManifestUrl(fetch(client, UpdateChannel.RELEASES_API_URL), manifest)
+                        ?: throw Exception("No release with $manifest")
+                } else {
+                    updateJsonUrl()
                 }
-
-                val body = response.body()?.string() ?: ""
-                val root = JSONObject(body)
+                val root = JSONObject(fetch(client, manifestUrl))
 
                 val serverVersionCode = root.optInt("versionCode", 0)
                 val serverVersionName = root.optString("versionName", "")
@@ -243,24 +257,16 @@ class OtaUpdateManager(
                     apkUrl = "https://github.com/ClassyPlayer/Classy/releases/latest/download/$apkName"
                 }
 
-                var myVersionName = "1.0"
-                var myVersionCode = 1
-                try {
-                    val pInfo = activity.packageManager.getPackageInfo(activity.packageName, 0)
-                    myVersionName = pInfo.versionName ?: "1.0"
-                    myVersionCode = pInfo.versionCode
-                } catch (_: Exception) {}
-
                 val finalApkUrl = apkUrl
-                val hasUpdate = isServerVersionNewer(serverVersionCode, serverVersionName, myVersionCode, myVersionName)
+                val outcome = UpdateChannel.outcome(serverVersionCode, serverVersionName, myVersionCode, myVersionName)
 
                 activity.runOnUiThread {
                     if (cancelled.get()) return@runOnUiThread
                     ActionScreens.close(key)
-                    if (hasUpdate) {
-                        showNewVersionDialog(serverVersionName, myVersionName, finalApkUrl)
-                    } else {
-                        showUpToDateDialog(serverVersionName, myVersionName, finalApkUrl)
+                    when (outcome) {
+                        UpdateChannel.Outcome.UPDATE -> showNewVersionDialog(serverVersionName, myVersionName, finalApkUrl)
+                        UpdateChannel.Outcome.SAME -> showUpToDateDialog(serverVersionName, myVersionName, finalApkUrl)
+                        UpdateChannel.Outcome.AHEAD -> showAheadDialog(myVersionName, channel)
                     }
                 }
             } catch (e: Throwable) {
@@ -290,6 +296,48 @@ class OtaUpdateManager(
             listOf(ActionScreens.Action(localize("Reinstall")) { downloadAndInstallApk(apkUrl) }),
             selectAction = false
         ))
+    }
+
+    /**
+     * The installed build is newer than the newest build of the channel (a beta, with the channel Stable). No Reinstall:
+     * it would install the older build over data that newer migrations changed.
+     */
+    private fun showAheadDialog(currentVersion: String, channel: String) {
+        val curVerStr = if (currentVersion.startsWith("v")) currentVersion else "v$currentVersion"
+        val info = if (channel == UpdateChannel.STABLE) {
+            listOf(curVerStr, localize("This version is newer than the latest stable version."),
+                localize("Check again when the next stable version is out."))
+        } else {
+            listOf(curVerStr, localize("You are using the latest version."))
+        }
+        ActionScreens.open(ActionScreens.Spec(localize("Up to Date"), info))
+    }
+
+    /** The body of a GET of [url] as text; an HTTP error status throws. */
+    private fun fetch(client: OkHttpClient, url: String): String {
+        val request = Request.Builder()
+            .url(url)
+            .header("User-Agent", "Classy-OTA")
+            .header("Accept", "application/vnd.github+json, application/json")
+            .build()
+        client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) throw Exception("HTTP ${response.code()}")
+            return response.body()?.string() ?: ""
+        }
+    }
+
+    /**
+     * Before the install of [apkFile]: the channel in use stays for the build that is installed now and the new one, so
+     * a beta tester stays on Beta also after an update to a stable release (see [UpdateChannel]).
+     */
+    private fun keepChannelFor(apkFile: File) {
+        try {
+            val installed = activity.packageManager.getPackageInfo(activity.packageName, 0).versionName
+            val next = activity.packageManager.getPackageArchiveInfo(apkFile.absolutePath, 0)?.versionName
+            val prefs = AppPrefs.get(activity)
+            UpdateChannel.store(prefs, UpdateChannel.current(prefs, installed), installed, next)
+        } catch (_: Exception) {
+        }
     }
 
     @Suppress("UNUSED_PARAMETER")
@@ -530,6 +578,8 @@ class OtaUpdateManager(
             }
             return
         }
+        // Also for the install without root below. Kept for the installed build too, so a failed install changes nothing
+        keepChannelFor(apkFile)
         // KitKat does not unpack the libraries of an app in /system: they must be in /system/lib (as build-rom.sh
         // does). Libraries that cannot be staged stop the update before any change: the new app would miss them.
         val newLibs = try {

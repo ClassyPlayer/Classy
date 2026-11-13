@@ -53,6 +53,7 @@ class AudioEffectManager private constructor() {
         }
         player.customEqProcessor.setEnabled(plan.softwareEq)
         player.crossfeedProcessor.setIntensity(if (plan.crossfeed) settings.crossfeedStep else 0)
+        player.monoProcessor.isEnabled = plan.mono
 
         val sessionId = player.getAudioSessionId()
         if (sessionId != main.currentAudioSessionId) {
@@ -106,7 +107,8 @@ class AudioEffectManager private constructor() {
             bassBoostStep = Prefs.BASS_BOOST.get(prefs),
             virtualizerStep = Prefs.VIRTUALIZER.get(prefs),
             crossfeedStep = Prefs.CROSSFEED.get(prefs),
-            soundCheck = Prefs.SOUND_CHECK.get(prefs)
+            soundCheck = Prefs.SOUND_CHECK.get(prefs),
+            monoAudio = Prefs.MONO_AUDIO.get(prefs)
         )
     }
 

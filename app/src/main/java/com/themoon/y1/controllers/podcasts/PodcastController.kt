@@ -115,7 +115,10 @@ class PodcastController(
         screen.show(channelsSpec())
     }
 
-    /** The episodes of a channel: from the network (the list is empty until they come), or the episodes kept. */
+    /**
+     * The episodes of a channel: from the network (the list is empty until they come), or the episodes kept.
+     * When the feed does not load (no network), the downloaded episodes of the channel.
+     */
     fun buildEpisodesUI(channelName: String, rssUrl: String) {
         val title = "${localize("Podcast")}: $channelName"
         episodes?.takeIf { it.first == rssUrl }?.let {
@@ -132,12 +135,23 @@ class PodcastController(
                     if (shown == state) showEpisodes(title, list)
                 }
             } catch (e: Exception) {
+                val downloaded = try {
+                    repository.downloadedEpisodes(channelName)
+                } catch (_: Exception) {
+                    emptyList()
+                }
                 activity.runOnUiThread {
-                    Notice.error(
-                        activity,
-                        localize("Failed to fetch episodes: ") + (e.message ?: "Unknown error")
-                    )
-                    if (shown == state) screen.show(ListSpec(title, empty = localize("No Episodes")))
+                    if (downloaded.isNotEmpty()) {
+                        Notice.show(activity, localize("Offline Mode: Showing downloaded episodes only."), long = true)
+                        episodes = rssUrl to downloaded
+                        if (shown == state) showEpisodes(title, downloaded)
+                    } else {
+                        Notice.error(
+                            activity,
+                            localize("Failed to fetch episodes: ") + (e.message ?: "Unknown error")
+                        )
+                        if (shown == state) screen.show(ListSpec(title, empty = localize("No Episodes")))
+                    }
                 }
             }
         }.start()

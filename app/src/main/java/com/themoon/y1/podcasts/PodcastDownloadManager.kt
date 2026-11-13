@@ -34,22 +34,31 @@ class PodcastDownloadManager private constructor() {
     fun getProgress(audioUrl: String): Int = activeDownloads[audioUrl] ?: 0
     fun hasActiveDownloads(): Boolean = activeDownloads.isNotEmpty()
 
+    @Synchronized
     fun startDownload(
         title: String,
         audioUrl: String,
         channelName: String,
         listener: DownloadListener?
     ) {
+        // One download for each episode: the temporary file clean-up below relies on it
+        if (activeDownloads.containsKey(audioUrl)) return
         val safeChannel = channelName.replace("[\\\\/:*?\"<>|]".toRegex(), "_")
         val safeTitle = title.replace("[\\\\/:*?\"<>|]".toRegex(), "_") + ".mp3"
         val podcastDir = StoragePaths.getPodcastChannelDir(safeChannel)
         if (!podcastDir.exists()) podcastDir.mkdirs()
 
         val destFile = File(podcastDir, safeTitle)
+        // With no download in progress, no temporary file is in use: remove those of stopped downloads (app ended)
+        if (activeDownloads.isEmpty()) removeStalePartFiles(podcastDir)
         activeDownloads[audioUrl] = 0
 
         executor.execute {
+            // The download goes to a hidden temporary file, and gets the episode name only when it is complete:
+            // a stopped download (also when the app ends) never shows as a downloaded episode
+            var partFile: File? = null
             try {
+                partFile = File.createTempFile(PART_PREFIX, PART_SUFFIX, podcastDir)
                 val request = Request.Builder()
                     .url(audioUrl)
                     .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/114.0.0.0 Safari/537.36")
@@ -64,7 +73,7 @@ class PodcastDownloadManager private constructor() {
                 val body = response.body() ?: throw java.io.IOException("Empty body")
                 val totalLength = body.contentLength()
                 val isStream = body.byteStream()
-                val fos = FileOutputStream(destFile)
+                val fos = FileOutputStream(partFile)
 
                 val buffer = ByteArray(8192)
                 var len: Int
@@ -89,15 +98,24 @@ class PodcastDownloadManager private constructor() {
                 fos.close()
                 isStream.close()
 
+                // rename replaces an earlier download of the episode; if it fails, the earlier file stays
+                if (!partFile.renameTo(destFile)) throw java.io.IOException("Rename failed")
+
                 activeDownloads.remove(audioUrl)
                 listener?.onComplete(audioUrl, destFile)
             } catch (e: Exception) {
-                if (destFile.exists()) {
-                    destFile.delete()
+                if (partFile != null && partFile.exists()) {
+                    partFile.delete()
                 }
                 activeDownloads.remove(audioUrl)
                 listener?.onError(audioUrl, e.message ?: "Download failed")
             }
+        }
+    }
+
+    private fun removeStalePartFiles(dir: File) {
+        dir.listFiles()?.forEach { f ->
+            if (f.isFile && f.name.startsWith(PART_PREFIX) && f.name.endsWith(PART_SUFFIX)) f.delete()
         }
     }
 
@@ -121,6 +139,9 @@ class PodcastDownloadManager private constructor() {
     }
 
     companion object {
+        private const val PART_PREFIX = ".podcast-"
+        private const val PART_SUFFIX = ".part"
+
         @Volatile
         private var instance: PodcastDownloadManager? = null
 

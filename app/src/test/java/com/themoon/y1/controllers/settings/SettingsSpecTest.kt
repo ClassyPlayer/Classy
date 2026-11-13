@@ -32,7 +32,7 @@ class SettingsSpecTest {
     fun theGroupsAndTheirRowsAreAsBefore() {
         assertEquals(
             listOf(
-                "Playback" to listOf("Shuffle", "Repeat", "EQ", "Sound Check", "Volume Limit", "Playback Speed"),
+                "Playback" to listOf("Shuffle", "Repeat", "EQ", "Sound Check", "Mono Audio", "Volume Limit", "Playback Speed"),
                 "Display" to listOf("Brightness", "Backlight"),
                 "Now Playing" to listOf("Spectrum", "Total Time", "Lyrics", "Lyrics Keep Screen On", "Cover Tilt"),
                 "Status Bar" to listOf("Clock", "Battery Icon", "Battery Percentage"),
