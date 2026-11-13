@@ -13,7 +13,8 @@ data class AudioEffectSettings(
     val bassBoostStep: Int,
     val virtualizerStep: Int,
     val crossfeedStep: Int,
-    val soundCheck: Boolean
+    val soundCheck: Boolean,
+    val monoAudio: Boolean
 )
 
 /**
@@ -26,7 +27,8 @@ data class AudioEffectPlan(
     val bassBoost: Boolean,
     val virtualizer: Boolean,
     val crossfeed: Boolean,
-    val loudnessEnhancer: Boolean
+    val loudnessEnhancer: Boolean,
+    val mono: Boolean
 ) {
     companion object {
         const val HARDWARE_EQ_BANDS = 5
@@ -41,9 +43,11 @@ data class AudioEffectPlan(
                 hardwareEq = eqAudible && !s.softwareEq,
                 softwareEq = eqAudible && s.softwareEq,
                 bassBoost = s.bassBoostStep > 0,
-                virtualizer = s.virtualizerStep > 0,
+                // The platform Virtualizer runs after the mono mix and makes the two channels different again
+                virtualizer = s.virtualizerStep > 0 && !s.monoAudio,
                 crossfeed = s.crossfeedStep > 0,
-                loudnessEnhancer = s.soundCheck
+                loudnessEnhancer = s.soundCheck,
+                mono = s.monoAudio
             )
         }
 

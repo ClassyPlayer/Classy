@@ -55,6 +55,8 @@ class AudioPlayerManager private constructor() {
     var exoPlayer: SimpleExoPlayer? = null
     val customEqProcessor: Y1EqAudioProcessor = Y1EqAudioProcessor()
     val crossfeedProcessor: Y1CrossfeedAudioProcessor = Y1CrossfeedAudioProcessor()
+    /** Settings → Playback → Mono Audio, for the ExoPlayer path ([AudioEffectManager.syncAudioEffects] sets it). */
+    val monoProcessor: MonoAudioProcessor = MonoAudioProcessor()
     var legacyPlayer: MediaPlayer? = null
     var isUsingLegacyPlayer: Boolean = false
     // The file that the legacy player has prepared, or null.
@@ -183,6 +185,8 @@ class AudioPlayerManager private constructor() {
 
                 procList.add(customEqProcessor)
                 procList.add(crossfeedProcessor)
+                // After the effects that can make the two channels different, so that the output is mono
+                procList.add(monoProcessor)
                 procList.add(immortalSonic)
 
                 val processors = procList.toTypedArray()
@@ -216,6 +220,9 @@ class AudioPlayerManager private constructor() {
                 )
             }
         }
+
+        // Set before the first track: the sink mixes the first buffers before STATE_READY applies the effects
+        monoProcessor.isEnabled = MainActivity.instance?.prefs?.let { Prefs.MONO_AUDIO.get(it) } ?: false
 
         renderersFactory.setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
 
