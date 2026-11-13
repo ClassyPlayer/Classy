@@ -38,6 +38,8 @@ For example, on 14 November 2026:
 
 Older tags such as `20260928-build.6` and `20261107-v2` follow the same date rule.
 
+If you type a tag, it must not have the date and number of an existing tag (for example `20261114` when `20261114-beta` exists): the player would see the two as one version. The workflow stops on such a tag.
+
 ## Cut a beta
 
 1. Merge the changes to `main`.

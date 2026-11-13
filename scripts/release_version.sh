@@ -10,6 +10,7 @@
 #   DATE           optional YYYYMMDD override of today's UTC date (tests)
 #   EXISTING_TAGS  optional list of existing tags, separated by spaces or newlines (tests). When it is
 #                  unset, the tags come from git (after a fetch from origin). Set but empty means no tags.
+#                  A tag given by hand must not have the date and number of an existing tag.
 #
 # Prints key=value lines: tag_name, version_name, version_code, release_name, apk_name, channel.
 #
@@ -68,6 +69,31 @@ release_name_of_tag() {
   fi
 }
 
+# The existing tags that match the glob $1: from EXISTING_TAGS when it is set (tests), else from git.
+existing_tags() {
+  if [ -n "${EXISTING_TAGS+set}" ]; then
+    echo "$EXISTING_TAGS"
+  else
+    git fetch --tags origin >&2 || true
+    git tag -l "$1"
+  fi
+}
+
+# Two tags with the same date and number (20261114 and 20261114-beta, 20261114-v3 and 20261114-beta.3) are the same
+# version for the player: it shows "Up to Date", and Reinstall installs the other build. Date-based tags made here
+# never do this, but a tag given by hand can. A run again for the same tag is permitted.
+check_tag_unique() {
+  local tag="$1" code date other
+  code=$(version_code_of_tag "$tag")
+  [ "$code" != "$DEFAULT_CODE" ] || return 0
+  date="${code:0:8}"
+  for other in $(existing_tags "*${date}*"); do
+    if [ "$other" != "$tag" ] && [ "$(version_code_of_tag "$other")" = "$code" ]; then
+      fail "Tag '$tag' has the same date and number as the existing tag '$other', so players see them as one version. Give it another number, or leave the tag blank."
+    fi
+  done
+}
+
 check_tag_chars() {
   # Keeps the outputs one line each and the tag usable in file names and URLs.
   [[ "$1" =~ ^[A-Za-z0-9._+-]+$ ]] || fail "Tag '$1' has characters other than letters, digits, '.', '_', '+' and '-'"
@@ -89,17 +115,13 @@ if [ -n "$EXPLICIT_TAG" ]; then
   if [ -n "${INPUT_CHANNEL:-}" ] && [ "$INPUT_CHANNEL" != "$CHANNEL" ]; then
     fail "Tag '$TAG_NAME' is a $CHANNEL tag, but the channel is '$INPUT_CHANNEL'. Beta tags end in -beta or -beta.N; pick the matching channel or leave the tag blank."
   fi
+  check_tag_unique "$TAG_NAME"
 else
   CHANNEL="${INPUT_CHANNEL:-stable}"
   DAY="${DATE:-$(date -u +'%Y%m%d')}"
   [[ "$DAY" =~ ^[0-9]{8}$ ]] || fail "DATE '$DAY' is not YYYYMMDD"
 
-  if [ -n "${EXISTING_TAGS+set}" ]; then
-    TAGS="$EXISTING_TAGS"
-  else
-    git fetch --tags origin >&2 || true
-    TAGS=$(git tag -l "${DAY}*")
-  fi
+  TAGS=$(existing_tags "${DAY}*")
 
   HIGHEST=0
   for tag in $TAGS; do
