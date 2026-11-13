@@ -112,8 +112,11 @@ def scan_folder(local_root: Path, device_root: str):
             title = artist = album = year = genre = album_artist = composer = ""
             track_num = 0
             compilation = False
+            duration_ms = 0
             try:
                 audio = MutagenFile(local_path, easy=True)
+                if audio is not None and getattr(audio, "info", None) is not None:
+                    duration_ms = int(round(getattr(audio.info, "length", 0) * 1000))
                 if audio is not None and audio.tags:
                     tags = audio.tags
                     title = first_tag(tags, "title")
@@ -152,6 +155,8 @@ def scan_folder(local_root: Path, device_root: str):
                 entry["dateModified"] = date_modified
             if file_size > 0:
                 entry["fileSize"] = file_size
+            if duration_ms > 0:
+                entry["durationMs"] = duration_ms
             # As the app writes it: only for compilation tracks; a missing field reads as false.
             if compilation:
                 entry["compilation"] = True

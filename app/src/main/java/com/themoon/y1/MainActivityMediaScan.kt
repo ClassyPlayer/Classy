@@ -37,11 +37,18 @@ internal fun MainActivity.loadLibraryCacheInternal(onLoaded: ((Boolean) -> Unit)
             } else {
                 false
             }
+            if (applied) fillMissingLengthsOnce(mlm)
             val callbacks = ArrayList(libraryCacheLoadCallbacks)
             libraryCacheLoadCallbacks.clear()
             for (callback in callbacks) callback(applied)
         }
     }, "y1-library-cache").start()
+}
+
+/** Migration 013: reads the length of each cached track that has none, once (the next load continues an unfinished fill). */
+private fun MainActivity.fillMissingLengthsOnce(mlm: MediaLibraryManager) {
+    val migrations = com.themoon.y1.migrations.MigrationManager.getInstance(applicationContext)
+    if (migrations.isPendingLengthFill()) mlm.fillMissingLengths { migrations.clearPendingLengthFill() }
 }
 
 private fun MainActivity.applyLibraryCache(mlm: MediaLibraryManager, cache: MediaLibraryManager.LibraryCache) {

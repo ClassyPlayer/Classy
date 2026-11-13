@@ -34,6 +34,9 @@ class SongItem {
     var albumArtist: String
     var composer: String
 
+    /** Length in milliseconds from the library scan; 0 when not known (a cache from before it was kept). */
+    var durationMs: Long = 0L
+
     /** Each artist of the [artist] tag ("A;B" is A and B), for the Artists list. */
     fun getArtists(): List<String> = ArtistNames.split(artist).ifEmpty { listOf(artist) }
 

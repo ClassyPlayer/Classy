@@ -165,7 +165,9 @@ class PlaylistController(
     private fun taggedRow(file: File, byPath: Map<String, SongItem>): SongItem {
         val song = byPath[file.absolutePath]
         val title = song?.title?.takeIf { it.isNotBlank() } ?: file.nameWithoutExtension
-        return SongItem(file, title, song?.artist, song?.album)
+        val row = SongItem(file, title, song?.artist, song?.album)
+        row.durationMs = song?.durationMs ?: 0L
+        return row
     }
 
     fun parseM3uFile(m3uFile: File): List<SongItem> {
@@ -185,6 +187,10 @@ class PlaylistController(
                 if (!audioFile.isAbsolute) {
                     audioFile = File(musicRootFolder, normalized)
                 }
+                // "./" and "../" parts: the library keys and the play queue use the plain absolute path. Only when
+                // it is the same file: after a link, ".." goes up from the target of the link, not from the link.
+                val plain = File(PlaylistPaths.normalize(audioFile.path))
+                if (plain.path != audioFile.path && plain.exists() && PlaylistPaths.sameFile(plain, audioFile)) audioFile = plain
 
                 if (audioFile.exists() && isAudioFile(audioFile)) {
                     songs.add(taggedRow(audioFile, byPath))

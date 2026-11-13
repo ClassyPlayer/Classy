@@ -43,6 +43,7 @@ open class MigrationManager {
         registerMigration(Migration010UsbDrive())
         registerMigration(Migration011BootScreen())
         registerMigration(Migration012GamesMenuItem())
+        registerMigration(Migration013FillTrackLengths())
     }
 
     /**
@@ -131,6 +132,14 @@ open class MigrationManager {
         setPendingMediaRescan(false)
     }
 
+    /** True until the worker of [Migration013FillTrackLengths] has read the length of each cached track. */
+    fun isPendingLengthFill(): Boolean =
+        prefs.getBoolean(KEY_PENDING_LENGTH_FILL, false)
+
+    fun clearPendingLengthFill() {
+        prefs.edit().putBoolean(KEY_PENDING_LENGTH_FILL, false).commit()
+    }
+
     companion object {
         private const val TAG = "MigrationManager"
         const val PREFS_NAME: String = "Y1_MIGRATIONS"
@@ -138,6 +147,7 @@ open class MigrationManager {
         const val PREFIX_APPLIED: String = "applied_"
         const val PREFIX_APPLIED_TIME: String = "applied_time_"
         const val KEY_PENDING_MEDIA_RESCAN: String = "pending_media_rescan"
+        const val KEY_PENDING_LENGTH_FILL: String = "pending_length_fill"
 
         @Volatile
         private var instance: MigrationManager? = null

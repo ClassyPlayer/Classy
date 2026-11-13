@@ -17,6 +17,7 @@ import com.themoon.y1.lists.ArtRow
 import com.themoon.y1.lists.RowTexts
 import com.themoon.y1.managers.AlbumCoverManager
 import com.themoon.y1.managers.AudioPlayerManager
+import com.themoon.y1.managers.MediaLibraryManager
 import com.themoon.y1.models.ArtistNames
 import com.themoon.y1.models.SongItem
 import com.themoon.y1.podcasts.PodcastDownloadManager
@@ -30,7 +31,7 @@ import java.util.Date
 
 class SongListAdapter(
     private val items: List<SongItem>,
-    /** Playlist rows: the album cover at the left and the title over the artist (the album rows' look). */
+    /** Playlist rows: the cover, the title over the artist, and the track length at the right. */
     private val artRows: Boolean = false,
     /** The rows are the episodes of a podcast channel (Podcasts), not songs of the library. */
     private val isPodcast: Boolean = false
@@ -320,8 +321,11 @@ class SongListAdapter(
         val art = ArtRow.of(convertView, main)
         val path = song.file.absolutePath
         val artist = ArtistNames.display(song.artist).takeUnless { it.isBlank() || it.equals("Unknown Artist", ignoreCase = true) } ?: ""
-        art.bind(song.title, artist)
+        // The scan keeps the length; a library cache from before it did is read from the file once
+        val length = if (song.durationMs > 0L) TimeFormat.format(song.durationMs) else durations[path]
+        art.bind(song.title, artist, length ?: "")
         art.image.tag = path
+        if (length == null) loadDuration(path, art) else stopWaiting(art)
 
         val covers = AlbumCoverManager.getInstance()
         val cover = covers.getThumbnailDirect(AlbumCoverManager.getAlbumKey(song.file, song.album))
@@ -407,6 +411,55 @@ class SongListAdapter(
         const val VIEW_TYPE_SONG: Int = 1
 
         private var shuffleTileBitmap: Bitmap? = null
+
+        // Lengths of songs whose cache entry has none, read when a row first shows (kept until Classy restarts)
+        private val durations = java.util.concurrent.ConcurrentHashMap<String, String>()
+        // The rows that wait for a length, with the path that each one shows. Weak keys: a row that goes away
+        // stays not here. Lock it for each use, also of [pendingPaths].
+        private val waitingRows = java.util.WeakHashMap<ArtRow, String>()
+        // The paths in the queue of [durationWorker]: one read for each path
+        private val pendingPaths = HashSet<String>()
+        private val durationWorker = java.util.concurrent.Executors.newSingleThreadExecutor { job ->
+            Thread({
+                android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND)
+                job.run()
+            }, "y1-row-length")
+        }
+        private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
+
+        private fun loadDuration(path: String, art: ArtRow) {
+            synchronized(waitingRows) {
+                waitingRows[art] = path
+                if (!pendingPaths.add(path)) return
+            }
+            durationWorker.execute { readDuration(path) }
+        }
+
+        /** [art] shows a song with a known length now: a read that ends later does not change it. */
+        private fun stopWaiting(art: ArtRow) {
+            synchronized(waitingRows) { waitingRows.remove(art) }
+        }
+
+        private fun readDuration(path: String) {
+            // No read when no row shows the path now (the list scrolled on or closed); a new row queues it again
+            val wanted = synchronized(waitingRows) {
+                waitingRows.containsValue(path).also { if (!it) pendingPaths.remove(path) }
+            }
+            if (!wanted) return
+            val ms = MediaLibraryManager.getInstance().readLengthMs(File(path))
+            val text = if (ms > 0L) TimeFormat.format(ms) else ""
+            durations[path] = text
+            // Not View.post: from a worker thread it is lost while the row is not attached (Android 4.4)
+            mainHandler.post {
+                val rows = synchronized(waitingRows) {
+                    pendingPaths.remove(path)
+                    val done = waitingRows.filterValues { it == path }.keys.toList()
+                    for (row in done) waitingRows.remove(row)
+                    done
+                }
+                for (row in rows) if (row.image.tag == path) row.setTrailing(text)
+            }
+        }
 
         private fun determineShuffleRow(items: List<SongItem>?): Boolean {
             if (items.isNullOrEmpty()) return false
