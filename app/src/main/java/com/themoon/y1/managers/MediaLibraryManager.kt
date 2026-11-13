@@ -32,6 +32,8 @@ class MediaLibraryManager private constructor() {
     var isScanning: Boolean = false
         private set
 
+    private val isFillingLengths = java.util.concurrent.atomic.AtomicBoolean(false)
+
     interface ScanProgressListener {
         fun onProgress(scanned: Int, total: Int)
         fun onComplete(musicCount: Int, booksCount: Int)
@@ -481,6 +483,46 @@ class MediaLibraryManager private constructor() {
         return scanned
     }
 
+    /**
+     * Reads the length of each song that has none (a library cache from before the scan kept the length) on a
+     * low-priority worker, and saves the cache. [onDone] runs on the worker after it read all songs. Only one
+     * fill runs at a time.
+     */
+    fun fillMissingLengths(onDone: () -> Unit) {
+        if (!isFillingLengths.compareAndSet(false, true)) return
+        val worker = Thread({
+            try {
+                android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND)
+                val songs = ArrayList<SongItem>()
+                synchronized(musicLibrary) { musicLibrary.filterTo(songs) { it.durationMs <= 0L } }
+                synchronized(audiobookLibrary) { audiobookLibrary.filterTo(songs) { it.durationMs <= 0L } }
+                var filled = 0
+                for (song in songs) {
+                    if (song.durationMs > 0L) continue
+                    val ms = readLengthMs(song.file)
+                    if (ms <= 0L) continue
+                    song.durationMs = ms
+                    filled++
+                    if (filled % 500 == 0) saveLibraryCache()
+                }
+                if (filled > 0) saveLibraryCache()
+                Log.i(tag, "Track lengths: filled $filled of ${songs.size}")
+                onDone()
+            } catch (t: Throwable) {
+                Log.e(tag, "Track length fill error: ${t.message}", t)
+            } finally {
+                isFillingLengths.set(false)
+            }
+        }, "y1-length-fill")
+        try {
+            worker.start()
+        } catch (t: Throwable) {
+            isFillingLengths.set(false)
+        }
+    }
+
+    /** The scan and the length fill can both save the cache: one at a time, as they write the same temp file. */
+    @Synchronized
     fun saveLibraryCache() {
         val cacheFile = StoragePaths.primaryFile(".y1_library_cache.json")
         val tempFile = StoragePaths.primaryFile(".y1_library_cache.json.tmp")
