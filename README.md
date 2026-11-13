@@ -67,6 +67,7 @@ The album covers in the screenshots are from Creative Commons albums, for exampl
 
 - 30 volume steps of 2 dB each. Each output (speaker, headphones, Bluetooth) keeps its own volume.
 - The Equalizer, Bass Boost and Virtualizer run only when they change the sound.
+- Settings > Playback > Mono Audio plays the left and the right channel on both sides, for listening with one earbud (also on Bluetooth). FLAC files and videos stay stereo. The Virtualizer does not run while Mono Audio is on.
 - Each button push does one action, on release. Each wheel step gives one click and one vibration; Click Volume and Vibration Strength set their levels.
 - Settings in iPod-style groups (Playback, Display, Now Playing, Status Bar, Appearance, Menus, Controls and more) with On/Off switches. Export Settings and Import Settings save and load all settings as one JSON file.
 - A long press of the Power button opens a Power screen (Restart, Power Off) that the click wheel controls.
