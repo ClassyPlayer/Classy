@@ -23,6 +23,8 @@ def defaultVersionName = todayDate
 
 def appVersionCode = project.hasProperty('appVersionCode') ? project.property('appVersionCode').toInteger() : defaultVersionCode
 def appVersionName = project.hasProperty('appVersionName') ? project.property('appVersionName') : defaultVersionName
+// The commits of main in this build (the release workflow gives it). 0 = not known: System Update compares only the tags
+def appMainCommits = project.hasProperty('appMainCommits') ? project.property('appMainCommits').toInteger() : 0
 
 android {
     namespace 'com.themoon.y1'
@@ -42,6 +44,7 @@ android {
         multiDexEnabled true
         buildConfigField "String", "LASTFM_API_KEY", "\"${lastFmApiKey}\""
         buildConfigField "String", "LASTFM_API_SECRET", "\"${lastFmApiSecret}\""
+        buildConfigField "int", "MAIN_COMMITS", "${appMainCommits}"
     }
     buildFeatures {
         buildConfig true

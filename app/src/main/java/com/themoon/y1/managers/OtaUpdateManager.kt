@@ -12,6 +12,7 @@ import android.os.Handler
 import android.os.Looper
 import android.view.KeyEvent
 import com.themoon.y1.AppPrefs
+import com.themoon.y1.BuildConfig
 import com.themoon.y1.StoragePaths
 import com.themoon.y1.controllers.settings.ActionScreens
 import com.themoon.y1.views.Notice
@@ -239,7 +240,10 @@ class OtaUpdateManager(
                 }
 
                 val finalApkUrl = apkUrl
-                val outcome = UpdateChannel.outcome(serverVersionCode, serverVersionName, myVersionCode, myVersionName)
+                val outcome = UpdateChannel.outcome(
+                    serverVersionCode, serverVersionName, myVersionCode, myVersionName,
+                    root.optInt(UpdateChannel.MAIN_COMMITS_KEY, 0), BuildConfig.MAIN_COMMITS
+                )
 
                 activity.runOnUiThread {
                     if (cancelled.get()) return@runOnUiThread
@@ -280,8 +284,9 @@ class OtaUpdateManager(
     }
 
     /**
-     * The installed build is newer than the newest build of the channel (a beta, with the channel Stable). No Reinstall:
-     * it would install the older build over data that newer migrations changed.
+     * The installed build is newer than the newest build of the channel (a beta, with the channel Stable), or has newer
+     * code than it ([UpdateChannel.outcome]). No Reinstall: it would install the older build over data that newer
+     * migrations changed.
      */
     private fun showAheadDialog(currentVersion: String, channel: String) {
         val curVerStr = if (currentVersion.startsWith("v")) currentVersion else "v$currentVersion"

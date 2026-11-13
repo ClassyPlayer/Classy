@@ -99,4 +99,40 @@ class UpdateChannelTest {
         // A beta with the channel Stable: the latest stable is older
         assertEquals(Outcome.AHEAD, UpdateChannel.outcome(2026111200, "20261112", 2026111400, "20261114-beta"))
     }
+
+    @Test
+    fun outcome_hotfixFromAnOlderStable_isNotAnUpdateForANewerBeta() {
+        // 20261118-beta has 120 commits of main; the hotfix 20261120 from release/20261114 has the 100 of 20261114
+        assertEquals(Outcome.AHEAD, UpdateChannel.outcome(2026112000, "20261120", 2026111800, "20261118-beta", 100, 120))
+    }
+
+    @Test
+    fun outcome_promotedOlderBeta_isNotAnUpdateForANewerBeta() {
+        // 20261114-beta (105 commits of main) promoted to stable 20261120, on a player with 20261118-beta (120)
+        assertEquals(Outcome.AHEAD, UpdateChannel.outcome(2026112000, "20261120", 2026111800, "20261118-beta", 105, 120))
+        // The same tag and code, but older code: no Reinstall
+        assertEquals(Outcome.AHEAD, UpdateChannel.outcome(2026111400, "20261114", 2026111400, "20261114-beta", 105, 120))
+    }
+
+    @Test
+    fun outcome_sameOrMoreCommitsOfMain_comparesTheTags() {
+        // The beta promoted to stable: the same commit, a newer tag
+        assertEquals(Outcome.UPDATE, UpdateChannel.outcome(2026112000, "20261120", 2026111800, "20261118-beta", 120, 120))
+        // From a hotfix to the next release from main (it has more commits of main)
+        assertEquals(Outcome.UPDATE, UpdateChannel.outcome(2026112500, "20261125", 2026112000, "20261120", 130, 100))
+        // A second hotfix on the same release branch
+        assertEquals(Outcome.UPDATE, UpdateChannel.outcome(2026112200, "20261122", 2026112000, "20261120", 100, 100))
+        assertEquals(Outcome.SAME, UpdateChannel.outcome(2026112000, "20261120", 2026112000, "20261120", 100, 100))
+        // More commits of main never make an update of an older tag
+        assertEquals(Outcome.AHEAD, UpdateChannel.outcome(2026111200, "20261112", 2026111400, "20261114-beta", 130, 120))
+    }
+
+    @Test
+    fun outcome_unknownCommitsOfMain_comparesOnlyTheTags() {
+        // Local builds and releases from before the number: as before
+        assertEquals(Outcome.UPDATE, UpdateChannel.outcome(2026112000, "20261120", 2026111800, "20261118-beta", 100, 0))
+        assertEquals(Outcome.UPDATE, UpdateChannel.outcome(2026112000, "20261120", 2026111800, "20261118-beta", 0, 120))
+        assertEquals(Outcome.UPDATE, UpdateChannel.outcome(2026112000, "20261120", 2026111800, "20261118-beta", -1, 120))
+        assertEquals(Outcome.SAME, UpdateChannel.outcome(2026112000, "20261120", 2026112000, "20261120", 0, 120))
+    }
 }

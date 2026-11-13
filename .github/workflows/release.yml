@@ -81,6 +81,21 @@ jobs:
           echo "$OUTPUTS"
           echo "$OUTPUTS" >> "$GITHUB_OUTPUT"
 
+      # The player does not offer a release that has fewer commits of main than the installed build (a promoted older
+      # beta or a hotfix from release/<tag> gets a newer tag, but has older code). The count only goes up while main
+      # only grows: squash merges, no force push. 0 = not known: the player then compares only the tags.
+      - name: Count the Commits of main
+        id: lineage
+        run: |
+          if BASE=$(git merge-base HEAD origin/main); then
+            MAIN_COMMITS=$(git rev-list --count --first-parent "$BASE")
+          else
+            echo "::warning::This commit has no common commit with origin/main: the player compares only the tags"
+            MAIN_COMMITS=0
+          fi
+          echo "main_commits=$MAIN_COMMITS (merge base ${BASE:-none})"
+          echo "main_commits=$MAIN_COMMITS" >> "$GITHUB_OUTPUT"
+
       - name: Check Translation Consistency
         run: python3 scripts/check_translations.py --strict
 
@@ -102,6 +117,7 @@ jobs:
           KEY_ALIAS: ${{ secrets.CLASSY_RELEASE_KEY_ALIAS }}
           VERSION_CODE: ${{ steps.version.outputs.version_code }}
           VERSION_NAME: ${{ steps.version.outputs.version_name }}
+          MAIN_COMMITS: ${{ steps.lineage.outputs.main_commits }}
         run: |
           # One fixed key for all releases: Android installs an update over the app only with the same key.
           # Without the secrets (forks), Gradle signs with the runner's new debug key, as before.
@@ -118,7 +134,8 @@ jobs:
           else
             echo "::warning::No release key in the secrets: the APK is signed with a new debug key"
           fi
-          ./gradlew assembleRelease -PappVersionCode="$VERSION_CODE" -PappVersionName="$VERSION_NAME" "${SIGNING[@]}"
+          ./gradlew assembleRelease -PappVersionCode="$VERSION_CODE" -PappVersionName="$VERSION_NAME" \
+            -PappMainCommits="$MAIN_COMMITS" "${SIGNING[@]}"
 
       - name: Package APK and Generate Update Metadata
         env:
@@ -128,6 +145,7 @@ jobs:
           APK_NAME: ${{ steps.version.outputs.apk_name }}
           TAG_NAME: ${{ steps.version.outputs.tag_name }}
           CHANNEL: ${{ steps.version.outputs.channel }}
+          MAIN_COMMITS: ${{ steps.lineage.outputs.main_commits }}
           REPOSITORY: ${{ github.repository }}
         run: |
           mkdir -p dist
@@ -142,6 +160,7 @@ jobs:
             "versionName": "$VERSION_NAME",
             "releaseName": "Classy $RELEASE_NAME",
             "channel": "$CHANNEL",
+            "mainCommits": $MAIN_COMMITS,
             "apkName": "$1",
             "apkUrl": "https://github.com/$REPOSITORY/releases/download/$TAG_NAME/$1",
             "outputFile": "$1"

@@ -95,10 +95,31 @@ object UpdateChannel {
         return bestUrl
     }
 
+    /** The key in [MANIFEST] for the commits of `main` in the build (see [outcome]). */
+    const val MAIN_COMMITS_KEY = "mainCommits"
+
     /** What a check found: a newer build, the same build, or an older one (the installed build is ahead). */
     enum class Outcome { UPDATE, SAME, AHEAD }
 
-    fun outcome(serverCode: Int, serverName: String, myCode: Int, myName: String): Outcome = when {
+    /**
+     * Compares the release ([serverCode], [serverName]) with the installed build by tag and versionCode.
+     *
+     * [serverMainCommits] and [myMainCommits] are the commits of `main` that each build has (the number of commits on
+     * `main` up to the newest one in the build; the release workflow writes it, 0 = not known). A tag does not show
+     * this: a promoted older beta and a hotfix from `release/<tag>` get a new date tag but have older code. A release
+     * with fewer commits of `main` is [Outcome.AHEAD] (no update, no Reinstall), because its older code would run on data
+     * that newer migrations changed. When a number is not known (local builds, releases before the number), only the
+     * tags count, as before.
+     */
+    fun outcome(
+        serverCode: Int,
+        serverName: String,
+        myCode: Int,
+        myName: String,
+        serverMainCommits: Int = 0,
+        myMainCommits: Int = 0
+    ): Outcome = when {
+        serverMainCommits > 0 && myMainCommits > 0 && serverMainCommits < myMainCommits -> Outcome.AHEAD
         OtaUpdateManager.isServerVersionNewer(serverCode, serverName, myCode, myName) -> Outcome.UPDATE
         OtaUpdateManager.isServerVersionNewer(myCode, myName, serverCode, serverName) -> Outcome.AHEAD
         else -> Outcome.SAME
