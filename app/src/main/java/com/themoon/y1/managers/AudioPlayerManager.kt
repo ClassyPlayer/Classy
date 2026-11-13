@@ -56,6 +56,8 @@ import java.util.concurrent.Executors
  */
 class AudioPlayerManager private constructor() {
     var exoPlayer: SimpleExoPlayer? = null
+    /** Episode title and channel of the last podcast stream, for Now Playing after a retry. */
+    private var streamInfo: Pair<String, String>? = null
     val customEqProcessor: Y1EqAudioProcessor = Y1EqAudioProcessor()
     val crossfeedProcessor: Y1CrossfeedAudioProcessor = Y1CrossfeedAudioProcessor()
     /** Settings → Playback → Mono Audio, for the ExoPlayer path ([AudioEffectManager.syncAudioEffects] sets it). */
@@ -421,6 +423,17 @@ class AudioPlayerManager private constructor() {
         }
     }
 
+    /** The episode and the channel of the stream, in place of the error text of [handleStreamError]. */
+    private fun restoreStreamInfo() {
+        val main = MainActivity.instance ?: return
+        if (main.currentPlaylist.singleOrNull()?.absolutePath?.startsWith("/PODCAST_STREAM") != true) return
+        val (title, channel) = streamInfo ?: return
+        main.runOnUiThread {
+            main.tvPlayerTitle.text = title
+            main.tvPlayerArtist.text = channel
+        }
+    }
+
     fun playTrackList(list: List<File>, index: Int, initialSeekMs: Long = -1L) {
         saveAudiobookBookmarkIfNeeded()
 
@@ -511,6 +524,7 @@ class AudioPlayerManager private constructor() {
 
             isUsingLegacyPlayer = false
             isGaplessQueueActive = false
+            streamInfo = title to channelName
 
             val safeChannel = channelName.replace("[\\\\/:*?\"<>|]".toRegex(), "_")
             val safeTitle = title.replace("[\\\\/:*?\"<>|]".toRegex(), "_") + ".mp3"
@@ -641,7 +655,10 @@ class AudioPlayerManager private constructor() {
             } else {
                 isPlayingActive = true
                 // After an error (for example a stream with no connection) the player is idle: load it again
-                if (player.playbackState == Player.STATE_IDLE && player.mediaItemCount > 0) player.prepare()
+                if (player.playbackState == Player.STATE_IDLE && player.mediaItemCount > 0) {
+                    restoreStreamInfo()
+                    player.prepare()
+                }
                 player.playWhenReady = true
                 startPeriodicPositionSaver()
                 MainActivity.instance?.isPausedByHand = false
