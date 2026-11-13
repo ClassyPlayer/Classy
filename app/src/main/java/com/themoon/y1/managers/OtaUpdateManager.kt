@@ -225,7 +225,6 @@ class OtaUpdateManager(
                 // Stable: the release marked Latest. Beta: the newest release with update metadata, a beta or not
                 val manifestUrls = if (channel == UpdateChannel.BETA) {
                     UpdateChannel.manifestUrls(fetch(client, UpdateChannel.RELEASES_API_URL))
-                        .take(UpdateChannel.MAX_MANIFESTS)
                         .ifEmpty { throw Exception("No release with ${UpdateChannel.MANIFEST}") }
                 } else {
                     listOf(UPDATE_JSON_URL)

@@ -95,9 +95,6 @@ object UpdateChannel {
         return found.sortedWith { a, b -> OtaUpdateManager.compareVersionStrings(b.first, a.first) }.map { it.second }
     }
 
-    /** The releases that the Beta channel reads at most in one check (see [hasOlderCode]). */
-    const val MAX_MANIFESTS = 3
-
     /** The key in [MANIFEST] for the commits of `main` in the build (see [outcome]). */
     const val MAIN_COMMITS_KEY = "mainCommits"
 
@@ -130,7 +127,7 @@ object UpdateChannel {
 
     /**
      * True when the release has fewer commits of `main` than the installed build (both known). On the Beta channel the
-     * check then also reads the next older release: a newer beta can have an older tag than a hotfix.
+     * check then reads the next older release of the list: a newer beta can have an older tag than a hotfix.
      */
     fun hasOlderCode(serverMainCommits: Int, myMainCommits: Int): Boolean =
         serverMainCommits > 0 && myMainCommits > 0 && serverMainCommits < myMainCommits
