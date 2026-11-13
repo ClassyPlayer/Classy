@@ -41,6 +41,8 @@ class PodcastDownloadManager private constructor() {
         channelName: String,
         listener: DownloadListener?
     ) {
+        // One download for each episode: the temporary file clean-up below relies on it
+        if (activeDownloads.containsKey(audioUrl)) return
         val safeChannel = channelName.replace("[\\\\/:*?\"<>|]".toRegex(), "_")
         val safeTitle = title.replace("[\\\\/:*?\"<>|]".toRegex(), "_") + ".mp3"
         val podcastDir = StoragePaths.getPodcastChannelDir(safeChannel)
