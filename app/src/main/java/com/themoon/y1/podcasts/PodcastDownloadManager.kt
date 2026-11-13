@@ -27,8 +27,11 @@ class PodcastDownloadManager private constructor() {
     }
 
     private val activeDownloads = ConcurrentHashMap<String, Int>()
-    /** The absolute paths of the files that the downloads write now. */
-    private val activeFiles = ConcurrentHashMap<String, Boolean>()
+    /**
+     * The absolute paths of the files that the downloads write now, with the number of downloads for each: two
+     * titles can give the same file name, and the file is not complete until the last of them ends.
+     */
+    private val activeFiles = HashMap<String, Int>()
     private val executor: ExecutorService = Executors.newFixedThreadPool(2)
     private val client: OkHttpClient = buildClient()
 
@@ -36,7 +39,19 @@ class PodcastDownloadManager private constructor() {
     fun getProgress(audioUrl: String): Int = activeDownloads[audioUrl] ?: 0
     fun hasActiveDownloads(): Boolean = activeDownloads.isNotEmpty()
     /** True while a download writes [file]: the file is not complete. */
-    fun isDownloadingFile(file: File): Boolean = activeFiles.containsKey(file.absolutePath)
+    fun isDownloadingFile(file: File): Boolean = synchronized(activeFiles) { activeFiles.containsKey(file.absolutePath) }
+
+    private fun fileStarts(path: String) {
+        synchronized(activeFiles) { activeFiles[path] = (activeFiles[path] ?: 0) + 1 }
+    }
+
+    private fun fileEnds(path: String) {
+        synchronized(activeFiles) {
+            val n = (activeFiles[path] ?: 0) - 1
+            if (n > 0) activeFiles[path] = n else activeFiles.remove(path)
+            Unit
+        }
+    }
 
     fun startDownload(
         title: String,
@@ -51,7 +66,7 @@ class PodcastDownloadManager private constructor() {
 
         val destFile = File(podcastDir, safeTitle)
         activeDownloads[audioUrl] = 0
-        activeFiles[destFile.absolutePath] = true
+        fileStarts(destFile.absolutePath)
 
         executor.execute {
             try {
@@ -95,14 +110,14 @@ class PodcastDownloadManager private constructor() {
                 isStream.close()
 
                 activeDownloads.remove(audioUrl)
-                activeFiles.remove(destFile.absolutePath)
+                fileEnds(destFile.absolutePath)
                 listener?.onComplete(audioUrl, destFile)
             } catch (e: Exception) {
                 if (destFile.exists()) {
                     destFile.delete()
                 }
                 activeDownloads.remove(audioUrl)
-                activeFiles.remove(destFile.absolutePath)
+                fileEnds(destFile.absolutePath)
                 listener?.onError(audioUrl, e.message ?: "Download failed")
             }
         }
