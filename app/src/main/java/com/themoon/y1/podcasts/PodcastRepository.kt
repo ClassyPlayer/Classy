@@ -226,14 +226,14 @@ class PodcastRepository private constructor() {
 
     /**
      * The downloaded episodes of [channelName], for when the feed does not load (no network):
-     * see [PodcastOfflineEpisodes.list]. [isDownloading]: the file is not complete yet.
+     * see [PodcastOfflineEpisodes.list].
      */
-    fun downloadedEpisodes(channelName: String, isDownloading: (File) -> Boolean): List<SongItem> {
+    fun downloadedEpisodes(channelName: String): List<SongItem> {
         val dir = StoragePaths.getPodcastChannelDir(PodcastOfflineEpisodes.safeName(channelName))
         val files = dir.listFiles()?.toList() ?: return emptyList()
         val kept = SafeFiles.readStringFromFile(File(dir, PodcastOfflineEpisodes.LIST_FILE))
             ?.let { PodcastOfflineEpisodes.fromJson(it, channelName) } ?: emptyList()
-        return PodcastOfflineEpisodes.list(channelName, files, kept, isDownloading)
+        return PodcastOfflineEpisodes.list(channelName, files, kept)
     }
 
     private fun cacheChannelCover(channelName: String, imageUrl: String) {

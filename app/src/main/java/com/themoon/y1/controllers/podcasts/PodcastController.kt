@@ -136,7 +136,7 @@ class PodcastController(
                 }
             } catch (e: Exception) {
                 val downloaded = try {
-                    repository.downloadedEpisodes(channelName) { downloadManager.isDownloadingFile(it) }
+                    repository.downloadedEpisodes(channelName)
                 } catch (_: Exception) {
                     emptyList()
                 }

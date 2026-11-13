@@ -7,7 +7,7 @@ import java.io.File
 
 /**
  * The episodes of a channel without the network: the downloaded files in the folder of the channel.
- * An episode of the feed is an [SongItem] with the channel in [SongItem.artist], the date in [SongItem.year],
+ * An episode of the feed is a [SongItem] with the channel in [SongItem.artist], the date in [SongItem.year],
  * the audio URL in [SongItem.genre] and the image URL in [SongItem.album]; its download is
  * `<channel folder>/<[fileName] of the title>`, as [PodcastDownloadManager] writes it.
  */
@@ -59,21 +59,20 @@ object PodcastOfflineEpisodes {
      * The downloaded episodes in [files] (the files of the channel folder). First the episodes of [kept] (the last
      * list of the feed) that have a download, in feed order with their date. Then the other downloads, for example
      * from before the list was kept, the newest file first, with the file name as title and no date; hidden files
-     * (such as the macOS "._" files) are not in this part. An empty file, a file that still downloads
-     * ([isDownloading]) and a file whose name [fileName] cannot give (the episode click finds the download from the
-     * title) are not episodes.
+     * (such as the macOS "._" files) are not in this part. An empty file and a file whose name [fileName] cannot
+     * give (the episode click finds the download from the title) are not episodes. A download that is not complete
+     * has a temporary name (see [PodcastDownloadManager]), so it is not an episode either.
      */
     fun list(
         channelName: String,
         files: List<File>,
-        kept: List<SongItem>,
-        isDownloading: (File) -> Boolean
+        kept: List<SongItem>
     ): List<SongItem> {
         val downloads = LinkedHashMap<String, File>()
         for (f in files) {
             val name = f.name
             if (!name.endsWith(EXTENSION) || name.length == EXTENSION.length || safeName(name) != name) continue
-            if (!f.isFile || f.length() <= 0L || isDownloading(f)) continue
+            if (!f.isFile || f.length() <= 0L) continue
             downloads[name] = f
         }
         val list = ArrayList<SongItem>()

@@ -59,7 +59,7 @@ class PodcastOfflineEpisodesTest {
         download("Older one.mp3", modified = 500L)
         val kept = listOf(episode("Ep 3"), episode("Ep 2"), episode("Ep 1"))
 
-        val list = PodcastOfflineEpisodes.list(channel, files(), kept) { false }
+        val list = PodcastOfflineEpisodes.list(channel, files(), kept)
 
         assertEquals(listOf("Ep 3", "Ep 1", "Old one", "Older one"), list.map { it.title })
         // A kept episode keeps its date and URLs; another download has no date (no "[Unknown Year]" prefix)
@@ -73,13 +73,13 @@ class PodcastOfflineEpisodesTest {
     @Test
     fun keptTitleWithUnsafeCharacters_findsItsDownload() {
         download(PodcastOfflineEpisodes.fileName("Q&A: part 1/2"))
-        val list = PodcastOfflineEpisodes.list(channel, files(), listOf(episode("Q&A: part 1/2"))) { false }
+        val list = PodcastOfflineEpisodes.list(channel, files(), listOf(episode("Q&A: part 1/2")))
         assertEquals(listOf("Q&A: part 1/2"), list.map { it.title })
     }
 
     @Test
     fun partialEmptyHiddenAndOtherFiles_areSkipped() {
-        val partial = download("Downloading.mp3")
+        download(".podcast-123.part")
         download("Empty.mp3", bytes = 0)
         download("._Done.mp3")
         download("Done.mp3")
@@ -87,29 +87,22 @@ class PodcastOfflineEpisodesTest {
         download(PodcastOfflineEpisodes.LIST_FILE)
         File(tmp.root, "Folder.mp3").mkdir()
 
-        val list = PodcastOfflineEpisodes.list(channel, files(), emptyList()) { it == partial }
+        val list = PodcastOfflineEpisodes.list(channel, files(), emptyList())
 
         assertEquals(listOf("Done"), list.map { it.title })
     }
 
     @Test
-    fun keptEpisodeThatStillDownloads_isSkipped() {
-        val partial = download("Ep 1.mp3")
-        val list = PodcastOfflineEpisodes.list(channel, files(), listOf(episode("Ep 1"))) { it == partial }
-        assertTrue(list.isEmpty())
-    }
-
-    @Test
     fun keptTitleTwice_givesOneRow() {
         download("Ep 1.mp3")
-        val list = PodcastOfflineEpisodes.list(channel, files(), listOf(episode("Ep 1"), episode("Ep 1"))) { false }
+        val list = PodcastOfflineEpisodes.list(channel, files(), listOf(episode("Ep 1"), episode("Ep 1")))
         assertEquals(1, list.size)
     }
 
     @Test
     fun keptEpisodeWhoseTitleStartsWithADot_isListed() {
         download(".NET news.mp3")
-        val list = PodcastOfflineEpisodes.list(channel, files(), listOf(episode(".NET news"))) { false }
+        val list = PodcastOfflineEpisodes.list(channel, files(), listOf(episode(".NET news")))
         assertEquals(listOf(".NET news"), list.map { it.title })
     }
 }

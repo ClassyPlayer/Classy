@@ -27,31 +27,12 @@ class PodcastDownloadManager private constructor() {
     }
 
     private val activeDownloads = ConcurrentHashMap<String, Int>()
-    /**
-     * The absolute paths of the files that the downloads write now, with the number of downloads for each: two
-     * titles can give the same file name, and the file is not complete until the last of them ends.
-     */
-    private val activeFiles = HashMap<String, Int>()
     private val executor: ExecutorService = Executors.newFixedThreadPool(2)
     private val client: OkHttpClient = buildClient()
 
     fun isDownloading(audioUrl: String): Boolean = activeDownloads.containsKey(audioUrl)
     fun getProgress(audioUrl: String): Int = activeDownloads[audioUrl] ?: 0
     fun hasActiveDownloads(): Boolean = activeDownloads.isNotEmpty()
-    /** True while a download writes [file]: the file is not complete. */
-    fun isDownloadingFile(file: File): Boolean = synchronized(activeFiles) { activeFiles.containsKey(file.absolutePath) }
-
-    private fun fileStarts(path: String) {
-        synchronized(activeFiles) { activeFiles[path] = (activeFiles[path] ?: 0) + 1 }
-    }
-
-    private fun fileEnds(path: String) {
-        synchronized(activeFiles) {
-            val n = (activeFiles[path] ?: 0) - 1
-            if (n > 0) activeFiles[path] = n else activeFiles.remove(path)
-            Unit
-        }
-    }
 
     fun startDownload(
         title: String,
@@ -66,10 +47,13 @@ class PodcastDownloadManager private constructor() {
 
         val destFile = File(podcastDir, safeTitle)
         activeDownloads[audioUrl] = 0
-        fileStarts(destFile.absolutePath)
 
         executor.execute {
+            // The download goes to a hidden temporary file, and gets the episode name only when it is complete:
+            // a stopped download (also when the app ends) never shows as a downloaded episode
+            var partFile: File? = null
             try {
+                partFile = File.createTempFile(".podcast-", ".part", podcastDir)
                 val request = Request.Builder()
                     .url(audioUrl)
                     .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/114.0.0.0 Safari/537.36")
@@ -84,7 +68,7 @@ class PodcastDownloadManager private constructor() {
                 val body = response.body() ?: throw java.io.IOException("Empty body")
                 val totalLength = body.contentLength()
                 val isStream = body.byteStream()
-                val fos = FileOutputStream(destFile)
+                val fos = FileOutputStream(partFile)
 
                 val buffer = ByteArray(8192)
                 var len: Int
@@ -109,17 +93,19 @@ class PodcastDownloadManager private constructor() {
                 fos.close()
                 isStream.close()
 
+                if (!partFile.renameTo(destFile)) {
+                    if (destFile.exists()) destFile.delete()
+                    if (!partFile.renameTo(destFile)) throw java.io.IOException("Rename failed")
+                }
+
                 activeDownloads.remove(audioUrl)
                 listener?.onComplete(audioUrl, destFile)
             } catch (e: Exception) {
-                if (destFile.exists()) {
-                    destFile.delete()
+                if (partFile != null && partFile.exists()) {
+                    partFile.delete()
                 }
                 activeDownloads.remove(audioUrl)
                 listener?.onError(audioUrl, e.message ?: "Download failed")
-            } finally {
-                // Once for each download, also when a listener throws
-                fileEnds(destFile.absolutePath)
             }
         }
     }
