@@ -60,7 +60,10 @@ class AudioPlayerManager private constructor() {
     private var streamInfo: Pair<String, String>? = null
     val customEqProcessor: Y1EqAudioProcessor = Y1EqAudioProcessor()
     val crossfeedProcessor: Y1CrossfeedAudioProcessor = Y1CrossfeedAudioProcessor()
-    /** Settings → Playback → Mono Audio, for the ExoPlayer path ([AudioEffectManager.syncAudioEffects] sets it). */
+    /**
+     * Settings → Playback → Mono Audio, for the ExoPlayer path ([AudioEffectManager.syncAudioEffects] sets it).
+     * With Mono Audio On, FLAC files also play in ExoPlayer ([PlayerChoice.forPlayback]).
+     */
     val monoProcessor: MonoAudioProcessor = MonoAudioProcessor()
     var legacyPlayer: MediaPlayer? = null
     var isUsingLegacyPlayer: Boolean = false
@@ -69,6 +72,9 @@ class AudioPlayerManager private constructor() {
 
     // The player for each file, and the files that a player could not play (FLAC: MediaPlayer, then ExoPlayer)
     private val playerChoice = PlayerChoice()
+    // A FLAC file in ExoPlayer: the check for the hang at 0:00 (watchExoPlayerStart)
+    private val startCheckHandler = Handler(Looper.getMainLooper())
+    private var startCheck: Runnable? = null
     private var isGaplessQueueActive: Boolean = false
     private var currentFileInputStream: FileInputStream? = null
 
@@ -213,7 +219,7 @@ class AudioPlayerManager private constructor() {
                     android.util.Log.e("AudioPlayerManager", "ExoPlayer playback error on $currentPath: ${error.message}", error)
                     if (currentPath?.startsWith("/PODCAST_STREAM") == true) {
                         handleStreamError(PodcastStreamError.reason(error))
-                    } else if (!isUsingLegacyPlayer) {
+                    } else if (!isUsingLegacyPlayer && !fallBackFromExoPlayer(getCurrentPosition().toLong())) {
                         handleTrackError("Cannot play this file.")
                     }
                 }
@@ -689,6 +695,7 @@ class AudioPlayerManager private constructor() {
         if (main.currentPlaylist.isEmpty()) return
 
         val track = main.currentPlaylist[index]
+        cancelStartCheck()
         currentlyPlayingFilePath = track.absolutePath
         main.lastAlbumArtBytes = null
 
@@ -758,7 +765,7 @@ class AudioPlayerManager private constructor() {
             main.tvPlayerTimeTotal.text = main.playerController.rightTimeText(0, 0)
         }
 
-        val playerOrder = PlayerChoice.forPlayback(track.absolutePath)
+        val playerOrder = playbackOrder(track, main)
         isUsingLegacyPlayer = playerChoice.choose(track.absolutePath, playerOrder) == PlayerChoice.Engine.MEDIA_PLAYER
 
         var t: String? = null
@@ -989,6 +996,9 @@ class AudioPlayerManager private constructor() {
                     stopPeriodicPositionSaver()
                 }
                 applyMasterVolume()
+                if (playerChoice.hasNext(track.absolutePath, PlayerChoice.Engine.EXO_PLAYER, playerOrder)) {
+                    watchExoPlayerStart(track.absolutePath)
+                }
             }
 
             main.consecutiveErrorCount = 0
@@ -1018,6 +1028,101 @@ class AudioPlayerManager private constructor() {
                 Handler(Looper.getMainLooper()).postDelayed({ nextTrack(fromStart) }, 2000)
             }
         }
+    }
+
+    private fun playbackOrder(track: File, main: MainActivity): List<PlayerChoice.Engine> =
+        PlayerChoice.forPlayback(track.absolutePath, Prefs.MONO_AUDIO.get(main.prefs))
+
+    /**
+     * ExoPlayer cannot play the current track: the next player of its order plays it from [positionMs] (a FLAC file
+     * with Mono Audio On: MediaPlayer, without the mix). False when there is no next player.
+     */
+    private fun fallBackFromExoPlayer(positionMs: Long): Boolean {
+        val main = MainActivity.instance ?: return false
+        if (isGaplessQueueActive) return false
+        val index = main.currentIndex
+        val track = main.currentPlaylist.getOrNull(index) ?: return false
+        if (track.absolutePath != currentlyPlayingFilePath) return false
+        val order = playbackOrder(track, main)
+        if (!playerChoice.hasNext(track.absolutePath, PlayerChoice.Engine.EXO_PLAYER, order)) return false
+        playerChoice.fail(track.absolutePath, PlayerChoice.Engine.EXO_PLAYER, order)
+        android.util.Log.w("AudioPlayerManager", "ExoPlayer cannot play ${track.absolutePath}, trying MediaPlayer")
+        main.runOnUiThread {
+            if (main.currentIndex == index && currentlyPlayingFilePath == track.absolutePath) {
+                prepareMusicTrack(index, initialSeekMs = positionMs)
+                main.updatePlayerUI()
+            }
+        }
+        return true
+    }
+
+    /**
+     * A FLAC file in ExoPlayer: ExoPlayer's FLAC decoder stayed at 0:00 on some devices. While ExoPlayer must play,
+     * its position must move forward in [PlayerChoice.START_CHECK_MS]; if not, MediaPlayer plays the track.
+     * The check stops at the first progress, or when the track changes.
+     */
+    private fun watchExoPlayerStart(path: String) {
+        cancelStartCheck()
+        var from = -1L
+        val check = object : Runnable {
+            override fun run() {
+                val exo = exoPlayer
+                if (startCheck !== this || exo == null || isUsingLegacyPlayer || currentlyPlayingFilePath != path) return
+                val state = exo.playbackState
+                if (!exo.playWhenReady || state == Player.STATE_ENDED || state == Player.STATE_IDLE) {
+                    from = -1L // paused (or ended, or failed): check again when it plays
+                } else if (from < 0) {
+                    from = exo.currentPosition
+                } else {
+                    val position = exo.currentPosition
+                    when (PlayerChoice.checkStart(from, position)) {
+                        PlayerChoice.StartCheck.PLAYS -> {
+                            startCheck = null
+                            return
+                        }
+                        PlayerChoice.StartCheck.CHECK_AGAIN -> from = position
+                        PlayerChoice.StartCheck.STALLED -> {
+                            startCheck = null
+                            android.util.Log.w("AudioPlayerManager", "ExoPlayer stays at $position ms in $path")
+                            fallBackFromExoPlayer(position)
+                            return
+                        }
+                    }
+                }
+                startCheckHandler.postDelayed(this, PlayerChoice.START_CHECK_MS)
+            }
+        }
+        startCheck = check
+        if (exoPlayer?.playWhenReady == true) from = exoPlayer?.currentPosition ?: -1L
+        startCheckHandler.postDelayed(check, PlayerChoice.START_CHECK_MS)
+    }
+
+    private fun cancelStartCheck() {
+        startCheck?.let { startCheckHandler.removeCallbacks(it) }
+        startCheck = null
+    }
+
+    /**
+     * Mono Audio changed: a FLAC track goes to the player that the new setting chooses (Mono Audio On: ExoPlayer,
+     * which mixes; Off: MediaPlayer), at the same position. It plays or stays paused as before.
+     */
+    fun onMonoAudioChanged() {
+        val main = MainActivity.instance ?: return
+        if (isGaplessQueueActive || (exoPlayer == null && legacyPlayer == null)) return
+        val index = main.currentIndex
+        val track = main.currentPlaylist.getOrNull(index) ?: return
+        if (track.absolutePath != currentlyPlayingFilePath) return
+        val useLegacy = playerChoice.choose(track.absolutePath, playbackOrder(track, main)) == PlayerChoice.Engine.MEDIA_PLAYER
+        if (useLegacy == isUsingLegacyPlayer) return
+
+        val position = getCurrentPosition().toLong()
+        val duration = getDuration().toLong()
+        // Paused, also when not by hand: the track stays paused
+        val pausedByHand = main.isPausedByHand
+        if (!isPlaying()) main.isPausedByHand = true
+        prepareMusicTrack(index, initialSeekMs = position, initialDurationMs = duration)
+        main.isPausedByHand = pausedByHand
+        main.updatePlayerUI()
     }
 
     /** Title, artist and album of a file, and with [includeArt] its embedded cover. Any thread. */
@@ -1317,6 +1422,7 @@ class AudioPlayerManager private constructor() {
         isPlayingActive = false
         currentlyPlayingFilePath = null
         stopPeriodicPositionSaver()
+        cancelStartCheck()
         exoPlayer?.release()
         exoPlayer = null
         legacyPlayer?.release()

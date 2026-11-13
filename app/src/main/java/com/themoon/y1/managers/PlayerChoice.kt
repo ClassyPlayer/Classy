@@ -9,7 +9,8 @@ import java.util.Locale
  * other player, and later plays of the file go directly to the player that works.
  *
  * - Main player ([forPlayback]): ExoPlayer, with the app's audio processors. FLAC files go first to Android's
- *   MediaPlayer, because ExoPlayer's FLAC decoder stayed at 0:00 on some devices.
+ *   MediaPlayer, because ExoPlayer's FLAC decoder stayed at 0:00 on some devices. With Mono Audio On, FLAC files
+ *   go first to ExoPlayer, because only its processors can mix the channels; MediaPlayer is then the fallback.
  * - Music Quiz clip ([FOR_CLIP]): MediaPlayer first for each file (as before), ExoPlayer when MediaPlayer fails.
  *
  * Main thread only.
@@ -38,21 +39,29 @@ class PlayerChoice {
 
     fun hasFailed(path: String, engine: Engine): Boolean = failures[path]?.contains(engine) == true
 
+    /** True when [order] has a player other than [engine] that has not failed for [path]. */
+    fun hasNext(path: String, engine: Engine, order: List<Engine>): Boolean =
+        order.any { it != engine && !hasFailed(path, it) }
+
     companion object {
         val MEDIA_PLAYER_FIRST: List<Engine> = listOf(Engine.MEDIA_PLAYER, Engine.EXO_PLAYER)
+        val EXO_PLAYER_FIRST: List<Engine> = listOf(Engine.EXO_PLAYER, Engine.MEDIA_PLAYER)
         val EXO_PLAYER_ONLY: List<Engine> = listOf(Engine.EXO_PLAYER)
 
         /** The time after which a player that must play has to be past its start position. */
-        const val START_CHECK_MS = 4000L
+        const val START_CHECK_MS = 5000L
 
         /** A smaller step of the position in [START_CHECK_MS] is no progress (the player hangs). */
         const val MIN_PROGRESS_MS = 500L
 
         fun isFlac(path: String): Boolean = path.lowercase(Locale.ROOT).endsWith(".flac")
 
-        /** The players of the main player for [path], in the order to try them. */
-        fun forPlayback(path: String): List<Engine> =
-            if (isFlac(path)) MEDIA_PLAYER_FIRST else EXO_PLAYER_ONLY
+        /** The players of the main player for [path], in the order to try them. [monoAudio]: Settings → Playback → Mono Audio. */
+        fun forPlayback(path: String, monoAudio: Boolean): List<Engine> = when {
+            !isFlac(path) -> EXO_PLAYER_ONLY
+            monoAudio -> EXO_PLAYER_FIRST
+            else -> MEDIA_PLAYER_FIRST
+        }
 
         /** The players of a Music Quiz clip, for each file: MediaPlayer (it starts fast), then ExoPlayer. */
         val FOR_CLIP: List<Engine> = MEDIA_PLAYER_FIRST
