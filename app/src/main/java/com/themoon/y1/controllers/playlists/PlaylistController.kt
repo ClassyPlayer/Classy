@@ -187,6 +187,9 @@ class PlaylistController(
                 if (!audioFile.isAbsolute) {
                     audioFile = File(musicRootFolder, normalized)
                 }
+                // "./" and "../" parts: the library keys and the play queue use the plain absolute path
+                val plain = File(PlaylistPaths.normalize(audioFile.path))
+                if (plain.path != audioFile.path && plain.exists()) audioFile = plain
 
                 if (audioFile.exists() && isAudioFile(audioFile)) {
                     songs.add(taggedRow(audioFile, byPath))
