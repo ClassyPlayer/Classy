@@ -754,5 +754,13 @@
   "To update, install the new firmware with Innioasis Updater CE (innioasis.app).": "Чтобы обновить, установите новую прошивку с помощью Innioasis Updater CE (innioasis.app).",
   "Cannot Verify Update": "Не удалось проверить обновление",
   "The downloaded update could not be verified, so nothing was changed.": "Не удалось проверить загруженное обновление, поэтому ничего не изменено.",
-  "Try again later or on another Wi-Fi network, or install the new firmware with Innioasis Updater CE (innioasis.app).": "Повторите попытку позже или через другую сеть Wi-Fi либо установите новую прошивку с помощью Innioasis Updater CE (innioasis.app)."
+  "Try again later or on another Wi-Fi network, or install the new firmware with Innioasis Updater CE (innioasis.app).": "Повторите попытку позже или через другую сеть Wi-Fi либо установите новую прошивку с помощью Innioasis Updater CE (innioasis.app).",
+  "Update Channel": "Канал обновлений",
+  "Stable": "Стабильный",
+  "Beta": "Бета",
+  "Use Beta": "Использовать бету",
+  "Beta versions get new features first and can have bugs.": "Бета-версии первыми получают новые функции и могут содержать ошибки.",
+  "To leave, choose Stable: the player then waits for the next stable version.": "Чтобы выйти, выберите «Стабильный»: плеер дождётся следующей стабильной версии.",
+  "This version is newer than the latest stable version.": "Эта версия новее последней стабильной версии.",
+  "Check again when the next stable version is out.": "Проверьте снова, когда выйдет следующая стабильная версия."
 }

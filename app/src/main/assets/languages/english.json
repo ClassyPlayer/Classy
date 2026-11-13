@@ -754,5 +754,13 @@
   "To update, install the new firmware with Innioasis Updater CE (innioasis.app).": "To update, install the new firmware with Innioasis Updater CE (innioasis.app).",
   "Cannot Verify Update": "Cannot Verify Update",
   "The downloaded update could not be verified, so nothing was changed.": "The downloaded update could not be verified, so nothing was changed.",
-  "Try again later or on another Wi-Fi network, or install the new firmware with Innioasis Updater CE (innioasis.app).": "Try again later or on another Wi-Fi network, or install the new firmware with Innioasis Updater CE (innioasis.app)."
+  "Try again later or on another Wi-Fi network, or install the new firmware with Innioasis Updater CE (innioasis.app).": "Try again later or on another Wi-Fi network, or install the new firmware with Innioasis Updater CE (innioasis.app).",
+  "Update Channel": "Update Channel",
+  "Stable": "Stable",
+  "Beta": "Beta",
+  "Use Beta": "Use Beta",
+  "Beta versions get new features first and can have bugs.": "Beta versions get new features first and can have bugs.",
+  "To leave, choose Stable: the player then waits for the next stable version.": "To leave, choose Stable: the player then waits for the next stable version.",
+  "This version is newer than the latest stable version.": "This version is newer than the latest stable version.",
+  "Check again when the next stable version is out.": "Check again when the next stable version is out."
 }

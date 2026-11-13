@@ -754,5 +754,13 @@
   "To update, install the new firmware with Innioasis Updater CE (innioasis.app).": "如需更新，请使用 Innioasis Updater CE（innioasis.app）安装新固件。",
   "Cannot Verify Update": "无法验证更新",
   "The downloaded update could not be verified, so nothing was changed.": "无法验证下载的更新，因此未做任何更改。",
-  "Try again later or on another Wi-Fi network, or install the new firmware with Innioasis Updater CE (innioasis.app).": "请稍后或连接其他 Wi-Fi 网络后重试，或使用 Innioasis Updater CE（innioasis.app）安装新固件。"
+  "Try again later or on another Wi-Fi network, or install the new firmware with Innioasis Updater CE (innioasis.app).": "请稍后或连接其他 Wi-Fi 网络后重试，或使用 Innioasis Updater CE（innioasis.app）安装新固件。",
+  "Update Channel": "更新渠道",
+  "Stable": "稳定版",
+  "Beta": "测试版",
+  "Use Beta": "使用测试版",
+  "Beta versions get new features first and can have bugs.": "测试版会率先获得新功能，但可能存在错误。",
+  "To leave, choose Stable: the player then waits for the next stable version.": "如要退出，请选择稳定版：播放器将等待下一个稳定版本。",
+  "This version is newer than the latest stable version.": "此版本比最新的稳定版本更新。",
+  "Check again when the next stable version is out.": "下一个稳定版本发布后请再次检查。"
 }
