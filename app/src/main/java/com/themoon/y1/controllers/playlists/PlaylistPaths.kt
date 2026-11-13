@@ -38,6 +38,16 @@ object PlaylistPaths {
         return java.io.File(musicRoot, path)
     }
 
+    /**
+     * The list label of each playlist in [files]: the name without the extension, and "Name (storage)" when another
+     * playlist has the same name (ignoring case), so that the playlists of the card and internal storage can be told apart.
+     */
+    fun labels(files: List<java.io.File>, storage: (java.io.File) -> String): List<String> {
+        val names = files.map { it.nameWithoutExtension }
+        val counts = names.groupingBy { it.lowercase() }.eachCount()
+        return files.mapIndexed { i, f -> if (counts.getValue(names[i].lowercase()) > 1) "${names[i]} (${storage(f)})" else names[i] }
+    }
+
     /** True when [a] and [b] are the same file after the links are resolved; false when that cannot be told. */
     fun sameFile(a: java.io.File, b: java.io.File): Boolean = try {
         a.canonicalPath == b.canonicalPath

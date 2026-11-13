@@ -59,6 +59,17 @@ class PlaylistPathsTest {
     }
 
     @Test
+    fun sameNameGetsTheStorage() {
+        val files = listOf(
+            File("/storage/sdcard1/Playlists/On-The-Go.m3u8"),
+            File("/storage/sdcard0/Playlists/on-the-go.m3u"),
+            File("/storage/sdcard1/Playlists/Rock.m3u8"),
+        )
+        val labels = PlaylistPaths.labels(files) { if (it.path.startsWith("/storage/sdcard1")) "MicroSD Card" else "Internal Storage" }
+        assertEquals(listOf("On-The-Go (MicroSD Card)", "on-the-go (Internal Storage)", "Rock"), labels)
+    }
+
+    @Test
     fun pathAfterALinkIsNotTheSameFile() {
         val root = Files.createTempDirectory("classy_m3u").toFile().canonicalFile
         try {
