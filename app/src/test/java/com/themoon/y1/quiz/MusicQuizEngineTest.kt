@@ -79,6 +79,18 @@ class MusicQuizEngineTest {
         // When no clip plays, the quiz continues with all songs
         songs.forEach { engine.onPreviewFailed(it.file) }
         assertNotNull(engine.nextQuestion { _, s -> s.title })
+
+        // Three failed songs with cover art and one playable song without: no cover question about a failed song
+        val coverSongs = (1..4).map { createSong("Cover $it", album = "Album $it", path = "/storage/sdcard0/Music/Cover $it.flac") }
+        engine.resetSession(coverSongs)
+        engine.coverArtPredicate = { it.album != "Album 4" }
+        coverSongs.take(3).forEach { engine.onPreviewFailed(it.file) }
+        for (i in 0 until 50) {
+            val q = engine.nextQuestion { _, s -> s.title }
+            assertNotNull(q)
+            assertEquals(coverSongs[3].file, q!!.song.file)
+            assertTrue(q.type != MusicQuizEngine.TYPE_ALBUM_COVER)
+        }
     }
 
     @Test

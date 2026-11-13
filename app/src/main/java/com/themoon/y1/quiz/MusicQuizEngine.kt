@@ -165,6 +165,11 @@ class MusicQuizEngine(private val context: Context? = null, private val random: 
         if (countDistinctField(TYPE_YEAR) >= 4) availableTypes.add(TYPE_YEAR)
         if (countDistinctField(TYPE_ALBUM_COVER) >= 3) availableTypes.add(TYPE_ALBUM_COVER)
 
+        // Ask about a song whose clip plays; all songs stay available as wrong answers
+        val targets = quizPool.filter { it.file !in unplayableFiles }.ifEmpty { quizPool }
+        availableTypes.retainAll { type -> targets.any { isValidField(it, type) } }
+        if (availableTypes.isEmpty()) availableTypes.add(TYPE_TITLE)
+
         val selectedType = availableTypes[random.nextInt(availableTypes.size)]
 
         val typePool = ArrayList<SongItem>()
@@ -173,11 +178,11 @@ class MusicQuizEngine(private val context: Context? = null, private val random: 
         }
         val pool = if (typePool.isNotEmpty()) typePool else quizPool
 
-        val playable = pool.filter { it.file !in unplayableFiles }.ifEmpty { pool }
+        val targetPool = targets.filter { isValidField(it, selectedType) }.ifEmpty { pool }
 
         // Anti-repeat protection: try not to pick the exact same song consecutively
-        var candidateSongs = playable.filter { it.file != lastTargetSongFile }
-        if (candidateSongs.isEmpty()) candidateSongs = playable
+        var candidateSongs = targetPool.filter { it.file != lastTargetSongFile }
+        if (candidateSongs.isEmpty()) candidateSongs = targetPool
 
         val targetSong = candidateSongs[random.nextInt(candidateSongs.size)]
         lastTargetSongFile = targetSong.file
