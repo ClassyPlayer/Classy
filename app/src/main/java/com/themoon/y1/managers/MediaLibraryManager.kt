@@ -485,8 +485,8 @@ class MediaLibraryManager private constructor() {
 
     /**
      * Reads the length of each song that has none (a library cache from before the scan kept the length) on a
-     * low-priority worker, and saves the cache. [onDone] runs on the worker after it read all songs. Only one
-     * fill runs at a time.
+     * low-priority worker, and saves the cache. [onDone] runs on the worker when no song in the lists is left
+     * to read. Only one fill runs at a time.
      */
     fun fillMissingLengths(onDone: () -> Unit) {
         if (!isFillingLengths.compareAndSet(false, true)) return
@@ -496,18 +496,31 @@ class MediaLibraryManager private constructor() {
                 val songs = ArrayList<SongItem>()
                 synchronized(musicLibrary) { musicLibrary.filterTo(songs) { it.durationMs <= 0L } }
                 synchronized(audiobookLibrary) { audiobookLibrary.filterTo(songs) { it.durationMs <= 0L } }
+                // Each path read, with its length (0: not known)
+                val read = HashMap<String, Long>()
                 var filled = 0
                 for (song in songs) {
                     if (song.durationMs > 0L) continue
                     val ms = readLengthMs(song.file)
+                    read[song.file.absolutePath] = ms
                     if (ms <= 0L) continue
                     song.durationMs = ms
                     filled++
                     if (filled % 500 == 0) saveLibraryCache()
                 }
+                // A cache load during the fill puts new song objects into the lists: give them the lengths too
+                var missed = false
+                for (list in listOf(musicLibrary, audiobookLibrary)) synchronized(list) {
+                    for (song in list) {
+                        if (song.durationMs > 0L) continue
+                        val ms = read[song.file.absolutePath]
+                        if (ms == null) missed = true else if (ms > 0L) song.durationMs = ms
+                    }
+                }
                 if (filled > 0) saveLibraryCache()
                 Log.i(tag, "Track lengths: filled $filled of ${songs.size}")
-                onDone()
+                // A song that came into the lists during the fill: the next cache load continues
+                if (!missed) onDone()
             } catch (t: Throwable) {
                 Log.e(tag, "Track length fill error: ${t.message}", t)
             } finally {
