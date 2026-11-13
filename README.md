@@ -113,9 +113,13 @@ Prebuilt firmware packages with Classy preinstalled as the default system launch
 
 To flash via the updater:
 
-1. Download the archive matching your device from [Releases](https://github.com/ClassyPlayer/Classy/releases) and ensure it is named `rom.zip` (required by the updater tool).
-2. Open the [Innioasis Updater](https://www.innioasis.com/pages/download), choose `rom.zip` as the local firmware package, and follow the on-screen steps.
-3. Once the flashing process completes and the player restarts, Classy starts automatically.
+1. Download the archive matching your device from [Releases](https://github.com/ClassyPlayer/Classy/releases). Keep its file name (for example `rom_y2.zip`). Do not rename it to `rom.zip`: the updater reads the player model from the file name.
+2. Open [Innioasis Updater CE](https://innioasis.app). If you installed a firmware file before, click **Settings** > **Clear Firmware Cache** first (see the note below).
+3. Click **Install from a file…** > **Browse Files…**, choose the archive, click **Install / Restore**, and follow the on-screen steps.
+4. Once the flashing process completes and the player restarts, Classy starts automatically.
+
+> [!NOTE]
+> Updater CE extracts a local archive to a folder named after the file (`.rom_y2_extracted` for `rom_y2.zip`). When that folder is complete, it uses it again for the next archive with the same name, also from a different release, and installs the old firmware. **Clear Firmware Cache** deletes these folders. You can also delete the folder yourself from the updater's `downloads` folder: `%LOCALAPPDATA%\Updater CE\downloads` (Windows), `~/Library/Application Support/Innioasis Updater/downloads` (macOS) or `~/.local/share/updater-ce/downloads` (Linux).
 
 > [!WARNING]
 > Keep the device connected and powered until the update finishes. Do not unplug the cable during the flash.
