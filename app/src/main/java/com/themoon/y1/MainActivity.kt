@@ -329,6 +329,8 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     lateinit var webServerController: WebServerController
     var otaUpdateManager: OtaUpdateManager? = null
     var externalSdMountMonitor: ExternalSdMountMonitor? = null
+    /** The thread that waits for the primary storage before the library load at start (Y1), or null. */
+    private var primaryStorageWait: Thread? = null
     private var powerMenuInterceptor: PowerMenuInterceptor? = null
     private var pairingAgent: BluetoothPairingAgent? = null
     var powerBacklightManager: PowerBacklightManager? = null
@@ -413,17 +415,44 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
             android.util.Log.i("Classy", "Secondary storage not ready yet at onCreate, will load library once mounted")
             playbackRestored = AudioPlayerManager.getInstance().restoreLastPlaybackState(this)
         } else {
-            runMigrationsAsync {
-                loadLibraryCache {
-                    if (!playbackRestored) {
-                        playbackRestored = AudioPlayerManager.getInstance().restoreLastPlaybackState(this)
-                    }
-                    val mgr = com.themoon.y1.migrations.MigrationManager.getInstance(applicationContext)
-                    if (mgr.isPendingMediaRescan() && !isCustomScanning) {
-                        scanVideos()
-                        startMediaLibraryScan()
+            val startLibraryLoad = {
+                runMigrationsAsync {
+                    loadLibraryCache {
+                        if (!playbackRestored) {
+                            playbackRestored = AudioPlayerManager.getInstance().restoreLastPlaybackState(this)
+                        }
+                        val mgr = com.themoon.y1.migrations.MigrationManager.getInstance(applicationContext)
+                        if (mgr.isPendingMediaRescan() && !isCustomScanning) {
+                            scanVideos()
+                            startMediaLibraryScan()
+                        }
                     }
                 }
+            }
+            // Y1: a big microSD card in /storage/sdcard0 mounts ~20 s after boot; a cache read before that finds no
+            // files and the library stayed empty. Wait only while the card is on its way (checking or unmounted), at
+            // most 2 min. With no card (removed), a shared or a damaged card, the load starts at once.
+            val storageComing = {
+                when (android.os.Environment.getExternalStorageState()) {
+                    android.os.Environment.MEDIA_CHECKING, android.os.Environment.MEDIA_UNMOUNTED -> true
+                    else -> false
+                }
+            }
+            if (!storageComing()) {
+                startLibraryLoad()
+            } else {
+                primaryStorageWait = Thread(wait@{
+                    var waitedMs = 0
+                    while (storageComing() && waitedMs < 120_000) {
+                        // Interrupted by onDestroy: no load for a closed activity
+                        try { Thread.sleep(500) } catch (_: InterruptedException) { return@wait }
+                        waitedMs += 500
+                    }
+                    runOnUiThread {
+                        primaryStorageWait = null
+                        if (!isFinishing && !isDestroyed) startLibraryLoad()
+                    }
+                }, "y1-wait-primary-storage").apply { start() }
             }
         }
 
@@ -1519,6 +1548,8 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
         powerMenuInterceptor?.unregister()
         com.themoon.y1.managers.CellRadioManager.stop(this)
         externalSdMountMonitor?.stop()
+        primaryStorageWait?.interrupt()
+        primaryStorageWait = null
         audioVisualizer?.release()
         audioVisualizer = null
         AudioPlayerManager.getInstance().releasePlayer()
