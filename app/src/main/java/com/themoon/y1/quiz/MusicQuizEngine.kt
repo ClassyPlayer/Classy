@@ -70,6 +70,9 @@ class MusicQuizEngine(private val context: Context? = null, private val random: 
     private var previewPlayer: MediaPlayer? = null
     private var lastTargetSongFile: File? = null
 
+    /** Songs whose clip MediaPlayer could not play (for example some FLAC files). They are not asked again. */
+    private val unplayableFiles = HashSet<File>()
+
     fun resetSession(library: List<SongItem>): Boolean {
         score = 0
         roundNumber = 1
@@ -89,7 +92,8 @@ class MusicQuizEngine(private val context: Context? = null, private val random: 
             if (path.contains("/Audiobooks") || path.contains("/Podcasts") || path.startsWith("/PODCAST_STREAM")) {
                 continue
             }
-            if (lower.endsWith(".flac") || lower.endsWith(".opus") || lower.endsWith(".ogg")) {
+            // MediaPlayer on Android 4.4 cannot open Opus (also in .ogg files). It plays FLAC, as the main player does.
+            if (lower.endsWith(".opus") || lower.endsWith(".ogg")) {
                 continue
             }
             if (song.title.isNullOrBlank()) {
@@ -169,9 +173,11 @@ class MusicQuizEngine(private val context: Context? = null, private val random: 
         }
         val pool = if (typePool.isNotEmpty()) typePool else quizPool
 
+        val playable = pool.filter { it.file !in unplayableFiles }.ifEmpty { pool }
+
         // Anti-repeat protection: try not to pick the exact same song consecutively
-        var candidateSongs = pool.filter { it.file != lastTargetSongFile }
-        if (candidateSongs.isEmpty()) candidateSongs = pool
+        var candidateSongs = playable.filter { it.file != lastTargetSongFile }
+        if (candidateSongs.isEmpty()) candidateSongs = playable
 
         val targetSong = candidateSongs[random.nextInt(candidateSongs.size)]
         lastTargetSongFile = targetSong.file
@@ -407,8 +413,20 @@ class MusicQuizEngine(private val context: Context? = null, private val random: 
                 } catch (ignored: Throwable) {}
             }
 
+            mp.setOnErrorListener { _, _, _ ->
+                onPreviewFailed(file)
+                true
+            }
+
             mp.prepareAsync()
-        } catch (ignored: Throwable) {}
+        } catch (ignored: Throwable) {
+            onPreviewFailed(file)
+        }
+    }
+
+    /** The clip of [file] did not play: later questions ask about other songs. */
+    internal fun onPreviewFailed(file: File) {
+        unplayableFiles.add(file)
     }
 
     fun stopPreview() {
