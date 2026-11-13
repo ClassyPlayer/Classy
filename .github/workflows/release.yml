@@ -31,6 +31,12 @@ on:
 permissions:
   contents: write
 
+# Runs that publish go one at a time, from reading the tags to the release: two at once could pick the same tag.
+# A run waits for the one before it (no cancel). Builds of branches and PRs do not publish and keep their own group.
+concurrency:
+  group: ${{ (github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')) && 'release-publish' || format('build-{0}', github.ref) }}
+  cancel-in-progress: false
+
 jobs:
   build-apk:
     name: Build APK

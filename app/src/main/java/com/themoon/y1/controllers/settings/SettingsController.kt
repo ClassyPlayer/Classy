@@ -784,7 +784,8 @@ class SettingsController(
         val current = updateChannel()
         return rows.valueList(localize("Update Channel"), UpdateChannel.VALUES.mapIndexed { i, channel ->
             SettingValue(localize(UpdateChannel.LABELS[i]), channel == current) {
-                if (channel == current) {
+                // Read again: the list can stay open after the Beta question closed
+                if (channel == updateChannel()) {
                     onNavigateBack()
                 } else if (channel == UpdateChannel.BETA) {
                     ActionScreens.open(ActionScreens.Spec(
@@ -795,6 +796,8 @@ class SettingsController(
                         ),
                         listOf(ActionScreens.Action(localize("Use Beta")) {
                             UpdateChannel.store(prefs, UpdateChannel.BETA, versionName())
+                            // The question closes before this runs, so the list under it was made with the old value
+                            refresh()
                         }),
                         selectAction = false
                     ))

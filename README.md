@@ -136,7 +136,7 @@ Use this method to update the app on an existing device without reflashing the f
    adb install -r Classy-<version>.apk
    ```
    > [!NOTE]
-   > Releases are signed with one key, so the update keeps your settings, music library, custom themes in `/storage/sdcard0/Y1_Themes`, and `.scrobbler.log`. If the player runs an older release signed with a different key, the install fails with `INSTALL_FAILED_UPDATE_INCOMPATIBLE`: flash the firmware with Method 1 instead.
+   > Releases are signed with one key, so the update keeps your settings, music library, custom themes in `/storage/sdcard0/Y1_Themes`, and `.scrobbler.log`. If the player runs an older release signed with a different key, the install fails with `INSTALL_FAILED_UPDATE_INCOMPATIBLE`: flash the firmware with Method 1 instead. A full flash erases the internal storage, so first copy your music and other files from it to a computer. Music on the microSD card stays.
 3. Optional step if Bluetooth pairing prompts for elevated permissions unavailable through the interface:
    ```bash
    adb shell pm grant com.themoon.y1 android.permission.WRITE_SECURE_SETTINGS
