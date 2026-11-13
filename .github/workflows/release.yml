@@ -33,9 +33,9 @@ permissions:
 
 # Runs that publish go one at a time, from reading the tags to the release: two at once could pick the same tag.
 # A run waits for the one before it (no cancel), and queue: max keeps every waiting run (the default keeps only the
-# newest). Builds of branches and PRs do not publish and keep their own group.
+# newest). Builds of branches and PRs do not publish: each has a group of its own, so they run at once, as before.
 concurrency:
-  group: ${{ (github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')) && 'release-publish' || format('build-{0}', github.ref) }}
+  group: ${{ (github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')) && 'release-publish' || format('build-{0}', github.run_id) }}
   cancel-in-progress: false
   queue: max
 
