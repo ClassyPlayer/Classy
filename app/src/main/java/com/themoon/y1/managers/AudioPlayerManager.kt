@@ -1049,10 +1049,15 @@ class AudioPlayerManager private constructor() {
         if (!playerChoice.hasNext(track.absolutePath, PlayerChoice.Engine.EXO_PLAYER, order)) return false
         playerChoice.fail(track.absolutePath, PlayerChoice.Engine.EXO_PLAYER, order)
         android.util.Log.w("AudioPlayerManager", "ExoPlayer cannot play ${track.absolutePath}, trying MediaPlayer")
+        // Paused, also when not by hand: the track stays paused
+        val paused = exoPlayer?.playWhenReady != true
         main.runOnUiThread {
             if (main.currentIndex == index && currentlyPlayingFilePath == track.absolutePath) {
+                val pausedByHand = main.isPausedByHand
+                if (paused) main.isPausedByHand = true
                 // fromStart at 0: an audiobook does not go back to an old bookmark
                 prepareMusicTrack(index, initialSeekMs = positionMs, fromStart = positionMs <= 0L)
+                main.isPausedByHand = pausedByHand
                 main.updatePlayerUI()
             }
         }
