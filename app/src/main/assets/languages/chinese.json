@@ -317,7 +317,7 @@
   "Scan Complete!\nFound": "扫描完成！\n找到频道数: ",
   "channels.\nTuning to": "个。\n正在移动至: ",
   "No stations found.": "未找到频道。",
-  "No .m3u files found in Y1_Playlists": "在 Y1_Playlists 中未找到 .m3u 文件",
+  "No .m3u files found in Playlists": "在 Playlists 中未找到 .m3u 文件",
   "Computer Connected": "已连接电脑",
   "Not Now": "暂不",
   "Use the microSD card as a USB drive?": "将microSD卡用作USB驱动器？",

@@ -23,6 +23,41 @@ object PlaylistPaths {
         return if (absolute) "/$joined" else joined
     }
 
+    /**
+     * The file of a playlist [entry] (backslashes as in Windows playlists work). A relative entry is first read from
+     * the playlist's folder [playlistDir] (as playlists made on a computer are), then from [musicRoot] when it is not there.
+     */
+    fun resolve(entry: String, playlistDir: java.io.File?, musicRoot: java.io.File): java.io.File {
+        val path = entry.replace("\\", "/")
+        val file = java.io.File(path)
+        if (file.isAbsolute) return file
+        if (playlistDir != null) {
+            val nextToPlaylist = java.io.File(playlistDir, path)
+            if (nextToPlaylist.exists()) return nextToPlaylist
+        }
+        return java.io.File(musicRoot, path)
+    }
+
+    /**
+     * The list label of each playlist in [files]: the name without the extension, and "Name (storage)" when another
+     * playlist has the same name (ignoring case), so that the playlists of the card and internal storage can be told apart.
+     */
+    fun labels(files: List<java.io.File>, storage: (java.io.File) -> String): List<String> {
+        val names = files.map { it.nameWithoutExtension }
+        val counts = names.groupingBy { it.lowercase() }.eachCount()
+        return files.mapIndexed { i, f -> if (counts.getValue(names[i].lowercase()) > 1) "${names[i]} (${storage(f)})" else names[i] }
+    }
+
+    /** True when [file] has text and its last character is not a line break (\n or \r). False for a missing or empty file. */
+    fun endsWithoutLineBreak(file: java.io.File): Boolean {
+        if (!file.isFile || file.length() == 0L) return false
+        java.io.RandomAccessFile(file, "r").use { raf ->
+            raf.seek(raf.length() - 1)
+            val last = raf.read()
+            return last != '\n'.code && last != '\r'.code
+        }
+    }
+
     /** True when [a] and [b] are the same file after the links are resolved; false when that cannot be told. */
     fun sameFile(a: java.io.File, b: java.io.File): Boolean = try {
         a.canonicalPath == b.canonicalPath

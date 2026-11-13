@@ -37,6 +37,54 @@ class PlaylistPathsTest {
     }
 
     @Test
+    fun relativeEntryIsReadFromThePlaylistFolderFirst() {
+        val root = Files.createTempDirectory("classy_m3u").toFile().canonicalFile
+        try {
+            val playlists = File(root, "Playlists").apply { mkdirs() }
+            val music = File(root, "Music").apply { mkdirs() }
+            File(music, "Album").mkdirs()
+            File(music, "Album/Track.mp3").writeText("a")
+
+            // A computer playlist: ../Music/... from the playlist's folder, with Windows backslashes
+            assertEquals(File(playlists, "../Music/Album/Track.mp3"),
+                PlaylistPaths.resolve("..\\Music\\Album\\Track.mp3", playlists, music))
+            // Not next to the playlist: from the Music folder, as before
+            assertEquals(File(music, "Album/Track.mp3"), PlaylistPaths.resolve("Album/Track.mp3", playlists, music))
+            assertEquals(File(music, "Album/Track.mp3"), PlaylistPaths.resolve("Album/Track.mp3", null, music))
+            // Absolute stays as it is
+            assertEquals(File("/storage/sdcard1/Music/x.mp3"), PlaylistPaths.resolve("/storage/sdcard1/Music/x.mp3", playlists, music))
+        } finally {
+            root.walkBottomUp().forEach { Files.deleteIfExists(it.toPath()) }
+        }
+    }
+
+    @Test
+    fun sameNameGetsTheStorage() {
+        val files = listOf(
+            File("/storage/sdcard1/Playlists/On-The-Go.m3u8"),
+            File("/storage/sdcard0/Playlists/on-the-go.m3u"),
+            File("/storage/sdcard1/Playlists/Rock.m3u8"),
+        )
+        val labels = PlaylistPaths.labels(files) { if (it.path.startsWith("/storage/sdcard1")) "MicroSD Card" else "Internal Storage" }
+        assertEquals(listOf("On-The-Go (MicroSD Card)", "on-the-go (Internal Storage)", "Rock"), labels)
+    }
+
+    @Test
+    fun tellsAFileWithoutAFinalLineBreak() {
+        val dir = Files.createTempDirectory("classy_m3u").toFile()
+        try {
+            fun file(text: String) = File(dir, "p${text.hashCode()}.m3u").apply { writeText(text) }
+            assertTrue(PlaylistPaths.endsWithoutLineBreak(file("#EXTM3U\n../Music/A.mp3")))
+            assertFalse(PlaylistPaths.endsWithoutLineBreak(file("#EXTM3U\n../Music/A.mp3\n")))
+            assertFalse(PlaylistPaths.endsWithoutLineBreak(file("#EXTM3U\r\n..\\Music\\A.mp3\r\n")))
+            assertFalse(PlaylistPaths.endsWithoutLineBreak(file("")))
+            assertFalse(PlaylistPaths.endsWithoutLineBreak(File(dir, "missing.m3u")))
+        } finally {
+            dir.deleteRecursively()
+        }
+    }
+
+    @Test
     fun pathAfterALinkIsNotTheSameFile() {
         val root = Files.createTempDirectory("classy_m3u").toFile().canonicalFile
         try {

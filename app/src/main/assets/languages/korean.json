@@ -317,7 +317,7 @@
   "Scan Complete!\nFound": "스캔 완료!\n찾은 채널 수",
   "channels.\nTuning to": "개 채널.\n이동 중",
   "No stations found.": "채널을 찾을 수 없습니다.",
-  "No .m3u files found in Y1_Playlists": "Y1_Playlists 폴더에 재생목록(.m3u)이 없습니다.",
+  "No .m3u files found in Playlists": "Playlists 폴더에 재생목록(.m3u)이 없습니다.",
   "Computer Connected": "컴퓨터에 연결됨",
   "Not Now": "나중에",
   "Use the microSD card as a USB drive?": "microSD 카드를 USB 드라이브로 사용할까요?",

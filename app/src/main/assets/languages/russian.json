@@ -356,7 +356,7 @@
   "Scan Complete!\nFound": "Сканирование завершено!\nНайдено каналов: ",
   "channels.\nTuning to": ".\nПереход на ",
   "No stations found.": "Станции не найдены.",
-  "No .m3u files found in Y1_Playlists": "Файлы .m3u не найдены в Y1_Playlists",
+  "No .m3u files found in Playlists": "Файлы .m3u не найдены в Playlists",
   " minutes": " мин.",
   "Sleep Timer": "Таймер сна",
   "Sleep timer cancelled": "Таймер сна отменен",

@@ -15,7 +15,7 @@ import java.io.File
  *
  * The backup has all keys of the preference files in [FILES] (settings, ratings, favourites, main menu
  * order and visibility, music menu visibility, theme, EQ, FM stations, audiobook and video positions),
- * except secrets and device state ([isExcluded]). Playlists are .m3u8 files in Y1_Playlists, so they are not in it.
+ * except secrets and device state ([isExcluded]). Playlists are .m3u8 files in the Playlists folders, so they are not in it.
  */
 object SettingsBackup {
     const val FORMAT = "classy-settings"

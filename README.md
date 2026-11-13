@@ -57,6 +57,7 @@ The album covers in the screenshots are from Creative Commons albums, for exampl
 - Library browsing by Artists, Album Artists, Albums, Compilations, Songs, Genres, Composers, Playlists, Folders, and Favorites. The Artists view splits by individual track artist tags so guest features appear distinctly, while Album Artists groups releases by main artist. Settings > Main Menu Items and Music Menu Items hide menu items; the Main Menu items can also move.
 - Cover Flow in the iPod order (album artist, then album title) and layout, smooth also on a fast wheel turn.
 - Smart playlists Recently Played and Top 25 Most Played (Music > Playlists), from the play history.
+- M3U playlists (`.m3u`, `.m3u8`) in the `Playlists` folder on the microSD card (internal storage without a card), so they can be copied from a computer. Relative song paths are read from the playlist's folder first. Playlists in the old `Y1_Playlists` folder move there on the first launch.
 - Audio format support covering MP3, FLAC, WAV, OGG Vorbis, Opus (including Opus audio inside `.ogg` containers), ALAC/M4A, and AAC.
 - Gapless playback for albums and playlists containing 15 tracks or fewer (see [Known limitations](#known-limitations)).
 - Shuffle Songs in the Music menu, and a Shuffle shortcut pinned to the top of the All Songs list, matching original Y1 firmware behavior.

@@ -497,7 +497,7 @@ class StoragePathsParityTest {
         assertEquals("Y1_Languages", StoragePaths.getLanguagesDir().name)
         assertEquals(primaryRoot, StoragePaths.getLanguagesDir().parentFile)
 
-        assertEquals("Y1_Playlists", StoragePaths.getPlaylistsDir().name)
+        assertEquals("Playlists", StoragePaths.getPlaylistsDir().name)
         assertEquals(primaryRoot, StoragePaths.getPlaylistsDir().parentFile)
 
         assertEquals("Y1_EQs", StoragePaths.getEqDir().name)
