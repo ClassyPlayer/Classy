@@ -34,6 +34,12 @@ class AudioLengthTest {
         file.writeBytes(flacFile(rate = 48_000, samples = 48_000L * 185))
         assertEquals(185_000L, MediaLibraryManager.getInstance().extractAudioMetadata(file, false).durationMs)
         assertEquals(185_000L, AudioLength.fromHeaders(file))
+
+        // A STREAMINFO block with a bad length: the reader reads 34 bytes and goes on
+        val bad = flacFile(rate = 48_000, samples = 48_000L * 3)
+        bad[5] = 0x7F
+        val badFile = File(dir, "bad.flac").also { it.writeBytes(bad) }
+        assertEquals(3_000L, MediaLibraryManager.getInstance().extractAudioMetadata(badFile, false).durationMs)
     }
 
     @Test
@@ -84,6 +90,13 @@ class AudioLengthTest {
         file.writeBytes(box("ftyp", "M4A ".toByteArray()) + moov + box("mdat", ByteArray(2048)))
         assertEquals(42_000L, AudioLength.fromHeaders(file))
         assertEquals(42_000L, MediaLibraryManager.getInstance().extractAudioMetadata(file, false).durationMs)
+
+        // A moov box with a 64-bit size: its children start 16 bytes after it
+        val large = File(dir, "large.m4a")
+        val content = box("mvhd", mvhd(version = 1, timescale = 1_000, duration = 7_000L))
+        val largeMoov = be(1L, 4) + "moov".toByteArray() + be(16L + content.size, 8) + content
+        large.writeBytes(box("ftyp", "M4A ".toByteArray()) + largeMoov + box("mdat", ByteArray(2048)))
+        assertEquals(7_000L, AudioLength.fromHeaders(large))
     }
 
     @Test

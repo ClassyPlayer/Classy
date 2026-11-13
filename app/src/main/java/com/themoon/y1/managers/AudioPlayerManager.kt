@@ -1746,9 +1746,10 @@ class AudioPlayerManager private constructor() {
                 val length = (raf.readUnsignedByte() shl 16) or (raf.readUnsignedByte() shl 8) or raf.readUnsignedByte()
 
                 if (blockType == 0) {
-                    // STREAMINFO: [11] = the length (ms)
-                    val info = ByteArray(length)
+                    // STREAMINFO (34 bytes): [11] = the length (ms). A bad block length does not get a large buffer.
+                    val info = ByteArray(minOf(length, 34))
                     raf.readFully(info)
+                    raf.skipBytes(length - info.size)
                     val ms = AudioLength.flacStreamInfoMs(info)
                     if (ms > 0) tags[11] = ms
                 } else if (blockType == 4) {

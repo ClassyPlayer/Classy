@@ -129,10 +129,16 @@ object AudioLength {
                 var size = raf.readInt().toLong() and 0xFFFFFFFFL
                 val type = ByteArray(4).also { raf.readFully(it) }
                 val name = String(type, Charsets.ISO_8859_1)
-                // 1: a 64-bit size follows (a large mdat box); 0: the box goes to the end of the file
-                if (size == 1L) size = raf.readLong() else if (size == 0L) size = end - pos
+                // 1: a 64-bit size follows (a large box); 0: the box goes to the end of the file
+                var headerSize = 8L
+                if (size == 1L) {
+                    size = raf.readLong()
+                    headerSize = 16L
+                } else if (size == 0L) {
+                    size = end - pos
+                }
                 if (name == "moov") {
-                    pos += 8
+                    pos += headerSize
                     continue
                 }
                 if (name == "mvhd") {
