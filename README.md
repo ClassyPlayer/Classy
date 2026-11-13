@@ -1,183 +1,65 @@
 # Classy
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Platform-Android-3DDC84?style=flat-square&logo=android&logoColor=white" alt="Platform">
-  <img src="https://img.shields.io/badge/Device-Innioasis%20Y1%20%26%20Y2-blue?style=flat-square" alt="Device">
+  <img src="https://img.shields.io/badge/Platform-Android%204.4-3DDC84?style=flat-square&logo=android&logoColor=white" alt="Platform">
+  <img src="https://img.shields.io/badge/Device-Innioasis%20Y2-blue?style=flat-square" alt="Device">
   <img src="https://img.shields.io/badge/Status-Beta-Orange?style=flat-square" alt="Status">
 </p>
 
-Classy is an iPod Classic-style launcher and media player for Innioasis Y1 and Y2 portable audio players, based on InniClassic by [FabianZettl/inniclassic](https://github.com/FabianZettl/inniclassic) and [ismileblue/y1_launcher](https://github.com/ismileblue/y1_launcher). It recreates the classic click wheel interface while adding features like hardware FM radio, podcasts, video playback, and a library-based Music Quiz.
+Classy is an iPod classic-style launcher, music player and firmware for the Innioasis Y2. It brings the click wheel menus, Cover Flow, synced lyrics and Now Playing of the iPod classic, and adds what the iPod never had: Play On to a Sonos or smart TV, Bluetooth in the car, Wi-Fi and FM radio.
 
-The product page, with screenshots and videos of each feature: [classyplayer.github.io/Classy](https://classyplayer.github.io/Classy/).
+**Website, with screenshots and videos of each feature: [classyplayer.github.io/Classy](https://classyplayer.github.io/Classy/)**
 
----
-
-## Screenshots
-
-| Music (Classic Light)                                  | Music (Classic Dark)                                  | Cover Flow                                       |
-| ------------------------------------------------------ | ----------------------------------------------------- | ------------------------------------------------ |
-| ![Music menu in Classic Light](site/media/music-l.png) | ![Music menu in Classic Dark](site/media/music-d.png) | ![Cover Flow](site/media/coverflow-l.png)        |
-
-| Now Playing (Classic Light)                            | Now Playing (Classic Dark)                            | Synced lyrics                                    |
-| ------------------------------------------------------ | ----------------------------------------------------- | ------------------------------------------------ |
-| ![Now Playing in Classic Light](site/media/theme-l.png) | ![Now Playing in Classic Dark](site/media/theme-d.png) | ![Synced lyrics on Now Playing](site/media/lyrics-l.png) |
-
-| Play On (Sonos)                                        | Romanised lyrics                                      | Settings > Battery                               |
-| ------------------------------------------------------ | ----------------------------------------------------- | ------------------------------------------------ |
-| ![Now Playing on a Sonos speaker with Play On](site/media/playon-np-l.png) | ![Chinese lyrics with pinyin under each line](site/media/lyrics-zh-l.png) | ![Battery level and screen time of the last 24 hours](site/media/battery-24h-l.png) |
+| Music                                 | Now Playing                            | Cover Flow                                |
+| ------------------------------------- | -------------------------------------- | ----------------------------------------- |
+| ![Music menu](site/media/music-l.png) | ![Now Playing](site/media/theme-l.png) | ![Cover Flow](site/media/coverflow-l.png) |
 
 The album covers in the screenshots are from Creative Commons albums, for example *Edge of Summer* by Tenth Cloud ([CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/); photo Anatoliy Laptev, artwork Anna Riet). The credits and the licence of each album are at the end of [site/index.html](site/index.html), in *Music and covers in the screenshots*.
 
----
-
 ## Features
 
-### The iPod Classic experience
+- **The iPod interface**: Classic Light and Classic Dark (Auto changes at sunrise and sunset), menus that slide, Cover Flow, a letter jump in long lists, and Now Playing with synced and romanised lyrics.
+- **Library**: music on the internal storage and the microSD card, by artist, album, genre, composer, folder and playlist. Favorites, Recently Played, Top 25 Most Played and Last.fm scrobbles.
+- **More than music**: videos, audiobooks with bookmarks, podcasts, Music Quiz and iPod click wheel games.
+- **Wireless**: Play On (Sonos, DLNA, Google Cast), Bluetooth headphones and car audio, Jellyfin sync, upload from a browser, and updates over Wi-Fi.
+- **FM radio** with saved stations, also with the screen off. **Battery** history of the last 24 hours and 10 days.
 
-- Classic Light and Classic Dark themes with the iPod Classic proportions: a 30 px status bar, 38 px rows with a drawn chevron, and Nimbus Sans text. With Settings > Theme > Auto, Classic Light shows from sunrise to sunset and Classic Dark shows at night. A theme change applies immediately, without a restart.
-- iPod status bar: the screen title, a clock, Wi-Fi, Bluetooth and headphone icons, and a battery with optional percentage digits.
-- Two-pane Main Menu and Music menu sharing the same layout: menu list on the left and a slowly panning and zooming album cover on the right (Menu Cover Motion).
-- Menus slide in from the right and go back out to the left, as on the iPod. When Cover Flow or Now Playing opens, the list pane and the cover pane move apart.
-- Questions, notices and progress show as iPod screens, not as Android dialogs.
-- A low-battery banner shows at 10 %. An iPod "Please charge" screen shows when the battery is almost empty (3 % on the Y2).
-- Redesigned Now Playing screen with a large angled album cover, an optional mirror reflection below it (controlled by Cover Tilt), a glass progress and volume bar, and marquee scrolling for longer titles. The times show as on the iPod (`2:08`, `-0:34`, `1:02:08`). Total Time shows the total time in place of the remaining time.
-- Center button on Now Playing cycles between Progress, Lyrics (only when the song has lyrics), Seek, Shuffle & Repeat, and Rating. In these modes, the click wheel scrolls the lyrics, previews seek positions in 5-second steps, toggles shuffle and repeat modes, or sets star ratings. In Progress, the click wheel controls the volume.
-- In Seek mode, turn the wheel to select a new position. Push Center to go to that position and to the next mode.
-- Hold Center on Now Playing to open the song menu: Add to Favorites, Add to On-The-Go, Add to Playlist, Browse Album, Browse Artist and Play On.
-- Hold Next or Previous to seek (4× speed, up to 120×). Hold Play/Pause to stop.
-- Synced lyrics use the full width of Now Playing. They come from adjacent `.lrc` files or embedded tags (`USLT` in MP3, or FLAC and ALAC lyrics tags). Timestamps in `[mm:ss.xx]` format scroll smoothly in time with the song.
-- Settings > Now Playing > Lyrics shows the lyrics in the Original script, Romanised (pinyin, romaji), or Original + Romanised with the romanised line under each original line. The romanised lines come from a `<track>.romanised.lrc` file next to the song, with the same timestamps (or the same lines for plain lyrics).
-- Settings > Spectrum shows a spectrum in the cover color in place of the album cover.
-- Favorites: add the current song from the song menu, or double-click Center (Settings > Double-Click to Favorite). Music > My Favorites shows them.
-- A fast wheel turn jumps letter by letter in the alphabetical lists and in Cover Flow, and a large letter box shows the letter, as on the iPod.
-- Rebuilt iPod Music Quiz in endless survival mode using tracks from your local library, featuring six questions per round, non-linear timer scaling, persistent top-10 leaderboards, and a between-rounds heart shop.
+File formats, folders, covers, lyrics files, playlists and the known limits: [Files and limits](https://classyplayer.github.io/Classy/#files) on the website.
 
-### Music library
+## Devices
 
-- Library browsing by Artists, Album Artists, Albums, Compilations, Songs, Genres, Composers, Playlists, Folders, and Favorites. The Artists view splits by individual track artist tags so guest features appear distinctly, while Album Artists groups releases by main artist. Settings > Main Menu Items and Music Menu Items hide menu items; the Main Menu items can also move.
-- Cover Flow in the iPod order (album artist, then album title) and layout, smooth also on a fast wheel turn.
-- Smart playlists Recently Played and Top 25 Most Played (Music > Playlists), from the play history.
-- M3U playlists (`.m3u`, `.m3u8`) in the `Playlists` folder on the microSD card (internal storage without a card), so they can be copied from a computer. Relative song paths are read from the playlist's folder first. Playlists in the old `Y1_Playlists` folder move there on the first launch.
-- Audio format support covering MP3, FLAC, WAV, OGG Vorbis, Opus (including Opus audio inside `.ogg` containers), ALAC/M4A, and AAC.
-- Gapless playback for albums and playlists containing 15 tracks or fewer (see [Known limitations](#known-limitations)).
-- Shuffle Songs in the Music menu, and a Shuffle shortcut pinned to the top of the All Songs list, matching original Y1 firmware behavior.
-- High-resolution cover art support. Using square images of at least 600x600 pixels (preferably 1000x1000 or larger) avoids blur during the panning animation across the menu split screen. Both embedded tags (ID3, FLAC, ALAC) and directory images (`cover.jpg` or `folder.jpg`) are detected automatically.
-- Built-in Last.fm scrobbling. Tracks played past the midpoint or four minutes are logged to `.scrobbler.log` on the SD card root in Audioscrobbler 1.1 format. To upload scrobbles directly to Last.fm, enable Settings > Sync Scrobbles to Last.fm and authenticate via Settings > Last.fm Account. The device displays a QR code and URL to open on a phone or computer, queuing scrobbles locally until a network connection is available.
+| Player | Status |
+| :--- | :--- |
+| Innioasis Y2 | Supported. Each release has the firmware (`rom_y2.zip`) and the app (`Classy-<version>.apk`). |
+| Innioasis Y1 | Experimental. The Y1 runs Android 4.2, and the release app needs Android 4.4. Status and test builds: [#82](https://github.com/ClassyPlayer/Classy/issues/82). |
 
-### Sound, controls and settings
+## Install
 
-- 30 volume steps of 2 dB each. Each output (speaker, headphones, Bluetooth) keeps its own volume.
-- The Equalizer, Bass Boost and Virtualizer run only when they change the sound.
-- Settings > Playback > Mono Audio plays the left and the right channel on both sides, for listening with one earbud (also on Bluetooth). FLAC files and videos stay stereo. The Virtualizer does not run while Mono Audio is on.
-- Each button push does one action, on release. Each wheel step gives one click and one vibration; Click Volume and Vibration Strength set their levels.
-- Settings in iPod-style groups (Playback, Display, Now Playing, Status Bar, Appearance, Menus, Controls and more) with On/Off switches. Export Settings and Import Settings save and load all settings as one JSON file.
-- A long press of the Power button opens a Power screen (Restart, Power Off) that the click wheel controls.
-- Settings > Battery shows the battery level and the screen time as bars, for the Last 24 Hours or the Last 10 Days (turn the wheel or push Center to change the range), with the charge periods and the minutes with music or the radio playing and the screen off. The history has no timer or wake lock of its own: it writes a line only on battery, charger, screen and playback events.
-
-### Beyond music
-
-- Play On (Main Menu > Play On, or the song menu on Now Playing) plays the music on a Sonos or another DLNA player, or on a Google Cast device (Chromecast, Google TV), on the same Wi-Fi, without Google Play Services. The player stays in control: Next, Previous, Pause and Seek go to the speaker, the click wheel sets the speaker volume, and a pause in the Sonos app or with the TV remote comes back to the player. During a long pause the player releases the speaker so that it can sleep; Play connects again to the same speaker.
-- Bluetooth headphones, speakers and car audio: pairing with the click wheel only, the song title and artist on the car display (AVRCP), and remote buttons that also work when the screen is off. Music pauses when the Bluetooth device disconnects, and plays again when the same device connects again.
-- Settings > Date & Time > Sync Time Now sets the clock from the internet.
-- Jellyfin music synchronization client with QuickConnect pairing, remote library browsing, offline track caching, and automatic library scanning.
-- Podcast manager supporting feed subscriptions, direct streaming, and episode downloads for offline listening.
-- Built-in FM radio communicating directly with the internal tuner chip.
-- Video player with dedicated library browsing from the Videos folder on storage. Playback uses libVLC for frame synchronization, provides click wheel volume control, seeks in 10-second jumps using Previous and Next buttons, generates video thumbnails, and remembers playback positions. The Fill Video Screen setting toggles between letterboxing and filling the display.
-- Audiobook player with automatic bookmarking and resumed playback.
-- Wireless music transfer through an embedded local web server accessible over Wi-Fi.
-
-### Innioasis Y2 support
-
-- Dual storage library scanning that indexes music, audiobooks, and videos across internal storage (`/storage/sdcard0`) and external microSD cards (`/storage/sdcard1`).
-- MicroSD watchdog monitor that detects unmounted or degraded FAT and exFAT partitions, applies filesystem repairs, remounts `fuse_sdcard1`, and triggers a library refresh once ready.
-- Hardware FM radio integration on Android 4.4.2 that clears Airplane Mode tuner lockouts (`ensureAirplaneModeOff()`), synchronizes MediaTek audio streams, and uses a wake lock to keep radio audio playing when the screen sleeps.
-- Hardware click wheel key mapping (`scripts/Y2.kl`) linking hardware scancodes 103 and 108 to `DPAD_LEFT` and `DPAD_RIGHT`.
-- Lower headphone output curve that recalibrates MediaTek hardware headset gain tables, cutting minimum output (step 1) by roughly 18 dB for sensitive IEMs and low-impedance headphones.
-- ROM builder script (`scripts/build-rom.sh`) to assemble update images for Y1 (hardware revisions Type A and Type B) and Y2 devices.
-
-## Known limitations
-
-- Play On: the Sonos app shows only HTTPS covers, so a Sonos gets a cover only for MP3 files with a MusicBrainz Album Id tag (from the Cover Art Archive). The other speakers get the cover from the player.
-- Gapless playback works on queues of 15 tracks or fewer, with shuffle disabled and without FLAC tracks. FLAC uses a standalone decoding pipeline separate from ExoPlayer, while large or shuffled queues retain track-by-track loading.
-- Video playback runs on libVLC because ExoPlayer lacks frame-timing mechanisms on Android versions prior to 5.0 (API 21). For dependable playback, encode source videos around 640x480 resolution, 30 fps, and bitrates near 2 Mbps or lower (see [`tools/handbrake_y1_preset.json`](tools/handbrake_y1_preset.json) for a HandBrake profile).
-- On a Mac, use USB Drive (the question when the cable goes in, or Settings > Connectivity > Use as USB Drive): macOS does not show media devices (MTP) without an extra app such as [OpenMTP](https://openmtp.ganeshrvel.com/). Only the microSD card can be a USB drive.
-
-## Installation
-
-Two installation methods are available depending on whether you want a full ROM install or an APK update.
-
-### Method 1: Innioasis Updater (recommended)
-
-Prebuilt firmware packages with Classy preinstalled as the default system launcher are available on [Releases](https://github.com/ClassyPlayer/Classy/releases):
-
-- Innioasis Y2: `rom_y2.zip` (Android 4.4.2 KitKat)
-- Innioasis Y1: `rom_y1_type_a.zip` or `rom_y1_type_b.zip` depending on hardware revision
-
-To flash via the updater:
-
-1. Download the archive matching your device from [Releases](https://github.com/ClassyPlayer/Classy/releases). Keep its file name (for example `rom_y2.zip`). Do not rename it to `rom.zip`: the updater reads the player model from the file name.
-2. Open [Innioasis Updater CE](https://innioasis.app). If you installed a firmware file before, click **Settings** > **Clear Firmware Cache** first (see the note below).
-3. Click **Install from a file…** > **Browse Files…**, choose the archive, click **Install / Restore**, and follow the on-screen steps.
-4. Once the flashing process completes and the player restarts, Classy starts automatically.
-
-> [!NOTE]
-> Updater CE extracts a local archive to a folder named after the file (`.rom_y2_extracted` for `rom_y2.zip`). When that folder is complete, it uses it again for the next archive with the same name, also from a different release, and installs the old firmware. **Clear Firmware Cache** deletes these folders. You can also delete the folder yourself from the updater's `downloads` folder: `%LOCALAPPDATA%\Updater CE\downloads` (Windows), `~/Library/Application Support/Innioasis Updater/downloads` (macOS) or `~/.local/share/updater-ce/downloads` (Linux).
+1. Open the [Classy page on innioasis.app](https://innioasis.app/firmware.html?brand=Innioasis&model=Y2&software=inniclassic-y2) and install **Innioasis Updater CE**.
+2. In Updater CE, choose **Y2** and **Inniclassic** (the old name of Classy). Select a release and click **Install / Restore**.
+3. Power off the Y2. Connect it only when the updater asks. Keep the cable in until the update is done.
 
 > [!WARNING]
-> Keep the device connected and powered until the update finishes. Do not unplug the cable during the flash.
+> A full flash erases the internal storage. First copy your files from it to a computer. Music on the microSD card stays.
 
-### Method 2: Standalone APK update
+To install a downloaded firmware file or only the app (APK): [Install](https://classyplayer.github.io/Classy/#install) on the website.
 
-Use this method to update the app on an existing device without reflashing the full system partition.
+## Updates
 
-1. Download `Classy-<version>.apk` from [Releases](https://github.com/ClassyPlayer/Classy/releases).
-2. Install the APK over the installed app via ADB:
-   ```bash
-   adb install -r Classy-<version>.apk
-   ```
-   > [!NOTE]
-   > Releases are signed with one key, so the update keeps your settings, music library, custom themes in `/storage/sdcard0/Y1_Themes`, and `.scrobbler.log`. If the player runs an older release signed with a different key, the install fails with `INSTALL_FAILED_UPDATE_INCOMPATIBLE`: flash the firmware with Method 1 instead. A full flash erases the internal storage, so first copy your music and other files from it to a computer. Music on the microSD card stays.
-3. Optional step if Bluetooth pairing prompts for elevated permissions unavailable through the interface:
-   ```bash
-   adb shell pm grant com.themoon.y1 android.permission.WRITE_SECURE_SETTINGS
-   ```
+**Settings → General → System Update** installs new releases over Wi-Fi. In it, **Update Channel** chooses **Stable** or **Beta** (the releases marked Pre-release). All releases and their notes: [Releases](https://github.com/ClassyPlayer/Classy/releases).
 
-### Update channels
+## Build from source
 
-Settings > General > System Update installs new releases over Wi-Fi. Settings > General > System Update > Update Channel chooses where they come from:
-
-- **Stable**: tested releases, marked Latest on [Releases](https://github.com/ClassyPlayer/Classy/releases).
-- **Beta**: new features before they reach Stable, with a higher chance of bugs. A player on Beta also gets a stable release when it is newer than the last beta.
-
-To join the beta, choose Beta and check for updates. To leave it, choose Stable. The player then waits for the next stable release, because it cannot go back to an older version.
-
-By default the player follows the channel of the build that is installed. A firmware or APK you install by hand sets the player to the channel of that build. Beta firmware zips and APKs are on the releases marked Pre-release.
-
-## Pre-building the library cache
-
-Classy caches scanned track metadata to `.y1_library_cache.json` at the root of the SD card. Files already indexed in this file skip tag extraction during subsequent scans.
-
-For large music libraries with thousands of songs, you can generate this cache on a computer using [`tools/build_library_cache.py`](tools/build_library_cache.py). Running tag extraction on desktop hardware takes seconds, leaving the portable player to perform only a fast file existence check when the card is inserted.
-
-The script requires Python with the `mutagen` package installed (`pip install mutagen`) and direct filesystem access to the microSD card through a card reader or USB mass storage mode (MTP is not supported):
+You need JDK 17 and the Android SDK:
 
 ```bash
-python3 tools/build_library_cache.py /path/to/sdcard
+./gradlew assembleDebug testDebugUnitTest
 ```
 
-Run the script after transferring music to the card and before mounting it back into the player.
-
-## Building from source
-
-Last.fm API credentials are not included in this repository. To compile with scrobbling support:
-
-1. Register an API application at [last.fm/api/account/create](https://www.last.fm/api/account/create).
-2. Add your credentials to `local.properties`:
-   ```properties
-   lastfm.api.key=YOUR_KEY
-   lastfm.api.secret=YOUR_SECRET
-   ```
-3. Compile with `./gradlew assembleDebug`. If you omit the keys, the build succeeds and all features work except Last.fm submission.
+- The Last.fm API keys are not in the repository. Without them, only the upload to Last.fm is off. To add them, make an API account at [last.fm/api/account/create](https://www.last.fm/api/account/create) and put `lastfm.api.key=…` and `lastfm.api.secret=…` in `local.properties`.
+- A debug build has a different signing key from the releases, so it does not install over a release. To test it on a player, make a firmware with it: `scripts/build-rom.sh y2 --launcher-apk app/build/outputs/apk/debug/app-debug.apk rom_y2.zip`.
+- Bugs and ideas: [issues](https://github.com/ClassyPlayer/Classy/issues). Pull requests: one change each, with a [Conventional Commits](https://www.conventionalcommits.org/) title. Add each new text that the user sees to all files in `app/src/main/assets/languages/` (CI runs `python3 scripts/check_translations.py --strict`).
+- Maintainers publish releases as described in [RELEASING.md](RELEASING.md).
 
 ## Credits and license
 
@@ -186,7 +68,7 @@ Last.fm API credentials are not included in this repository. To compile with scr
 - The iPod Classic interface uses [Nimbus Sans](https://en.wikipedia.org/wiki/Nimbus_Sans) (URW++), a metric-compatible alternative to Helvetica.
 - Distributed under upstream's license terms; see [LICENSE](LICENSE) for personal and educational use guidelines.
 
-Version history is documented on [GitHub Releases](https://github.com/ClassyPlayer/Classy/releases). Maintainers publish releases as described in [RELEASING.md](RELEASING.md).
+Not affiliated with Apple or Innioasis. iPod and Cover Flow are trademarks of Apple Inc.
 
 ## Contributors
 
