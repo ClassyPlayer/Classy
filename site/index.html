@@ -256,6 +256,7 @@ footer .credits { margin: 10px 0; font-size: 13px; gap: 6px 32px; }
         <li><a href="#library">Library<svg class="chev" viewBox="0 0 7 11" aria-hidden="true"><path d="M1 1l4.5 4.5L1 10" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></a></li>
         <li><a href="#battery">Battery<svg class="chev" viewBox="0 0 7 11" aria-hidden="true"><path d="M1 1l4.5 4.5L1 10" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></a></li>
         <li><a href="#details">Details<svg class="chev" viewBox="0 0 7 11" aria-hidden="true"><path d="M1 1l4.5 4.5L1 10" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></a></li>
+        <li><a href="#files">Files and limits<svg class="chev" viewBox="0 0 7 11" aria-hidden="true"><path d="M1 1l4.5 4.5L1 10" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></a></li>
         <li><a href="#install">Install<svg class="chev" viewBox="0 0 7 11" aria-hidden="true"><path d="M1 1l4.5 4.5L1 10" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></a></li>
       </ol>
     </div>
@@ -450,14 +451,14 @@ footer .credits { margin: 10px 0; font-size: 13px; gap: 6px 32px; }
 <section id="library" data-title="Library">
   <p class="kicker">Your library</p>
   <h2>All your music, the iPod way.</h2>
-  <p class="sub">Artists, Albums, Compilations, Songs, Genres, Composers, Playlists and Folders. Hide or reorder the items you do not use. <em>Shuffle Songs</em> plays the whole library.</p>
+  <p class="sub">Artists, Albums, Compilations, Songs, Genres, Composers, Playlists and Folders. Hide the items you do not use in <em>Settings → Menus</em>; the main menu items can also move. <em>Shuffle Songs</em> plays the whole library.</p>
   <div class="shots two">
     <figure class="shot"><div class="frame"><img class="v-l" src="media/music-l.png" width="480" height="360" alt="Music menu, with the cover of Edge of Summer by Tenth Cloud (Classic Light)" loading="lazy"><img class="v-d" src="media/music-d.png" width="480" height="360" alt="Music menu, with the cover of Edge of Summer by Tenth Cloud (Classic Dark)" loading="lazy"></div><figcaption>The Music menu.</figcaption></figure>
     <figure class="shot"><div class="frame"><img class="v-l" src="media/artists-l.png" width="480" height="360" alt="Artists list (Classic Light)" loading="lazy"><img class="v-d" src="media/artists-d.png" width="480" height="360" alt="Artists list (Classic Dark)" loading="lazy"></div><figcaption>Artists.</figcaption></figure>
     <figure class="shot"><div class="frame"><img class="v-l" src="media/top25-l.png" width="480" height="360" alt="Top 25 Most Played playlist (Classic Light)" loading="lazy"><img class="v-d" src="media/top25-d.png" width="480" height="360" alt="Top 25 Most Played playlist (Classic Dark)" loading="lazy"></div><figcaption>Top 25 Most Played.</figcaption></figure>
   </div>
   <ul class="points">
-    <li>MP3, FLAC, WAV, OGG Vorbis, Opus, ALAC and AAC, on the internal storage and the microSD card.</li>
+    <li>MP3, FLAC, WAV, OGG Vorbis, Opus, ALAC and AAC, on the internal storage and the microSD card. The folders: <a href="#files">Files and limits</a>.</li>
     <li>A play counts after half the song (or 4 minutes), for Top 25 and for <code>.scrobbler.log</code> (Last.fm, ListenBrainz).</li>
     <li>Audiobooks with a bookmark for each book, and videos.</li>
   </ul>
@@ -488,7 +489,7 @@ footer .credits { margin: 10px 0; font-size: 13px; gap: 6px 32px; }
     <li>Hold the Power button: a <em>Power</em> screen (Restart, Power Off) that the wheel can use.</li>
     <li>On the Y2, the battery level comes from the battery voltage, not from the Y2's own gauge, which can show 69 % twenty minutes before the Y2 turns off. <em>Settings → Status Bar → Battery Percentage</em> puts the number in the battery icon.</li>
     <li>A “Battery low” banner at 10 % and an iPod <em>Please charge</em> screen at 3 %. When the battery is empty, the Y2 pauses the music, saves the play queue and turns itself off.</li>
-    <li>Connect the USB cable and choose <em>Connect as Storage</em>: the Y2 shows on your computer as a disk.</li>
+    <li>Connect the USB cable and choose <em>Use as USB Drive</em>: the microSD card shows on your computer as a disk. <em>Settings → Connectivity → USB Drive</em> sets what happens when the cable goes in: <em>Ask</em>, <em>Always</em> or <em>Never</em>.</li>
   </ul>
   <div class="shots three">
     <figure class="shot"><div class="frame"><img class="v-l" src="media/settings-l.png" width="480" height="360" alt="Settings (Classic Light)" loading="lazy"><img class="v-d" src="media/settings-d.png" width="480" height="360" alt="Settings (Classic Dark)" loading="lazy"></div><figcaption>Settings.</figcaption></figure>
@@ -503,10 +504,33 @@ footer .credits { margin: 10px 0; font-size: 13px; gap: 6px 32px; }
   </div>
 </section>
 
+<section id="files" data-title="Files and limits">
+  <p class="kicker">Files and limits</p>
+  <h2>Where your files go.</h2>
+  <p class="sub">Classy reads the same folders on the internal storage and on the microSD card: <code>Music</code>, <code>Audiobooks</code>, <code>Movies</code>, <code>Tvshows</code>, <code>Playlists</code> and <code>Games</code>.</p>
+  <div class="cards">
+    <div class="card"><h3>Music</h3><p>MP3, FLAC, WAV, OGG Vorbis, Opus (also in <code>.ogg</code> files), ALAC/M4A and AAC.</p></div>
+    <div class="card"><h3>Covers</h3><p>From the tags (ID3, FLAC, ALAC), or <code>cover.jpg</code> or <code>folder.jpg</code> in the album folder. Use square covers of 600 × 600 pixels or more: smaller covers are blurred when they pan next to the menus.</p></div>
+    <div class="card"><h3>Lyrics</h3><p>A <code>.lrc</code> file next to the song, or the lyrics tag (MP3 <code>USLT</code>, FLAC, ALAC). Romanised lines: a <code>&lt;song&gt;.romanised.lrc</code> file with the same times.</p></div>
+    <div class="card"><h3>Playlists</h3><p><code>.m3u</code> and <code>.m3u8</code> files in <code>Playlists</code>. New playlists go to the microSD card, so a computer can copy them. Playlists in an old <code>Y1_Playlists</code> folder move there.</p></div>
+    <div class="card"><h3>Videos</h3><p>In <code>Movies</code> and <code>Tvshows</code>; old <code>Videos</code> folders move there. For smooth video: about 640 × 480, 30 fps and 2 Mbps or less. HandBrake presets are in <a href="https://github.com/ClassyPlayer/Classy/tree/main/tools">tools</a>.</p></div>
+    <div class="card"><h3>Games</h3><p>iPod click wheel games: <code>.ipg</code> files or game folders in <code>Games</code>. To find new games: <em>Main menu → Games → Rescan Games</em>.</p></div>
+    <div class="card"><h3>Last.fm</h3><p>Each play goes to <code>.scrobbler.log</code> at the top of the internal storage. To send the plays: <em>Settings → Library → Last.fm Account</em>, then <em>Sync Scrobbles to Last.fm</em>.</p></div>
+    <div class="card"><h3>Copy files</h3><p>Only the microSD card can be a USB drive. The internal storage shows as a media device (MTP): on a Mac, use an app such as <a href="https://openmtp.ganeshrvel.com/">OpenMTP</a>. Without a cable: <em>Settings → Connectivity → Web Server</em>.</p></div>
+    <div class="card"><h3>A large library</h3><p><a href="https://github.com/ClassyPlayer/Classy/blob/main/tools/build_library_cache.py"><code>build_library_cache.py</code></a> reads the tags on a computer, so the scan on the Y2 is fast. The steps are in the script.</p></div>
+  </div>
+  <h3 style="margin:40px 0 0">Known limits</h3>
+  <ul class="points" style="margin-top:16px">
+    <li>Gapless playback works only for a queue of 15 songs or fewer, with Shuffle off, and without FLAC files, audiobooks or podcasts.</li>
+    <li>Mono Audio does not change FLAC files and videos. The Virtualizer does not run while Mono Audio is on.</li>
+    <li>Play On: the Sonos app shows only HTTPS covers, so a Sonos gets a cover only for MP3 files with a MusicBrainz Album Id tag. The other speakers get the cover from the Y2.</li>
+  </ul>
+</section>
+
     <section id="install" data-title="Install">
       <p class="kicker">Install</p>
       <h2>Try it on your Y2.</h2>
-      <p class="sub">The download is the <a data-link="download" href="#">latest release</a> on GitHub: the firmware zip for each player (<code>rom_y2.zip</code> for the Y2), the APK and the checksums. The release also has the firmware for the Innioasis Y1: see the <a data-link="repo" href="#">README</a>.</p>
+      <p class="sub">The download is the <a data-link="download" href="#">latest release</a> on GitHub: the Y2 firmware (<code>rom_y2.zip</code>), the APK and the checksums. The Innioasis Y1 is experimental: the release firmware does not start on it. Status and test builds: <a href="https://github.com/ClassyPlayer/Classy/issues/82">issue #82</a>.</p>
       <div class="steps">
         <div class="card">
           <h3>Firmware</h3>
@@ -522,9 +546,10 @@ footer .credits { margin: 10px 0; font-size: 13px; gap: 6px 32px; }
           <h3>App only (APK)</h3>
           <p>On a Y2 that already runs this firmware (ADB is on), connect the USB cable:</p>
 <pre><code>adb install -r Classy-&lt;version&gt;.apk</code></pre>
-          <p style="margin-top:12px">The update keeps your settings, music, playlists and <code>.scrobbler.log</code>. The firmware installs the app as a system app, so <code>adb uninstall</code> cannot remove it. Releases are signed with one key. If the Y2 runs an older release with a different key, flash the firmware instead.</p>
+          <p style="margin-top:12px">The update keeps your settings, music, playlists and <code>.scrobbler.log</code>. The firmware installs the app as a system app, so <code>adb uninstall</code> cannot remove it. Releases are signed with one key. If the Y2 runs an older release with a different key, the install fails with <code>INSTALL_FAILED_UPDATE_INCOMPATIBLE</code>: flash the firmware instead.</p>
         </div>
       </div>
+      <p style="margin-top:20px">Beta builds are the releases marked Pre-release: new features first, with a higher chance of bugs. To get them over Wi-Fi: <em>Settings → General → System Update → Update Channel → Beta</em>. To leave the beta, choose <em>Stable</em>: the Y2 then waits for the next stable release. A firmware or APK that you install by hand sets the channel of that build.</p>
       <div class="card" style="margin-top:20px">
         <h3>Build it yourself</h3>
         <p>JDK 17 and the Android SDK:</p>
