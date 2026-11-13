@@ -1,6 +1,7 @@
 package com.themoon.y1.podcasts
 
 import com.themoon.y1.StoragePaths
+import com.themoon.y1.io.SafeFiles
 import com.themoon.y1.models.PodcastChannel
 import com.themoon.y1.models.PodcastEpisode
 import com.themoon.y1.models.SongItem
@@ -209,8 +210,30 @@ class PodcastRepository private constructor() {
         if (channelImageUrl.isNotEmpty()) {
             cacheChannelCover(channelName, channelImageUrl)
         }
+        if (episodes.isNotEmpty()) keepEpisodeList(channelName, episodes)
 
         return episodes
+    }
+
+    /** Keeps the episode list of the feed for [downloadedEpisodes] (order and dates without the network). */
+    private fun keepEpisodeList(channelName: String, episodes: List<SongItem>) {
+        try {
+            val file = File(StoragePaths.getPodcastChannelDir(PodcastOfflineEpisodes.safeName(channelName)),
+                PodcastOfflineEpisodes.LIST_FILE)
+            SafeFiles.writeStringToFile(file, PodcastOfflineEpisodes.toJson(episodes))
+        } catch (ignored: Exception) {}
+    }
+
+    /**
+     * The downloaded episodes of [channelName], for when the feed does not load (no network):
+     * see [PodcastOfflineEpisodes.list].
+     */
+    fun downloadedEpisodes(channelName: String): List<SongItem> {
+        val dir = StoragePaths.getPodcastChannelDir(PodcastOfflineEpisodes.safeName(channelName))
+        val files = dir.listFiles()?.toList() ?: return emptyList()
+        val kept = SafeFiles.readStringFromFile(File(dir, PodcastOfflineEpisodes.LIST_FILE))
+            ?.let { PodcastOfflineEpisodes.fromJson(it, channelName) } ?: emptyList()
+        return PodcastOfflineEpisodes.list(channelName, files, kept)
     }
 
     private fun cacheChannelCover(channelName: String, imageUrl: String) {
