@@ -130,25 +130,28 @@ To flash via the updater:
 
 Use this method to update the app on an existing device without reflashing the full system partition.
 
-1. Uninstall the existing launcher package first:
+1. Download `Classy-<version>.apk` from [Releases](https://github.com/ClassyPlayer/Classy/releases).
+2. Install the APK over the installed app via ADB:
    ```bash
-   adb uninstall com.themoon.y1
-   ```
-   If pre-installed as a system application, uninstall it for the current user:
-   ```bash
-   adb shell pm uninstall --user 0 com.themoon.y1
+   adb install -r Classy-<version>.apk
    ```
    > [!NOTE]
-   > Uninstalling is required due to differing APK signature keys between builds. Your music library, custom themes in `/storage/sdcard0/Y1_Themes`, and `.scrobbler.log` on storage remain untouched.
-2. Download `Classy-<version>.apk` from [Releases](https://github.com/ClassyPlayer/Classy/releases).
-3. Install the APK via ADB:
-   ```bash
-   adb install Classy-<version>.apk
-   ```
-4. Optional step if Bluetooth pairing prompts for elevated permissions unavailable through the interface:
+   > Releases are signed with one key, so the update keeps your settings, music library, custom themes in `/storage/sdcard0/Y1_Themes`, and `.scrobbler.log`. If the player runs an older release signed with a different key, the install fails with `INSTALL_FAILED_UPDATE_INCOMPATIBLE`: flash the firmware with Method 1 instead. A full flash erases the internal storage, so first copy your music and other files from it to a computer. Music on the microSD card stays.
+3. Optional step if Bluetooth pairing prompts for elevated permissions unavailable through the interface:
    ```bash
    adb shell pm grant com.themoon.y1 android.permission.WRITE_SECURE_SETTINGS
    ```
+
+### Update channels
+
+Settings > General > System Update installs new releases over Wi-Fi. Settings > General > System Update > Update Channel chooses where they come from:
+
+- **Stable**: tested releases, marked Latest on [Releases](https://github.com/ClassyPlayer/Classy/releases).
+- **Beta**: new features before they reach Stable, with a higher chance of bugs. A player on Beta also gets a stable release when it is newer than the last beta.
+
+To join the beta, choose Beta and check for updates. To leave it, choose Stable. The player then waits for the next stable release, because it cannot go back to an older version.
+
+By default the player follows the channel of the build that is installed. A firmware or APK you install by hand sets the player to the channel of that build. Beta firmware zips and APKs are on the releases marked Pre-release.
 
 ## Pre-building the library cache
 
@@ -183,7 +186,7 @@ Last.fm API credentials are not included in this repository. To compile with scr
 - The iPod Classic interface uses [Nimbus Sans](https://en.wikipedia.org/wiki/Nimbus_Sans) (URW++), a metric-compatible alternative to Helvetica.
 - Distributed under upstream's license terms; see [LICENSE](LICENSE) for personal and educational use guidelines.
 
-Version history is documented on [GitHub Releases](https://github.com/ClassyPlayer/Classy/releases).
+Version history is documented on [GitHub Releases](https://github.com/ClassyPlayer/Classy/releases). Maintainers publish releases as described in [RELEASING.md](RELEASING.md).
 
 ## Contributors
 

@@ -59,7 +59,7 @@ class PrefsTest {
     fun backupExclusionsAreTheSameAsBefore() {
         assertEquals(
             setOf("lastfm_username", "lastfm_password", "has_saved_playback_state", "last_lang_version",
-                "last_installed_theme_version", "reboot_to_theme"),
+                "last_installed_theme_version", "reboot_to_theme", "update_channel", "update_channel_builds"),
             Prefs.ALL.filter { !it.inBackup }.map { it.key }.toSet()
         )
         assertEquals(setOf("last_played_", "album_art_"), Prefs.FAMILIES.filter { !it.inBackup }.map { it.prefix }.toSet())

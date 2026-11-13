@@ -754,5 +754,13 @@
   "To update, install the new firmware with Innioasis Updater CE (innioasis.app).": "Aby zaktualizować, zainstaluj nowy firmware za pomocą Innioasis Updater CE (innioasis.app).",
   "Cannot Verify Update": "Nie można zweryfikować aktualizacji",
   "The downloaded update could not be verified, so nothing was changed.": "Nie można zweryfikować pobranej aktualizacji, więc nic nie zostało zmienione.",
-  "Try again later or on another Wi-Fi network, or install the new firmware with Innioasis Updater CE (innioasis.app).": "Spróbuj ponownie później lub w innej sieci Wi-Fi albo zainstaluj nowy firmware za pomocą Innioasis Updater CE (innioasis.app)."
+  "Try again later or on another Wi-Fi network, or install the new firmware with Innioasis Updater CE (innioasis.app).": "Spróbuj ponownie później lub w innej sieci Wi-Fi albo zainstaluj nowy firmware za pomocą Innioasis Updater CE (innioasis.app).",
+  "Update Channel": "Kanał aktualizacji",
+  "Stable": "Stabilny",
+  "Beta": "Beta",
+  "Use Beta": "Użyj bety",
+  "Beta versions get new features first and can have bugs.": "Wersje beta dostają nowe funkcje jako pierwsze i mogą mieć błędy.",
+  "To leave, choose Stable: the player then waits for the next stable version.": "Aby zrezygnować, wybierz Stabilny: odtwarzacz poczeka wtedy na następną wersję stabilną.",
+  "This version is newer than the latest stable version.": "Ta wersja jest nowsza niż najnowsza wersja stabilna.",
+  "Check again when the next stable version is out.": "Sprawdź ponownie, gdy wyjdzie następna wersja stabilna."
 }

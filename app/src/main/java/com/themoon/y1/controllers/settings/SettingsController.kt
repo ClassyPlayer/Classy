@@ -33,6 +33,7 @@ import com.themoon.y1.managers.VolumeSteps
 import com.themoon.y1.managers.LanguageManager
 import com.themoon.y1.managers.LastFmScrobbler
 import com.themoon.y1.managers.PowerMenu
+import com.themoon.y1.managers.UpdateChannel
 import com.themoon.y1.managers.UsbDrive
 import com.themoon.y1.lists.Focus
 import com.themoon.y1.lists.ListSpec
@@ -311,6 +312,7 @@ class SettingsController(
                 "UsbDrive" -> return usbDriveList()
                 "Legal" -> return legalSpec()
                 "Update" -> return updateSpec()
+                "UpdateChannel" -> return updateChannelList()
                 "MainMenuItems" -> return mainMenuItemsSpec()
                 "MusicMenuItems" -> return musicMenuItemsSpec()
                 BATTERY_USAGE -> return batteryUsageSpec()
@@ -768,9 +770,43 @@ class SettingsController(
             ThemeManager.getTextColorPrimary(), ThemeManager.getListButtonFocusedTextColor())
         return ListSpec(localize("System Update"), listOf(
             RowSpec(localize("Current Version"), RowLook.VALUE, value = if (version.startsWith("v")) version else "v$version"),
+            RowSpec(localize("Update Channel"), RowLook.VALUE, value = localize(UpdateChannel.label(updateChannel())),
+                onClick = { openPage("UpdateChannel") }),
             RowSpec("divider", RowLook.CUSTOM, view = divider),
             RowSpec(localize("Check for Updates"), RowLook.CUSTOM, view = check, checked = true, onClick = { onOpenUpdateCheck() })
         ), focus = Focus.CHECKED)
+    }
+
+    private fun updateChannel(): String = UpdateChannel.current(prefs, versionName())
+
+    /** System Update → Update Channel: Stable or Beta. Beta asks first; the choice holds for this build (UpdateChannel). */
+    private fun updateChannelList(): ListSpec {
+        val current = updateChannel()
+        return rows.valueList(localize("Update Channel"), UpdateChannel.VALUES.mapIndexed { i, channel ->
+            SettingValue(localize(UpdateChannel.LABELS[i]), channel == current) {
+                // Read again: the list can stay open after the Beta question closed
+                if (channel == updateChannel()) {
+                    onNavigateBack()
+                } else if (channel == UpdateChannel.BETA) {
+                    ActionScreens.open(ActionScreens.Spec(
+                        localize("Beta"),
+                        listOf(
+                            localize("Beta versions get new features first and can have bugs."),
+                            localize("To leave, choose Stable: the player then waits for the next stable version.")
+                        ),
+                        listOf(ActionScreens.Action(localize("Use Beta")) {
+                            UpdateChannel.store(prefs, UpdateChannel.BETA, versionName())
+                            // The question closes before this runs, so the list under it was made with the old value
+                            refresh()
+                        }),
+                        selectAction = false
+                    ))
+                } else {
+                    UpdateChannel.store(prefs, channel, versionName())
+                    onNavigateBack()
+                }
+            }
+        })
     }
 
     private var batteryUsageView: BatteryUsageView? = null

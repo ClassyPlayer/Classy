@@ -754,5 +754,13 @@
   "To update, install the new firmware with Innioasis Updater CE (innioasis.app).": "更新するには、Innioasis Updater CE（innioasis.app）で新しいファームウェアをインストールしてください。",
   "Cannot Verify Update": "更新を検証できません",
   "The downloaded update could not be verified, so nothing was changed.": "ダウンロードした更新を検証できなかったため、何も変更されていません。",
-  "Try again later or on another Wi-Fi network, or install the new firmware with Innioasis Updater CE (innioasis.app).": "後でもう一度、または別の Wi-Fi ネットワークでお試しいただくか、Innioasis Updater CE（innioasis.app）で新しいファームウェアをインストールしてください。"
+  "Try again later or on another Wi-Fi network, or install the new firmware with Innioasis Updater CE (innioasis.app).": "後でもう一度、または別の Wi-Fi ネットワークでお試しいただくか、Innioasis Updater CE（innioasis.app）で新しいファームウェアをインストールしてください。",
+  "Update Channel": "アップデートチャンネル",
+  "Stable": "安定版",
+  "Beta": "ベータ版",
+  "Use Beta": "ベータ版を使う",
+  "Beta versions get new features first and can have bugs.": "ベータ版は新機能をいち早く利用できますが、不具合がある場合があります。",
+  "To leave, choose Stable: the player then waits for the next stable version.": "やめるには安定版を選んでください。プレーヤーは次の安定版を待ちます。",
+  "This version is newer than the latest stable version.": "このバージョンは最新の安定版より新しいです。",
+  "Check again when the next stable version is out.": "次の安定版が出たら、もう一度確認してください。"
 }
