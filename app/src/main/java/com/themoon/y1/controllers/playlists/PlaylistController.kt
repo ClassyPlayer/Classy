@@ -315,9 +315,12 @@ class PlaylistController(
     /** Writes [songFile] to [m3uFile] (a new file when not [append]). False when it could not be written. */
     fun writeSongToM3uFile(m3uFile: File, songFile: File, append: Boolean): Boolean {
         return try {
+            // A playlist made on a computer may not end with a line break: the new path goes on a line of its own
+            val newLineFirst = append && PlaylistPaths.endsWithoutLineBreak(m3uFile)
             val bw = BufferedWriter(OutputStreamWriter(FileOutputStream(m3uFile, append), "UTF-8"))
             bw.use {
                 if (!append) it.write("#EXTM3U\n")
+                if (newLineFirst) it.write("\n")
                 it.write(songFile.absolutePath + "\n")
             }
             true

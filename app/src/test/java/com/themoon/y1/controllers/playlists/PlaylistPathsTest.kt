@@ -70,6 +70,21 @@ class PlaylistPathsTest {
     }
 
     @Test
+    fun tellsAFileWithoutAFinalLineBreak() {
+        val dir = Files.createTempDirectory("classy_m3u").toFile()
+        try {
+            fun file(text: String) = File(dir, "p${text.hashCode()}.m3u").apply { writeText(text) }
+            assertTrue(PlaylistPaths.endsWithoutLineBreak(file("#EXTM3U\n../Music/A.mp3")))
+            assertFalse(PlaylistPaths.endsWithoutLineBreak(file("#EXTM3U\n../Music/A.mp3\n")))
+            assertFalse(PlaylistPaths.endsWithoutLineBreak(file("#EXTM3U\r\n..\\Music\\A.mp3\r\n")))
+            assertFalse(PlaylistPaths.endsWithoutLineBreak(file("")))
+            assertFalse(PlaylistPaths.endsWithoutLineBreak(File(dir, "missing.m3u")))
+        } finally {
+            dir.deleteRecursively()
+        }
+    }
+
+    @Test
     fun pathAfterALinkIsNotTheSameFile() {
         val root = Files.createTempDirectory("classy_m3u").toFile().canonicalFile
         try {

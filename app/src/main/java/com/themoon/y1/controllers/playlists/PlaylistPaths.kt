@@ -48,6 +48,16 @@ object PlaylistPaths {
         return files.mapIndexed { i, f -> if (counts.getValue(names[i].lowercase()) > 1) "${names[i]} (${storage(f)})" else names[i] }
     }
 
+    /** True when [file] has text and its last character is not a line break (\n or \r). False for a missing or empty file. */
+    fun endsWithoutLineBreak(file: java.io.File): Boolean {
+        if (!file.isFile || file.length() == 0L) return false
+        java.io.RandomAccessFile(file, "r").use { raf ->
+            raf.seek(raf.length() - 1)
+            val last = raf.read()
+            return last != '\n'.code && last != '\r'.code
+        }
+    }
+
     /** True when [a] and [b] are the same file after the links are resolved; false when that cannot be told. */
     fun sameFile(a: java.io.File, b: java.io.File): Boolean = try {
         a.canonicalPath == b.canonicalPath
