@@ -40,9 +40,13 @@ class PodcastOfflineEpisodesTest {
         val back = PodcastOfflineEpisodes.fromJson(PodcastOfflineEpisodes.toJson(kept), channel)
         assertEquals(kept.map { it.title }, back.map { it.title })
         assertEquals(kept.map { it.year }, back.map { it.year })
-        assertEquals(kept.map { it.genre }, back.map { it.genre })
-        assertEquals(kept.map { it.album }, back.map { it.album })
         assertTrue(back.all { it.artist == channel })
+    }
+
+    @Test
+    fun keptList_hasNoUrls() {
+        val json = PodcastOfflineEpisodes.toJson(listOf(episode("A")))
+        assertTrue(json, !json.contains("https"))
     }
 
     @Test
@@ -62,9 +66,8 @@ class PodcastOfflineEpisodesTest {
         val list = PodcastOfflineEpisodes.list(channel, files(), kept)
 
         assertEquals(listOf("Ep 3", "Ep 1", "Old one", "Older one"), list.map { it.title })
-        // A kept episode keeps its date and URLs; another download has no date (no "[Unknown Year]" prefix)
+        // A kept episode keeps its date; another download has no date (no "[Unknown Year]" prefix)
         assertEquals("Mon, 02 Nov 2026", list[0].year)
-        assertEquals("https://audio/Ep 3.mp3", list[0].genre)
         assertEquals("", list[2].year)
         assertTrue(list.all { it.artist == channel })
         assertEquals(File(tmp.root, "Ep 3.mp3"), list[0].file)

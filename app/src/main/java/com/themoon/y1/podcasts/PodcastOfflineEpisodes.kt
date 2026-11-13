@@ -25,15 +25,16 @@ object PodcastOfflineEpisodes {
     /** The file name of the download of the episode [title]. */
     fun fileName(title: String): String = safeName(title) + EXTENSION
 
-    /** The episode list for [LIST_FILE]: title, date, audio URL and image URL of each episode, in feed order. */
+    /**
+     * The episode list for [LIST_FILE]: title and date of each episode, in feed order. No URLs: a download plays
+     * from its file, and an enclosure URL of a private feed can contain an access key.
+     */
     fun toJson(episodes: List<SongItem>): String {
         val array = JSONArray()
         for (ep in episodes) {
             array.put(JSONObject()
                 .put("title", ep.title)
-                .put("date", ep.year)
-                .put("url", ep.genre)
-                .put("image", ep.album))
+                .put("date", ep.year))
         }
         return array.toString()
     }
@@ -47,8 +48,7 @@ object PodcastOfflineEpisodes {
                 val o = array.optJSONObject(i) ?: continue
                 val title = o.optString("title")
                 if (title.isEmpty()) continue
-                list += SongItem(File("/PODCAST"), title, channelName, o.optString("image"), o.optString("date"),
-                    o.optString("url"))
+                list += SongItem(File("/PODCAST"), title, channelName, null, o.optString("date"), null)
             }
         } catch (_: Exception) {
         }
