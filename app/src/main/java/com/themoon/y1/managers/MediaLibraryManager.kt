@@ -246,6 +246,7 @@ class MediaLibraryManager private constructor() {
                 if (tags.size > 8 && tags[8] != null) aa = tags[8] as? String
                 if (tags.size > 9 && tags[9] != null) cp = tags[9] as? String
                 if (tags.size > 10 && tags[10] != null) cpl = tags[10] as? String
+                if (tags.size > 11) durationMs = tags[11] as? Long ?: 0L
             } else if (lower.endsWith(".flac")) {
                 val tags = apm.extractFlacMetadata(f, false)
                 if (tags[0] != null) t = tags[0] as? String
@@ -257,6 +258,7 @@ class MediaLibraryManager private constructor() {
                 if (tags.size > 8 && tags[8] != null) aa = tags[8] as? String
                 if (tags.size > 9 && tags[9] != null) cp = tags[9] as? String
                 if (tags.size > 10 && tags[10] != null) cpl = tags[10] as? String
+                if (tags.size > 11) durationMs = tags[11] as? Long ?: 0L
             } else if (lower.endsWith(".m4a") || lower.endsWith(".m4b")) {
                 val tags = apm.extractAlacMetadata(f, false)
                 if (tags[0] != null) t = tags[0] as? String
@@ -268,6 +270,7 @@ class MediaLibraryManager private constructor() {
                 if (tags.size > 8 && tags[8] != null) aa = tags[8] as? String
                 if (tags.size > 9 && tags[9] != null) cp = tags[9] as? String
                 if (tags.size > 10 && tags[10] != null) cpl = tags[10] as? String
+                if (tags.size > 11) durationMs = tags[11] as? Long ?: 0L
             } else if (lower.endsWith(".ogg")) {
                 val tags = apm.extractOggVorbisMetadata(f, false)
                 if (tags[0] != null) t = tags[0] as? String
@@ -279,6 +282,7 @@ class MediaLibraryManager private constructor() {
                 if (tags.size > 8 && tags[8] != null) aa = tags[8] as? String
                 if (tags.size > 9 && tags[9] != null) cp = tags[9] as? String
                 if (tags.size > 10 && tags[10] != null) cpl = tags[10] as? String
+                if (tags.size > 11) durationMs = tags[11] as? Long ?: 0L
             } else {
                 var mmr: android.media.MediaMetadataRetriever? = null
                 var fis: java.io.FileInputStream? = null
@@ -304,8 +308,6 @@ class MediaLibraryManager private constructor() {
                 }
             }
 
-            // The FLAC, Ogg, Opus and ALAC readers above give no length
-            if (durationMs <= 0L) durationMs = readDurationMs(f)
             if (!t.isNullOrBlank()) title = t
             if (!a.isNullOrBlank()) {
                 artist = a
@@ -358,8 +360,12 @@ class MediaLibraryManager private constructor() {
         )
     }
 
-    /** The length of [f] in milliseconds from Android's MediaMetadataRetriever; 0 if it cannot tell. */
-    internal fun readDurationMs(f: File): Long {
+    /**
+     * Only the length of [f] in milliseconds; 0 if it cannot tell. FLAC, Ogg, Opus and MP4 from their headers,
+     * other types from Android's MediaMetadataRetriever.
+     */
+    fun readLengthMs(f: File): Long {
+        AudioLength.fromHeaders(f)?.let { return it }
         var mmr: android.media.MediaMetadataRetriever? = null
         var fis: java.io.FileInputStream? = null
         return try {

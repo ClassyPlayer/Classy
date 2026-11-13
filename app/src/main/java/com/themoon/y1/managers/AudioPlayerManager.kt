@@ -1418,15 +1418,20 @@ class AudioPlayerManager private constructor() {
     fun extractOpusMetadata(file: File): Array<Any?> = extractOpusMetadata(file, true)
 
     fun extractOpusMetadata(file: File, includeArt: Boolean): Array<Any?> {
-        val tags = arrayOfNulls<Any>(11)
+        val tags = arrayOfNulls<Any>(12)
         try {
             val fis = FileInputStream(file)
             val bos = ByteArrayOutputStream()
             val header = ByteArray(27)
             var totalRead = 0
 
+            var serial: Int? = null
             while (totalRead < 1500000 && fis.read(header) == 27) {
                 if (header[0] != 'O'.code.toByte() || header[1] != 'g'.code.toByte() || header[2] != 'g'.code.toByte() || header[3] != 'S'.code.toByte()) break
+                if (serial == null) {
+                    serial = (header[14].toInt() and 0xFF) or ((header[15].toInt() and 0xFF) shl 8) or
+                        ((header[16].toInt() and 0xFF) shl 16) or ((header[17].toInt() and 0xFF) shl 24)
+                }
 
                 val pageSegments = header[26].toInt() and 0xFF
                 val segmentTable = ByteArray(pageSegments)
@@ -1444,6 +1449,12 @@ class AudioPlayerManager private constructor() {
             fis.close()
 
             val buffer = bos.toByteArray()
+            // [11]: the length (ms), from the last page; Android 4.4 cannot give it for Opus
+            val preSkip = AudioLength.opusPreSkip(buffer, 0)
+            if (preSkip >= 0) {
+                val granule = AudioLength.lastGranule(file, serial)
+                if (granule >= 0) tags[11] = AudioLength.opusMs(granule, preSkip)
+            }
             val magic = "OpusTags".toByteArray(Charsets.UTF_8)
             var p = -1
             for (i in 0..(buffer.size - magic.size)) {
@@ -1551,15 +1562,20 @@ class AudioPlayerManager private constructor() {
     fun extractOggVorbisMetadata(file: File): Array<Any?> = extractOggVorbisMetadata(file, true)
 
     fun extractOggVorbisMetadata(file: File, includeArt: Boolean): Array<Any?> {
-        val tags = arrayOfNulls<Any>(11)
+        val tags = arrayOfNulls<Any>(12)
         try {
             val fis = FileInputStream(file)
             val bos = ByteArrayOutputStream()
             val header = ByteArray(27)
             var totalRead = 0
 
+            var serial: Int? = null
             while (totalRead < 1500000 && fis.read(header) == 27) {
                 if (header[0] != 'O'.code.toByte() || header[1] != 'g'.code.toByte() || header[2] != 'g'.code.toByte() || header[3] != 'S'.code.toByte()) break
+                if (serial == null) {
+                    serial = (header[14].toInt() and 0xFF) or ((header[15].toInt() and 0xFF) shl 8) or
+                        ((header[16].toInt() and 0xFF) shl 16) or ((header[17].toInt() and 0xFF) shl 24)
+                }
 
                 val pageSegments = header[26].toInt() and 0xFF
                 val segmentTable = ByteArray(pageSegments)
@@ -1589,6 +1605,13 @@ class AudioPlayerManager private constructor() {
                 if (isActuallyOpus) {
                     return extractOpusMetadata(file, includeArt)
                 }
+            }
+
+            // [11]: the length (ms), from the last page
+            val rate = AudioLength.vorbisRate(buffer, 0)
+            if (rate > 0) {
+                val granule = AudioLength.lastGranule(file, serial)
+                if (granule >= 0) tags[11] = AudioLength.vorbisMs(granule, rate)
             }
 
             val magic = byteArrayOf(0x03, 'v'.code.toByte(), 'o'.code.toByte(), 'r'.code.toByte(), 'b'.code.toByte(), 'i'.code.toByte(), 's'.code.toByte())
@@ -1703,7 +1726,7 @@ class AudioPlayerManager private constructor() {
     fun extractFlacMetadata(file: File): Array<Any?> = extractFlacMetadata(file, true)
 
     fun extractFlacMetadata(file: File, includeArt: Boolean): Array<Any?> {
-        val tags = arrayOfNulls<Any>(11)
+        val tags = arrayOfNulls<Any>(12)
         try {
             val raf = RandomAccessFile(file, "r")
             val header = ByteArray(4)
@@ -1721,7 +1744,13 @@ class AudioPlayerManager private constructor() {
                 val blockType = blockHeader and 0x7F
                 val length = (raf.readUnsignedByte() shl 16) or (raf.readUnsignedByte() shl 8) or raf.readUnsignedByte()
 
-                if (blockType == 4) {
+                if (blockType == 0) {
+                    // STREAMINFO: [11] = the length (ms)
+                    val info = ByteArray(length)
+                    raf.readFully(info)
+                    val ms = AudioLength.flacStreamInfoMs(info)
+                    if (ms > 0) tags[11] = ms
+                } else if (blockType == 4) {
                     val commentData = ByteArray(length)
                     raf.readFully(commentData)
                     try {
@@ -1802,7 +1831,7 @@ class AudioPlayerManager private constructor() {
     fun extractAlacMetadata(file: File): Array<Any?> = extractAlacMetadata(file, true)
 
     fun extractAlacMetadata(file: File, includeArt: Boolean): Array<Any?> {
-        val tags = arrayOfNulls<Any>(11)
+        val tags = arrayOfNulls<Any>(12)
         try {
             val raf = RandomAccessFile(file, "r")
             val fileSize = raf.length()
@@ -1822,6 +1851,14 @@ class AudioPlayerManager private constructor() {
                     if (type == "meta") pos += 4
                     pos += 8
                     continue
+                }
+
+                if (type == "mvhd" && size >= 28) {
+                    // [11]: the length (ms) = duration / timescale
+                    val box = ByteArray(minOf(size - 8, 32))
+                    raf.readFully(box)
+                    val ms = AudioLength.mvhdMs(box)
+                    if (ms > 0) tags[11] = ms
                 }
 
                 if (type == "\u00A9nam" || type == "\u00A9ART" || type == "\u00A9alb" ||
