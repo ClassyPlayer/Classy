@@ -74,7 +74,7 @@ class AudioPlayerManager private constructor() {
     private val playerChoice = PlayerChoice()
     // A FLAC file in ExoPlayer: the check for the hang at 0:00 (watchExoPlayerStart)
     private val startCheckHandler = Handler(Looper.getMainLooper())
-    private var startCheck: Runnable? = null
+    private var startCheck: ExoStartWatch? = null
     private var isGaplessQueueActive: Boolean = false
     private var currentFileInputStream: FileInputStream? = null
 
@@ -165,6 +165,8 @@ class AudioPlayerManager private constructor() {
             repeatMode = exoRepeatMode(initialRepeatMode, exoHoldsWholeQueue())
             addListener(object : Player.EventListener {
                 override fun onPlayerStateChanged(playWhenReady: Boolean, playbackState: Int) {
+                    // A play, pause or buffer change starts the check for the FLAC hang again
+                    startCheck?.restart()
                     isPlayingActive = playWhenReady && (playbackState == Player.STATE_READY || playbackState == Player.STATE_BUFFERING)
                     if (isPlayingActive) {
                         AudioSources.app.musicStarts()
@@ -1063,38 +1065,42 @@ class AudioPlayerManager private constructor() {
      */
     private fun watchExoPlayerStart(path: String) {
         cancelStartCheck()
-        var from = -1L
-        val check = object : Runnable {
-            override fun run() {
-                val exo = exoPlayer
-                if (startCheck !== this || exo == null || isUsingLegacyPlayer || currentlyPlayingFilePath != path) return
-                val state = exo.playbackState
-                if (!exo.playWhenReady || state == Player.STATE_ENDED || state == Player.STATE_IDLE) {
-                    from = -1L // paused (or ended, or failed): check again when it plays
-                } else if (from < 0) {
-                    from = exo.currentPosition
-                } else {
-                    val position = exo.currentPosition
-                    when (PlayerChoice.checkStart(from, position)) {
-                        PlayerChoice.StartCheck.PLAYS -> {
-                            startCheck = null
-                            return
-                        }
-                        PlayerChoice.StartCheck.CHECK_AGAIN -> from = position
-                        PlayerChoice.StartCheck.STALLED -> {
-                            startCheck = null
-                            android.util.Log.w("AudioPlayerManager", "ExoPlayer stays at $position ms in $path")
-                            fallBackFromExoPlayer(position)
-                            return
-                        }
-                    }
+        val watch = ExoStartWatch(path)
+        startCheck = watch
+        watch.restart()
+    }
+
+    private inner class ExoStartWatch(private val path: String) : Runnable {
+        // The position at the start of the check window, or -1 while ExoPlayer does not play
+        private var from = -1L
+
+        /** Starts the check window again from now: at the start of the track, and at each play, pause or buffer change. */
+        fun restart() {
+            startCheckHandler.removeCallbacks(this)
+            val exo = exoPlayer ?: return
+            from = if (mustPlay(exo)) exo.currentPosition else -1L
+            if (from >= 0) startCheckHandler.postDelayed(this, PlayerChoice.START_CHECK_MS)
+        }
+
+        private fun mustPlay(exo: SimpleExoPlayer): Boolean =
+            exo.playWhenReady && exo.playbackState != Player.STATE_ENDED && exo.playbackState != Player.STATE_IDLE
+
+        override fun run() {
+            val exo = exoPlayer
+            if (startCheck !== this || exo == null || isUsingLegacyPlayer || currentlyPlayingFilePath != path) return
+            // Paused (or ended, or failed): the next play starts the window again (restart)
+            if (from < 0 || !mustPlay(exo)) return
+            val position = exo.currentPosition
+            when (PlayerChoice.checkStart(from, position)) {
+                PlayerChoice.StartCheck.PLAYS -> startCheck = null
+                PlayerChoice.StartCheck.CHECK_AGAIN -> restart()
+                PlayerChoice.StartCheck.STALLED -> {
+                    startCheck = null
+                    android.util.Log.w("AudioPlayerManager", "ExoPlayer stays at $position ms in $path")
+                    fallBackFromExoPlayer(position)
                 }
-                startCheckHandler.postDelayed(this, PlayerChoice.START_CHECK_MS)
             }
         }
-        startCheck = check
-        if (exoPlayer?.playWhenReady == true) from = exoPlayer?.currentPosition ?: -1L
-        startCheckHandler.postDelayed(check, PlayerChoice.START_CHECK_MS)
     }
 
     private fun cancelStartCheck() {
