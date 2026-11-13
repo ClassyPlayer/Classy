@@ -519,9 +519,13 @@ class MediaLibraryManager private constructor() {
                     }
                 }
                 val saved = filled == 0 || saveLibraryCache()
-                Log.i(tag, "Track lengths: filled $filled of ${songs.size}, saved $saved")
-                // A song that came into the lists during the fill, or a cache that was not saved: the next cache load continues
-                if (!missed && saved) onDone()
+                // A cache load between the last pass and the save puts new song objects without the lengths into
+                // the lists (and the save then wrote them): look again after the save
+                val lost = hasMissingLengths(read)
+                Log.i(tag, "Track lengths: filled $filled of ${songs.size}, saved $saved, lost $lost")
+                // A song that came into the lists during the fill, a cache that was not saved, or lengths that a cache
+                // load replaced: the next cache load continues
+                if (!missed && saved && !lost) onDone()
             } catch (t: Throwable) {
                 Log.e(tag, "Track length fill error: ${t.message}", t)
             } finally {
@@ -533,6 +537,21 @@ class MediaLibraryManager private constructor() {
         } catch (t: Throwable) {
             isFillingLengths.set(false)
         }
+    }
+
+    /**
+     * True when a song in the lists has no length but the fill read one for its path ([read]), or was not read at
+     * all: a cache load replaced the song objects after the fill gave them their lengths.
+     */
+    internal fun hasMissingLengths(read: Map<String, Long>): Boolean {
+        for (list in listOf(musicLibrary, audiobookLibrary)) synchronized(list) {
+            for (song in list) {
+                if (song.durationMs > 0L) continue
+                val ms = read[song.file.absolutePath] ?: return true
+                if (ms > 0L) return true
+            }
+        }
+        return false
     }
 
     /** The scan and the length fill can both save the cache: one at a time, as they write the same temp file. */
