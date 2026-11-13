@@ -356,7 +356,7 @@
   "Scan Complete!\nFound": "スキャン完了！\n見つかったチャンネル: ",
   "channels.\nTuning to": "個。\n移動中: ",
   "No stations found.": "チャンネルが見つかりません。",
-  "No .m3u files found in Y1_Playlists": "Y1_Playlistsに.m3uファイルが見つかりません",
+  "No .m3u files found in Playlists": "Playlistsに.m3uファイルが見つかりません",
   " minutes": " 分",
   "Sleep Timer": "スリープタイマー",
   "Sleep timer cancelled": "スリープタイマーを解除しました",

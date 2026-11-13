@@ -838,11 +838,11 @@ class AudioPlayerManager private constructor() {
                     val folderName = track.parentFile?.name
 
                     if (parentName != null && parentName != "Music" && parentName != "Audiobooks" &&
-                        !StoragePaths.isStorageVolumeName(parentName) && parentName != "Y1_Playlists"
+                        !StoragePaths.isStorageVolumeName(parentName) && parentName != "Y1_Playlists" && parentName != "Playlists"
                     ) {
                         a = parentName
                     } else if (folderName != null && folderName != "Music" && folderName != "Audiobooks" &&
-                        !StoragePaths.isStorageVolumeName(folderName) && folderName != "Y1_Playlists"
+                        !StoragePaths.isStorageVolumeName(folderName) && folderName != "Y1_Playlists" && folderName != "Playlists"
                     ) {
                         a = folderName
                     }

@@ -32,7 +32,7 @@ import java.util.ArrayList
 
 /**
  * Controller for M3U playlist browsing, song listing, creation, and editing:
- * - Lists M3U / M3U8 playlists in `Playlists/` folder
+ * - Lists M3U / M3U8 playlists in the `Playlists` folders (microSD card, internal storage; [StoragePaths.getPlaylistsDirs])
  * - Parses playlist track sequences without losing custom ordering
  * - Displays smart popup dialogs for "Add to Playlist" and "Delete Playlist"
  * - Handles track deletion from individual M3U playlists
@@ -86,16 +86,21 @@ class PlaylistController(
 
     override fun title(): String? = screen.title
 
-    /** The smart playlists, then the M3U files of the Playlists folder (A to Z). Opens at the last opened playlist. */
-    fun buildPlaylistsUI() {
-        val playlistDir = StoragePaths.getPlaylistsDir()
-        if (!playlistDir.exists()) {
-            playlistDir.mkdirs()
+    /** The M3U files of each Playlists folder, A to Z. */
+    private fun playlistFiles(): List<File> {
+        val files = ArrayList<File>()
+        for (dir in StoragePaths.getPlaylistsDirs()) {
+            for (f in dir.listFiles() ?: emptyArray()) {
+                val name = f.name.lowercase()
+                if (f.isFile && (name.endsWith(".m3u") || name.endsWith(".m3u8"))) files.add(f)
+            }
         }
-        val m3uFiles = (playlistDir.listFiles() ?: emptyArray()).filter { f ->
-            val name = f.name.lowercase()
-            f.isFile && (name.endsWith(".m3u") || name.endsWith(".m3u8"))
-        }.sortedWith { f1, f2 -> f1.name.compareTo(f2.name, ignoreCase = true) }
+        return files.sortedWith { f1, f2 -> f1.name.compareTo(f2.name, ignoreCase = true) }
+    }
+
+    /** The smart playlists, then the M3U files of the Playlists folders (A to Z). Opens at the last opened playlist. */
+    fun buildPlaylistsUI() {
+        val m3uFiles = playlistFiles()
 
         val rows = ArrayList<RowSpec>()
         // iPod smart playlists first
@@ -110,7 +115,7 @@ class PlaylistController(
                 onPlaylistSelected(m3u)
             }, onHold = { showDeletePlaylistDialog(m3u) })
         }
-        if (m3uFiles.isEmpty()) rows += RowSpec(localize("No .m3u files found in Y1_Playlists"), color = ThemeManager.getTextColorSecondary())
+        if (m3uFiles.isEmpty()) rows += RowSpec(localize("No .m3u files found in Playlists"), color = ThemeManager.getTextColorSecondary())
         screen.show(ListSpec(localize("Playlists"), rows, focus = Focus.LAST))
     }
 
@@ -182,11 +187,7 @@ class PlaylistController(
                 val raw = line?.trim() ?: continue
                 if (raw.isEmpty() || raw.startsWith("#")) continue
 
-                val normalized = raw.replace("\\", "/")
-                var audioFile = File(normalized)
-                if (!audioFile.isAbsolute) {
-                    audioFile = File(musicRootFolder, normalized)
-                }
+                var audioFile = PlaylistPaths.resolve(raw, m3uFile.parentFile, musicRootFolder)
                 // "./" and "../" parts: the library keys and the play queue use the plain absolute path. Only when
                 // it is the same file: after a link, ".." goes up from the target of the link, not from the link.
                 val plain = File(PlaylistPaths.normalize(audioFile.path))
@@ -246,16 +247,7 @@ class PlaylistController(
             } catch (ignored: Exception) {}
         }
 
-        val files = playlistDir.listFiles()
-        val playlistFiles = ArrayList<File>()
-        if (files != null) {
-            for (f in files) {
-                val name = f.name.lowercase()
-                if (f.isFile && (name.endsWith(".m3u") || name.endsWith(".m3u8")) && f.name != "On-The-Go.m3u8") {
-                    playlistFiles.add(f)
-                }
-            }
-        }
+        val playlistFiles = playlistFiles().filter { it != onTheGoFile }
 
         // A list of targets: On-The-Go, a new playlist, then each playlist. Back cancels.
         val targets = ArrayList<ActionScreens.Action>()

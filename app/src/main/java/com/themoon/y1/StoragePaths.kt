@@ -14,6 +14,8 @@ object StoragePaths {
     const val PRIMARY_PATH: String = "/storage/sdcard0"
     const val SECONDARY_PATH: String = "/storage/sdcard1"
     const val STORAGE_DIR: String = "/storage"
+    const val PLAYLISTS_DIR: String = "Playlists"
+    const val LEGACY_PLAYLISTS_DIR: String = "Y1_Playlists"
 
     @Volatile
     private var cachedPrimary: File? = null
@@ -167,7 +169,28 @@ object StoragePaths {
 
     fun getLanguagesDir(): File = ensureDir(File(getPrimaryRoot(), "Y1_Languages"))
 
-    fun getPlaylistsDir(): File = ensureDir(File(getPrimaryRoot(), "Y1_Playlists"))
+    /**
+     * Where new playlists go: Playlists on the microSD card (a computer can reach it as a USB drive), else Playlists
+     * on internal storage.
+     */
+    fun getPlaylistsDir(): File {
+        val root = if (hasSecondaryStorage()) File(SECONDARY_PATH) else getPrimaryRoot()
+        return ensureDir(File(root, PLAYLISTS_DIR))
+    }
+
+    /** The Playlists folders to list: [getPlaylistsDir] first, then the Playlists folders of the other storages that exist. */
+    fun getPlaylistsDirs(): List<File> {
+        val dirs = ArrayList<File>()
+        dirs.add(getPlaylistsDir())
+        for (dir in mediaDirs(PLAYLISTS_DIR)) {
+            val exists = try { dir.isDirectory } catch (_: Exception) { false }
+            if (exists) addIfMissing(dirs, dir)
+        }
+        return dirs
+    }
+
+    /** The folder of the playlists before Migration 014 (internal storage). Not made when missing. */
+    fun getLegacyPlaylistsDir(): File = File(getPrimaryRoot(), LEGACY_PLAYLISTS_DIR)
 
     fun getEqDir(): File = ensureDir(File(getPrimaryRoot(), "Y1_EQs"))
 

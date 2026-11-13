@@ -23,6 +23,21 @@ object PlaylistPaths {
         return if (absolute) "/$joined" else joined
     }
 
+    /**
+     * The file of a playlist [entry] (backslashes as in Windows playlists work). A relative entry is first read from
+     * the playlist's folder [playlistDir] (as playlists made on a computer are), then from [musicRoot] when it is not there.
+     */
+    fun resolve(entry: String, playlistDir: java.io.File?, musicRoot: java.io.File): java.io.File {
+        val path = entry.replace("\\", "/")
+        val file = java.io.File(path)
+        if (file.isAbsolute) return file
+        if (playlistDir != null) {
+            val nextToPlaylist = java.io.File(playlistDir, path)
+            if (nextToPlaylist.exists()) return nextToPlaylist
+        }
+        return java.io.File(musicRoot, path)
+    }
+
     /** True when [a] and [b] are the same file after the links are resolved; false when that cannot be told. */
     fun sameFile(a: java.io.File, b: java.io.File): Boolean = try {
         a.canonicalPath == b.canonicalPath

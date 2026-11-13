@@ -37,6 +37,28 @@ class PlaylistPathsTest {
     }
 
     @Test
+    fun relativeEntryIsReadFromThePlaylistFolderFirst() {
+        val root = Files.createTempDirectory("classy_m3u").toFile().canonicalFile
+        try {
+            val playlists = File(root, "Playlists").apply { mkdirs() }
+            val music = File(root, "Music").apply { mkdirs() }
+            File(music, "Album").mkdirs()
+            File(music, "Album/Track.mp3").writeText("a")
+
+            // A computer playlist: ../Music/... from the playlist's folder, with Windows backslashes
+            assertEquals(File(playlists, "../Music/Album/Track.mp3"),
+                PlaylistPaths.resolve("..\\Music\\Album\\Track.mp3", playlists, music))
+            // Not next to the playlist: from the Music folder, as before
+            assertEquals(File(music, "Album/Track.mp3"), PlaylistPaths.resolve("Album/Track.mp3", playlists, music))
+            assertEquals(File(music, "Album/Track.mp3"), PlaylistPaths.resolve("Album/Track.mp3", null, music))
+            // Absolute stays as it is
+            assertEquals(File("/storage/sdcard1/Music/x.mp3"), PlaylistPaths.resolve("/storage/sdcard1/Music/x.mp3", playlists, music))
+        } finally {
+            root.walkBottomUp().forEach { Files.deleteIfExists(it.toPath()) }
+        }
+    }
+
+    @Test
     fun pathAfterALinkIsNotTheSameFile() {
         val root = Files.createTempDirectory("classy_m3u").toFile().canonicalFile
         try {
