@@ -1,7 +1,6 @@
 package com.themoon.y1.adapters
 
 import android.graphics.Bitmap
-import android.media.MediaMetadataRetriever
 import android.view.View
 import android.view.ViewGroup
 import android.widget.AbsListView
@@ -18,6 +17,7 @@ import com.themoon.y1.lists.ArtRow
 import com.themoon.y1.lists.RowTexts
 import com.themoon.y1.managers.AlbumCoverManager
 import com.themoon.y1.managers.AudioPlayerManager
+import com.themoon.y1.managers.MediaLibraryManager
 import com.themoon.y1.models.SongItem
 import com.themoon.y1.podcasts.PodcastDownloadManager
 import com.themoon.y1.views.ClassicMenuStyle
@@ -324,7 +324,7 @@ class SongListAdapter(
         val length = if (song.durationMs > 0L) TimeFormat.format(song.durationMs) else durations[path]
         art.bind(song.title, artist, length ?: "")
         art.image.tag = path
-        if (length == null) loadDuration(path, art)
+        if (length == null) loadDuration(path, art) else stopWaiting(art)
 
         val covers = AlbumCoverManager.getInstance()
         val cover = covers.getThumbnailDirect(AlbumCoverManager.getAlbumKey(song.file, song.album))
@@ -413,27 +413,50 @@ class SongListAdapter(
 
         // Lengths of songs whose cache entry has none, read when a row first shows (kept until Classy restarts)
         private val durations = java.util.concurrent.ConcurrentHashMap<String, String>()
-        private val durationWorker = java.util.concurrent.Executors.newSingleThreadExecutor()
+        // The rows that wait for a length, with the path that each one shows. Weak keys: a row that goes away
+        // stays not here. Lock it for each use, also of [pendingPaths].
+        private val waitingRows = java.util.WeakHashMap<ArtRow, String>()
+        // The paths in the queue of [durationWorker]: one read for each path
+        private val pendingPaths = HashSet<String>()
+        private val durationWorker = java.util.concurrent.Executors.newSingleThreadExecutor { job ->
+            Thread({
+                android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND)
+                job.run()
+            }, "y1-row-length")
+        }
         private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
 
         private fun loadDuration(path: String, art: ArtRow) {
-            durationWorker.execute {
-                var text = durations[path] ?: ""
-                if (!durations.containsKey(path)) {
-                    val mmr = MediaMetadataRetriever()
-                    try {
-                        mmr.setDataSource(path)
-                        val ms = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
-                        if (ms > 0) text = TimeFormat.format(ms)
-                    } catch (e: Exception) {
-                        // No length for this file: the row shows none
-                    } finally {
-                        try { mmr.release() } catch (e: Exception) {}
-                    }
-                    durations[path] = text
+            synchronized(waitingRows) {
+                waitingRows[art] = path
+                if (!pendingPaths.add(path)) return
+            }
+            durationWorker.execute { readDuration(path) }
+        }
+
+        /** [art] shows a song with a known length now: a read that ends later does not change it. */
+        private fun stopWaiting(art: ArtRow) {
+            synchronized(waitingRows) { waitingRows.remove(art) }
+        }
+
+        private fun readDuration(path: String) {
+            // No read when no row shows the path now (the list scrolled on or closed); a new row queues it again
+            val wanted = synchronized(waitingRows) {
+                waitingRows.containsValue(path).also { if (!it) pendingPaths.remove(path) }
+            }
+            if (!wanted) return
+            val ms = MediaLibraryManager.getInstance().readLengthMs(File(path))
+            val text = if (ms > 0L) TimeFormat.format(ms) else ""
+            durations[path] = text
+            // Not View.post: from a worker thread it is lost while the row is not attached (Android 4.4)
+            mainHandler.post {
+                val rows = synchronized(waitingRows) {
+                    pendingPaths.remove(path)
+                    val done = waitingRows.filterValues { it == path }.keys.toList()
+                    for (row in done) waitingRows.remove(row)
+                    done
                 }
-                // Not View.post: from a worker thread it is lost while the row is not attached (Android 4.4)
-                mainHandler.post { if (art.image.tag == path) art.setTrailing(text) }
+                for (row in rows) if (row.image.tag == path) row.setTrailing(text)
             }
         }
 
