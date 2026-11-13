@@ -6,7 +6,9 @@ import com.themoon.y1.managers.UpdateChannel.Outcome
 import com.themoon.y1.managers.UpdateChannel.STABLE
 import com.themoon.y1.migrations.MoveMisplacedPrefsTest.FakePrefs
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class UpdateChannelTest {
@@ -84,6 +86,26 @@ class UpdateChannelTest {
         ]"""
         assertEquals("y2", UpdateChannel.newestManifestUrl(json))
         assertEquals("y1", UpdateChannel.newestManifestUrl(json, "update-y1.json"))
+    }
+
+    @Test
+    fun manifestUrls_newestTagFirst() {
+        val json = """[
+            {"tag_name": "20261119-beta", "prerelease": true, "assets": [{"name": "update.json", "browser_download_url": "beta"}]},
+            {"tag_name": "20261120", "prerelease": false, "assets": [{"name": "update.json", "browser_download_url": "hotfix"}]},
+            {"tag_name": "y1-exp.3", "prerelease": true, "assets": []},
+            {"tag_name": "20261118-beta", "prerelease": true, "assets": [{"name": "update.json", "browser_download_url": "old"}]}
+        ]"""
+        assertEquals(listOf("hotfix", "beta", "old"), UpdateChannel.manifestUrls(json))
+    }
+
+    @Test
+    fun hasOlderCode_onlyWhenBothCountsAreKnown() {
+        assertTrue(UpdateChannel.hasOlderCode(100, 120))
+        assertFalse(UpdateChannel.hasOlderCode(120, 120))
+        assertFalse(UpdateChannel.hasOlderCode(130, 120))
+        assertFalse(UpdateChannel.hasOlderCode(0, 120))
+        assertFalse(UpdateChannel.hasOlderCode(100, 0))
     }
 
     @Test

@@ -223,13 +223,22 @@ class OtaUpdateManager(
                 val channel = UpdateChannel.current(AppPrefs.get(activity), myVersionName)
                 val client = getUpdateHttpClient()
                 // Stable: the release marked Latest. Beta: the newest release with update metadata, a beta or not
-                val manifestUrl = if (channel == UpdateChannel.BETA) {
-                    UpdateChannel.newestManifestUrl(fetch(client, UpdateChannel.RELEASES_API_URL))
-                        ?: throw Exception("No release with ${UpdateChannel.MANIFEST}")
+                val manifestUrls = if (channel == UpdateChannel.BETA) {
+                    UpdateChannel.manifestUrls(fetch(client, UpdateChannel.RELEASES_API_URL))
+                        .take(UpdateChannel.MAX_MANIFESTS)
+                        .ifEmpty { throw Exception("No release with ${UpdateChannel.MANIFEST}") }
                 } else {
-                    UPDATE_JSON_URL
+                    listOf(UPDATE_JSON_URL)
                 }
-                val root = JSONObject(fetch(client, manifestUrl))
+                var root = JSONObject()
+                for (manifestUrl in manifestUrls) {
+                    if (cancelled.get()) return@Thread
+                    root = JSONObject(fetch(client, manifestUrl))
+                    // A release with older code than this build (a hotfix, a promoted older beta) can have the newest
+                    // tag: then the next older release can still be a newer beta
+                    val serverMainCommits = root.optInt(UpdateChannel.MAIN_COMMITS_KEY, 0)
+                    if (!UpdateChannel.hasOlderCode(serverMainCommits, BuildConfig.MAIN_COMMITS)) break
+                }
 
                 val serverVersionCode = root.optInt("versionCode", 0)
                 val serverVersionName = root.optString("versionName", "")

@@ -65,35 +65,38 @@ object UpdateChannel {
 
     /**
      * The download URL of [manifest] in the newest release of a GitHub releases list ([releasesJson], the answer of
-     * [RELEASES_API_URL]); null when no release has it. Releases without it (the hand-made `y1-exp.N`) and drafts are
-     * skipped. "Newest" is by tag, as the updater compares versions ([OtaUpdateManager.compareVersionStrings]).
+     * [RELEASES_API_URL]); null when no release has it. See [manifestUrls].
      */
-    fun newestManifestUrl(releasesJson: String, manifest: String = MANIFEST): String? {
+    fun newestManifestUrl(releasesJson: String, manifest: String = MANIFEST): String? =
+        manifestUrls(releasesJson, manifest).firstOrNull()
+
+    /**
+     * The download URLs of [manifest] in a GitHub releases list ([releasesJson]), newest release first. Releases without
+     * it (the hand-made `y1-exp.N`) and drafts are skipped. "Newest" is by tag, as the updater compares versions
+     * ([OtaUpdateManager.compareVersionStrings]); releases with the same version keep the order of the list.
+     */
+    fun manifestUrls(releasesJson: String, manifest: String = MANIFEST): List<String> {
         val releases = JSONArray(releasesJson)
-        var bestTag: String? = null
-        var bestUrl: String? = null
+        val found = ArrayList<Pair<String, String>>()
         for (i in 0 until releases.length()) {
             val release = releases.optJSONObject(i) ?: continue
             if (release.optBoolean("draft", false)) continue
             val tag = release.optString("tag_name", "")
             if (tag.isEmpty()) continue
             val assets = release.optJSONArray("assets") ?: continue
-            var url: String? = null
             for (j in 0 until assets.length()) {
                 val asset = assets.optJSONObject(j) ?: continue
                 if (asset.optString("name") == manifest) {
-                    url = asset.optString("browser_download_url").takeIf { it.isNotEmpty() }
+                    asset.optString("browser_download_url").takeIf { it.isNotEmpty() }?.let { found.add(tag to it) }
                     break
                 }
             }
-            if (url == null) continue
-            if (bestTag == null || OtaUpdateManager.compareVersionStrings(tag, bestTag) > 0) {
-                bestTag = tag
-                bestUrl = url
-            }
         }
-        return bestUrl
+        return found.sortedWith { a, b -> OtaUpdateManager.compareVersionStrings(b.first, a.first) }.map { it.second }
     }
+
+    /** The releases that the Beta channel reads at most in one check (see [hasOlderCode]). */
+    const val MAX_MANIFESTS = 3
 
     /** The key in [MANIFEST] for the commits of `main` in the build (see [outcome]). */
     const val MAIN_COMMITS_KEY = "mainCommits"
@@ -119,9 +122,16 @@ object UpdateChannel {
         serverMainCommits: Int = 0,
         myMainCommits: Int = 0
     ): Outcome = when {
-        serverMainCommits > 0 && myMainCommits > 0 && serverMainCommits < myMainCommits -> Outcome.AHEAD
+        hasOlderCode(serverMainCommits, myMainCommits) -> Outcome.AHEAD
         OtaUpdateManager.isServerVersionNewer(serverCode, serverName, myCode, myName) -> Outcome.UPDATE
         OtaUpdateManager.isServerVersionNewer(myCode, myName, serverCode, serverName) -> Outcome.AHEAD
         else -> Outcome.SAME
     }
+
+    /**
+     * True when the release has fewer commits of `main` than the installed build (both known). On the Beta channel the
+     * check then also reads the next older release: a newer beta can have an older tag than a hotfix.
+     */
+    fun hasOlderCode(serverMainCommits: Int, myMainCommits: Int): Boolean =
+        serverMainCommits > 0 && myMainCommits > 0 && serverMainCommits < myMainCommits
 }
