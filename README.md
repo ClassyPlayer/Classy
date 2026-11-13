@@ -194,6 +194,8 @@ Version history is documented on [GitHub Releases](https://github.com/ClassyPlay
     <tr>
       <td align="center" valign="top" width="14.28%"><a href="https://potoniec.eu/"><img src="https://avatars.githubusercontent.com/u/32539363?v=4?s=100" width="100px;" alt="Jonasz Potoniec"/><br /><sub><b>Jonasz Potoniec</b></sub></a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/ferrolho"><img src="https://avatars.githubusercontent.com/u/4166093?v=4?s=100" width="100px;" alt="Henrique Ferrolho"/><br /><sub><b>Henrique Ferrolho</b></sub></a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/FabianZettl"><img src="https://avatars.githubusercontent.com/u/95052821?v=4?s=100" width="100px;" alt="Fabian Zettl"/><br /><sub><b>Fabian Zettl</b></sub></a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/andsuor"><img src="https://avatars.githubusercontent.com/u/17765585?v=4?s=100" width="100px;" alt="andsuor"/><br /><sub><b>andsuor</b></sub></a></td>
     </tr>
   </tbody>
 </table>
