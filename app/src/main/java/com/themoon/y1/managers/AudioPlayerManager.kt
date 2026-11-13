@@ -38,6 +38,7 @@ import com.themoon.y1.R
 import com.themoon.y1.StoragePaths
 import com.themoon.y1.core.TimeFormat
 import com.themoon.y1.podcasts.PodcastHttp
+import com.themoon.y1.podcasts.PodcastStreamError
 import com.themoon.y1.views.Notice
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -287,7 +288,9 @@ class AudioPlayerManager private constructor() {
                     isPlayingActive = false
                     val currentPath = MainActivity.instance?.let { it.currentPlaylist.getOrNull(it.currentIndex)?.absolutePath }
                     android.util.Log.e("AudioPlayerManager", "ExoPlayer playback error on $currentPath: ${error.message}", error)
-                    if (!isUsingLegacyPlayer) {
+                    if (currentPath?.startsWith("/PODCAST_STREAM") == true) {
+                        handleStreamError(PodcastStreamError.reason(error))
+                    } else if (!isUsingLegacyPlayer) {
                         handleTrackError("Cannot play this file.")
                     }
                 }
@@ -397,6 +400,24 @@ class AudioPlayerManager private constructor() {
         main.runOnUiThread {
             Notice.error(main, "$errorMsg Skipping...")
             nextTrack()
+        }
+    }
+
+    /**
+     * A podcast stream that does not play: show why and stop. The stream is the whole queue, and its "/PODCAST_STREAM"
+     * name is not a file, so the next track would only show "Corrupted File". Play tries the stream again.
+     */
+    private fun handleStreamError(reason: String) {
+        val main = MainActivity.instance ?: return
+        main.runOnUiThread {
+            exoPlayer?.playWhenReady = false
+            stopPeriodicPositionSaver()
+            main.isPausedByHand = true
+            main.tvPlayerTitle.text = "Load Failed"
+            main.tvPlayerArtist.text = reason
+            main.tvPlayerAlbum.text = ""
+            Notice.error(main, reason)
+            main.updatePlayerUI()
         }
     }
 
@@ -619,6 +640,8 @@ class AudioPlayerManager private constructor() {
                 savePlaybackState(sync = true)
             } else {
                 isPlayingActive = true
+                // After an error (for example a stream with no connection) the player is idle: load it again
+                if (player.playbackState == Player.STATE_IDLE && player.mediaItemCount > 0) player.prepare()
                 player.playWhenReady = true
                 startPeriodicPositionSaver()
                 MainActivity.instance?.isPausedByHand = false
