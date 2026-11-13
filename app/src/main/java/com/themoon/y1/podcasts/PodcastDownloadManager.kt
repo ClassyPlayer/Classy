@@ -110,15 +110,16 @@ class PodcastDownloadManager private constructor() {
                 isStream.close()
 
                 activeDownloads.remove(audioUrl)
-                fileEnds(destFile.absolutePath)
                 listener?.onComplete(audioUrl, destFile)
             } catch (e: Exception) {
                 if (destFile.exists()) {
                     destFile.delete()
                 }
                 activeDownloads.remove(audioUrl)
-                fileEnds(destFile.absolutePath)
                 listener?.onError(audioUrl, e.message ?: "Download failed")
+            } finally {
+                // Once for each download, also when a listener throws
+                fileEnds(destFile.absolutePath)
             }
         }
     }
