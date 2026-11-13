@@ -156,6 +156,8 @@ class SettingsController(
             cycle("Repeat", { Prefs.REPEAT_MODE.get(prefs).let { if (it in 0..2) it else 0 } }, setRepeatMode, arrayOf("Off", "One", "All")),
             action("EQ", { eqName() + " 〉" }) { onOpenEqualizer() },
             toggle("Sound Check", Prefs.SOUND_CHECK) { AudioEffectManager.getInstance().applySoundCheck() },
+            // Left and right mixed on both channels, for one earbud (the ExoPlayer path; FLAC files stay stereo)
+            toggle("Mono Audio", Prefs.MONO_AUDIO) { AudioEffectManager.getInstance().applyAudioEffects() },
             choice("Volume Limit", { volumeLimitText() + " 〉" }) { openPage("VolumeLimit") },
             cycle("Playback Speed", { speedIndex() }, { setSpeed(it) }, SPEED_LABELS),
         )),

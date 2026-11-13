@@ -37,6 +37,16 @@ class SongItem {
     /** Length in milliseconds from the library scan; 0 when not known (a cache from before it was kept). */
     var durationMs: Long = 0L
 
+    /** Each artist of the [artist] tag ("A;B" is A and B), for the Artists list. */
+    fun getArtists(): List<String> = ArtistNames.split(artist).ifEmpty { listOf(artist) }
+
+    /** Each artist of the [albumArtist] tag, for the Album Artists list. */
+    fun getAlbumArtists(): List<String> = ArtistNames.split(albumArtist).ifEmpty { listOf(albumArtist) }
+
+    /** True if [target] is one of the track artists ([trackArtist]) or of the album artists. */
+    fun matchesArtist(target: String?, trackArtist: Boolean): Boolean =
+        ArtistNames.contains(if (trackArtist) artist else albumArtist, target)
+
     /** The compilation flag of the tags (ID3 TCMP, MP4 cpil, Vorbis COMPILATION). The library cache keeps it. */
     var compilationTag: Boolean = false
 

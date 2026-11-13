@@ -15,12 +15,13 @@ class AudioEffectPlanTest {
         bassBoostStep: Int = 0,
         virtualizerStep: Int = 0,
         crossfeedStep: Int = 0,
-        soundCheck: Boolean = false
-    ) = AudioEffectSettings(softwareEq, eqProfile, eqBandLevels, bassBoostStep, virtualizerStep, crossfeedStep, soundCheck)
+        soundCheck: Boolean = false,
+        monoAudio: Boolean = false
+    ) = AudioEffectSettings(softwareEq, eqProfile, eqBandLevels, bassBoostStep, virtualizerStep, crossfeedStep, soundCheck, monoAudio)
 
     private val none = AudioEffectPlan(
         hardwareEq = false, softwareEq = false, bassBoost = false,
-        virtualizer = false, crossfeed = false, loudnessEnhancer = false
+        virtualizer = false, crossfeed = false, loudnessEnhancer = false, mono = false
     )
 
     @Test
@@ -111,5 +112,24 @@ class AudioEffectPlanTest {
         assertEquals(333.toShort(), AudioEffectPlan.strengthForStep(1))
         assertEquals(666.toShort(), AudioEffectPlan.strengthForStep(2))
         assertEquals(1000.toShort(), AudioEffectPlan.strengthForStep(3))
+    }
+
+    @Test
+    fun monoAudio_needsMonoMix() {
+        assertEquals(none.copy(mono = true), AudioEffectPlan.from(settings(monoAudio = true)))
+    }
+
+    @Test
+    fun monoAudio_stopsVirtualizer_keepsOtherEffects() {
+        val plan = AudioEffectPlan.from(settings(
+            eqProfile = "preset_3", bassBoostStep = 2, virtualizerStep = 3, crossfeedStep = 1, soundCheck = true, monoAudio = true
+        ))
+        assertFalse(plan.virtualizer)
+        assertTrue(plan.mono)
+        assertTrue(plan.hardwareEq)
+        assertTrue(plan.bassBoost)
+        assertTrue(plan.crossfeed)
+        assertTrue(plan.loudnessEnhancer)
+        assertTrue(AudioEffectPlan.from(settings(virtualizerStep = 3)).virtualizer)
     }
 }

@@ -121,6 +121,8 @@ object Prefs {
     /** Band levels of the custom EQ profiles: "eq_custom_<name>_band_<n>" ([com.themoon.y1.managers.AudioEffectPlan.bandLevelKey]). */
     val EQ_BANDS = add(PrefFamily("eq_custom_", PrefGroup.PLAYBACK))
     val SOUND_CHECK = add(BoolPref("sound_check_enabled", false, PrefGroup.PLAYBACK, resettable = true))
+    /** Both channels play the mix of left and right ([com.themoon.y1.managers.MonoAudioProcessor]). */
+    val MONO_AUDIO = add(BoolPref("mono_audio", false, PrefGroup.PLAYBACK, resettable = true))
     /** A volume step (1..30); -1 = no limit. */
     val VOLUME_LIMIT = add(IntPref(VolumeSteps.PREF_LIMIT, -1, PrefGroup.PLAYBACK, resettable = true))
     /** An old EQ key. No code reads it; Reset removes it. */

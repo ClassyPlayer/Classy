@@ -38,7 +38,7 @@ class PrefsTest {
             "toggle_style", "sound_check_enabled", "video_stretch_fill", "album_tilt_enabled", "lyrics_keep_screen_on",
             "show_total_time", "show_spectrum", "lyrics_script", "backlight_timer_index", "click_volume",
             "screen_off_control", "double_click_favorite", "repeat_mode", "loop_scroll_on", "list_edges_fade",
-            "eq_preset", "eq_profile_id", "group_albums_by_artist", "cover_pan_zoom"
+            "eq_preset", "eq_profile_id", "group_albums_by_artist", "cover_pan_zoom", "mono_audio"
         )
         assertEquals(before, Prefs.RESETTABLE.map { it.key }.toSet())
     }
