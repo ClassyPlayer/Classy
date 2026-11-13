@@ -176,13 +176,24 @@ download_launcher_apk() {
         tag="$(resolve_latest_launcher_tag)"
     fi
 
-    apk_url="$(
+    local apk_urls
+    apk_urls="$(
         curl -fsSL -A 'classy-rom-build/1.0' \
             "https://github.com/${LAUNCHER_REPO}/releases/expanded_assets/${tag}" \
         | grep -Eo "href=\"/${LAUNCHER_REPO}/releases/download/[^\"]+(Classy|InniClassic|app-release)[^\"]*\.apk\"" \
-        | head -1 \
-        | sed 's/^href="//; s/"$//'
+        | sed 's/^href="//; s/"$//' || true
     )"
+    # Releases have two APKs: Classy-<tag>.apk (Y2, minSdk 19) and Classy-<tag>-y1.apk (Y1, Android 4.2, minSdk 17)
+    if [ "$TYPE" = "y2" ]; then
+        apk_url="$(printf '%s\n' "$apk_urls" | grep -v -- '-y1\.apk$' | head -1 || true)"
+    else
+        apk_url="$(printf '%s\n' "$apk_urls" | grep -- '-y1\.apk$' | head -1 || true)"
+        if [ -z "$apk_url" ]; then
+            # Releases before the split have one APK, built for Android 4.4: it does not start on Android 4.2
+            apk_url="$(printf '%s\n' "$apk_urls" | head -1 || true)"
+            [ -z "$apk_url" ] || echo "warning: release ${tag} has no -y1.apk; using $(basename "$apk_url"), which needs Android 4.4" >&2
+        fi
+    fi
     [ -n "$apk_url" ] || die "could not find launcher APK for release ${tag} in ${LAUNCHER_REPO}"
 
     apk_url="https://github.com${apk_url}"
@@ -511,7 +522,9 @@ elif [ -n "$LAUNCHER_TAG" ]; then
     download_launcher_apk "$LAUNCHER_APK" "$LAUNCHER_TAG"
 else
     # Check if a built APK exists in the repository
-    LOCAL_BUILT_APK="$(find "$REPO_ROOT/app/build/outputs/apk" -name '*.apk' 2>/dev/null | head -1 || true)"
+    # The flavour for the ROM: y2 (minSdk 19) for the Y2, y1 (minSdk 17) for the Y1 types a|b
+    if [ "$TYPE" = "y2" ]; then apk_flavor="y2"; else apk_flavor="y1"; fi
+    LOCAL_BUILT_APK="$(find "$REPO_ROOT/app/build/outputs/apk/$apk_flavor" -name '*.apk' 2>/dev/null | head -1 || true)"
     if [ -n "$LOCAL_BUILT_APK" ] && [ -f "$LOCAL_BUILT_APK" ]; then
         echo "==> Using repository built APK: $LOCAL_BUILT_APK"
         cp "$LOCAL_BUILT_APK" "$LAUNCHER_APK"

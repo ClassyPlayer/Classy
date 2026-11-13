@@ -440,7 +440,10 @@ class AlbumCoverManager private constructor() {
             // The UI keeps the CPU. Y1 (Android 4.2, MT6572): ~1100 albums at the first start gave GC pauses up to 300 ms.
             val pauseMs = if (android.os.Build.VERSION.SDK_INT < 19) 150L else 20L
             try {
-                android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND)
+                // Below Android 4.4 only: the Y2 keeps the default priority it had before
+                if (android.os.Build.VERSION.SDK_INT < 19) {
+                    android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND)
+                }
                 val keys = ArrayList<String>(copy.size)
                 for (item in copy) keys.add(if (item.file != null) getAlbumKey(item.file, item.album) else "")
                 val signature = CoverCacheRules.albumListSignature(keys)

@@ -52,6 +52,17 @@ class OtaUpdateManager(
         // dist/update.json with every release, so this URL needs nothing committed to the repo.
         const val UPDATE_JSON_URL = "https://github.com/ClassyPlayer/Classy/releases/latest/download/update.json"
 
+        /** The update metadata of the Y1 build (minSdk 17), with its own APK. */
+        const val UPDATE_JSON_URL_Y1 = "https://github.com/ClassyPlayer/Classy/releases/latest/download/update-y1.json"
+
+        /**
+         * The update metadata for Android [sdk]. Below Android 4.4 (the Y1 has 4.2) the player gets the Y1 build, also
+         * when the app now installed is the other one. update.json stays the Y2 build: the Y2 players with older
+         * versions of Classy read it.
+         */
+        fun updateJsonUrl(sdk: Int = android.os.Build.VERSION.SDK_INT): String =
+            if (sdk < android.os.Build.VERSION_CODES.KITKAT) UPDATE_JSON_URL_Y1 else UPDATE_JSON_URL
+
         fun extractBuildNumber(suffix: String?): Int {
             if (suffix.isNullOrEmpty()) return 0
             val m = Pattern.compile("(\\d+)").matcher(suffix)
@@ -212,7 +223,7 @@ class OtaUpdateManager(
 
                 val client = getUpdateHttpClient()
                 val request = Request.Builder()
-                    .url(UPDATE_JSON_URL)
+                    .url(updateJsonUrl())
                     .header("User-Agent", "Classy-OTA")
                     .build()
 
