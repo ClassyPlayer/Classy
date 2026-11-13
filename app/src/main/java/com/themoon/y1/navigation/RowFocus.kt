@@ -75,7 +75,11 @@ object RowFocus {
             val listView: ListView? = list as? ListView
             if (android.os.Build.VERSION.SDK_INT < 19 && listView != null) {
                 val delta = ListEdges.revealDelta(row.top, row.bottom, list.paddingTop, list.height - list.paddingBottom, 0, false, false)
-                if (delta != 0) listView.setSelectionFromTop(position, row.top - delta - list.paddingTop)
+                // Also when nothing has to scroll: the selection must follow the focus, or the next layout puts the
+                // focus back on the old selected row and the wheel step down stays on the same row (as in ListEdges.revealRow).
+                if (delta != 0 || position != listView.selectedItemPosition) {
+                    listView.setSelectionFromTop(position, row.top - delta - list.paddingTop)
+                }
             }
             return
         }
