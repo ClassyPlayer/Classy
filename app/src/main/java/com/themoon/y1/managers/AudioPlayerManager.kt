@@ -25,6 +25,7 @@ import com.google.android.exoplayer2.audio.AudioRendererEventListener
 import com.google.android.exoplayer2.audio.AudioSink
 import com.google.android.exoplayer2.audio.DefaultAudioSink
 import com.google.android.exoplayer2.audio.SonicAudioProcessor
+import com.google.android.exoplayer2.ext.okhttp.OkHttpDataSource
 import com.google.android.exoplayer2.extractor.DefaultExtractorsFactory
 import com.google.android.exoplayer2.mediacodec.MediaCodecInfo
 import com.google.android.exoplayer2.mediacodec.MediaCodecSelector
@@ -36,6 +37,7 @@ import com.themoon.y1.MainActivity
 import com.themoon.y1.R
 import com.themoon.y1.StoragePaths
 import com.themoon.y1.core.TimeFormat
+import com.themoon.y1.podcasts.PodcastHttp
 import com.themoon.y1.views.Notice
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -496,7 +498,11 @@ class AudioPlayerManager private constructor() {
             main.currentIndex = 0
 
             val mediaItem = MediaItem.fromUri(Uri.parse(url))
-            val dataSourceFactory = DefaultDataSourceFactory(main, Util.getUserAgent(main, "Y1_Launcher"))
+            // Android 4.4 HTTPS has no TLS 1.2, which most podcast hosts need: load the stream with the
+            // Conscrypt client of the podcast downloads
+            val httpFactory = OkHttpDataSource.Factory(PodcastHttp.client)
+                .setUserAgent(Util.getUserAgent(main, "Y1_Launcher"))
+            val dataSourceFactory = DefaultDataSourceFactory(main, httpFactory)
             val extractorsFactory = DefaultExtractorsFactory().setConstantBitrateSeekingEnabled(true)
             val mediaSource = ProgressiveMediaSource.Factory(dataSourceFactory, extractorsFactory).createMediaSource(mediaItem)
 
@@ -524,11 +530,11 @@ class AudioPlayerManager private constructor() {
             if (!imageUrl.isNullOrEmpty()) {
                 Thread {
                     try {
-                        val imgUrl = java.net.URL(imageUrl)
-                        val conn = imgUrl.openConnection() as java.net.HttpURLConnection
-                        conn.doInput = true
-                        conn.connect()
-                        val bmp = android.graphics.BitmapFactory.decodeStream(conn.inputStream)
+                        val request = okhttp3.Request.Builder().url(imageUrl).build()
+                        val bmp = PodcastHttp.client.newCall(request).execute().use { response ->
+                            response.body()?.takeIf { response.isSuccessful }?.byteStream()
+                                ?.let { android.graphics.BitmapFactory.decodeStream(it) }
+                        }
                         if (bmp != null) {
                             main.runOnUiThread {
                                 main.ivAlbumArt.setImageBitmap(bmp)
