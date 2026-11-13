@@ -22,4 +22,11 @@ object PlaylistPaths {
         val joined = parts.joinToString("/")
         return if (absolute) "/$joined" else joined
     }
+
+    /** True when [a] and [b] are the same file after the links are resolved; false when that cannot be told. */
+    fun sameFile(a: java.io.File, b: java.io.File): Boolean = try {
+        a.canonicalPath == b.canonicalPath
+    } catch (_: java.io.IOException) {
+        false
+    }
 }

@@ -187,9 +187,10 @@ class PlaylistController(
                 if (!audioFile.isAbsolute) {
                     audioFile = File(musicRootFolder, normalized)
                 }
-                // "./" and "../" parts: the library keys and the play queue use the plain absolute path
+                // "./" and "../" parts: the library keys and the play queue use the plain absolute path. Only when
+                // it is the same file: after a link, ".." goes up from the target of the link, not from the link.
                 val plain = File(PlaylistPaths.normalize(audioFile.path))
-                if (plain.path != audioFile.path && plain.exists()) audioFile = plain
+                if (plain.path != audioFile.path && plain.exists() && PlaylistPaths.sameFile(plain, audioFile)) audioFile = plain
 
                 if (audioFile.exists() && isAudioFile(audioFile)) {
                     songs.add(taggedRow(audioFile, byPath))

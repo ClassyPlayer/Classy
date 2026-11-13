@@ -1,7 +1,11 @@
 package com.themoon.y1.controllers.playlists
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
+import java.nio.file.Files
 
 class PlaylistPathsTest {
     private fun n(path: String) = PlaylistPaths.normalize(path)
@@ -30,5 +34,26 @@ class PlaylistPathsTest {
     fun plainPathStaysTheSame() {
         val path = "/storage/sdcard1/Music/Mr. Big/..Dots../Track.mp3"
         assertEquals(path, n(path))
+    }
+
+    @Test
+    fun pathAfterALinkIsNotTheSameFile() {
+        val root = Files.createTempDirectory("classy_m3u").toFile().canonicalFile
+        try {
+            File(root, "Music/Album").mkdirs()
+            File(root, "Other/Album").mkdirs()
+            File(root, "Music/Track.mp3").writeText("a")
+            File(root, "Other/Track.mp3").writeText("b")
+            File(root, "Music/Album/Track.mp3").writeText("c")
+            Files.createSymbolicLink(File(root, "Music/Link").toPath(), File(root, "Other/Album").toPath())
+
+            // Music/Link/../Track.mp3 is Other/Track.mp3, not Music/Track.mp3
+            val linked = File(root, "Music/Link/../Track.mp3")
+            assertFalse(PlaylistPaths.sameFile(File(n(linked.path)), linked))
+            val plain = File(root, "Music/Album/../Track.mp3")
+            assertTrue(PlaylistPaths.sameFile(File(n(plain.path)), plain))
+        } finally {
+            root.walkBottomUp().forEach { Files.deleteIfExists(it.toPath()) }
+        }
     }
 }
