@@ -1,5 +1,6 @@
 package com.themoon.y1.quiz
 
+import com.themoon.y1.managers.PlayerChoice
 import com.themoon.y1.models.SongItem
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -91,6 +92,37 @@ class MusicQuizEngineTest {
             assertEquals(coverSongs[3].file, q!!.song.file)
             assertTrue(q.type != MusicQuizEngine.TYPE_ALBUM_COVER)
         }
+    }
+
+    @Test
+    fun testPreviewError_triesExoPlayerBeforeTheSongIsSkipped() {
+        val engine = newEngine()
+        val songs = (1..5).map { createSong("Song $it", path = "/storage/sdcard0/Music/Song $it.flac") }
+        engine.resetSession(songs)
+        assertEquals(PlayerChoice.Engine.MEDIA_PLAYER, engine.previewEngineFor(songs[0].file))
+
+        // A MediaPlayer error starts the clip in ExoPlayer (here without a context, so it also fails)
+        engine.onPreviewError(songs[0].file, PlayerChoice.Engine.MEDIA_PLAYER)
+        assertEquals(PlayerChoice.Engine.EXO_PLAYER, engine.previewEngineFor(songs[0].file))
+        assertEquals(PlayerChoice.Engine.MEDIA_PLAYER, engine.previewEngineFor(songs[1].file))
+        for (i in 0 until 50) {
+            val q = engine.nextQuestion { _, s -> s.title }
+            assertNotNull(q)
+            assertTrue("A song that no player can play must not be asked again", q!!.song.file != songs[0].file)
+        }
+    }
+
+    @Test
+    fun testPreviewError_exoPlayerOnly_doesNotSkipTheSong() {
+        val engine = newEngine()
+        val songs = (1..5).map { createSong("Song $it", path = "/storage/sdcard0/Music/Song $it.flac") }
+        engine.resetSession(songs)
+
+        // An ExoPlayer error alone (MediaPlayer not tried yet for this song): MediaPlayer plays the clip
+        engine.onPreviewError(songs[0].file, PlayerChoice.Engine.EXO_PLAYER)
+        assertEquals(PlayerChoice.Engine.MEDIA_PLAYER, engine.previewEngineFor(songs[0].file))
+        val asked = (0 until 50).mapNotNull { engine.nextQuestion { _, s -> s.title }?.song?.file }.toSet()
+        assertTrue(songs[0].file in asked)
     }
 
     @Test

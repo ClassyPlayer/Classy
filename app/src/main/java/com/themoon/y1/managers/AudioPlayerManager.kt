@@ -67,7 +67,8 @@ class AudioPlayerManager private constructor() {
     // The file that the legacy player has prepared, or null.
     private var legacyPlayerPath: String? = null
 
-    private val flacLegacyFailedPaths: MutableSet<String> = HashSet()
+    // The player for each file, and the files that a player could not play (FLAC: MediaPlayer, then ExoPlayer)
+    private val playerChoice = PlayerChoice()
     private var isGaplessQueueActive: Boolean = false
     private var currentFileInputStream: FileInputStream? = null
 
@@ -145,91 +146,11 @@ class AudioPlayerManager private constructor() {
     fun initPlayer(context: Context) {
         if (exoPlayer != null) return
 
-        val renderersFactory = object : DefaultRenderersFactory(context.applicationContext) {
-            override fun buildAudioRenderers(
-                ctx: Context,
-                extensionRendererMode: Int,
-                mediaCodecSelector: MediaCodecSelector,
-                enableDecoderFallback: Boolean,
-                audioSink: AudioSink,
-                eventHandler: Handler,
-                eventListener: AudioRendererEventListener,
-                out: java.util.ArrayList<com.google.android.exoplayer2.Renderer>
-            ) {
-                val procList = ArrayList<AudioProcessor>()
-                try {
-                    val ctor = Class.forName("com.google.android.exoplayer2.audio.ToInt16PcmAudioProcessor")
-                        .getDeclaredConstructor()
-                    ctor.isAccessible = true
-                    procList.add(ctor.newInstance() as AudioProcessor)
-                } catch (ignored: Exception) {}
-
-                val immortalSonic = object : AudioProcessor {
-                    private val sonic = SonicAudioProcessor()
-                    private var active = false
-
-                    override fun configure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
-                        var safeSampleRate = inputAudioFormat.sampleRate
-                        if (safeSampleRate > 48000) {
-                            safeSampleRate = 48000
-                        }
-                        sonic.setOutputSampleRateHz(safeSampleRate)
-                        val outputFormat = sonic.configure(inputAudioFormat)
-                        active = sonic.isActive
-                        return outputFormat
-                    }
-
-                    override fun isActive(): Boolean = active
-                    override fun queueInput(inputBuffer: ByteBuffer) = sonic.queueInput(inputBuffer)
-                    override fun queueEndOfStream() = sonic.queueEndOfStream()
-                    override fun getOutput(): ByteBuffer = sonic.output
-                    override fun isEnded(): Boolean = sonic.isEnded
-                    override fun flush() = sonic.flush()
-                    override fun reset() = sonic.reset()
-                }
-
-                procList.add(customEqProcessor)
-                procList.add(crossfeedProcessor)
-                // After the effects that can make the two channels different, so that the output is mono
-                procList.add(monoProcessor)
-                procList.add(immortalSonic)
-
-                val processors = procList.toTypedArray()
-                val strict16BitCaps = AudioCapabilities(intArrayOf(2), 2)
-                val customSink = DefaultAudioSink(strict16BitCaps, processors)
-
-                val customSelector = MediaCodecSelector { mimeType, requiresSecureDecoder, requiresTunnelingDecoder ->
-                    val decoders = mediaCodecSelector.getDecoderInfos(mimeType, requiresSecureDecoder, requiresTunnelingDecoder)
-                    if (mimeType != null && (mimeType.contains("mp4a") || mimeType.contains("aac") || mimeType.contains("alac"))) {
-                        val safeDecoders = ArrayList<MediaCodecInfo>()
-                        for (info in decoders) {
-                            if (info.name != null && info.name.lowercase(Locale.US).contains("mtk")) {
-                                continue
-                            }
-                            safeDecoders.add(info)
-                        }
-                        return@MediaCodecSelector safeDecoders
-                    }
-                    decoders
-                }
-
-                super.buildAudioRenderers(
-                    ctx,
-                    extensionRendererMode,
-                    customSelector,
-                    enableDecoderFallback,
-                    customSink,
-                    eventHandler,
-                    eventListener,
-                    out
-                )
-            }
-        }
+        // Mono Audio after the effects that can make the two channels different, so that the output is mono
+        val renderersFactory = audioRenderersFactory(context, listOf(customEqProcessor, crossfeedProcessor, monoProcessor))
 
         // Set before the first track: the sink mixes the first buffers before STATE_READY applies the effects
         monoProcessor.isEnabled = MainActivity.instance?.prefs?.let { Prefs.MONO_AUDIO.get(it) } ?: false
-
-        renderersFactory.setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
 
         exoPlayer = SimpleExoPlayer.Builder(context.applicationContext, renderersFactory).build().apply {
             // Partial wake lock while it plays: music continues when Android turns the screen off.
@@ -837,9 +758,8 @@ class AudioPlayerManager private constructor() {
             main.tvPlayerTimeTotal.text = main.playerController.rightTimeText(0, 0)
         }
 
-        val ext = track.name.lowercase(Locale.US)
-        val isFlac = ext.endsWith(".flac")
-        isUsingLegacyPlayer = isFlac && !flacLegacyFailedPaths.contains(track.absolutePath)
+        val playerOrder = PlayerChoice.forPlayback(track.absolutePath)
+        isUsingLegacyPlayer = playerChoice.choose(track.absolutePath, playerOrder) == PlayerChoice.Engine.MEDIA_PLAYER
 
         var t: String? = null
         var a: String? = null
@@ -976,7 +896,7 @@ class AudioPlayerManager private constructor() {
 
                 player.setOnCompletionListener { handleTrackCompletion() }
                 player.setOnErrorListener { _, what, extra ->
-                    if (isFlac && flacLegacyFailedPaths.add(track.absolutePath)) {
+                    if (playerChoice.fail(track.absolutePath, PlayerChoice.Engine.MEDIA_PLAYER, playerOrder) != null) {
                         prepareMusicTrack(index)
                     } else {
                         handleTrackError("Legacy Player Error: $what (extra $extra)")
@@ -988,8 +908,16 @@ class AudioPlayerManager private constructor() {
                     try { it.close() } catch (ignored: Exception) {}
                 }
                 currentFileInputStream = FileInputStream(track)
-                player.setDataSource(currentFileInputStream!!.fd)
-                player.prepare()
+                try {
+                    player.setDataSource(currentFileInputStream!!.fd)
+                    player.prepare()
+                } catch (e: Exception) {
+                    // A file that MediaPlayer cannot open gives an exception here, not a call of the error listener
+                    if (playerChoice.fail(track.absolutePath, PlayerChoice.Engine.MEDIA_PLAYER, playerOrder) == null) throw e
+                    android.util.Log.w("AudioPlayerManager", "MediaPlayer cannot open ${track.absolutePath}, trying ExoPlayer", e)
+                    prepareMusicTrack(index, initialSeekMs, initialDurationMs, fromStart)
+                    return
+                }
                 legacyPlayerPath = track.absolutePath
 
                 if (effectiveSeekMs > 0) {
@@ -2195,6 +2123,93 @@ class AudioPlayerManager private constructor() {
                 instance = inst
             }
             return inst
+        }
+
+        /**
+         * The audio renderers of the app's ExoPlayer: 16-bit PCM, the [effects] processors, then a resample to
+         * 48 kHz or less (Sonic), and the extension decoders (FLAC, Opus, FFmpeg) first. Each player needs its own
+         * [effects] instances. The main player gives its EQ, Crossfeed and Mono Audio processors; a Music Quiz clip none.
+         */
+        fun audioRenderersFactory(context: Context, effects: List<AudioProcessor>): DefaultRenderersFactory {
+            val factory = object : DefaultRenderersFactory(context.applicationContext) {
+                override fun buildAudioRenderers(
+                    ctx: Context,
+                    extensionRendererMode: Int,
+                    mediaCodecSelector: MediaCodecSelector,
+                    enableDecoderFallback: Boolean,
+                    audioSink: AudioSink,
+                    eventHandler: Handler,
+                    eventListener: AudioRendererEventListener,
+                    out: java.util.ArrayList<com.google.android.exoplayer2.Renderer>
+                ) {
+                    val procList = ArrayList<AudioProcessor>()
+                    try {
+                        val ctor = Class.forName("com.google.android.exoplayer2.audio.ToInt16PcmAudioProcessor")
+                            .getDeclaredConstructor()
+                        ctor.isAccessible = true
+                        procList.add(ctor.newInstance() as AudioProcessor)
+                    } catch (ignored: Exception) {}
+
+                    val immortalSonic = object : AudioProcessor {
+                        private val sonic = SonicAudioProcessor()
+                        private var active = false
+
+                        override fun configure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
+                            var safeSampleRate = inputAudioFormat.sampleRate
+                            if (safeSampleRate > 48000) {
+                                safeSampleRate = 48000
+                            }
+                            sonic.setOutputSampleRateHz(safeSampleRate)
+                            val outputFormat = sonic.configure(inputAudioFormat)
+                            active = sonic.isActive
+                            return outputFormat
+                        }
+
+                        override fun isActive(): Boolean = active
+                        override fun queueInput(inputBuffer: ByteBuffer) = sonic.queueInput(inputBuffer)
+                        override fun queueEndOfStream() = sonic.queueEndOfStream()
+                        override fun getOutput(): ByteBuffer = sonic.output
+                        override fun isEnded(): Boolean = sonic.isEnded
+                        override fun flush() = sonic.flush()
+                        override fun reset() = sonic.reset()
+                    }
+
+                    procList.addAll(effects)
+                    procList.add(immortalSonic)
+
+                    val processors = procList.toTypedArray()
+                    val strict16BitCaps = AudioCapabilities(intArrayOf(2), 2)
+                    val customSink = DefaultAudioSink(strict16BitCaps, processors)
+
+                    val customSelector = MediaCodecSelector { mimeType, requiresSecureDecoder, requiresTunnelingDecoder ->
+                        val decoders = mediaCodecSelector.getDecoderInfos(mimeType, requiresSecureDecoder, requiresTunnelingDecoder)
+                        if (mimeType != null && (mimeType.contains("mp4a") || mimeType.contains("aac") || mimeType.contains("alac"))) {
+                            val safeDecoders = ArrayList<MediaCodecInfo>()
+                            for (info in decoders) {
+                                if (info.name != null && info.name.lowercase(Locale.US).contains("mtk")) {
+                                    continue
+                                }
+                                safeDecoders.add(info)
+                            }
+                            return@MediaCodecSelector safeDecoders
+                        }
+                        decoders
+                    }
+
+                    super.buildAudioRenderers(
+                        ctx,
+                        extensionRendererMode,
+                        customSelector,
+                        enableDecoderFallback,
+                        customSink,
+                        eventHandler,
+                        eventListener,
+                        out
+                    )
+                }
+            }
+            factory.setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
+            return factory
         }
 
         /** After a USB storage share: the longest wait for the card before the play queue loads again. */
