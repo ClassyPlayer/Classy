@@ -12,12 +12,16 @@ import android.widget.FrameLayout
 import android.widget.ProgressBar
 import android.widget.SeekBar
 import android.widget.TextView
+import com.themoon.y1.MainActivity
 import com.themoon.y1.R
 import com.themoon.y1.controllers.ScreenController
+import com.themoon.y1.controllers.player.LyricsScreenHold
 import com.themoon.y1.core.TimeFormat
 import com.themoon.y1.managers.VideoPlayerManager
 import com.themoon.y1.managers.VirtualVolumeManager
 import com.themoon.y1.navigation.ScreenState
+import com.themoon.y1.views.ScrubBarGeometry
+import com.themoon.y1.views.ScrubBarStyle
 import java.io.File
 
 /**
@@ -25,6 +29,7 @@ import java.io.File
  * progress updates, time formatting, and Click Wheel controls: the wheel changes the volume, and the centre
  * button opens scrub mode ([VideoScrub]), where the wheel moves the playhead.
  * The title and the time bar hide while the video plays, and show at each button push ([VideoOverlayLogic]).
+ * The screen stays on while the video plays; on pause, at the end and on exit the Backlight Timer applies again.
  */
 class VideoPlayerController(
     private val activity: Activity,
@@ -49,12 +54,38 @@ class VideoPlayerController(
     private var currentVideoFile: File? = null
     private val overlay = VideoOverlayLogic()
     private val overlayTask = Runnable { refreshOverlay() }
+    /** A screen wake lock, as for lyrics and games. Each progress tick renews or releases it. */
+    private val screenHold = LyricsScreenHold(activity, "Y1:VideoKeepScreenOn")
 
     private val updateProgressTask = object : Runnable {
         override fun run() {
             updateProgressUI()
             refreshOverlay()
+            updateScreenHold()
             progressHandler.postDelayed(this, 1000)
+        }
+    }
+
+    init {
+        styleScrubBar()
+    }
+
+    /**
+     * The scrub bar has the bar of the progress bar at the same place, and the diamond on the end of the fill, as in
+     * Now Playing. With the SeekBar defaults the bar was shorter at both ends and the diamond was not on the fill end.
+     */
+    private fun styleScrubBar() {
+        val bar = seekVideoScrub ?: return
+        val barHeight = videoProgressBar?.layoutParams?.height ?: return
+        val d = activity.resources.displayMetrics.density
+        val diamondHeight = Math.round(VideoScrub.DIAMOND_HEIGHT_DP * d)
+        ScrubBarStyle.apply(bar, barHeight, Math.round(VideoScrub.DIAMOND_WIDTH_DP * d), diamondHeight, ScrubBarStyle.Direct, marginsY = true)
+        // The row measures only the bar height: keep space above it for the top of the diamond, and let the diamond
+        // tips go into the padding (the row clips its children to the padding by default)
+        val oy = ScrubBarGeometry.outsetY(diamondHeight, barHeight)
+        (layoutVideoControls as? ViewGroup)?.let { row ->
+            if (row.paddingTop < oy) row.setPadding(row.paddingLeft, oy, row.paddingRight, row.paddingBottom)
+            row.clipToPadding = false
         }
     }
 
@@ -89,7 +120,17 @@ class VideoPlayerController(
     fun stop() {
         progressHandler.removeCallbacks(updateProgressTask)
         progressHandler.removeCallbacks(overlayTask)
+        screenHold.update(false)
         VideoPlayerManager.getInstance().stopAndRelease()
+    }
+
+    /**
+     * Holds the screen on only while the video plays and the user can see it: the hold ends within one tick after a
+     * pause (also the pause for a USB share), at the end of the video, and when the screen goes off.
+     */
+    private fun updateScreenHold() {
+        val onScreen = (activity as? MainActivity)?.isOnScreen != false
+        screenHold.update(onScreen && VideoPlayerManager.getInstance().isPlaying())
     }
 
     /** A new video or a button push: show the title and the time bar, and start the hide delay again. */
@@ -128,7 +169,9 @@ class VideoPlayerController(
         tvVideoTimeCurrent?.text = formatTime(pos)
         tvVideoTimeTotal?.text = "-" + formatTime(Math.max(0, dur - pos))
         if (videoProgressBar != null && dur > 0) {
-            videoProgressBar.progress = ((pos.toLong() * 100) / dur).toInt()
+            // The same max as the scrub bar, so that the fill does not move when scrub mode opens
+            videoProgressBar.max = dur
+            videoProgressBar.progress = pos
         }
         if (scrub.isActive) {
             seekVideoScrub?.max = if (dur > 0) dur else 1000

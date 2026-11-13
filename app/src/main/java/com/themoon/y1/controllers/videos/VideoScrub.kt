@@ -49,5 +49,12 @@ internal class VideoScrub {
     companion object {
         /** The same step as the Scrub state of Now Playing. */
         const val STEP_MS = 5000L
+
+        /**
+         * The scrub diamond in dp: as in Now Playing, 2 dp above and below the 20 dp time bar (activity_main.xml,
+         * video_progress). The difference is even, so the diamond centre is on the bar centre.
+         */
+        const val DIAMOND_WIDTH_DP = 22
+        const val DIAMOND_HEIGHT_DP = 24
     }
 }

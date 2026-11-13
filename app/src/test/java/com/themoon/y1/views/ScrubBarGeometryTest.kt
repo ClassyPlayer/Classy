@@ -1,5 +1,6 @@
 package com.themoon.y1.views
 
+import com.themoon.y1.controllers.videos.VideoScrub
 import com.themoon.y1.views.IpodClassicMetrics as M
 import com.themoon.y1.views.ScrubBarGeometry as G
 import org.junit.Assert.assertEquals
@@ -92,5 +93,40 @@ class ScrubBarGeometryTest {
         // At 0 % and 100 % the diamond centre is on the bar end, not moved inwards.
         assertEquals(bar.left, G.diamond(bar, 0, 1000, M.SCRUB_DIAMOND_WIDTH, M.SCRUB_DIAMOND_HEIGHT).centreX, 0f)
         assertEquals(bar.right, G.diamond(bar, 1000, 1000, M.SCRUB_DIAMOND_WIDTH, M.SCRUB_DIAMOND_HEIGHT).centreX, 0f)
+    }
+
+    @Test
+    fun videoScrubBarHasTheSameRectangleAsTheProgressBar() {
+        // activity_main.xml: the 20 dp video progress bar (1 dp = 1 px on the Y2) with layout weight 1 between the
+        // times. ScrubBarStyle gives the scrub bar negative margins on all sides (marginsY), so the row measures only
+        // the bar height, and the weight gives the view the bar width plus the two side outsets.
+        val barWidth = 300
+        val barHeight = 20
+        val w = VideoScrub.DIAMOND_WIDTH_DP
+        val h = VideoScrub.DIAMOND_HEIGHT_DP
+        val ox = G.outsetX(w)
+        val oy = G.outsetY(h, barHeight)
+        val viewHeight = barHeight + 2 * oy
+        assertEquals(barHeight, viewHeight - 2 * oy)
+
+        // LinearLayout center_vertical: (row - child) / 2 + topMargin - bottomMargin; equal margins cancel.
+        // The row is the bar height (the 14 sp times are lower); an even row height also keeps the bars together.
+        for (rowHeight in intArrayOf(barHeight, 22, 24, 30)) {
+            val progressTop = G.centredTop(rowHeight, barHeight)
+            val progress = G.Box(0f, progressTop.toFloat(), barWidth.toFloat(), (progressTop + barHeight).toFloat())
+            val viewTop = G.centredTop(rowHeight, viewHeight)
+            val bar = G.barInView(barWidth + 2 * ox, viewHeight, ox, oy).offset(-ox.toFloat(), viewTop.toFloat())
+            assertEquals("row $rowHeight", progress, bar)
+        }
+
+        // The diamond is on the bar centre line, oy above and below the bar, and inside the view at 0 % and 100 %.
+        val bar = G.barInView(barWidth + 2 * ox, viewHeight, ox, oy)
+        val view = G.Box(0f, 0f, (barWidth + 2 * ox).toFloat(), viewHeight.toFloat())
+        for (progress in intArrayOf(0, 1, 500, 999, 1000)) {
+            val d = G.diamond(bar, progress, 1000, w, h)
+            assertEquals(bar.centreY, d.centreY, 0f)
+            assertEquals(oy.toFloat(), bar.top - d.top, 0f)
+            assertTrue("diamond at $progress / 1000 is clipped: $d", view.contains(d))
+        }
     }
 }
