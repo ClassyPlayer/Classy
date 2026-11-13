@@ -17,6 +17,7 @@ class ClassyApplication : MultiDexApplication() {
 
     override fun onCreate() {
         super.onCreate()
+        appContext = applicationContext
         installConscrypt()
         com.themoon.y1.battery.BatteryGuard.start(this)
         com.themoon.y1.battery.BatteryHistory.start(this)
@@ -50,6 +51,11 @@ class ClassyApplication : MultiDexApplication() {
 
     companion object {
         private const val TAG = "ClassyApplication"
+
+        /** The application context, for code with no activity (for example the assets of the podcast client). */
+        @Volatile
+        var appContext: Context? = null
+            private set
 
         /** The other processes with our process name and user: older copies of this app. */
         fun staleProcessIds(myPid: Int, myUid: Int, processName: String, running: List<RunningProcess>): List<Int> =
