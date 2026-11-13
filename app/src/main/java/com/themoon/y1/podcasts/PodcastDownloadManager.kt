@@ -27,12 +27,16 @@ class PodcastDownloadManager private constructor() {
     }
 
     private val activeDownloads = ConcurrentHashMap<String, Int>()
+    /** The absolute paths of the files that the downloads write now. */
+    private val activeFiles = ConcurrentHashMap<String, Boolean>()
     private val executor: ExecutorService = Executors.newFixedThreadPool(2)
     private val client: OkHttpClient = buildClient()
 
     fun isDownloading(audioUrl: String): Boolean = activeDownloads.containsKey(audioUrl)
     fun getProgress(audioUrl: String): Int = activeDownloads[audioUrl] ?: 0
     fun hasActiveDownloads(): Boolean = activeDownloads.isNotEmpty()
+    /** True while a download writes [file]: the file is not complete. */
+    fun isDownloadingFile(file: File): Boolean = activeFiles.containsKey(file.absolutePath)
 
     fun startDownload(
         title: String,
@@ -47,6 +51,7 @@ class PodcastDownloadManager private constructor() {
 
         val destFile = File(podcastDir, safeTitle)
         activeDownloads[audioUrl] = 0
+        activeFiles[destFile.absolutePath] = true
 
         executor.execute {
             try {
@@ -90,12 +95,14 @@ class PodcastDownloadManager private constructor() {
                 isStream.close()
 
                 activeDownloads.remove(audioUrl)
+                activeFiles.remove(destFile.absolutePath)
                 listener?.onComplete(audioUrl, destFile)
             } catch (e: Exception) {
                 if (destFile.exists()) {
                     destFile.delete()
                 }
                 activeDownloads.remove(audioUrl)
+                activeFiles.remove(destFile.absolutePath)
                 listener?.onError(audioUrl, e.message ?: "Download failed")
             }
         }
