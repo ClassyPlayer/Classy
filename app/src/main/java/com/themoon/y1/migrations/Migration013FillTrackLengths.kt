@@ -18,7 +18,9 @@ class Migration013FillTrackLengths : Migration {
 
     @Throws(Exception::class)
     override fun migrate(context: MigrationContext) {
-        context.migrationPrefs?.edit()?.putBoolean(MigrationManager.KEY_PENDING_LENGTH_FILL, true)?.commit()
+        val prefs = context.migrationPrefs ?: return
+        // Not saved: the migration fails, and runs again at the next start
+        check(prefs.edit().putBoolean(MigrationManager.KEY_PENDING_LENGTH_FILL, true).commit()) { "Pending length fill not saved" }
     }
 
     companion object {

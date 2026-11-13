@@ -364,10 +364,11 @@ class MediaLibraryManager private constructor() {
 
     /**
      * Only the length of [f] in milliseconds; 0 if it cannot tell. FLAC, Ogg, Opus and MP4 from their headers,
-     * other types from Android's MediaMetadataRetriever.
+     * other types (and a header with no length) from Android's MediaMetadataRetriever.
      */
     fun readLengthMs(f: File): Long {
-        AudioLength.fromHeaders(f)?.let { return it }
+        // A header with no length (0): Android's reader can still know it
+        AudioLength.fromHeaders(f)?.takeIf { it > 0L }?.let { return it }
         var mmr: android.media.MediaMetadataRetriever? = null
         var fis: java.io.FileInputStream? = null
         return try {
@@ -517,10 +518,10 @@ class MediaLibraryManager private constructor() {
                         if (ms == null) missed = true else if (ms > 0L) song.durationMs = ms
                     }
                 }
-                if (filled > 0) saveLibraryCache()
-                Log.i(tag, "Track lengths: filled $filled of ${songs.size}")
-                // A song that came into the lists during the fill: the next cache load continues
-                if (!missed) onDone()
+                val saved = filled == 0 || saveLibraryCache()
+                Log.i(tag, "Track lengths: filled $filled of ${songs.size}, saved $saved")
+                // A song that came into the lists during the fill, or a cache that was not saved: the next cache load continues
+                if (!missed && saved) onDone()
             } catch (t: Throwable) {
                 Log.e(tag, "Track length fill error: ${t.message}", t)
             } finally {
@@ -536,7 +537,7 @@ class MediaLibraryManager private constructor() {
 
     /** The scan and the length fill can both save the cache: one at a time, as they write the same temp file. */
     @Synchronized
-    fun saveLibraryCache() {
+    fun saveLibraryCache(): Boolean {
         val cacheFile = StoragePaths.primaryFile(".y1_library_cache.json")
         val tempFile = StoragePaths.primaryFile(".y1_library_cache.json.tmp")
         var bw: BufferedWriter? = null
@@ -559,7 +560,7 @@ class MediaLibraryManager private constructor() {
                 if (cacheFile.exists()) {
                     cacheFile.delete()
                 }
-                tempFile.renameTo(cacheFile)
+                return tempFile.renameTo(cacheFile)
             }
         } catch (t: Throwable) {
             Log.e(tag, "Failed to save library cache: ${t.message}")
@@ -571,6 +572,7 @@ class MediaLibraryManager private constructor() {
                 bw?.close()
             } catch (ignored: Throwable) {}
         }
+        return false
     }
 
     internal fun writeSongListJson(w: Writer, list: List<SongItem>) {
