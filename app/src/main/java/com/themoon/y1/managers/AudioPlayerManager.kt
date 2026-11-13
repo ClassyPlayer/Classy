@@ -566,7 +566,9 @@ class AudioPlayerManager private constructor() {
                 Thread {
                     try {
                         val request = okhttp3.Request.Builder().url(imageUrl).build()
-                        val bmp = PodcastHttp.client.newCall(request).execute().use { response ->
+                        val call = PodcastHttp.client.newCall(request)
+                        call.timeout().timeout(PodcastHttp.SMALL_FILE_TIMEOUT_S, java.util.concurrent.TimeUnit.SECONDS)
+                        val bmp = call.execute().use { response ->
                             response.body()?.takeIf { response.isSuccessful }?.byteStream()
                                 ?.let { android.graphics.BitmapFactory.decodeStream(it) }
                         }
