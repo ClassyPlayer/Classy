@@ -19,6 +19,14 @@ on:
         required: false
         default: ""
         type: string
+      channel:
+        description: "Update channel: beta is a pre-release for players on the Beta channel, stable becomes Latest. A tag given above must match it (-beta or -beta.N is beta)."
+        required: false
+        default: beta
+        type: choice
+        options:
+          - beta
+          - stable
 
 permissions:
   contents: write
@@ -28,10 +36,10 @@ jobs:
     name: Build APK
     runs-on: ubuntu-latest
     outputs:
-      version: ${{ steps.version.outputs.version }}
       tag_name: ${{ steps.version.outputs.tag_name }}
       release_name: ${{ steps.version.outputs.release_name }}
       apk_name: ${{ steps.version.outputs.apk_name }}
+      channel: ${{ steps.version.outputs.channel }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -48,82 +56,22 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x gradlew
 
+      - name: Test Release Version Script
+        run: bash scripts/test_release_version.sh
+
       - name: Determine Version and Release Tag
         id: version
         # Tag values only through the environment: in the script text, a crafted tag name could run shell commands
         env:
           INPUT_TAG: ${{ inputs.tag_name }}
+          INPUT_CHANNEL: ${{ inputs.channel }}
+          EVENT_NAME: ${{ github.event_name }}
           REF_TYPE: ${{ github.ref_type }}
           REF_NAME: ${{ github.ref_name }}
         run: |
-          VERSION=$(grep -m1 'appVersionName' app/build.gradle | grep -o '".*"' | tr -d '"' || echo "1.5.0")
-          DEFAULT_CODE="150"
-          echo "Detected default version: $VERSION (code: $DEFAULT_CODE)"
-
-          DATE=$(date -u +'%Y%m%d')
-
-          if [ -n "$INPUT_TAG" ]; then
-            TAG_NAME="$INPUT_TAG"
-            RELEASE_NAME="$INPUT_TAG"
-            VERSION_NAME="$INPUT_TAG"
-            TAG_DATE=$(echo "${TAG_NAME}" | grep -oE '[0-9]{8}' | head -1 || true)
-            if [ -n "$TAG_DATE" ]; then
-              # Date + 2 digits (the N of -vN, else 00), as for the automatic tags: the codes must only go up
-              TAG_REV=$(echo "${TAG_NAME}" | grep -oE -- '-v[0-9]+$' | tr -dc '0-9' || true)
-              VERSION_CODE="${TAG_DATE}$(printf '%02d' "$((10#${TAG_REV:-0}))")"
-            else
-              VERSION_CODE="${DEFAULT_CODE}"
-            fi
-          elif [ "$REF_TYPE" = "tag" ]; then
-            TAG_NAME="$REF_NAME"
-            RELEASE_NAME="$REF_NAME"
-            VERSION_NAME="$REF_NAME"
-            TAG_DATE=$(echo "${TAG_NAME}" | grep -oE '[0-9]{8}' | head -1 || true)
-            if [ -n "$TAG_DATE" ]; then
-              # Date + 2 digits (the N of -vN, else 00), as for the automatic tags: the codes must only go up
-              TAG_REV=$(echo "${TAG_NAME}" | grep -oE -- '-v[0-9]+$' | tr -dc '0-9' || true)
-              VERSION_CODE="${TAG_DATE}$(printf '%02d' "$((10#${TAG_REV:-0}))")"
-            else
-              VERSION_CODE="${DEFAULT_CODE}"
-            fi
-          else
-            git fetch --tags origin || true
-            if git rev-parse "${DATE}" >/dev/null 2>&1; then
-              HIGHEST=1
-              for tag in $(git tag -l "${DATE}*"); do
-                if [[ "$tag" =~ ^${DATE}-v([0-9]+)$ ]]; then
-                  v="${BASH_REMATCH[1]}"
-                  if [ "$v" -gt "$HIGHEST" ]; then
-                    HIGHEST="$v"
-                  fi
-                elif [[ "$tag" =~ ^${DATE}-build\.([0-9]+)$ ]]; then
-                  v="${BASH_REMATCH[1]}"
-                  if [ "$v" -gt "$HIGHEST" ]; then
-                    HIGHEST="$v"
-                  fi
-                fi
-              done
-              REV=$((HIGHEST + 1))
-              TAG_NAME="${DATE}-v${REV}"
-              RELEASE_NAME="${DATE} (v${REV})"
-              VERSION_NAME="${DATE}-v${REV}"
-              VERSION_CODE="${DATE}$(printf '%02d' "$REV")"
-            else
-              TAG_NAME="${DATE}"
-              RELEASE_NAME="${DATE}"
-              VERSION_NAME="${DATE}"
-              VERSION_CODE="${DATE}00"
-            fi
-          fi
-
-          APK_NAME="Classy-${TAG_NAME}.apk"
-
-          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
-          echo "version_name=${VERSION_NAME}" >> "$GITHUB_OUTPUT"
-          echo "version_code=${VERSION_CODE}" >> "$GITHUB_OUTPUT"
-          echo "tag_name=${TAG_NAME}" >> "$GITHUB_OUTPUT"
-          echo "release_name=${RELEASE_NAME}" >> "$GITHUB_OUTPUT"
-          echo "apk_name=${APK_NAME}" >> "$GITHUB_OUTPUT"
+          OUTPUTS=$(bash scripts/release_version.sh)
+          echo "$OUTPUTS"
+          echo "$OUTPUTS" >> "$GITHUB_OUTPUT"
 
       - name: Check Translation Consistency
         run: python3 scripts/check_translations.py --strict
@@ -170,22 +118,32 @@ jobs:
           VERSION_NAME: ${{ steps.version.outputs.version_name }}
           RELEASE_NAME: ${{ steps.version.outputs.release_name }}
           APK_NAME: ${{ steps.version.outputs.apk_name }}
+          TAG_NAME: ${{ steps.version.outputs.tag_name }}
+          CHANNEL: ${{ steps.version.outputs.channel }}
           REPOSITORY: ${{ github.repository }}
         run: |
           mkdir -p dist
           cp app/build/outputs/apk/release/app-release.apk "dist/$APK_NAME"
-          cat << EOF > dist/update.json
+
+          # Writes one update manifest for the APK $1 to the file $2.
+          # The APK URL names the tag: beta releases are never "latest", and old manifests keep pointing at their own APK.
+          write_manifest() {
+            cat << EOF > "$2"
           {
             "versionCode": $VERSION_CODE,
             "versionName": "$VERSION_NAME",
             "releaseName": "Classy $RELEASE_NAME",
-            "apkName": "$APK_NAME",
-            "apkUrl": "https://github.com/$REPOSITORY/releases/latest/download/$APK_NAME",
-            "outputFile": "$APK_NAME"
+            "channel": "$CHANNEL",
+            "apkName": "$1",
+            "apkUrl": "https://github.com/$REPOSITORY/releases/download/$TAG_NAME/$1",
+            "outputFile": "$1"
           }
           EOF
-          echo "Generated dist/update.json:"
-          cat dist/update.json
+            echo "Generated $2:"
+            cat "$2"
+          }
+
+          write_manifest "$APK_NAME" dist/update.json
 
       - name: Upload APK and Update Metadata
         uses: actions/upload-artifact@v4
@@ -259,25 +217,30 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: release_assets
+          # Only the release files: the unit-test-report artifact would add a stray index.html
+          pattern: "{launcher-apk,rom-*}"
           merge-multiple: true
 
       - name: Prepare release files and checksums
         run: |
           cd release_assets
-          # Provide legacy aliases for Y1 flash tools
-          if [ -f rom_y1_type_a.zip ]; then
-            cp rom_y1_type_a.zip rom.zip
-          fi
-          if [ -f rom_y1_type_b.zip ]; then
-            cp rom_y1_type_b.zip rom_type_b.zip
-          fi
           sha256sum *.zip *.apk > SHA256SUMS.txt
           echo "Release assets prepared:"
           ls -lh
 
       - name: Prepare Release Notes
+        env:
+          CHANNEL: ${{ needs.build-apk.outputs.channel }}
         run: |
-          cat << 'EOF' > release_body.md
+          : > release_body.md
+          if [ "$CHANNEL" = "beta" ]; then
+            cat << 'EOF' >> release_body.md
+          > [!WARNING]
+          > **This is a beta.** It may have bugs that are not in the stable release. Players get it in **Settings → General → System Update → Update Channel → Beta**.
+
+          EOF
+          fi
+          cat << 'EOF' >> release_body.md
           ### Classy Release
 
           Automated build with full support for **Innioasis Y1** (Type A & Type B) and **Innioasis Y2**.
@@ -289,8 +252,8 @@ jobs:
           | **`${{ needs.build-apk.outputs.apk_name }}`** | All Devices (Y1 / Y2) | Standalone launcher APK (sideload or install) |
           | **`update.json`** | All Devices | OTA update metadata for in-app updater |
           | **`rom_y2.zip`** | **Innioasis Y2** (MT6582) | Complete flashable ROM with dual-storage, watchdog & clickwheel keylayout |
-          | **`rom_y1_type_a.zip`** (`rom.zip`) | **Innioasis Y1** (Type A) | Flashable ROM for Y1 players with original firmware **2.0.0 or higher** |
-          | **`rom_y1_type_b.zip`** (`rom_type_b.zip`) | **Innioasis Y1** (Type B) | Flashable ROM for Y1 players with original firmware **below 2.0.0** |
+          | **`rom_y1_type_a.zip`** | **Innioasis Y1** (Type A) | Flashable ROM for Y1 players with original firmware **2.0.0 or higher** |
+          | **`rom_y1_type_b.zip`** | **Innioasis Y1** (Type B) | Flashable ROM for Y1 players with original firmware **below 2.0.0** |
           | **`SHA256SUMS.txt`** | All Files | SHA-256 integrity checksums |
 
           #### ⚡ Flashing Instructions (SP Flash Tool)
@@ -312,5 +275,9 @@ jobs:
           files: release_assets/*
           fail_on_unmatched_files: true
           generate_release_notes: true
-          make_latest: true
+          prerelease: ${{ needs.build-apk.outputs.channel == 'beta' }}
+          # Only stable releases become Latest: players on Stable read releases/latest/download/update.json
+          make_latest: ${{ needs.build-apk.outputs.channel == 'stable' && 'true' || 'false' }}
+          # The tag must point at the commit that was built, so a beta can be promoted by building again from its tag
+          target_commitish: ${{ github.sha }}
           overwrite_files: true
