@@ -432,8 +432,10 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
             // Y1: a big microSD card in /storage/sdcard0 mounts ~20 s after boot; a cache read before that finds no
             // files and the library stayed empty. Wait only while the card is on its way (checking or unmounted), at
             // most 2 min. With no card (removed), a shared or a damaged card, the load starts at once.
+            // Only below Android 4.4: the Y2 (internal storage in /storage/sdcard0) keeps loading at once, as before.
             val storageComing = {
-                when (android.os.Environment.getExternalStorageState()) {
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.KITKAT) false
+                else when (android.os.Environment.getExternalStorageState()) {
                     android.os.Environment.MEDIA_CHECKING, android.os.Environment.MEDIA_UNMOUNTED -> true
                     else -> false
                 }

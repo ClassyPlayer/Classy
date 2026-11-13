@@ -32,6 +32,7 @@ jobs:
       tag_name: ${{ steps.version.outputs.tag_name }}
       release_name: ${{ steps.version.outputs.release_name }}
       apk_name: ${{ steps.version.outputs.apk_name }}
+      apk_name_y1: ${{ steps.version.outputs.apk_name_y1 }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -116,7 +117,9 @@ jobs:
             fi
           fi
 
+          # Y2 build (minSdk 19) under the name it always had; the Y1 build (minSdk 17) with -y1
           APK_NAME="Classy-${TAG_NAME}.apk"
+          APK_NAME_Y1="Classy-${TAG_NAME}-y1.apk"
 
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "version_name=${VERSION_NAME}" >> "$GITHUB_OUTPUT"
@@ -124,19 +127,21 @@ jobs:
           echo "tag_name=${TAG_NAME}" >> "$GITHUB_OUTPUT"
           echo "release_name=${RELEASE_NAME}" >> "$GITHUB_OUTPUT"
           echo "apk_name=${APK_NAME}" >> "$GITHUB_OUTPUT"
+          echo "apk_name_y1=${APK_NAME_Y1}" >> "$GITHUB_OUTPUT"
 
       - name: Check Translation Consistency
         run: python3 scripts/check_translations.py --strict
 
       - name: Run Unit Tests
-        run: ./gradlew testDebugUnitTest
+        # Both flavours: the same code, compiled for minSdk 19 (Y2) and 17 (Y1)
+        run: ./gradlew testY2DebugUnitTest testY1DebugUnitTest
 
       - name: Upload Unit Test Report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: unit-test-report
-          path: app/build/reports/tests/testDebugUnitTest/
+          path: app/build/reports/tests/
           retention-days: 7
 
       - name: Build Release APK
@@ -162,6 +167,7 @@ jobs:
           else
             echo "::warning::No release key in the secrets: the APK is signed with a new debug key"
           fi
+          # Builds both flavours: y2 (minSdk 19) and y1 (minSdk 17)
           ./gradlew assembleRelease -PappVersionCode="$VERSION_CODE" -PappVersionName="$VERSION_NAME" "${SIGNING[@]}"
 
       - name: Package APK and Generate Update Metadata
@@ -170,22 +176,30 @@ jobs:
           VERSION_NAME: ${{ steps.version.outputs.version_name }}
           RELEASE_NAME: ${{ steps.version.outputs.release_name }}
           APK_NAME: ${{ steps.version.outputs.apk_name }}
+          APK_NAME_Y1: ${{ steps.version.outputs.apk_name_y1 }}
           REPOSITORY: ${{ github.repository }}
         run: |
           mkdir -p dist
-          cp app/build/outputs/apk/release/app-release.apk "dist/$APK_NAME"
-          cat << EOF > dist/update.json
+          cp app/build/outputs/apk/y2/release/app-y2-release.apk "dist/$APK_NAME"
+          cp app/build/outputs/apk/y1/release/app-y1-release.apk "dist/$APK_NAME_Y1"
+          # update.json is the Y2 build: the Y2 players with older versions of Classy read it.
+          # The app reads update-y1.json below Android 4.4 (OtaUpdateManager.updateJsonUrl).
+          write_update_json() {
+            cat << EOF > "dist/$1"
           {
             "versionCode": $VERSION_CODE,
             "versionName": "$VERSION_NAME",
             "releaseName": "Classy $RELEASE_NAME",
-            "apkName": "$APK_NAME",
-            "apkUrl": "https://github.com/$REPOSITORY/releases/latest/download/$APK_NAME",
-            "outputFile": "$APK_NAME"
+            "apkName": "$2",
+            "apkUrl": "https://github.com/$REPOSITORY/releases/latest/download/$2",
+            "outputFile": "$2"
           }
           EOF
-          echo "Generated dist/update.json:"
-          cat dist/update.json
+            echo "Generated dist/$1:"
+            cat "dist/$1"
+          }
+          write_update_json update.json "$APK_NAME"
+          write_update_json update-y1.json "$APK_NAME_Y1"
 
       - name: Upload APK and Update Metadata
         uses: actions/upload-artifact@v4
@@ -194,6 +208,7 @@ jobs:
           path: |
             dist/Classy-*.apk
             dist/update.json
+            dist/update-y1.json
           retention-days: 14
 
   build-roms:
@@ -232,9 +247,15 @@ jobs:
           path: apk_dir
 
       - name: Build ${{ matrix.name }} ROM
+        env:
+          ROM_TYPE: ${{ matrix.type }}
+          APK_NAME: ${{ needs.build-apk.outputs.apk_name }}
+          APK_NAME_Y1: ${{ needs.build-apk.outputs.apk_name_y1 }}
         run: |
           chmod +x scripts/build-rom.sh
-          APK_PATH=$(find apk_dir -name '*.apk' | head -1)
+          # The Y2 ROM gets the Y2 build (minSdk 19), the Y1 ROMs (Android 4.2) the Y1 build (minSdk 17)
+          if [ "$ROM_TYPE" = "y2" ]; then APK_PATH="apk_dir/$APK_NAME"; else APK_PATH="apk_dir/$APK_NAME_Y1"; fi
+          [ -f "$APK_PATH" ] || { echo "::error::Launcher APK $APK_PATH not found"; ls -l apk_dir; exit 1; }
           echo "Using launcher APK: $APK_PATH"
           mkdir -p dist
           ./scripts/build-rom.sh ${{ matrix.type }} --launcher-apk "$APK_PATH" "dist/${{ matrix.filename }}"
@@ -286,8 +307,9 @@ jobs:
 
           | File | Target Device | Notes |
           | :--- | :--- | :--- |
-          | **`${{ needs.build-apk.outputs.apk_name }}`** | All Devices (Y1 / Y2) | Standalone launcher APK (sideload or install) |
-          | **`update.json`** | All Devices | OTA update metadata for in-app updater |
+          | **`${{ needs.build-apk.outputs.apk_name }}`** | **Innioasis Y2** (Android 4.4) | Standalone launcher APK (sideload or install) |
+          | **`${{ needs.build-apk.outputs.apk_name_y1 }}`** | **Innioasis Y1** (Android 4.2) | Standalone launcher APK (sideload or install) |
+          | **`update.json`** / **`update-y1.json`** | Y2 / Y1 | OTA update metadata for in-app updater |
           | **`rom_y2.zip`** | **Innioasis Y2** (MT6582) | Complete flashable ROM with dual-storage, watchdog & clickwheel keylayout |
           | **`rom_y1_type_a.zip`** (`rom.zip`) | **Innioasis Y1** (Type A) | Flashable ROM for Y1 players with original firmware **2.0.0 or higher** |
           | **`rom_y1_type_b.zip`** (`rom_type_b.zip`) | **Innioasis Y1** (Type B) | Flashable ROM for Y1 players with original firmware **below 2.0.0** |

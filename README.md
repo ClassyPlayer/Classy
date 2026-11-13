@@ -168,7 +168,7 @@ Last.fm API credentials are not included in this repository. To compile with scr
    lastfm.api.key=YOUR_KEY
    lastfm.api.secret=YOUR_SECRET
    ```
-3. Compile with `./gradlew assembleDebug`. If you omit the keys, the build succeeds and all features work except Last.fm submission.
+3. Compile with `./gradlew assembleY2Debug` for the Y2 (Android 4.4) or `./gradlew assembleY1Debug` for the Y1 (Android 4.2); `./gradlew assembleDebug` builds both. If you omit the keys, the build succeeds and all features work except Last.fm submission.
 
 ## Credits and license
 
