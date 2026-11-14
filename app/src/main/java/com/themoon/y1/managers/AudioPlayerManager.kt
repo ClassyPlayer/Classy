@@ -66,6 +66,8 @@ class AudioPlayerManager private constructor() {
     /** Settings → Playback → Mono Audio ([AudioEffectManager.syncAudioEffects] sets it). */
     val monoProcessor: MonoAudioProcessor = MonoAudioProcessor()
     private var isGaplessQueueActive: Boolean = false
+    // The last playback state of the player listener: see onPlayerStateChanged
+    private var lastPlaybackState: Int = Player.STATE_IDLE
 
     private var currentSpeed: Float = 1.0f
     private var currentMasterVolume: Float = 1.0f
@@ -140,6 +142,7 @@ class AudioPlayerManager private constructor() {
         // Set before the first track: the sink mixes the first buffers before STATE_READY applies the effects
         monoProcessor.isEnabled = MainActivity.instance?.prefs?.let { Prefs.MONO_AUDIO.get(it) } ?: false
 
+        lastPlaybackState = Player.STATE_IDLE
         // Mono Audio after the effects that can make the two channels different, so that the output is mono
         exoPlayer = newAudioPlayer(context, listOf(customEqProcessor, crossfeedProcessor, monoProcessor)).apply {
             // Partial wake lock while it plays: music continues when Android turns the screen off.
@@ -148,6 +151,10 @@ class AudioPlayerManager private constructor() {
             repeatMode = exoRepeatMode(initialRepeatMode, exoHoldsWholeQueue())
             addListener(object : Player.EventListener {
                 override fun onPlayerStateChanged(playWhenReady: Boolean, playbackState: Int) {
+                    // This call also comes for a change of playWhenReady: the end of a track is handled once,
+                    // also when handleTrackCompletion pauses the player in STATE_ENDED
+                    val ended = playbackState == Player.STATE_ENDED && lastPlaybackState != Player.STATE_ENDED
+                    lastPlaybackState = playbackState
                     isPlayingActive = playWhenReady && (playbackState == Player.STATE_READY || playbackState == Player.STATE_BUFFERING)
                     if (isPlayingActive) {
                         AudioSources.app.musicStarts()
@@ -185,7 +192,7 @@ class AudioPlayerManager private constructor() {
                                 } catch (ignored: Exception) {}
                             }
                         }
-                    } else if (playbackState == Player.STATE_ENDED) {
+                    } else if (ended) {
                         isPlayingActive = false
                         stopPeriodicPositionSaver()
                         handleTrackCompletion()
