@@ -60,14 +60,21 @@ class AudioPlayerManager private constructor() {
     private var streamInfo: Pair<String, String>? = null
     val customEqProcessor: Y1EqAudioProcessor = Y1EqAudioProcessor()
     val crossfeedProcessor: Y1CrossfeedAudioProcessor = Y1CrossfeedAudioProcessor()
-    /** Settings → Playback → Mono Audio, for the ExoPlayer path ([AudioEffectManager.syncAudioEffects] sets it). */
+    /**
+     * Settings → Playback → Mono Audio, for the ExoPlayer path ([AudioEffectManager.syncAudioEffects] sets it).
+     * With Mono Audio On, FLAC files also play in ExoPlayer ([PlayerChoice.forPlayback]).
+     */
     val monoProcessor: MonoAudioProcessor = MonoAudioProcessor()
     var legacyPlayer: MediaPlayer? = null
     var isUsingLegacyPlayer: Boolean = false
     // The file that the legacy player has prepared, or null.
     private var legacyPlayerPath: String? = null
 
-    private val flacLegacyFailedPaths: MutableSet<String> = HashSet()
+    // The player for each file, and the files that a player could not play (FLAC: MediaPlayer, then ExoPlayer)
+    private val playerChoice = PlayerChoice()
+    // A FLAC file in ExoPlayer: the check for the hang at 0:00 (watchExoPlayerStart)
+    private val startCheckHandler = Handler(Looper.getMainLooper())
+    private var startCheck: ExoStartWatch? = null
     private var isGaplessQueueActive: Boolean = false
     private var currentFileInputStream: FileInputStream? = null
 
@@ -145,91 +152,11 @@ class AudioPlayerManager private constructor() {
     fun initPlayer(context: Context) {
         if (exoPlayer != null) return
 
-        val renderersFactory = object : DefaultRenderersFactory(context.applicationContext) {
-            override fun buildAudioRenderers(
-                ctx: Context,
-                extensionRendererMode: Int,
-                mediaCodecSelector: MediaCodecSelector,
-                enableDecoderFallback: Boolean,
-                audioSink: AudioSink,
-                eventHandler: Handler,
-                eventListener: AudioRendererEventListener,
-                out: java.util.ArrayList<com.google.android.exoplayer2.Renderer>
-            ) {
-                val procList = ArrayList<AudioProcessor>()
-                try {
-                    val ctor = Class.forName("com.google.android.exoplayer2.audio.ToInt16PcmAudioProcessor")
-                        .getDeclaredConstructor()
-                    ctor.isAccessible = true
-                    procList.add(ctor.newInstance() as AudioProcessor)
-                } catch (ignored: Exception) {}
-
-                val immortalSonic = object : AudioProcessor {
-                    private val sonic = SonicAudioProcessor()
-                    private var active = false
-
-                    override fun configure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
-                        var safeSampleRate = inputAudioFormat.sampleRate
-                        if (safeSampleRate > 48000) {
-                            safeSampleRate = 48000
-                        }
-                        sonic.setOutputSampleRateHz(safeSampleRate)
-                        val outputFormat = sonic.configure(inputAudioFormat)
-                        active = sonic.isActive
-                        return outputFormat
-                    }
-
-                    override fun isActive(): Boolean = active
-                    override fun queueInput(inputBuffer: ByteBuffer) = sonic.queueInput(inputBuffer)
-                    override fun queueEndOfStream() = sonic.queueEndOfStream()
-                    override fun getOutput(): ByteBuffer = sonic.output
-                    override fun isEnded(): Boolean = sonic.isEnded
-                    override fun flush() = sonic.flush()
-                    override fun reset() = sonic.reset()
-                }
-
-                procList.add(customEqProcessor)
-                procList.add(crossfeedProcessor)
-                // After the effects that can make the two channels different, so that the output is mono
-                procList.add(monoProcessor)
-                procList.add(immortalSonic)
-
-                val processors = procList.toTypedArray()
-                val strict16BitCaps = AudioCapabilities(intArrayOf(2), 2)
-                val customSink = DefaultAudioSink(strict16BitCaps, processors)
-
-                val customSelector = MediaCodecSelector { mimeType, requiresSecureDecoder, requiresTunnelingDecoder ->
-                    val decoders = mediaCodecSelector.getDecoderInfos(mimeType, requiresSecureDecoder, requiresTunnelingDecoder)
-                    if (mimeType != null && (mimeType.contains("mp4a") || mimeType.contains("aac") || mimeType.contains("alac"))) {
-                        val safeDecoders = ArrayList<MediaCodecInfo>()
-                        for (info in decoders) {
-                            if (info.name != null && info.name.lowercase(Locale.US).contains("mtk")) {
-                                continue
-                            }
-                            safeDecoders.add(info)
-                        }
-                        return@MediaCodecSelector safeDecoders
-                    }
-                    decoders
-                }
-
-                super.buildAudioRenderers(
-                    ctx,
-                    extensionRendererMode,
-                    customSelector,
-                    enableDecoderFallback,
-                    customSink,
-                    eventHandler,
-                    eventListener,
-                    out
-                )
-            }
-        }
+        // Mono Audio after the effects that can make the two channels different, so that the output is mono
+        val renderersFactory = audioRenderersFactory(context, listOf(customEqProcessor, crossfeedProcessor, monoProcessor))
 
         // Set before the first track: the sink mixes the first buffers before STATE_READY applies the effects
         monoProcessor.isEnabled = MainActivity.instance?.prefs?.let { Prefs.MONO_AUDIO.get(it) } ?: false
-
-        renderersFactory.setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
 
         exoPlayer = SimpleExoPlayer.Builder(context.applicationContext, renderersFactory).build().apply {
             // Partial wake lock while it plays: music continues when Android turns the screen off.
@@ -238,6 +165,8 @@ class AudioPlayerManager private constructor() {
             repeatMode = exoRepeatMode(initialRepeatMode, exoHoldsWholeQueue())
             addListener(object : Player.EventListener {
                 override fun onPlayerStateChanged(playWhenReady: Boolean, playbackState: Int) {
+                    // A play, pause or buffer change starts the check for the FLAC hang again
+                    startCheck?.restart()
                     isPlayingActive = playWhenReady && (playbackState == Player.STATE_READY || playbackState == Player.STATE_BUFFERING)
                     if (isPlayingActive) {
                         AudioSources.app.musicStarts()
@@ -292,7 +221,7 @@ class AudioPlayerManager private constructor() {
                     android.util.Log.e("AudioPlayerManager", "ExoPlayer playback error on $currentPath: ${error.message}", error)
                     if (currentPath?.startsWith("/PODCAST_STREAM") == true) {
                         handleStreamError(PodcastStreamError.reason(error))
-                    } else if (!isUsingLegacyPlayer) {
+                    } else if (!isUsingLegacyPlayer && !fallBackFromExoPlayer(getCurrentPosition().toLong())) {
                         handleTrackError("Cannot play this file.")
                     }
                 }
@@ -768,6 +697,7 @@ class AudioPlayerManager private constructor() {
         if (main.currentPlaylist.isEmpty()) return
 
         val track = main.currentPlaylist[index]
+        cancelStartCheck()
         currentlyPlayingFilePath = track.absolutePath
         main.lastAlbumArtBytes = null
 
@@ -837,9 +767,8 @@ class AudioPlayerManager private constructor() {
             main.tvPlayerTimeTotal.text = main.playerController.rightTimeText(0, 0)
         }
 
-        val ext = track.name.lowercase(Locale.US)
-        val isFlac = ext.endsWith(".flac")
-        isUsingLegacyPlayer = isFlac && !flacLegacyFailedPaths.contains(track.absolutePath)
+        val playerOrder = playbackOrder(track, main)
+        isUsingLegacyPlayer = playerChoice.choose(track.absolutePath, playerOrder) == PlayerChoice.Engine.MEDIA_PLAYER
 
         var t: String? = null
         var a: String? = null
@@ -976,7 +905,7 @@ class AudioPlayerManager private constructor() {
 
                 player.setOnCompletionListener { handleTrackCompletion() }
                 player.setOnErrorListener { _, what, extra ->
-                    if (isFlac && flacLegacyFailedPaths.add(track.absolutePath)) {
+                    if (playerChoice.fail(track.absolutePath, PlayerChoice.Engine.MEDIA_PLAYER, playerOrder) != null) {
                         prepareMusicTrack(index)
                     } else {
                         handleTrackError("Legacy Player Error: $what (extra $extra)")
@@ -988,8 +917,16 @@ class AudioPlayerManager private constructor() {
                     try { it.close() } catch (ignored: Exception) {}
                 }
                 currentFileInputStream = FileInputStream(track)
-                player.setDataSource(currentFileInputStream!!.fd)
-                player.prepare()
+                try {
+                    player.setDataSource(currentFileInputStream!!.fd)
+                    player.prepare()
+                } catch (e: Exception) {
+                    // A file that MediaPlayer cannot open gives an exception here, not a call of the error listener
+                    if (playerChoice.fail(track.absolutePath, PlayerChoice.Engine.MEDIA_PLAYER, playerOrder) == null) throw e
+                    android.util.Log.w("AudioPlayerManager", "MediaPlayer cannot open ${track.absolutePath}, trying ExoPlayer", e)
+                    prepareMusicTrack(index, initialSeekMs, initialDurationMs, fromStart)
+                    return
+                }
                 legacyPlayerPath = track.absolutePath
 
                 if (effectiveSeekMs > 0) {
@@ -1061,6 +998,9 @@ class AudioPlayerManager private constructor() {
                     stopPeriodicPositionSaver()
                 }
                 applyMasterVolume()
+                if (playerChoice.hasNext(track.absolutePath, PlayerChoice.Engine.EXO_PLAYER, playerOrder)) {
+                    watchExoPlayerStart(track.absolutePath)
+                }
             }
 
             main.consecutiveErrorCount = 0
@@ -1090,6 +1030,112 @@ class AudioPlayerManager private constructor() {
                 Handler(Looper.getMainLooper()).postDelayed({ nextTrack(fromStart) }, 2000)
             }
         }
+    }
+
+    private fun playbackOrder(track: File, main: MainActivity): List<PlayerChoice.Engine> =
+        PlayerChoice.forPlayback(track.absolutePath, Prefs.MONO_AUDIO.get(main.prefs))
+
+    /**
+     * ExoPlayer cannot play the current track: the next player of its order plays it from [positionMs] (a FLAC file
+     * with Mono Audio On: MediaPlayer, without the mix). False when there is no next player.
+     */
+    private fun fallBackFromExoPlayer(positionMs: Long): Boolean {
+        val main = MainActivity.instance ?: return false
+        if (isGaplessQueueActive) return false
+        val index = main.currentIndex
+        val track = main.currentPlaylist.getOrNull(index) ?: return false
+        if (track.absolutePath != currentlyPlayingFilePath) return false
+        val order = playbackOrder(track, main)
+        if (!playerChoice.hasNext(track.absolutePath, PlayerChoice.Engine.EXO_PLAYER, order)) return false
+        playerChoice.fail(track.absolutePath, PlayerChoice.Engine.EXO_PLAYER, order)
+        android.util.Log.w("AudioPlayerManager", "ExoPlayer cannot play ${track.absolutePath}, trying MediaPlayer")
+        // Paused, also when not by hand: the track stays paused
+        val paused = exoPlayer?.playWhenReady != true
+        main.runOnUiThread {
+            if (main.currentIndex == index && currentlyPlayingFilePath == track.absolutePath) {
+                val pausedByHand = main.isPausedByHand
+                if (paused) main.isPausedByHand = true
+                // fromStart at 0: an audiobook does not go back to an old bookmark
+                prepareMusicTrack(index, initialSeekMs = positionMs, fromStart = positionMs <= 0L)
+                main.isPausedByHand = pausedByHand
+                main.updatePlayerUI()
+            }
+        }
+        return true
+    }
+
+    /**
+     * A FLAC file in ExoPlayer: ExoPlayer's FLAC decoder stayed at 0:00 on some devices. While ExoPlayer must play,
+     * its position must move forward in [PlayerChoice.START_CHECK_MS]; if not, MediaPlayer plays the track.
+     * The check stops at the first progress, or when the track changes.
+     */
+    private fun watchExoPlayerStart(path: String) {
+        cancelStartCheck()
+        val watch = ExoStartWatch(path)
+        startCheck = watch
+        watch.restart()
+    }
+
+    private inner class ExoStartWatch(private val path: String) : Runnable {
+        // The position at the start of the check window, or -1 while ExoPlayer does not play
+        private var from = -1L
+
+        /** Starts the check window again from now: at the start of the track, and at each play, pause or buffer change. */
+        fun restart() {
+            startCheckHandler.removeCallbacks(this)
+            val exo = exoPlayer ?: return
+            from = if (mustPlay(exo)) exo.currentPosition else -1L
+            if (from >= 0) startCheckHandler.postDelayed(this, PlayerChoice.START_CHECK_MS)
+        }
+
+        private fun mustPlay(exo: SimpleExoPlayer): Boolean =
+            exo.playWhenReady && exo.playbackState != Player.STATE_ENDED && exo.playbackState != Player.STATE_IDLE
+
+        override fun run() {
+            val exo = exoPlayer
+            if (startCheck !== this || exo == null || isUsingLegacyPlayer || currentlyPlayingFilePath != path) return
+            // Paused (or ended, or failed): the next play starts the window again (restart)
+            if (from < 0 || !mustPlay(exo)) return
+            val position = exo.currentPosition
+            when (PlayerChoice.checkStart(from, position)) {
+                PlayerChoice.StartCheck.PLAYS -> startCheck = null
+                PlayerChoice.StartCheck.CHECK_AGAIN -> restart()
+                PlayerChoice.StartCheck.STALLED -> {
+                    startCheck = null
+                    android.util.Log.w("AudioPlayerManager", "ExoPlayer stays at $position ms in $path")
+                    fallBackFromExoPlayer(position)
+                }
+            }
+        }
+    }
+
+    private fun cancelStartCheck() {
+        startCheck?.let { startCheckHandler.removeCallbacks(it) }
+        startCheck = null
+    }
+
+    /**
+     * Mono Audio changed: a FLAC track goes to the player that the new setting chooses (Mono Audio On: ExoPlayer,
+     * which mixes; Off: MediaPlayer), at the same position. It plays or stays paused as before.
+     */
+    fun onMonoAudioChanged() {
+        val main = MainActivity.instance ?: return
+        if (isGaplessQueueActive || (exoPlayer == null && legacyPlayer == null)) return
+        val index = main.currentIndex
+        val track = main.currentPlaylist.getOrNull(index) ?: return
+        if (track.absolutePath != currentlyPlayingFilePath) return
+        val useLegacy = playerChoice.choose(track.absolutePath, playbackOrder(track, main)) == PlayerChoice.Engine.MEDIA_PLAYER
+        if (useLegacy == isUsingLegacyPlayer) return
+
+        val position = getCurrentPosition().toLong()
+        val duration = getDuration().toLong()
+        // Paused, also when not by hand: the track stays paused
+        val pausedByHand = main.isPausedByHand
+        if (!isPlaying()) main.isPausedByHand = true
+        // fromStart at 0: an audiobook does not go back to an old bookmark
+        prepareMusicTrack(index, initialSeekMs = position, initialDurationMs = duration, fromStart = position <= 0L)
+        main.isPausedByHand = pausedByHand
+        main.updatePlayerUI()
     }
 
     /** Title, artist and album of a file, and with [includeArt] its embedded cover. Any thread. */
@@ -1389,6 +1435,7 @@ class AudioPlayerManager private constructor() {
         isPlayingActive = false
         currentlyPlayingFilePath = null
         stopPeriodicPositionSaver()
+        cancelStartCheck()
         exoPlayer?.release()
         exoPlayer = null
         legacyPlayer?.release()
@@ -2195,6 +2242,93 @@ class AudioPlayerManager private constructor() {
                 instance = inst
             }
             return inst
+        }
+
+        /**
+         * The audio renderers of the app's ExoPlayer: 16-bit PCM, the [effects] processors, then a resample to
+         * 48 kHz or less (Sonic), and the extension decoders (FLAC, Opus, FFmpeg) first. Each player needs its own
+         * [effects] instances. The main player gives its EQ, Crossfeed and Mono Audio processors; a Music Quiz clip none.
+         */
+        fun audioRenderersFactory(context: Context, effects: List<AudioProcessor>): DefaultRenderersFactory {
+            val factory = object : DefaultRenderersFactory(context.applicationContext) {
+                override fun buildAudioRenderers(
+                    ctx: Context,
+                    extensionRendererMode: Int,
+                    mediaCodecSelector: MediaCodecSelector,
+                    enableDecoderFallback: Boolean,
+                    audioSink: AudioSink,
+                    eventHandler: Handler,
+                    eventListener: AudioRendererEventListener,
+                    out: java.util.ArrayList<com.google.android.exoplayer2.Renderer>
+                ) {
+                    val procList = ArrayList<AudioProcessor>()
+                    try {
+                        val ctor = Class.forName("com.google.android.exoplayer2.audio.ToInt16PcmAudioProcessor")
+                            .getDeclaredConstructor()
+                        ctor.isAccessible = true
+                        procList.add(ctor.newInstance() as AudioProcessor)
+                    } catch (ignored: Exception) {}
+
+                    val immortalSonic = object : AudioProcessor {
+                        private val sonic = SonicAudioProcessor()
+                        private var active = false
+
+                        override fun configure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
+                            var safeSampleRate = inputAudioFormat.sampleRate
+                            if (safeSampleRate > 48000) {
+                                safeSampleRate = 48000
+                            }
+                            sonic.setOutputSampleRateHz(safeSampleRate)
+                            val outputFormat = sonic.configure(inputAudioFormat)
+                            active = sonic.isActive
+                            return outputFormat
+                        }
+
+                        override fun isActive(): Boolean = active
+                        override fun queueInput(inputBuffer: ByteBuffer) = sonic.queueInput(inputBuffer)
+                        override fun queueEndOfStream() = sonic.queueEndOfStream()
+                        override fun getOutput(): ByteBuffer = sonic.output
+                        override fun isEnded(): Boolean = sonic.isEnded
+                        override fun flush() = sonic.flush()
+                        override fun reset() = sonic.reset()
+                    }
+
+                    procList.addAll(effects)
+                    procList.add(immortalSonic)
+
+                    val processors = procList.toTypedArray()
+                    val strict16BitCaps = AudioCapabilities(intArrayOf(2), 2)
+                    val customSink = DefaultAudioSink(strict16BitCaps, processors)
+
+                    val customSelector = MediaCodecSelector { mimeType, requiresSecureDecoder, requiresTunnelingDecoder ->
+                        val decoders = mediaCodecSelector.getDecoderInfos(mimeType, requiresSecureDecoder, requiresTunnelingDecoder)
+                        if (mimeType != null && (mimeType.contains("mp4a") || mimeType.contains("aac") || mimeType.contains("alac"))) {
+                            val safeDecoders = ArrayList<MediaCodecInfo>()
+                            for (info in decoders) {
+                                if (info.name != null && info.name.lowercase(Locale.US).contains("mtk")) {
+                                    continue
+                                }
+                                safeDecoders.add(info)
+                            }
+                            return@MediaCodecSelector safeDecoders
+                        }
+                        decoders
+                    }
+
+                    super.buildAudioRenderers(
+                        ctx,
+                        extensionRendererMode,
+                        customSelector,
+                        enableDecoderFallback,
+                        customSink,
+                        eventHandler,
+                        eventListener,
+                        out
+                    )
+                }
+            }
+            factory.setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
+            return factory
         }
 
         /** After a USB storage share: the longest wait for the card before the play queue loads again. */

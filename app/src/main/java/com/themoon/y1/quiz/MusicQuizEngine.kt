@@ -3,7 +3,16 @@ package com.themoon.y1.quiz
 import android.content.Context
 import android.media.AudioManager
 import android.media.MediaPlayer
+import android.net.Uri
+import android.os.Handler
+import android.os.Looper
+import com.google.android.exoplayer2.ExoPlaybackException
+import com.google.android.exoplayer2.MediaItem
+import com.google.android.exoplayer2.Player
+import com.google.android.exoplayer2.SimpleExoPlayer
+import com.themoon.y1.managers.AudioPlayerManager
 import com.themoon.y1.managers.AudioSources
+import com.themoon.y1.managers.PlayerChoice
 import com.themoon.y1.managers.VirtualVolumeManager
 import com.themoon.y1.models.SongItem
 import java.io.File
@@ -68,9 +77,15 @@ class MusicQuizEngine(private val context: Context? = null, private val random: 
 
     private val quizPool = ArrayList<SongItem>()
     private var previewPlayer: MediaPlayer? = null
+    private var previewExoPlayer: SimpleExoPlayer? = null
+    private var previewCheck: Runnable? = null
+    private val previewHandler by lazy { Handler(Looper.getMainLooper()) }
     private var lastTargetSongFile: File? = null
 
-    /** Songs whose clip MediaPlayer could not play (for example some FLAC files). They are not asked again. */
+    /** The player for each clip: MediaPlayer, then ExoPlayer when MediaPlayer fails (as the main player does for FLAC). */
+    private val playerChoice = PlayerChoice()
+
+    /** Songs whose clip no player could play. They are not asked again. */
     private val unplayableFiles = HashSet<File>()
 
     fun resetSession(library: List<SongItem>): Boolean {
@@ -390,46 +405,121 @@ class MusicQuizEngine(private val context: Context? = null, private val random: 
     private fun startPreview(file: File) {
         stopPreview()
         AudioSources.app.musicStarts()
-        try {
-            val mp = MediaPlayer()
-            previewPlayer = mp
-            mp.setAudioStreamType(AudioManager.STREAM_MUSIC)
-            mp.setDataSource(file.absolutePath)
-            VirtualVolumeManager.getInstance().applyTo(mp)
+        startPreviewWith(file, previewEngineFor(file))
+    }
 
-            mp.setOnPreparedListener { player ->
-                try {
-                    VirtualVolumeManager.getInstance().applyTo(player)
-                    val duration = player.duration
-                    var start = 0
-                    if (duration > 20000) {
-                        val maxStart = duration - 12000
-                        start = (maxStart * 0.2).toInt() + random.nextInt((maxStart * 0.5).toInt().coerceAtLeast(1))
-                    }
-                    player.seekTo(start)
-                    player.start()
-                } catch (ignored: Throwable) {}
-            }
+    /** The player that plays the next clip of [file]. */
+    internal fun previewEngineFor(file: File): PlayerChoice.Engine =
+        playerChoice.choose(file.absolutePath, PlayerChoice.FOR_CLIP)
 
-            mp.setOnCompletionListener { player ->
-                try {
-                    player.seekTo(0)
-                    player.start()
-                } catch (ignored: Throwable) {}
-            }
-
-            mp.setOnErrorListener { _, _, _ ->
-                onPreviewFailed(file)
-                true
-            }
-
-            mp.prepareAsync()
-        } catch (ignored: Throwable) {
-            onPreviewFailed(file)
+    private fun startPreviewWith(file: File, engine: PlayerChoice.Engine) {
+        when (engine) {
+            PlayerChoice.Engine.MEDIA_PLAYER -> startMediaPlayerPreview(file)
+            PlayerChoice.Engine.EXO_PLAYER -> startExoPlayerPreview(file)
         }
     }
 
-    /** The clip of [file] did not play: later questions ask about other songs. */
+    private fun startMediaPlayerPreview(file: File) {
+        var mp: MediaPlayer? = null
+        try {
+            val player = MediaPlayer()
+            mp = player
+            previewPlayer = player
+            player.setAudioStreamType(AudioManager.STREAM_MUSIC)
+            player.setDataSource(file.absolutePath)
+            VirtualVolumeManager.getInstance().applyTo(player)
+
+            player.setOnPreparedListener { p ->
+                try {
+                    VirtualVolumeManager.getInstance().applyTo(p)
+                    p.seekTo(clipStartMs(p.duration.toLong()).toInt())
+                    p.start()
+                } catch (ignored: Throwable) {}
+            }
+
+            player.setOnCompletionListener { p ->
+                try {
+                    p.seekTo(0)
+                    p.start()
+                } catch (ignored: Throwable) {}
+            }
+
+            player.setOnErrorListener { _, _, _ ->
+                if (previewPlayer === player) onPreviewError(file, PlayerChoice.Engine.MEDIA_PLAYER)
+                true
+            }
+
+            player.prepareAsync()
+        } catch (ignored: Throwable) {
+            if (mp == null || previewPlayer === mp) onPreviewError(file, PlayerChoice.Engine.MEDIA_PLAYER)
+        }
+    }
+
+    /**
+     * The clip in its own short-lived ExoPlayer, with the audio renderers of the main player (FLAC extension,
+     * resample to 48 kHz) but without its effects. The main player and its play queue do not change.
+     */
+    private fun startExoPlayerPreview(file: File) {
+        val ctx = context
+        if (ctx == null) {
+            onPreviewError(file, PlayerChoice.Engine.EXO_PLAYER)
+            return
+        }
+        var exo: SimpleExoPlayer? = null
+        try {
+            val player = SimpleExoPlayer.Builder(ctx.applicationContext, AudioPlayerManager.audioRenderersFactory(ctx, emptyList())).build()
+            exo = player
+            previewExoPlayer = player
+            var clipStart = -1L
+            // ExoPlayer's FLAC decoder can stay at 0:00 on some devices. Not ready, or no progress
+            // START_CHECK_MS after the start: this player also failed.
+            val check = Runnable {
+                if (previewExoPlayer !== player) return@Runnable
+                previewCheck = null
+                if (clipStart < 0 || PlayerChoice.checkStart(clipStart, player.currentPosition) == PlayerChoice.StartCheck.STALLED) {
+                    onPreviewError(file, PlayerChoice.Engine.EXO_PLAYER)
+                }
+            }
+            player.volume = VirtualVolumeManager.getInstance().getMasterGain()
+            player.repeatMode = Player.REPEAT_MODE_ONE
+            player.addListener(object : Player.EventListener {
+                override fun onPlaybackStateChanged(state: Int) {
+                    if (state != Player.STATE_READY || clipStart >= 0 || previewExoPlayer !== player) return
+                    clipStart = clipStartMs(player.duration)
+                    player.seekTo(clipStart)
+                    player.playWhenReady = true
+                    previewHandler.removeCallbacks(check)
+                    previewHandler.postDelayed(check, PlayerChoice.START_CHECK_MS)
+                }
+
+                override fun onPlayerError(error: ExoPlaybackException) {
+                    if (previewExoPlayer === player) onPreviewError(file, PlayerChoice.Engine.EXO_PLAYER)
+                }
+            })
+            player.setMediaItem(MediaItem.fromUri(Uri.fromFile(file)))
+            player.prepare()
+            previewCheck = check
+            previewHandler.postDelayed(check, PlayerChoice.START_CHECK_MS)
+        } catch (ignored: Throwable) {
+            if (exo == null || previewExoPlayer === exo) onPreviewError(file, PlayerChoice.Engine.EXO_PLAYER)
+        }
+    }
+
+    /** A random start in the middle of a song of [durationMs], so that the clip is not the intro; 0 for a short song. */
+    private fun clipStartMs(durationMs: Long): Long {
+        if (durationMs <= 20000) return 0L
+        val maxStart = durationMs - 12000
+        return (maxStart * 0.2).toLong() + random.nextInt((maxStart * 0.5).toInt().coerceAtLeast(1))
+    }
+
+    /** [engine] could not play the clip of [file]: the next player plays it. When no player is left, the song is skipped. */
+    internal fun onPreviewError(file: File, engine: PlayerChoice.Engine) {
+        stopPreview()
+        val next = playerChoice.fail(file.absolutePath, engine, PlayerChoice.FOR_CLIP)
+        if (next == null) onPreviewFailed(file) else startPreviewWith(file, next)
+    }
+
+    /** No player could play the clip of [file]: later questions ask about other songs. */
     internal fun onPreviewFailed(file: File) {
         unplayableFiles.add(file)
     }
@@ -441,5 +531,11 @@ class MusicQuizEngine(private val context: Context? = null, private val random: 
             try { mp.release() } catch (ignored: Throwable) {}
         }
         previewPlayer = null
+        previewCheck?.let { previewHandler.removeCallbacks(it) }
+        previewCheck = null
+        previewExoPlayer?.let { exo ->
+            try { exo.release() } catch (ignored: Throwable) {}
+        }
+        previewExoPlayer = null
     }
 }
