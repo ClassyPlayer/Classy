@@ -467,7 +467,7 @@ class MusicQuizEngine(private val context: Context? = null, private val random: 
         }
         var exo: SimpleExoPlayer? = null
         try {
-            val player = SimpleExoPlayer.Builder(ctx.applicationContext, AudioPlayerManager.audioRenderersFactory(ctx, emptyList())).build()
+            val player = AudioPlayerManager.newAudioPlayer(ctx, emptyList())
             exo = player
             previewExoPlayer = player
             var clipStart = -1L

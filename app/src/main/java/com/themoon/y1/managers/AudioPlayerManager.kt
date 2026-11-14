@@ -158,18 +158,11 @@ class AudioPlayerManager private constructor() {
     fun initPlayer(context: Context) {
         if (exoPlayer != null) return
 
-        // Mono Audio after the effects that can make the two channels different, so that the output is mono
-        val renderersFactory = audioRenderersFactory(context, listOf(customEqProcessor, crossfeedProcessor, monoProcessor))
-
         // Set before the first track: the sink mixes the first buffers before STATE_READY applies the effects
         monoProcessor.isEnabled = MainActivity.instance?.prefs?.let { Prefs.MONO_AUDIO.get(it) } ?: false
 
-        // The gapless queue (setMediaItems) also gets the FLAC frames, not PCM (see withCoreFlacExtractor)
-        val mediaSourceFactory = DefaultMediaSourceFactory(context.applicationContext, withCoreFlacExtractor(DefaultExtractorsFactory()))
-        val builder = SimpleExoPlayer.Builder(context.applicationContext, renderersFactory)
-            .setLoadControl(audioLoadControl())
-            .setMediaSourceFactory(mediaSourceFactory)
-        exoPlayer = builder.build().apply {
+        // Mono Audio after the effects that can make the two channels different, so that the output is mono
+        exoPlayer = newAudioPlayer(context, listOf(customEqProcessor, crossfeedProcessor, monoProcessor)).apply {
             // Partial wake lock while it plays: music continues when Android turns the screen off.
             setWakeMode(C.WAKE_MODE_LOCAL)
             val initialRepeatMode = MainActivity.instance?.prefs?.let { Prefs.REPEAT_MODE.get(it) } ?: 0
@@ -982,12 +975,7 @@ class AudioPlayerManager private constructor() {
                     exoPlayer?.stop()
                 }
 
-                val mediaItem = MediaItem.fromUri(Uri.fromFile(track))
-                val dataSourceFactory = DefaultDataSourceFactory(main, Util.getUserAgent(main, "Y1_Launcher"))
-                val extractorsFactory = withCoreFlacExtractor(DefaultExtractorsFactory().setConstantBitrateSeekingEnabled(true))
-                val mediaSource = ProgressiveMediaSource.Factory(dataSourceFactory, extractorsFactory).createMediaSource(mediaItem)
-
-                exoPlayer?.setMediaSource(mediaSource)
+                exoPlayer?.setMediaItem(MediaItem.fromUri(Uri.fromFile(track)))
                 exoPlayer?.prepare()
                 // Only this track is in ExoPlayer: Repeat All goes to the next track in handleTrackCompletion.
                 exoPlayer?.repeatMode = exoRepeatMode(Prefs.REPEAT_MODE.get(main.prefs), gapless = false)
@@ -2254,6 +2242,26 @@ class AudioPlayerManager private constructor() {
             }
             return inst
         }
+
+        /**
+         * An ExoPlayer for local audio files: the app's audio renderers with [effects] ([audioRenderersFactory]), the
+         * buffer in one block ([audioLoadControl]) and the extractors of [audioExtractorsFactory]. The main player and
+         * the Music Quiz clip player use it. Each player needs its own [effects] instances.
+         */
+        fun newAudioPlayer(context: Context, effects: List<AudioProcessor>): SimpleExoPlayer {
+            val app = context.applicationContext
+            return SimpleExoPlayer.Builder(app, audioRenderersFactory(app, effects))
+                .setLoadControl(audioLoadControl())
+                .setMediaSourceFactory(DefaultMediaSourceFactory(app, audioExtractorsFactory()))
+                .build()
+        }
+
+        /**
+         * The extractors of local files, also for the gapless queue: the FLAC frames go into the buffer, not PCM
+         * ([withCoreFlacExtractor]), and an MP3 file with no seek data seeks at a constant bitrate.
+         */
+        private fun audioExtractorsFactory(): ExtractorsFactory =
+            withCoreFlacExtractor(DefaultExtractorsFactory().setConstantBitrateSeekingEnabled(true))
 
         /**
          * The audio renderers of the app's ExoPlayer: 16-bit PCM, the [effects] processors, then a resample to
