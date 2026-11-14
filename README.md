@@ -36,7 +36,7 @@ File formats, folders, covers, lyrics files, playlists and the known limits: [Fi
 ## Install
 
 1. Open the [Classy page on innioasis.app](https://innioasis.app/firmware.html?brand=Innioasis&model=Y2&software=inniclassic-y2) and install **Innioasis Updater CE**.
-2. In Updater CE, choose **Y2** and **Inniclassic** (the old name of Classy). Select a release and click **Install / Restore**.
+2. In Updater CE, choose **Y2** and **Classy**. Select a release and click **Install / Restore**.
 3. Power off the Y2. Connect it only when the updater asks. Keep the cable in until the update is done.
 
 > [!WARNING]
