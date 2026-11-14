@@ -15,50 +15,13 @@ class PlayerChoiceTest {
     private val mp3 = "/storage/sdcard1/Music/A/02 Song.mp3"
 
     @Test
-    fun playback_flacGoesToMediaPlayerFirst_otherFilesToExoPlayerOnly() {
-        assertEquals(listOf(MEDIA_PLAYER, EXO_PLAYER), PlayerChoice.forPlayback(flac, monoAudio = false))
-        assertEquals(listOf(MEDIA_PLAYER, EXO_PLAYER), PlayerChoice.forPlayback("/x/SONG.FLAC", monoAudio = false))
-        assertEquals(listOf(EXO_PLAYER), PlayerChoice.forPlayback(mp3, monoAudio = false))
-        assertEquals(listOf(EXO_PLAYER), PlayerChoice.forPlayback("/x/song.flac.m4a", monoAudio = false))
-    }
-
-    @Test
-    fun playback_monoAudio_flacGoesToExoPlayerFirst_otherFilesDoNotChange() {
-        assertEquals(listOf(EXO_PLAYER, MEDIA_PLAYER), PlayerChoice.forPlayback(flac, monoAudio = true))
-        assertEquals(listOf(EXO_PLAYER), PlayerChoice.forPlayback(mp3, monoAudio = true))
-    }
-
-    @Test
-    fun monoAudio_exoPlayerFails_mediaPlayerPlays_alsoAfterMonoAudioOff() {
-        val choice = PlayerChoice()
-        val mono = PlayerChoice.forPlayback(flac, monoAudio = true)
-        assertEquals(EXO_PLAYER, choice.choose(flac, mono))
-        assertEquals(MEDIA_PLAYER, choice.fail(flac, EXO_PLAYER, mono))
-        assertEquals(MEDIA_PLAYER, choice.choose(flac, mono))
-        assertEquals(MEDIA_PLAYER, choice.choose(flac, PlayerChoice.forPlayback(flac, monoAudio = false)))
-
-        // MediaPlayer fails too: no next player; Mono Audio On tries MediaPlayer again, Off ExoPlayer (as before)
-        assertNull(choice.fail(flac, MEDIA_PLAYER, mono))
-        assertEquals(MEDIA_PLAYER, choice.choose(flac, mono))
-        assertEquals(EXO_PLAYER, choice.choose(flac, PlayerChoice.forPlayback(flac, monoAudio = false)))
-    }
-
-    @Test
-    fun monoAudioOff_afterAMediaPlayerFailure_monoAudioOnStillUsesExoPlayer() {
-        val choice = PlayerChoice()
-        choice.fail(flac, MEDIA_PLAYER, PlayerChoice.forPlayback(flac, monoAudio = false))
-        assertEquals(EXO_PLAYER, choice.choose(flac, PlayerChoice.forPlayback(flac, monoAudio = true)))
-        assertFalse(choice.hasNext(flac, EXO_PLAYER, PlayerChoice.forPlayback(flac, monoAudio = true)))
-    }
-
-    @Test
     fun hasNext_onlyWhenAnotherPlayerHasNotFailed() {
         val choice = PlayerChoice()
-        val mono = PlayerChoice.forPlayback(flac, monoAudio = true)
-        assertTrue(choice.hasNext(flac, EXO_PLAYER, mono))
-        assertFalse(choice.hasNext(mp3, EXO_PLAYER, PlayerChoice.forPlayback(mp3, monoAudio = true)))
-        choice.fail(flac, MEDIA_PLAYER, mono)
-        assertFalse(choice.hasNext(flac, EXO_PLAYER, mono))
+        val order = PlayerChoice.FOR_CLIP
+        assertTrue(choice.hasNext(flac, EXO_PLAYER, order))
+        assertFalse(choice.hasNext(mp3, EXO_PLAYER, listOf(EXO_PLAYER)))
+        choice.fail(flac, MEDIA_PLAYER, order)
+        assertFalse(choice.hasNext(flac, EXO_PLAYER, order))
     }
 
     @Test
@@ -69,7 +32,7 @@ class PlayerChoiceTest {
     @Test
     fun fail_givesTheNextPlayer_andLaterPlaysUseIt() {
         val choice = PlayerChoice()
-        val order = PlayerChoice.forPlayback(flac, monoAudio = false)
+        val order = PlayerChoice.FOR_CLIP
         assertEquals(MEDIA_PLAYER, choice.choose(flac, order))
 
         assertEquals(EXO_PLAYER, choice.fail(flac, MEDIA_PLAYER, order))
@@ -85,13 +48,13 @@ class PlayerChoiceTest {
     @Test
     fun fail_ofAllPlayers_givesNull_andTheLastPlayerIsTriedAgain() {
         val choice = PlayerChoice()
-        val order = PlayerChoice.forPlayback(flac, monoAudio = false)
+        val order = PlayerChoice.FOR_CLIP
         choice.fail(flac, MEDIA_PLAYER, order)
         assertNull(choice.fail(flac, EXO_PLAYER, order))
         assertEquals(EXO_PLAYER, choice.choose(flac, order))
 
         // A file with one player: no next player
-        val single = PlayerChoice.forPlayback(mp3, monoAudio = false)
+        val single = listOf(EXO_PLAYER)
         assertNull(choice.fail(mp3, EXO_PLAYER, single))
         assertEquals(EXO_PLAYER, choice.choose(mp3, single))
     }
