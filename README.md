@@ -57,7 +57,7 @@ You need JDK 17 and the Android SDK:
 ```
 
 - The Last.fm API keys are not in the repository. Without them, only the upload to Last.fm is off. To add them, make an API account at [last.fm/api/account/create](https://www.last.fm/api/account/create) and put `lastfm.api.key=…` and `lastfm.api.secret=…` in `local.properties`.
-- A debug build has a different signing key from the releases, so it does not install over a release. To test it on a player, make a firmware with it: `scripts/build-rom.sh y2 --launcher-apk app/build/outputs/apk/debug/app-debug.apk rom_y2.zip`.
+- A debug build has a different signing key from the releases, so it does not install over a release. To test it on a player, make a firmware with it on Linux (the script uses `sudo` and loop mounts): `scripts/build-rom.sh y2 --launcher-apk app/build/outputs/apk/debug/app-debug.apk rom_y2.zip`.
 - Bugs and ideas: [issues](https://github.com/ClassyPlayer/Classy/issues). Pull requests: one change each, with a [Conventional Commits](https://www.conventionalcommits.org/) title. Add each new text that the user sees to all files in `app/src/main/assets/languages/` (CI runs `python3 scripts/check_translations.py --strict`).
 - Maintainers publish releases as described in [RELEASING.md](RELEASING.md).
 
