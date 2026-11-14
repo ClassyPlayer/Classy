@@ -111,8 +111,27 @@ class AudioPlayerManager private constructor() {
     @Volatile var isPlayingActive: Boolean = false
         set(value) {
             if (field != value) com.themoon.y1.battery.BatteryHistory.setPlaying(com.themoon.y1.battery.BatteryHistory.MUSIC, value)
+            // Safe start: when the music stopped (the first stop of a pause counts).
+            if (value) pausedAtMs = 0L else if (pausedAtMs == 0L) pausedAtMs = android.os.SystemClock.elapsedRealtime()
             field = value
         }
+
+    /** [android.os.SystemClock.elapsedRealtime] when the music paused (0 while it plays) and when the volume changed. */
+    @Volatile private var pausedAtMs = 0L
+    @Volatile private var volumeChangedAtMs = 0L
+
+    /** The user (wheel) or a Bluetooth speaker's buttons changed the volume: a fresh choice for [SpeakerVolume.capsOnPlay]. */
+    fun noteVolumeChanged() {
+        volumeChangedAtMs = android.os.SystemClock.elapsedRealtime()
+    }
+
+    /** Before music starts: after a long pause, headphones and Bluetooth start at the safe step at most. */
+    private fun applySafeStartIfPaused() {
+        if (isPlayingActive) return
+        if (SpeakerVolume.capsOnPlay(android.os.SystemClock.elapsedRealtime(), pausedAtMs, volumeChangedAtMs)) {
+            MainActivity.instance?.applySafeStartVolume()
+        }
+    }
     @Volatile var currentlyPlayingFilePath: String? = null
 
     internal var isRestoringPlaybackState: Boolean = false
@@ -375,6 +394,7 @@ class AudioPlayerManager private constructor() {
     }
 
     fun playTrackList(list: List<File>, index: Int, initialSeekMs: Long = -1L) {
+        applySafeStartIfPaused()
         saveAudiobookBookmarkIfNeeded()
 
         val main = MainActivity.instance ?: return
@@ -448,6 +468,7 @@ class AudioPlayerManager private constructor() {
     }
 
     fun playPodcastStream(url: String, title: String, imageUrl: String?, channelName: String, offsetMs: Int) {
+        applySafeStartIfPaused()
         val main = MainActivity.instance ?: return
 
         try {
@@ -565,6 +586,7 @@ class AudioPlayerManager private constructor() {
     }
 
     fun playOrPauseMusic() {
+        applySafeStartIfPaused()
         if (isUsingLegacyPlayer && legacyPlayer != null) {
             val player = legacyPlayer ?: return
             if (player.isPlaying) {

@@ -83,6 +83,7 @@ import com.themoon.y1.managers.VirtualVolumeManager
 import com.themoon.y1.managers.AudioOutput
 import com.themoon.y1.managers.ClickVolume
 import com.themoon.y1.managers.SafeVolumeBypasser
+import com.themoon.y1.managers.SpeakerVolume
 import com.themoon.y1.managers.VolumeCurves
 import com.themoon.y1.managers.VolumeMemory
 import com.themoon.y1.managers.VolumeSplit
@@ -740,6 +741,13 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
 
     /** The output of the current volume step; null before the first [restoreVolumeForOutput]. */
     var currentAudioOutput: AudioOutput? = null
+    /** [android.os.SystemClock.elapsedRealtime] of the last change of [currentAudioOutput] (or of the start). */
+    private var outputChangedAtMs = 0L
+    /**
+     * A Bluetooth device connected (A2DP STATE_CONNECTED) and [restoreVolumeForOutput] did not handle it yet. Set apart
+     * from [currentAudioOutput]: a device that connects right after another one leaves the output at A2DP.
+     */
+    private var newBluetoothConnection = false
     private val audioOutputHandler = Handler(Looper.getMainLooper())
     private val audioOutputCheckTask = Runnable { restoreVolumeForOutput() }
 
@@ -751,15 +759,31 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     }
 
     /**
-     * Sets the saved step of the output that plays now, when the output changed (or always with [force]).
-     * Each output keeps its own step, as Android does with its index.
+     * Sets the saved step of the output that plays now, when the output changed or a Bluetooth device connected (or
+     * always with [force]). Each output keeps its own step, as Android does with its index. Headphones and Bluetooth
+     * start at [SpeakerVolume.SAFE_STEP] at most (safe start), so a new or reconnected device is never loud.
      */
     fun restoreVolumeForOutput(force: Boolean = false) {
         val output = detectAudioOutput()
-        if (!force && output == currentAudioOutput) return
+        val newConnection = output == AudioOutput.A2DP && newBluetoothConnection
+        if (!force && !newConnection && output == currentAudioOutput) return
+        if (output == AudioOutput.A2DP) newBluetoothConnection = false
         currentAudioOutput = output
-        val step = volumeMemory.stepFor(output) { audioManager.getStreamVolume(AudioManager.STREAM_MUSIC) }
-        applyVolumeStep(step, output, showOverlay = false)
+        outputChangedAtMs = android.os.SystemClock.elapsedRealtime()
+        val saved = volumeMemory.stepFor(output) { audioManager.getStreamVolume(AudioManager.STREAM_MUSIC) }
+        applyVolumeStep(SpeakerVolume.safeStep(saved, output), output, showOverlay = false)
+    }
+
+    /**
+     * Music starts after a long pause ([SpeakerVolume.capsOnPlay]): headphones and Bluetooth play at
+     * [SpeakerVolume.SAFE_STEP] at most. Called by [AudioPlayerManager] before the audio starts.
+     */
+    fun applySafeStartVolume() {
+        val output = currentAudioOutput ?: return
+        val safe = SpeakerVolume.safeStep(currentVirtualVolume, output)
+        if (safe >= currentVirtualVolume) return
+        android.util.Log.d("VolumeKeys", "Safe start after a long pause: step $currentVirtualVolume -> $safe")
+        setVolumeLevel(safe, showOverlay = false)
     }
 
     /** After a plug or A2DP event, checks the output again a few times: Android changes the route with a delay. */
@@ -776,6 +800,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
             clickFeedback()
             return
         }
+        AudioPlayerManager.getInstance().noteVolumeChanged()
         restoreVolumeForOutput()
         val current = currentVirtualVolume.coerceAtLeast(0)
         val target = if (isUp) current + 1 else current - 1
@@ -787,8 +812,13 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
      * With the screen off, Android gets the volume keys (only while music plays) and moves the music index. Each push
      * then changes our step by one, as with the screen on, and the index goes back to the top
      * ([VolumeSteps.stepFromIndexChange]). Screen-Off Control does not apply: Android acts on these keys in any case.
+     * On Bluetooth the index is the speaker's volume: see [followSpeakerVolume].
      */
     fun onAndroidVolumeChange(prevIndex: Int, newIndex: Int) {
+        if (!fmVolumeMode && currentAudioOutput == AudioOutput.A2DP) {
+            followSpeakerVolume(newIndex)
+            return
+        }
         if (volumeSplit() != VolumeSplit.SOFTWARE || lastTargetVolume < 0) return
         val maxIndex = try { audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC) } catch (_: Exception) { return }
         val delta = VolumeSteps.stepFromIndexChange(prevIndex, newIndex, lastTargetVolume, maxIndex)
@@ -796,6 +826,42 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
         android.util.Log.d("VolumeKeys", "Android volume key (screen off): music index $prevIndex -> $newIndex, one step " +
             if (delta > 0) "up" else "down")
         adjustVolume(delta > 0)
+    }
+
+    /**
+     * Bluetooth with AVRCP absolute volume: Android moved the A2DP index because the speaker's own buttons changed its
+     * volume. The step follows the speaker, without writing the index back and without a click. Not followed: our
+     * own target index, and the speaker confirming one of our recent writes ([SpeakerVolume.isOwnChange]). A louder
+     * volume the speaker reports just after it connected gets the safe step instead ([SpeakerVolume.capsSpeakerReport]),
+     * and a volume above the Volume Limit gets the limit (both write the lower index to the speaker).
+     */
+    private fun followSpeakerVolume(newIndex: Int) {
+        if (newIndex == lastTargetVolume) return
+        val output = AudioOutput.A2DP
+        val step = VolumeSteps.stepForIndex(newIndex, VolumeCurves.forOutput(output))
+        if (SpeakerVolume.capsSpeakerReport(step, android.os.SystemClock.elapsedRealtime() - outputChangedAtMs)) {
+            val capped = SpeakerVolume.connectCapStep(volumeLimitMax)
+            android.util.Log.d("VolumeKeys", "Safe start: Bluetooth device connected at step $step, lowered to $capped")
+            setVolumeLevel(capped, showOverlay = false)
+            return
+        }
+        if (SpeakerVolume.isOwnChange(newIndex, lastTargetVolume, recentIndexWrites,
+                android.os.SystemClock.uptimeMillis())) return
+        val limited = VolumeSteps.clamp(step, volumeLimitMax)
+        if (limited < step) {
+            android.util.Log.d("VolumeKeys", "Bluetooth device set step $step, above the Volume Limit: $limited")
+            setVolumeLevel(limited, showOverlay = false)
+            AudioPlayerManager.getInstance().noteVolumeChanged()
+            return
+        }
+        // The speaker's level wins over the rest of a wheel plan (index writes queued 220 ms apart).
+        volumeIndexHandler.removeCallbacksAndMessages(null)
+        currentVirtualVolume = step
+        lastTargetVolume = newIndex
+        volumeMemory.save(output, step)
+        VirtualVolumeManager.getInstance().setMasterGain(1.0f)
+        AudioPlayerManager.getInstance().noteVolumeChanged()
+        android.util.Log.d("VolumeKeys", "Bluetooth device changed the volume: index $newIndex, step $step")
     }
 
     /** Android's music index changes (hidden AudioManager.VOLUME_CHANGED_ACTION). Registered once for the process. */
@@ -832,15 +898,18 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
 
     private val volumeIndexHandler = Handler(Looper.getMainLooper())
     private var lastVolumeIndexWriteMs = 0L
+    /** Our index writes of the last [SpeakerVolume.ECHO_WINDOW_MS] (main thread), for [followSpeakerVolume]. */
+    private val recentIndexWrites = ArrayList<SpeakerVolume.IndexWrite>()
 
     /**
      * Music uses [VolumeSplit.SOFTWARE]: the Android index stays at the top, so the button click and other system
-     * sounds do not change with the music volume. FM radio uses [VolumeSplit.INDEX] while it is on.
+     * sounds do not change with the music volume. FM radio uses [VolumeSplit.INDEX] while it is on, and so does
+     * Bluetooth: with AVRCP absolute volume the index is the speaker's own volume ([SpeakerVolume]).
      */
     private var fmVolumeMode = false
     private val fmVolumeHandler = Handler(Looper.getMainLooper())
 
-    private fun volumeSplit(): VolumeSplit = if (fmVolumeMode) VolumeSplit.INDEX else VolumeSplit.SOFTWARE
+    private fun volumeSplit(): VolumeSplit = SpeakerVolume.split(fmVolumeMode, currentAudioOutput)
 
     /**
      * Before the FM audio starts: lowers the index to the index split of the current step (one index at a time),
@@ -881,6 +950,8 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
                 SafeVolumeBypasser.setStreamVolumeWithBypass(this, audioManager, AudioManager.STREAM_MUSIC, change.index, 0)
             } catch (_: Exception) {}
             lastVolumeIndexWriteMs = android.os.SystemClock.uptimeMillis()
+            recentIndexWrites.removeAll { lastVolumeIndexWriteMs - it.atMs >= SpeakerVolume.ECHO_WINDOW_MS }
+            recentIndexWrites.add(SpeakerVolume.IndexWrite(change.index, lastVolumeIndexWriteMs))
         }
         if (!gainFirst) VirtualVolumeManager.getInstance().setMasterGain(change.gain)
     }
@@ -1371,6 +1442,8 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
                     }
                     if (profileState == BluetoothProfile.STATE_CONNECTED || profileState == BluetoothProfile.STATE_DISCONNECTED) {
                         bluetoothController.isBtConnectingState = false
+                        // Safe start for each connection, also when the output stays A2DP (another device).
+                        if (profileState == BluetoothProfile.STATE_CONNECTED) newBluetoothConnection = true
                         scheduleAudioOutputCheck()
                         if (NavigationManager.getInstance().currentState is ScreenState.Bluetooth || currentScreenState == STATE_BLUETOOTH) {
                             window.decorView.postDelayed({
