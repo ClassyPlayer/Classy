@@ -11,14 +11,15 @@ import java.util.ArrayList
  * Provides a unified software master volume pipeline across all media playback subsystems:
  * - Music, Podcasts, Audiobooks (AudioPlayerManager)
  * - Movies & Videos (VideoPlayerManager / LibVLC)
- * - Music Quiz preview playback (MediaPlayer)
+ * - Music Quiz clips (MusicQuizEngine / ExoPlayer, via [addGainListener])
  * - FM Radio (FmRadioManager / MediaPlayer)
- * - Any future MediaPlayer via [applyTo] or [registerMediaPlayer]
+ * - Game music (FliwheelBridge / MediaPlayer, via [registerMediaPlayer])
  */
 class VirtualVolumeManager private constructor() {
 
     private var currentMasterGain = 1.0f
     private val registeredMediaPlayers = ArrayList<WeakReference<MediaPlayer>>()
+    private val gainListeners = ArrayList<(Float) -> Unit>()
 
     @Synchronized
     fun getMasterGain(): Float {
@@ -57,7 +58,14 @@ class VirtualVolumeManager private constructor() {
             fm?.setMasterVolume(currentMasterGain)
         } catch (ignored: Throwable) {}
 
-        // 4. Registered MediaPlayers (e.g. Music Quiz preview player)
+        // 4. Gain listeners (the Music Quiz clip player)
+        for (listener in ArrayList(gainListeners)) {
+            try {
+                listener(currentMasterGain)
+            } catch (ignored: Throwable) {}
+        }
+
+        // 5. Registered MediaPlayers (the game music)
         val playerIt = registeredMediaPlayers.iterator()
         while (playerIt.hasNext()) {
             val mp = playerIt.next().get()
@@ -71,18 +79,21 @@ class VirtualVolumeManager private constructor() {
         }
     }
 
-    /**
-     * Registers a MediaPlayer and immediately applies the current master gain to it.
-     */
+    /** [listener] gets the current gain now and each later change (main thread), until [removeGainListener]. */
     @Synchronized
-    fun applyTo(player: MediaPlayer?) {
-        if (player == null) return
-        registerMediaPlayer(player)
+    fun addGainListener(listener: (Float) -> Unit) {
+        if (listener !in gainListeners) gainListeners.add(listener)
         try {
-            player.setVolume(currentMasterGain, currentMasterGain)
+            listener(currentMasterGain)
         } catch (ignored: Throwable) {}
     }
 
+    @Synchronized
+    fun removeGainListener(listener: (Float) -> Unit) {
+        gainListeners.remove(listener)
+    }
+
+    /** Registers a MediaPlayer and immediately applies the current master gain to it. */
     @Synchronized
     fun registerMediaPlayer(player: MediaPlayer?) {
         if (player == null) return

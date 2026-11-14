@@ -117,7 +117,7 @@ class MusicQuizController(
 
     override fun onExit() {
         cancelTimer()
-        engine.stopPreview()
+        engine.releasePreview()
         screen.clear()
         menu = null
         layoutQuiz.visibility = View.GONE
@@ -485,7 +485,7 @@ class MusicQuizController(
 
     private fun exitQuiz() {
         cancelTimer()
-        engine.stopPreview()
+        engine.releasePreview()
         if (wasPlayingBeforeStart) {
             val am = AudioPlayerManager.getInstance()
             if (!am.isPlaying()) {
