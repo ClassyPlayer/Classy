@@ -36,23 +36,39 @@ class TimeoutDnsTest {
 
     @Test
     fun allThreadsBlocked_newLookupFailsAtOnce() {
-        val never = CountDownLatch(1)
-        val dns = TimeoutDns(Dns { never.await(); emptyList() }, timeoutMs = 100, executor = TimeoutDns.boundedExecutor(1))
-        try {
-            dns.lookup("feeds.npr.org")
-            fail("The lookup must fail")
-        } catch (expected: UnknownHostException) {
+        // As getaddrinfo: the lookup ignores the interrupt of cancel(true) and waits until the test releases it
+        val release = CountDownLatch(1)
+        val blocking = Dns {
+            while (true) {
+                try {
+                    release.await()
+                    break
+                } catch (ignored: InterruptedException) {
+                }
+            }
+            emptyList()
         }
-        // The one thread still waits for the first lookup
-        val start = System.nanoTime()
+        val executor = TimeoutDns.boundedExecutor(1)
         try {
-            dns.lookup("feeds.npr.org")
-            fail("The lookup must fail")
-        } catch (e: UnknownHostException) {
-            assertTrue(e.message!!.contains("No free DNS lookup thread"))
+            val dns = TimeoutDns(blocking, timeoutMs = 100, executor = executor)
+            try {
+                dns.lookup("feeds.npr.org")
+                fail("The lookup must fail")
+            } catch (expected: UnknownHostException) {
+            }
+            // The one thread still waits for the first lookup
+            val start = System.nanoTime()
+            try {
+                dns.lookup("feeds.npr.org")
+                fail("The lookup must fail")
+            } catch (e: UnknownHostException) {
+                assertTrue(e.message!!.contains("No free DNS lookup thread"))
+            }
+            assertTrue((System.nanoTime() - start) / 1_000_000 < 100)
+        } finally {
+            release.countDown()
+            executor.shutdownNow()
         }
-        assertTrue((System.nanoTime() - start) / 1_000_000 < 100)
-        never.countDown()
     }
 
     @Test
