@@ -28,9 +28,13 @@ import com.google.android.exoplayer2.audio.DefaultAudioSink
 import com.google.android.exoplayer2.audio.SonicAudioProcessor
 import com.google.android.exoplayer2.ext.okhttp.OkHttpDataSource
 import com.google.android.exoplayer2.extractor.DefaultExtractorsFactory
+import com.google.android.exoplayer2.extractor.Extractor
+import com.google.android.exoplayer2.extractor.ExtractorsFactory
+import com.google.android.exoplayer2.extractor.flac.FlacExtractor
 import com.google.android.exoplayer2.mediacodec.MediaCodecInfo
 import com.google.android.exoplayer2.mediacodec.MediaCodecSelector
 import com.google.android.exoplayer2.mediacodec.MediaCodecUtil
+import com.google.android.exoplayer2.source.DefaultMediaSourceFactory
 import com.google.android.exoplayer2.source.ProgressiveMediaSource
 import com.google.android.exoplayer2.upstream.DefaultAllocator
 import com.google.android.exoplayer2.upstream.DefaultDataSourceFactory
@@ -160,7 +164,11 @@ class AudioPlayerManager private constructor() {
         // Set before the first track: the sink mixes the first buffers before STATE_READY applies the effects
         monoProcessor.isEnabled = MainActivity.instance?.prefs?.let { Prefs.MONO_AUDIO.get(it) } ?: false
 
-        val builder = SimpleExoPlayer.Builder(context.applicationContext, renderersFactory).setLoadControl(audioLoadControl())
+        // The gapless queue (setMediaItems) also gets the FLAC frames, not PCM (see withCoreFlacExtractor)
+        val mediaSourceFactory = DefaultMediaSourceFactory(context.applicationContext, withCoreFlacExtractor(DefaultExtractorsFactory()))
+        val builder = SimpleExoPlayer.Builder(context.applicationContext, renderersFactory)
+            .setLoadControl(audioLoadControl())
+            .setMediaSourceFactory(mediaSourceFactory)
         exoPlayer = builder.build().apply {
             // Partial wake lock while it plays: music continues when Android turns the screen off.
             setWakeMode(C.WAKE_MODE_LOCAL)
@@ -976,7 +984,7 @@ class AudioPlayerManager private constructor() {
 
                 val mediaItem = MediaItem.fromUri(Uri.fromFile(track))
                 val dataSourceFactory = DefaultDataSourceFactory(main, Util.getUserAgent(main, "Y1_Launcher"))
-                val extractorsFactory = DefaultExtractorsFactory().setConstantBitrateSeekingEnabled(true)
+                val extractorsFactory = withCoreFlacExtractor(DefaultExtractorsFactory().setConstantBitrateSeekingEnabled(true))
                 val mediaSource = ProgressiveMediaSource.Factory(dataSourceFactory, extractorsFactory).createMediaSource(mediaItem)
 
                 exoPlayer?.setMediaSource(mediaSource)
@@ -2341,23 +2349,41 @@ class AudioPlayerManager private constructor() {
         internal const val BUFFER_TARGET_BYTES = 32 * C.DEFAULT_BUFFER_SEGMENT_SIZE
 
         /**
-         * The buffer segments that the main player makes once, at the start: 4 MB, more than [BUFFER_TARGET_BYTES],
-         * because the loader goes past the target until its next check (1 MB of the file, up to about 2 MB of PCM).
+         * The buffer segments that the main player makes once, at the start: 4 MB. The loader checks the buffer after
+         * each 1 MB of the file, so the buffer can go 1 MB past [BUFFER_TARGET_BYTES]: 3 MB at most, in the block.
+         * This is true because the buffer holds the data of the file, not decoded PCM ([withCoreFlacExtractor]).
          */
         internal const val BUFFER_BLOCK_SEGMENTS = 64
 
         /**
-         * The buffer of the main player. ExoPlayer's FLAC extension decodes in the extractor, so the buffer holds PCM:
-         * with the default load control up to 13 MB (200 segments of 64 KB) for each track. Android 4.4 (Dalvik) makes
-         * each new 64 KB array with a GC_FOR_ALLOC that stops all threads for ~80 ms when its heap has no free run
-         * of 64 KB. On the Y2 that gave 60 to 80 such stops in the first seconds of a FLAC track (the audio stopped,
-         * and the position stayed at 0:00 or moved slowly). Here the segments come from one block that the player
-         * keeps, and the buffer stops at 2 MB. An MP3 file stops at the default 50 s as before (2 MB is 50 s at 320 kbit/s).
+         * The buffer of the main player: [BUFFER_TARGET_BYTES] at most, in segments of one block that the player keeps.
+         * Android 4.4 (Dalvik) makes each new 64 KB array with a GC_FOR_ALLOC that stops all threads for ~80 ms when
+         * its heap has no free run of 64 KB. With the default load control (up to 13 MB of new segments for each track)
+         * a FLAC track on the Y2 got 60 to 80 such stops in its first seconds: the audio stopped, and the position stayed
+         * at 0:00 or moved slowly. An MP3 file stops at the default 50 s as before (2 MB is 50 s at 320 kbit/s).
          */
         internal fun audioLoadControl(): DefaultLoadControl = DefaultLoadControl.Builder()
             .setAllocator(DefaultAllocator(true, C.DEFAULT_BUFFER_SEGMENT_SIZE, BUFFER_BLOCK_SEGMENTS))
             .setTargetBufferBytes(BUFFER_TARGET_BYTES)
             .build()
+
+        /**
+         * [base] with ExoPlayer's own FLAC extractor in place of the FLAC extension's extractor. The extension's
+         * extractor decodes, so the buffer gets PCM, and between two checks of the loader (1 MB of the file) a FLAC
+         * file with long digital silence can give many MB. ExoPlayer's extractor gives the FLAC frames, and the
+         * extension's LibflacAudioRenderer decodes them into its own 16 output buffers.
+         */
+        internal fun withCoreFlacExtractor(base: ExtractorsFactory): ExtractorsFactory = object : ExtractorsFactory {
+            override fun createExtractors(): Array<Extractor> = withCoreFlacExtractor(base.createExtractors())
+
+            override fun createExtractors(uri: Uri, responseHeaders: Map<String, List<String>>): Array<Extractor> =
+                withCoreFlacExtractor(base.createExtractors(uri, responseHeaders))
+        }
+
+        internal fun withCoreFlacExtractor(extractors: Array<Extractor>): Array<Extractor> =
+            Array(extractors.size) { i ->
+                if (extractors[i] is com.google.android.exoplayer2.ext.flac.FlacExtractor) FlacExtractor() else extractors[i]
+            }
 
         /**
          * The play queue files are written for a new queue ([stamp] is not [saved]), but not for a queue that the
