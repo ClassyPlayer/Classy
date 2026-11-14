@@ -404,7 +404,6 @@ class AudioPlayerManager private constructor() {
             if (p.contains("/Audiobooks", ignoreCase = true) || p.contains("/Podcasts", ignoreCase = true) || p.startsWith("/PODCAST_STREAM")) {
                 return false
             }
-            if (f.name.lowercase(Locale.US).endsWith(".flac")) return false
         }
         return true
     }
