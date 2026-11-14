@@ -24,8 +24,16 @@ object SpeakerVolume {
     /** After the output changes to A2DP, AVRCP connects and the speaker reports its own volume within this time. */
     const val CONNECT_WINDOW_MS = 10_000L
 
-    /** A change of the index this soon after our own index write is the speaker confirming it, not a new volume. */
+    /**
+     * The speaker confirms our index write within this time. With the Y2's AVRCP patch the speaker gets 8 * index and
+     * ceil(8 * index * 15 / 127) == index, so the confirmation is the index we wrote (the Avrcp echo and Android's own
+     * broadcast of our write too). A lowering writes one index every [VolumeSteps.MIN_DECREASE_GAP_MS], so a
+     * confirmation can come after our next write: all writes of this window count.
+     */
     const val ECHO_WINDOW_MS = 1_500L
+
+    /** An index we wrote, at [atMs] ([android.os.SystemClock.uptimeMillis]). */
+    data class IndexWrite(val index: Int, val atMs: Long)
 
     /** Bluetooth carries the volume in the Android index (absolute volume); other outputs keep it at the top. */
     fun split(fmVolumeMode: Boolean, output: AudioOutput?): VolumeSplit =
@@ -39,9 +47,14 @@ object SpeakerVolume {
     fun capsSpeakerReport(step: Int, msSinceOutputChange: Long): Boolean =
         step > SAFE_STEP && msSinceOutputChange in 0 until CONNECT_WINDOW_MS
 
-    /** True when a change of the A2DP index to [newIndex] is ours (our target, or the speaker confirming our write). */
-    fun isOwnChange(newIndex: Int, targetIndex: Int, msSinceOwnWrite: Long): Boolean =
-        newIndex == targetIndex || msSinceOwnWrite in 0 until ECHO_WINDOW_MS
+    /**
+     * True when a change of the A2DP index to [newIndex] at [nowMs] is ours: our target, or an index of
+     * [recentWrites] written less than [ECHO_WINDOW_MS] ago (the speaker confirming it). Any other index is a change
+     * made on the speaker, also within that time.
+     */
+    fun isOwnChange(newIndex: Int, targetIndex: Int, recentWrites: List<IndexWrite>, nowMs: Long): Boolean =
+        newIndex == targetIndex ||
+            recentWrites.any { it.index == newIndex && nowMs - it.atMs in 0 until ECHO_WINDOW_MS }
 
     /**
      * True when music that starts at [nowMs] starts at [SAFE_STEP] at most: it was paused at [pausedAtMs] and the

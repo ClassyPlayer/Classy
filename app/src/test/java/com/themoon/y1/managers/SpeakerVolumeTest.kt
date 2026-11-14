@@ -50,10 +50,36 @@ class SpeakerVolumeTest {
 
     @Test
     fun ourOwnIndexAndTheSpeakersConfirmationAreNotFollowed() {
-        assertTrue(SpeakerVolume.isOwnChange(5, 5, 60_000L))
-        assertTrue(SpeakerVolume.isOwnChange(6, 5, 300L))
-        assertFalse(SpeakerVolume.isOwnChange(6, 5, SpeakerVolume.ECHO_WINDOW_MS))
-        assertFalse(SpeakerVolume.isOwnChange(3, 5, 10_000L))
+        val now = 100_000L
+        // Our target, at any time.
+        assertTrue(SpeakerVolume.isOwnChange(5, 5, emptyList(), now))
+        // The confirmation of an index we just wrote.
+        val writes = listOf(SpeakerVolume.IndexWrite(6, now - 300L))
+        assertTrue(SpeakerVolume.isOwnChange(6, 5, writes, now))
+        // ... also after our next write (a lowering writes one index every 220 ms).
+        val lowering = listOf(SpeakerVolume.IndexWrite(4, now - 240L), SpeakerVolume.IndexWrite(3, now - 20L))
+        assertTrue(SpeakerVolume.isOwnChange(4, 2, lowering, now))
+        // Too late for a confirmation: the speaker set it.
+        val old = listOf(SpeakerVolume.IndexWrite(6, now - SpeakerVolume.ECHO_WINDOW_MS))
+        assertFalse(SpeakerVolume.isOwnChange(6, 5, old, now))
+    }
+
+    @Test
+    fun aSpeakerButtonJustAfterOurWriteIsFollowed() {
+        val now = 100_000L
+        // We wrote 5 (our target) 200 ms ago; the speaker's button then gives 6: that is the speaker's volume.
+        val writes = listOf(SpeakerVolume.IndexWrite(5, now - 200L))
+        assertFalse(SpeakerVolume.isOwnChange(6, 5, writes, now))
+        assertFalse(SpeakerVolume.isOwnChange(3, 5, writes, now))
+    }
+
+    @Test
+    fun theSpeakersConfirmationIsTheIndexWeWrote() {
+        // The Y2's AVRCP patch sends 8 * index; Android maps the speaker's answer back with ceil(v * 15 / 127).
+        for (index in 0..15) {
+            val sent = 8 * index
+            assertEquals(index, Math.ceil(sent * 15.0 / 127.0).toInt())
+        }
     }
 
     @Test

@@ -743,6 +743,11 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     var currentAudioOutput: AudioOutput? = null
     /** [android.os.SystemClock.elapsedRealtime] of the last change of [currentAudioOutput] (or of the start). */
     private var outputChangedAtMs = 0L
+    /**
+     * A Bluetooth device connected (A2DP STATE_CONNECTED) and [restoreVolumeForOutput] did not handle it yet. Set apart
+     * from [currentAudioOutput]: a device that connects right after another one leaves the output at A2DP.
+     */
+    private var newBluetoothConnection = false
     private val audioOutputHandler = Handler(Looper.getMainLooper())
     private val audioOutputCheckTask = Runnable { restoreVolumeForOutput() }
 
@@ -754,13 +759,15 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     }
 
     /**
-     * Sets the saved step of the output that plays now, when the output changed (or always with [force]).
-     * Each output keeps its own step, as Android does with its index. Headphones and Bluetooth start at
-     * [SpeakerVolume.SAFE_STEP] at most (safe start), so a new or reconnected device is never loud.
+     * Sets the saved step of the output that plays now, when the output changed or a Bluetooth device connected (or
+     * always with [force]). Each output keeps its own step, as Android does with its index. Headphones and Bluetooth
+     * start at [SpeakerVolume.SAFE_STEP] at most (safe start), so a new or reconnected device is never loud.
      */
     fun restoreVolumeForOutput(force: Boolean = false) {
         val output = detectAudioOutput()
-        if (!force && output == currentAudioOutput) return
+        val newConnection = output == AudioOutput.A2DP && newBluetoothConnection
+        if (!force && !newConnection && output == currentAudioOutput) return
+        if (output == AudioOutput.A2DP) newBluetoothConnection = false
         currentAudioOutput = output
         outputChangedAtMs = android.os.SystemClock.elapsedRealtime()
         val saved = volumeMemory.stepFor(output) { audioManager.getStreamVolume(AudioManager.STREAM_MUSIC) }
@@ -824,8 +831,9 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     /**
      * Bluetooth with AVRCP absolute volume: Android moved the A2DP index because the speaker's own buttons changed its
      * volume. The step follows the speaker, without writing the index back and without a click. Not followed: our
-     * own target index, and the speaker confirming our last write ([SpeakerVolume.isOwnChange]). A louder volume the
-     * speaker reports just after it connected gets the safe step instead ([SpeakerVolume.capsSpeakerReport]).
+     * own target index, and the speaker confirming one of our recent writes ([SpeakerVolume.isOwnChange]). A louder
+     * volume the speaker reports just after it connected gets the safe step instead ([SpeakerVolume.capsSpeakerReport]),
+     * and a volume above the Volume Limit gets the limit (both write the lower index to the speaker).
      */
     private fun followSpeakerVolume(newIndex: Int) {
         if (newIndex == lastTargetVolume) return
@@ -837,8 +845,15 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
             setVolumeLevel(SpeakerVolume.SAFE_STEP, showOverlay = false)
             return
         }
-        if (SpeakerVolume.isOwnChange(newIndex, lastTargetVolume,
-                android.os.SystemClock.uptimeMillis() - lastVolumeIndexWriteMs)) return
+        if (SpeakerVolume.isOwnChange(newIndex, lastTargetVolume, recentIndexWrites,
+                android.os.SystemClock.uptimeMillis())) return
+        val limited = VolumeSteps.clamp(step, volumeLimitMax)
+        if (limited < step) {
+            android.util.Log.d("VolumeKeys", "Bluetooth device set step $step, above the Volume Limit: $limited")
+            setVolumeLevel(limited, showOverlay = false)
+            AudioPlayerManager.getInstance().noteVolumeChanged()
+            return
+        }
         currentVirtualVolume = step
         lastTargetVolume = newIndex
         volumeMemory.save(output, step)
@@ -881,6 +896,8 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
 
     private val volumeIndexHandler = Handler(Looper.getMainLooper())
     private var lastVolumeIndexWriteMs = 0L
+    /** Our index writes of the last [SpeakerVolume.ECHO_WINDOW_MS] (main thread), for [followSpeakerVolume]. */
+    private val recentIndexWrites = ArrayList<SpeakerVolume.IndexWrite>()
 
     /**
      * Music uses [VolumeSplit.SOFTWARE]: the Android index stays at the top, so the button click and other system
@@ -931,6 +948,8 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
                 SafeVolumeBypasser.setStreamVolumeWithBypass(this, audioManager, AudioManager.STREAM_MUSIC, change.index, 0)
             } catch (_: Exception) {}
             lastVolumeIndexWriteMs = android.os.SystemClock.uptimeMillis()
+            recentIndexWrites.removeAll { lastVolumeIndexWriteMs - it.atMs >= SpeakerVolume.ECHO_WINDOW_MS }
+            recentIndexWrites.add(SpeakerVolume.IndexWrite(change.index, lastVolumeIndexWriteMs))
         }
         if (!gainFirst) VirtualVolumeManager.getInstance().setMasterGain(change.gain)
     }
@@ -1421,6 +1440,8 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
                     }
                     if (profileState == BluetoothProfile.STATE_CONNECTED || profileState == BluetoothProfile.STATE_DISCONNECTED) {
                         bluetoothController.isBtConnectingState = false
+                        // Safe start for each connection, also when the output stays A2DP (another device).
+                        if (profileState == BluetoothProfile.STATE_CONNECTED) newBluetoothConnection = true
                         scheduleAudioOutputCheck()
                         if (NavigationManager.getInstance().currentState is ScreenState.Bluetooth || currentScreenState == STATE_BLUETOOTH) {
                             window.decorView.postDelayed({
