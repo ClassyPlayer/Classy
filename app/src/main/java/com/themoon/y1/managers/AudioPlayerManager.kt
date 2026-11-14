@@ -375,24 +375,27 @@ class AudioPlayerManager private constructor() {
         main.isPausedByHand = false
 
         if (isGaplessQueueActive) {
-            val mediaItems = ArrayList<MediaItem>()
-            for (f in main.currentPlaylist) {
-                mediaItems.add(MediaItem.fromUri(Uri.fromFile(f)))
-            }
-            exoPlayer?.let { exo ->
-                exo.stop()
-                exo.setMediaItems(mediaItems, main.currentIndex, if (initialSeekMs > 0) initialSeekMs else 0L)
-                exo.shuffleModeEnabled = false
-                exo.repeatMode = exoRepeatMode(repeatPref, gapless = true)
-                exo.setPlaybackParameters(PlaybackParameters(currentSpeed, 1.0f))
-                exo.prepare()
-                if (!main.isPausedByHand) exo.playWhenReady = true
-            }
+            loadGaplessQueue(main, if (initialSeekMs > 0) initialSeekMs else 0L, repeatPref, play = true)
         }
 
         val seekParam = if (initialSeekMs >= 0) initialSeekMs else 0L
         prepareMusicTrack(main.currentIndex, initialSeekMs = seekParam)
         main.updatePlayerUI()
+    }
+
+    /**
+     * Loads the whole play queue into ExoPlayer for gapless play, at [startMs] of the current track, with the Repeat
+     * setting [repeatPref]. [play]: start to play; otherwise the queue stays paused.
+     */
+    private fun loadGaplessQueue(main: MainActivity, startMs: Long, repeatPref: Int, play: Boolean) {
+        val exo = exoPlayer ?: return
+        exo.stop()
+        exo.setMediaItems(main.currentPlaylist.map { MediaItem.fromUri(Uri.fromFile(it)) }, main.currentIndex, startMs)
+        exo.shuffleModeEnabled = false
+        exo.repeatMode = exoRepeatMode(repeatPref, gapless = true)
+        exo.setPlaybackParameters(PlaybackParameters(currentSpeed, 1.0f))
+        exo.playWhenReady = play
+        exo.prepare()
     }
 
     internal fun shouldUseGaplessQueue(list: List<File>): Boolean {
@@ -1913,19 +1916,7 @@ class AudioPlayerManager private constructor() {
             setRepeatMode(repeatPref)
 
             if (isGaplessQueueActive) {
-                val mediaItems = ArrayList<MediaItem>()
-                for (f in main.currentPlaylist) {
-                    mediaItems.add(MediaItem.fromUri(Uri.fromFile(f)))
-                }
-                exoPlayer?.let { exo ->
-                    exo.stop()
-                    exo.setMediaItems(mediaItems, main.currentIndex, savedPos)
-                    exo.shuffleModeEnabled = false
-                    exo.repeatMode = exoRepeatMode(repeatPref, gapless = true)
-                    exo.setPlaybackParameters(PlaybackParameters(currentSpeed, 1.0f))
-                    exo.playWhenReady = false
-                    exo.prepare()
-                }
+                loadGaplessQueue(main, savedPos, repeatPref, play = false)
             }
 
             prepareMusicTrack(main.currentIndex, initialSeekMs = savedPos, initialDurationMs = savedDur)
