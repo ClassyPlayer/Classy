@@ -645,6 +645,9 @@ class AudioPlayerManager private constructor() {
             main.tvPlayerAlbum.text = ""
             main.ivAlbumArt.setImageResource(R.drawable.default_album)
 
+            // The gapless queue has the file in ExoPlayer: its error (handleTrackError) counts the file and skips it
+            if (isGaplessQueueActive) return
+
             main.consecutiveErrorCount++
             if (stopsAfterErrors(main.consecutiveErrorCount, main.currentPlaylist.size)) {
                 Notice.error(main, "All tracks failed. Playback stopped.")
