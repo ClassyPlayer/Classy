@@ -1,6 +1,5 @@
 package com.themoon.y1.quiz
 
-import com.themoon.y1.managers.PlayerChoice
 import com.themoon.y1.models.SongItem
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -59,9 +58,11 @@ class MusicQuizEngineTest {
         assertTrue(engine.resetSession(flacSongs))
         assertNotNull(engine.nextQuestion { _, song -> song.title })
 
-        // MediaPlayer on Android 4.4 cannot open Opus
-        val opusSongs = (1..4).map { createSong("Song $it", path = "/storage/sdcard0/Music/Song $it.opus") }
-        assertFalse(engine.resetSession(opusSongs))
+        // ExoPlayer plays Opus, also in .ogg files
+        val opusSongs = (1..2).map { createSong("Song $it", path = "/storage/sdcard0/Music/Song $it.opus") } +
+            (3..4).map { createSong("Song $it", path = "/storage/sdcard0/Music/Song $it.ogg") }
+        assertTrue(engine.resetSession(opusSongs))
+        assertNotNull(engine.nextQuestion { _, song -> song.title })
     }
 
     @Test
@@ -95,34 +96,27 @@ class MusicQuizEngineTest {
     }
 
     @Test
-    fun testPreviewError_triesExoPlayerBeforeTheSongIsSkipped() {
+    fun testPreviewError_skipsTheSong() {
         val engine = newEngine()
         val songs = (1..5).map { createSong("Song $it", path = "/storage/sdcard0/Music/Song $it.flac") }
         engine.resetSession(songs)
-        assertEquals(PlayerChoice.Engine.MEDIA_PLAYER, engine.previewEngineFor(songs[0].file))
 
-        // A MediaPlayer error starts the clip in ExoPlayer (here without a context, so it also fails)
-        engine.onPreviewError(songs[0].file, PlayerChoice.Engine.MEDIA_PLAYER)
-        assertEquals(PlayerChoice.Engine.EXO_PLAYER, engine.previewEngineFor(songs[0].file))
-        assertEquals(PlayerChoice.Engine.MEDIA_PLAYER, engine.previewEngineFor(songs[1].file))
+        // A clip that does not play (an ExoPlayer error, or no start in 5 s): the song is not asked again
+        engine.onPreviewError(songs[0].file)
         for (i in 0 until 50) {
             val q = engine.nextQuestion { _, s -> s.title }
             assertNotNull(q)
-            assertTrue("A song that no player can play must not be asked again", q!!.song.file != songs[0].file)
+            assertTrue("A song whose clip does not play must not be asked again", q!!.song.file != songs[0].file)
         }
     }
 
     @Test
-    fun testPreviewError_exoPlayerOnly_doesNotSkipTheSong() {
-        val engine = newEngine()
-        val songs = (1..5).map { createSong("Song $it", path = "/storage/sdcard0/Music/Song $it.flac") }
-        engine.resetSession(songs)
-
-        // An ExoPlayer error alone (MediaPlayer not tried yet for this song): MediaPlayer plays the clip
-        engine.onPreviewError(songs[0].file, PlayerChoice.Engine.EXO_PLAYER)
-        assertEquals(PlayerChoice.Engine.MEDIA_PLAYER, engine.previewEngineFor(songs[0].file))
-        val asked = (0 until 50).mapNotNull { engine.nextQuestion { _, s -> s.title }?.song?.file }.toSet()
-        assertTrue(songs[0].file in asked)
+    fun testClipStalled_progressOrARepeatIsPlay() {
+        assertTrue(MusicQuizEngine.clipStalled(positionMs = 60_200, clipStartMs = 60_000, repeated = false))
+        assertFalse(MusicQuizEngine.clipStalled(positionMs = 64_000, clipStartMs = 60_000, repeated = false))
+        // A 2.4 s song that played to its end and started again is near 0 at the check: it plays
+        assertTrue(MusicQuizEngine.clipStalled(positionMs = 100, clipStartMs = 0, repeated = false))
+        assertFalse(MusicQuizEngine.clipStalled(positionMs = 100, clipStartMs = 0, repeated = true))
     }
 
     @Test
