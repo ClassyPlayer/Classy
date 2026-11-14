@@ -154,6 +154,8 @@ class AudioPlayerManager private constructor() {
                         com.themoon.y1.cast.CastManager.onLocalPlay()
                     }
                     if (playbackState == Player.STATE_READY) {
+                        // The track loaded: the count of tracks that do not play starts again
+                        MainActivity.instance?.consecutiveErrorCount = 0
                         if (playWhenReady) {
                             startPeriodicPositionSaver()
                         } else {
@@ -283,12 +285,32 @@ class AudioPlayerManager private constructor() {
         }
     }
 
+    /**
+     * The player cannot play the current track: skip to the next track. After one error for each track of the queue
+     * with no track that played, stop, so that a queue of files that do not play does not skip round and round.
+     */
     private fun handleTrackError(errorMsg: String) {
         val main = MainActivity.instance ?: return
         main.runOnUiThread {
-            Notice.error(main, "$errorMsg Skipping...")
-            nextTrack()
+            main.consecutiveErrorCount++
+            if (stopsAfterErrors(main.consecutiveErrorCount, main.currentPlaylist.size)) {
+                stopAfterErrors(main)
+            } else {
+                Notice.error(main, "$errorMsg Skipping...")
+                nextTrack()
+            }
         }
+    }
+
+    /** No track of the queue plays: pause and say so. Play tries the current track again. */
+    private fun stopAfterErrors(main: MainActivity) {
+        exoPlayer?.playWhenReady = false
+        isPlayingActive = false
+        stopPeriodicPositionSaver()
+        main.isPausedByHand = true
+        main.consecutiveErrorCount = 0
+        Notice.error(main, "All tracks failed. Playback stopped.")
+        main.updatePlayerUI()
     }
 
     /**
@@ -562,6 +584,8 @@ class AudioPlayerManager private constructor() {
             } else {
                 exo.seekTo(0, 0)
             }
+            // After an error the player is idle: load the new track
+            if (exo.playbackState == Player.STATE_IDLE) exo.prepare()
             return
         }
 
@@ -582,6 +606,7 @@ class AudioPlayerManager private constructor() {
             } else {
                 exo.seekTo(main.currentPlaylist.size - 1, 0)
             }
+            if (exo.playbackState == Player.STATE_IDLE) exo.prepare()
             return
         }
 
@@ -619,7 +644,7 @@ class AudioPlayerManager private constructor() {
             main.ivAlbumArt.setImageResource(R.drawable.default_album)
 
             main.consecutiveErrorCount++
-            if (main.consecutiveErrorCount >= main.currentPlaylist.size) {
+            if (stopsAfterErrors(main.consecutiveErrorCount, main.currentPlaylist.size)) {
                 Notice.error(main, "All tracks failed. Playback stopped.")
                 main.isPausedByHand = true
                 main.updatePlayerUI()
@@ -828,7 +853,6 @@ class AudioPlayerManager private constructor() {
                 applyMasterVolume()
             }
 
-            main.consecutiveErrorCount = 0
             main.tvPlayerTrackCount.text = "${index + 1} of ${main.currentPlaylist.size}"
             if (!isRestoringPlaybackState) {
                 savePlaybackState(sync = false)
@@ -847,7 +871,7 @@ class AudioPlayerManager private constructor() {
             main.tvPlayerAlbum.text = ""
             Notice.error(main, failReason)
 
-            if (main.consecutiveErrorCount >= main.currentPlaylist.size) {
+            if (stopsAfterErrors(main.consecutiveErrorCount, main.currentPlaylist.size)) {
                 main.isPausedByHand = true
                 main.updatePlayerUI()
                 main.consecutiveErrorCount = 0
@@ -2076,6 +2100,12 @@ class AudioPlayerManager private constructor() {
             Array(extractors.size) { i ->
                 if (extractors[i] is com.google.android.exoplayer2.ext.flac.FlacExtractor) FlacExtractor() else extractors[i]
             }
+
+        /**
+         * True when [errors] tracks after each other did not play and the queue has no more tracks to try ([queueSize]):
+         * then the player stops, in place of a skip to the next track.
+         */
+        internal fun stopsAfterErrors(errors: Int, queueSize: Int): Boolean = errors >= queueSize
 
         /**
          * The play queue files are written for a new queue ([stamp] is not [saved]), but not for a queue that the
