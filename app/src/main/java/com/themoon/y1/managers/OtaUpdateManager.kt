@@ -12,6 +12,7 @@ import android.os.Handler
 import android.os.Looper
 import android.view.KeyEvent
 import com.themoon.y1.AppPrefs
+import com.themoon.y1.BuildConfig
 import com.themoon.y1.StoragePaths
 import com.themoon.y1.controllers.settings.ActionScreens
 import com.themoon.y1.views.Notice
@@ -222,13 +223,21 @@ class OtaUpdateManager(
                 val channel = UpdateChannel.current(AppPrefs.get(activity), myVersionName)
                 val client = getUpdateHttpClient()
                 // Stable: the release marked Latest. Beta: the newest release with update metadata, a beta or not
-                val manifestUrl = if (channel == UpdateChannel.BETA) {
-                    UpdateChannel.newestManifestUrl(fetch(client, UpdateChannel.RELEASES_API_URL))
-                        ?: throw Exception("No release with ${UpdateChannel.MANIFEST}")
+                val manifestUrls = if (channel == UpdateChannel.BETA) {
+                    UpdateChannel.manifestUrls(fetch(client, UpdateChannel.RELEASES_API_URL))
+                        .ifEmpty { throw Exception("No release with ${UpdateChannel.MANIFEST}") }
                 } else {
-                    UPDATE_JSON_URL
+                    listOf(UPDATE_JSON_URL)
                 }
-                val root = JSONObject(fetch(client, manifestUrl))
+                var root = JSONObject()
+                for (manifestUrl in manifestUrls) {
+                    if (cancelled.get()) return@Thread
+                    root = JSONObject(fetch(client, manifestUrl))
+                    // A release with older code than this build (a hotfix, a promoted older beta) can have the newest
+                    // tag: then the next older release can still be a newer beta
+                    val serverMainCommits = root.optInt(UpdateChannel.MAIN_COMMITS_KEY, 0)
+                    if (!UpdateChannel.hasOlderCode(serverMainCommits, BuildConfig.MAIN_COMMITS)) break
+                }
 
                 val serverVersionCode = root.optInt("versionCode", 0)
                 val serverVersionName = root.optString("versionName", "")
@@ -239,7 +248,10 @@ class OtaUpdateManager(
                 }
 
                 val finalApkUrl = apkUrl
-                val outcome = UpdateChannel.outcome(serverVersionCode, serverVersionName, myVersionCode, myVersionName)
+                val outcome = UpdateChannel.outcome(
+                    serverVersionCode, serverVersionName, myVersionCode, myVersionName,
+                    root.optInt(UpdateChannel.MAIN_COMMITS_KEY, 0), BuildConfig.MAIN_COMMITS
+                )
 
                 activity.runOnUiThread {
                     if (cancelled.get()) return@runOnUiThread
@@ -280,8 +292,9 @@ class OtaUpdateManager(
     }
 
     /**
-     * The installed build is newer than the newest build of the channel (a beta, with the channel Stable). No Reinstall:
-     * it would install the older build over data that newer migrations changed.
+     * The installed build is newer than the newest build of the channel (a beta, with the channel Stable), or has newer
+     * code than it ([UpdateChannel.outcome]). No Reinstall: it would install the older build over data that newer
+     * migrations changed.
      */
     private fun showAheadDialog(currentVersion: String, channel: String) {
         val curVerStr = if (currentVersion.startsWith("v")) currentVersion else "v$currentVersion"
