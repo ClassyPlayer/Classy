@@ -43,6 +43,9 @@ object SpeakerVolume {
     fun safeStep(step: Int, output: AudioOutput?): Int =
         if (output == null || output == AudioOutput.SPEAKER) step else minOf(step, SAFE_STEP)
 
+    /** The step a capped speaker report gets: [SAFE_STEP], or the Volume Limit [limitStep] when that is lower. */
+    fun connectCapStep(limitStep: Int): Int = VolumeSteps.clamp(SAFE_STEP, limitStep)
+
     /** True when a speaker's report of [step] comes so soon after the output changed that it is capped. */
     fun capsSpeakerReport(step: Int, msSinceOutputChange: Long): Boolean =
         step > SAFE_STEP && msSinceOutputChange in 0 until CONNECT_WINDOW_MS

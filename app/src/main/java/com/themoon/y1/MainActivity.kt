@@ -840,9 +840,9 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
         val output = AudioOutput.A2DP
         val step = VolumeSteps.stepForIndex(newIndex, VolumeCurves.forOutput(output))
         if (SpeakerVolume.capsSpeakerReport(step, android.os.SystemClock.elapsedRealtime() - outputChangedAtMs)) {
-            android.util.Log.d("VolumeKeys", "Safe start: Bluetooth device connected at step $step, " +
-                "lowered to ${SpeakerVolume.SAFE_STEP}")
-            setVolumeLevel(SpeakerVolume.SAFE_STEP, showOverlay = false)
+            val capped = SpeakerVolume.connectCapStep(volumeLimitMax)
+            android.util.Log.d("VolumeKeys", "Safe start: Bluetooth device connected at step $step, lowered to $capped")
+            setVolumeLevel(capped, showOverlay = false)
             return
         }
         if (SpeakerVolume.isOwnChange(newIndex, lastTargetVolume, recentIndexWrites,
@@ -854,6 +854,8 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
             AudioPlayerManager.getInstance().noteVolumeChanged()
             return
         }
+        // The speaker's level wins over the rest of a wheel plan (index writes queued 220 ms apart).
+        volumeIndexHandler.removeCallbacksAndMessages(null)
         currentVirtualVolume = step
         lastTargetVolume = newIndex
         volumeMemory.save(output, step)

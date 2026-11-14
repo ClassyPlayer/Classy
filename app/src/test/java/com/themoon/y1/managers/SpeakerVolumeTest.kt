@@ -49,6 +49,15 @@ class SpeakerVolumeTest {
     }
 
     @Test
+    fun theConnectCapKeepsAVolumeLimitBelowTheSafeStep() {
+        assertEquals(5, SpeakerVolume.connectCapStep(5))
+        assertEquals(1, SpeakerVolume.connectCapStep(1))
+        assertEquals(SpeakerVolume.SAFE_STEP, SpeakerVolume.connectCapStep(20))
+        // Volume Limit off (-1): the safe step.
+        assertEquals(SpeakerVolume.SAFE_STEP, SpeakerVolume.connectCapStep(-1))
+    }
+
+    @Test
     fun ourOwnIndexAndTheSpeakersConfirmationAreNotFollowed() {
         val now = 100_000L
         // Our target, at any time.
