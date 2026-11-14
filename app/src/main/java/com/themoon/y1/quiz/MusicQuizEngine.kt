@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import com.google.android.exoplayer2.ExoPlaybackException
 import com.google.android.exoplayer2.MediaItem
 import com.google.android.exoplayer2.Player
@@ -39,8 +40,11 @@ class MusicQuizEngine(private val context: Context? = null, private val random: 
         /** The time in which a clip must start: the player is ready and plays. */
         const val CLIP_START_CHECK_MS = 5000L
 
-        /** A smaller step of the clip position in [CLIP_START_CHECK_MS] is no progress (the clip hangs). */
+        /** A smaller step of the clip position after the player is ready is no progress (the clip hangs). */
         const val CLIP_MIN_PROGRESS_MS = 500L
+
+        /** The time that a ready clip player gets to play before its progress is checked. */
+        const val CLIP_MIN_PLAY_MS = 1000L
     }
 
     data class CoverOption(
@@ -87,6 +91,8 @@ class MusicQuizEngine(private val context: Context? = null, private val random: 
     // The song of the clip that plays (null: no clip), and the start of the clip (-1 until the player is ready)
     private var previewFile: File? = null
     private var clipStart = -1L
+    // The time (uptime) when the clip player was ready, for the check of the clip progress
+    private var clipReadyAt = 0L
     private var previewCheck: Runnable? = null
     private val previewHandler by lazy { Handler(Looper.getMainLooper()) }
     // A volume change during a clip
@@ -419,7 +425,7 @@ class MusicQuizEngine(private val context: Context? = null, private val random: 
             clipStart = -1L
             player.setMediaItem(MediaItem.fromUri(Uri.fromFile(file)))
             player.prepare()
-            watchClipStart(file)
+            watchClipStart(file, CLIP_START_CHECK_MS)
         } catch (ignored: Throwable) {
             onPreviewError(file)
         }
@@ -441,9 +447,9 @@ class MusicQuizEngine(private val context: Context? = null, private val random: 
                 val file = previewFile ?: return
                 if (state != Player.STATE_READY || clipStart >= 0) return
                 clipStart = clipStartMs(player.duration)
+                clipReadyAt = SystemClock.uptimeMillis()
                 player.seekTo(clipStart)
                 player.playWhenReady = true
-                watchClipStart(file)
             }
 
             override fun onPlayerError(error: ExoPlaybackException) {
@@ -455,17 +461,30 @@ class MusicQuizEngine(private val context: Context? = null, private val random: 
         return player
     }
 
-    /** Not ready, or no progress, [CLIP_START_CHECK_MS] after now: the clip of [file] does not play. */
-    private fun watchClipStart(file: File) {
+    /**
+     * The check of the clip of [file], [delayMs] from now. One deadline from the start of the clip, so that the check
+     * comes before the end of a short question: not ready at the deadline, or no progress, means that the clip does not
+     * play. A player that became ready less than [CLIP_MIN_PLAY_MS] before the deadline gets that time to play.
+     */
+    private fun watchClipStart(file: File, delayMs: Long) {
         previewCheck?.let { previewHandler.removeCallbacks(it) }
         val check = Runnable {
             previewCheck = null
             val player = previewExoPlayer
             if (previewFile != file || player == null) return@Runnable
-            if (clipStart < 0 || player.currentPosition - clipStart < CLIP_MIN_PROGRESS_MS) onPreviewError(file)
+            if (clipStart < 0) {
+                onPreviewError(file)
+                return@Runnable
+            }
+            val played = SystemClock.uptimeMillis() - clipReadyAt
+            if (played < CLIP_MIN_PLAY_MS) {
+                watchClipStart(file, CLIP_MIN_PLAY_MS - played)
+            } else if (player.currentPosition - clipStart < CLIP_MIN_PROGRESS_MS) {
+                onPreviewError(file)
+            }
         }
         previewCheck = check
-        previewHandler.postDelayed(check, CLIP_START_CHECK_MS)
+        previewHandler.postDelayed(check, delayMs)
     }
 
     /** A random start in the middle of a song of [durationMs], so that the clip is not the intro; 0 for a short song. */
