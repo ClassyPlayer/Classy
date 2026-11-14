@@ -25,6 +25,7 @@ import com.google.android.exoplayer2.audio.AudioRendererEventListener
 import com.google.android.exoplayer2.audio.AudioSink
 import com.google.android.exoplayer2.audio.DefaultAudioSink
 import com.google.android.exoplayer2.audio.SonicAudioProcessor
+import com.google.android.exoplayer2.ext.okhttp.OkHttpDataSource
 import com.google.android.exoplayer2.extractor.DefaultExtractorsFactory
 import com.google.android.exoplayer2.mediacodec.MediaCodecInfo
 import com.google.android.exoplayer2.mediacodec.MediaCodecSelector
@@ -36,6 +37,8 @@ import com.themoon.y1.MainActivity
 import com.themoon.y1.R
 import com.themoon.y1.StoragePaths
 import com.themoon.y1.core.TimeFormat
+import com.themoon.y1.podcasts.PodcastHttp
+import com.themoon.y1.podcasts.PodcastStreamError
 import com.themoon.y1.views.Notice
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -53,6 +56,8 @@ import java.util.concurrent.Executors
  */
 class AudioPlayerManager private constructor() {
     var exoPlayer: SimpleExoPlayer? = null
+    /** Episode title and channel of the last podcast stream, for Now Playing after a retry. */
+    private var streamInfo: Pair<String, String>? = null
     val customEqProcessor: Y1EqAudioProcessor = Y1EqAudioProcessor()
     val crossfeedProcessor: Y1CrossfeedAudioProcessor = Y1CrossfeedAudioProcessor()
     /** Settings → Playback → Mono Audio, for the ExoPlayer path ([AudioEffectManager.syncAudioEffects] sets it). */
@@ -285,7 +290,9 @@ class AudioPlayerManager private constructor() {
                     isPlayingActive = false
                     val currentPath = MainActivity.instance?.let { it.currentPlaylist.getOrNull(it.currentIndex)?.absolutePath }
                     android.util.Log.e("AudioPlayerManager", "ExoPlayer playback error on $currentPath: ${error.message}", error)
-                    if (!isUsingLegacyPlayer) {
+                    if (currentPath?.startsWith("/PODCAST_STREAM") == true) {
+                        handleStreamError(PodcastStreamError.reason(error))
+                    } else if (!isUsingLegacyPlayer) {
                         handleTrackError("Cannot play this file.")
                     }
                 }
@@ -398,6 +405,35 @@ class AudioPlayerManager private constructor() {
         }
     }
 
+    /**
+     * A podcast stream that does not play: show why and stop. The stream is the whole queue, and its "/PODCAST_STREAM"
+     * name is not a file, so the next track would only show "Corrupted File". Play tries the stream again.
+     */
+    private fun handleStreamError(reason: String) {
+        val main = MainActivity.instance ?: return
+        main.runOnUiThread {
+            exoPlayer?.playWhenReady = false
+            stopPeriodicPositionSaver()
+            main.isPausedByHand = true
+            main.tvPlayerTitle.text = "Load Failed"
+            main.tvPlayerArtist.text = reason
+            main.tvPlayerAlbum.text = ""
+            Notice.error(main, reason)
+            main.updatePlayerUI()
+        }
+    }
+
+    /** The episode and the channel of the stream, in place of the error text of [handleStreamError]. */
+    private fun restoreStreamInfo() {
+        val main = MainActivity.instance ?: return
+        if (main.currentPlaylist.singleOrNull()?.absolutePath?.startsWith("/PODCAST_STREAM") != true) return
+        val (title, channel) = streamInfo ?: return
+        main.runOnUiThread {
+            main.tvPlayerTitle.text = title
+            main.tvPlayerArtist.text = channel
+        }
+    }
+
     fun playTrackList(list: List<File>, index: Int, initialSeekMs: Long = -1L) {
         saveAudiobookBookmarkIfNeeded()
 
@@ -488,6 +524,7 @@ class AudioPlayerManager private constructor() {
 
             isUsingLegacyPlayer = false
             isGaplessQueueActive = false
+            streamInfo = title to channelName
 
             val safeChannel = channelName.replace("[\\\\/:*?\"<>|]".toRegex(), "_")
             val safeTitle = title.replace("[\\\\/:*?\"<>|]".toRegex(), "_") + ".mp3"
@@ -496,7 +533,11 @@ class AudioPlayerManager private constructor() {
             main.currentIndex = 0
 
             val mediaItem = MediaItem.fromUri(Uri.parse(url))
-            val dataSourceFactory = DefaultDataSourceFactory(main, Util.getUserAgent(main, "Y1_Launcher"))
+            // Android 4.4 HTTPS has no TLS 1.2, which most podcast hosts need: load the stream with the
+            // Conscrypt client of the podcast downloads
+            val httpFactory = OkHttpDataSource.Factory(PodcastHttp.client)
+                .setUserAgent(Util.getUserAgent(main, "Y1_Launcher"))
+            val dataSourceFactory = DefaultDataSourceFactory(main, httpFactory)
             val extractorsFactory = DefaultExtractorsFactory().setConstantBitrateSeekingEnabled(true)
             val mediaSource = ProgressiveMediaSource.Factory(dataSourceFactory, extractorsFactory).createMediaSource(mediaItem)
 
@@ -524,11 +565,13 @@ class AudioPlayerManager private constructor() {
             if (!imageUrl.isNullOrEmpty()) {
                 Thread {
                     try {
-                        val imgUrl = java.net.URL(imageUrl)
-                        val conn = imgUrl.openConnection() as java.net.HttpURLConnection
-                        conn.doInput = true
-                        conn.connect()
-                        val bmp = android.graphics.BitmapFactory.decodeStream(conn.inputStream)
+                        val request = okhttp3.Request.Builder().url(imageUrl).build()
+                        val call = PodcastHttp.client.newCall(request)
+                        call.timeout().timeout(PodcastHttp.SMALL_FILE_TIMEOUT_S, java.util.concurrent.TimeUnit.SECONDS)
+                        val bmp = call.execute().use { response ->
+                            response.body()?.takeIf { response.isSuccessful }?.byteStream()
+                                ?.let { android.graphics.BitmapFactory.decodeStream(it) }
+                        }
                         if (bmp != null) {
                             main.runOnUiThread {
                                 main.ivAlbumArt.setImageBitmap(bmp)
@@ -613,6 +656,11 @@ class AudioPlayerManager private constructor() {
                 savePlaybackState(sync = true)
             } else {
                 isPlayingActive = true
+                // After an error (for example a stream with no connection) the player is idle: load it again
+                if (player.playbackState == Player.STATE_IDLE && player.mediaItemCount > 0) {
+                    restoreStreamInfo()
+                    player.prepare()
+                }
                 player.playWhenReady = true
                 startPeriodicPositionSaver()
                 MainActivity.instance?.isPausedByHand = false

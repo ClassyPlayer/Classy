@@ -80,6 +80,8 @@ dependencies {
     implementation libs.kotlinx.coroutines.android
     implementation libs.palette
     implementation 'com.google.android.exoplayer:exoplayer-core:2.13.3'
+    // Podcast streams use the app's OkHttp client (Conscrypt, TLS 1.2), not the HTTPS of Android 4.4
+    implementation 'com.google.android.exoplayer:extension-okhttp:2.13.3'
     implementation files('libs/extension-opus-release.aar')
     implementation files('libs/extension-flac-release.aar')
     implementation files('libs/extension-ffmpeg-release.aar')
