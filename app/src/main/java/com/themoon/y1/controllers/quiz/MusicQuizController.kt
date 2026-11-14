@@ -117,6 +117,8 @@ class MusicQuizController(
 
     override fun onExit() {
         cancelTimer()
+        // The next question after an answer must not come (and make a clip player) after the quiz closed
+        handler.removeCallbacksAndMessages(null)
         engine.releasePreview()
         screen.clear()
         menu = null
@@ -320,6 +322,7 @@ class MusicQuizController(
         updateScoreLivesUI()
 
         handler.postDelayed({
+            if (layoutQuiz.visibility != View.VISIBLE) return@postDelayed
             if (engine.isGameOver) {
                 showGameOver()
             } else if (engine.isRoundComplete()) {
@@ -485,6 +488,7 @@ class MusicQuizController(
 
     private fun exitQuiz() {
         cancelTimer()
+        handler.removeCallbacksAndMessages(null)
         engine.releasePreview()
         if (wasPlayingBeforeStart) {
             val am = AudioPlayerManager.getInstance()
