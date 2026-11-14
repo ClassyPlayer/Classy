@@ -111,6 +111,15 @@ class MusicQuizEngineTest {
     }
 
     @Test
+    fun testClipStalled_progressOrARepeatIsPlay() {
+        assertTrue(MusicQuizEngine.clipStalled(positionMs = 60_200, clipStartMs = 60_000, repeated = false))
+        assertFalse(MusicQuizEngine.clipStalled(positionMs = 64_000, clipStartMs = 60_000, repeated = false))
+        // A 2.4 s song that played to its end and started again is near 0 at the check: it plays
+        assertTrue(MusicQuizEngine.clipStalled(positionMs = 100, clipStartMs = 0, repeated = false))
+        assertFalse(MusicQuizEngine.clipStalled(positionMs = 100, clipStartMs = 0, repeated = true))
+    }
+
+    @Test
     fun testQuestionsPerRound_isSix() {
         val engine = newEngine()
         val songs = (1..10).map { createSong("Song $it") }

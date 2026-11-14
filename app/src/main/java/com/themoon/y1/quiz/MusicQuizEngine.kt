@@ -45,6 +45,13 @@ class MusicQuizEngine(private val context: Context? = null, private val random: 
 
         /** The time that a ready clip player gets to play before its progress is checked. */
         const val CLIP_MIN_PLAY_MS = 1000L
+
+        /**
+         * True when a clip that started at [clipStartMs] is at [positionMs] with no progress. The position is in the
+         * song, so a short song that played to its end and started again ([repeated]) is at a small position: it plays.
+         */
+        internal fun clipStalled(positionMs: Long, clipStartMs: Long, repeated: Boolean): Boolean =
+            !repeated && positionMs - clipStartMs < CLIP_MIN_PROGRESS_MS
     }
 
     data class CoverOption(
@@ -93,6 +100,8 @@ class MusicQuizEngine(private val context: Context? = null, private val random: 
     private var clipStart = -1L
     // The time (uptime) when the clip player was ready, for the check of the clip progress
     private var clipReadyAt = 0L
+    // The clip played to the end of the song and started again (REPEAT_MODE_ONE): it plays
+    private var clipRepeated = false
     private var previewCheck: Runnable? = null
     private val previewHandler by lazy { Handler(Looper.getMainLooper()) }
     // A volume change during a clip
@@ -423,6 +432,7 @@ class MusicQuizEngine(private val context: Context? = null, private val random: 
         try {
             previewFile = file
             clipStart = -1L
+            clipRepeated = false
             player.setMediaItem(MediaItem.fromUri(Uri.fromFile(file)))
             player.prepare()
             watchClipStart(file, CLIP_START_CHECK_MS)
@@ -452,6 +462,10 @@ class MusicQuizEngine(private val context: Context? = null, private val random: 
                 player.playWhenReady = true
             }
 
+            override fun onPositionDiscontinuity(reason: Int) {
+                if (reason == Player.DISCONTINUITY_REASON_PERIOD_TRANSITION && previewFile != null) clipRepeated = true
+            }
+
             override fun onPlayerError(error: ExoPlaybackException) {
                 previewFile?.let { onPreviewError(it) }
             }
@@ -479,7 +493,7 @@ class MusicQuizEngine(private val context: Context? = null, private val random: 
             val played = SystemClock.uptimeMillis() - clipReadyAt
             if (played < CLIP_MIN_PLAY_MS) {
                 watchClipStart(file, CLIP_MIN_PLAY_MS - played)
-            } else if (player.currentPosition - clipStart < CLIP_MIN_PROGRESS_MS) {
+            } else if (clipStalled(player.currentPosition, clipStart, clipRepeated)) {
                 onPreviewError(file)
             }
         }
