@@ -11,6 +11,7 @@
 #            pin scripts/Y2.kl (wheel -> DPAD_LEFT/RIGHT), add the stock
 #            Bluetooth.apk + Bluetooth.odex from tools/rom_assets (the base has none) with
 #            the phone profiles (HFP, PBAP, MAP) turned off in the installed Bluetooth.apk,
+#            make AVRCP absolute volume work (Bluetooth HAL + Avrcp in Bluetooth.apk/.odex),
 #            and turn off the SystemUI low-battery dialog (the launcher shows its own).
 #
 # Optional override:
@@ -39,8 +40,10 @@ Y2_BASE_URL="${Y2_BASE_URL:-https://github.com/ryan-specter/jj_auto/releases/dow
 # (see tools/rom_assets/README.md). The y2-test base has none, so Bluetooth cannot turn on.
 Y2_BT_APK_SHA256="064855fd299e54d30e114b4d441e1f14657e62b4325cfed5e5c7b9a652e81b37"
 Y2_BT_ODEX_SHA256="f543c2842589e70f6d4582e8992e2ccf1f2e0e1fa19b454fabf039b5f8e08fc2"
-# The installed Bluetooth.apk after tools/patch_bluetooth_profiles.py (only resources.arsc bools change).
-Y2_BT_APK_PATCHED_SHA256="99d8d244e6dd083266985ef473bbe86fe51026d11ab724f9a78ca677cc388013"
+# The installed Bluetooth.apk after tools/patch_bluetooth_profiles.py (resources.arsc bools) and
+# tools/patch_bluetooth_absolute_volume.py (Avrcp in classes.dex, stored), and the installed odex after the latter.
+Y2_BT_APK_PATCHED_SHA256="69e4173f41a633555f36885c2f5436e1c69c231dd047d28cfb873a85515d5d71"
+Y2_BT_ODEX_PATCHED_SHA256="8ba538a0160f51699ef2ef3cd8ca5d8962338bb6d298b0d97713237d8ab87cc3"
 
 # Patched /system/framework/android.policy.jar for the Classy boot screen (tools/rom_assets/android.policy.jar).
 BOOT_POLICY_JAR_SHA256="e4a0adb8281e5940220ad810d48bd797ddaf4e961d4cc7ef1a1f9533b4f6880a"
@@ -401,10 +404,17 @@ audit_rom_contents() {
             echo "audit fail: /system/app/Bluetooth.apk or Bluetooth.odex missing (Bluetooth cannot turn on)" >&2
             errors=$((errors + 1))
         elif [ "$(sha256_of "$sys_mount/app/Bluetooth.apk")" != "$Y2_BT_APK_PATCHED_SHA256" ] \
-            || [ "$(sha256_of "$sys_mount/app/Bluetooth.odex")" != "$Y2_BT_ODEX_SHA256" ]; then
-            echo "audit fail: /system/app/Bluetooth.apk or Bluetooth.odex is not the stock pair (APK with the profile patch)" >&2
+            || [ "$(sha256_of "$sys_mount/app/Bluetooth.odex")" != "$Y2_BT_ODEX_PATCHED_SHA256" ]; then
+            echo "audit fail: /system/app/Bluetooth.apk or Bluetooth.odex is not the stock pair with the profile and absolute volume patches" >&2
             errors=$((errors + 1))
         fi
+        for bt_file in vendor/lib/hw/bluetooth.blueangel.so app/Bluetooth.apk app/Bluetooth.odex; do
+            if [ ! -f "$sys_mount/$bt_file" ] \
+                || ! python3 -B "$REPO_ROOT/tools/patch_bluetooth_absolute_volume.py" --check "$sys_mount/$bt_file" >/dev/null 2>&1; then
+                echo "audit fail: /system/$bt_file does not have the AVRCP absolute volume patch" >&2
+                errors=$((errors + 1))
+            fi
+        done
         if [ -f "$sys_mount/app/Bluetooth.apk" ] \
             && ! python3 -B "$REPO_ROOT/tools/patch_bluetooth_profiles.py" --check "$sys_mount/app/Bluetooth.apk" >/dev/null 2>&1; then
             echo "audit fail: Bluetooth.apk still has the hands-free, phone book or message profile on" >&2
@@ -704,6 +714,17 @@ if [ "$TYPE" = "y2" ]; then
     sudo python3 -B "$REPO_ROOT/tools/patch_bluetooth_profiles.py" "$MOUNT_SYS/app/Bluetooth.apk"
     sudo chmod 644 "$MOUNT_SYS/app/Bluetooth.apk"
     sudo chown root:root "$MOUNT_SYS/app/Bluetooth.apk"
+
+    # AVRCP absolute volume: the speaker's volume and the player's volume are one volume (wheel and speaker
+    # buttons). The HAL turns it on for any AVRCP 1.3+ remote; Avrcp sends 8 * index instead of 127 for every
+    # index from 2 (Android 4.4 bug) and shows no volume panel. Classy uses the A2DP index (SpeakerVolume).
+    echo "==> Turning on AVRCP absolute volume (bluetooth.blueangel.so, Bluetooth.apk, Bluetooth.odex)"
+    for bt_file in vendor/lib/hw/bluetooth.blueangel.so app/Bluetooth.apk app/Bluetooth.odex; do
+        [ -f "$MOUNT_SYS/$bt_file" ] || die "/system/$bt_file missing (needed for AVRCP absolute volume)"
+        sudo python3 -B "$REPO_ROOT/tools/patch_bluetooth_absolute_volume.py" "$MOUNT_SYS/$bt_file"
+        sudo chmod 644 "$MOUNT_SYS/$bt_file"
+        sudo chown root:root "$MOUNT_SYS/$bt_file"
+    done
 
     # Only for a re-signed MtkBt.apk (not in the repo). Bluetooth.apk and MtkBt.apk share
     # android.uid.bluetooth, so they need the same signature: the stock pair above needs
