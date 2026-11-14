@@ -35,6 +35,27 @@ class TimeoutDnsTest {
     }
 
     @Test
+    fun allThreadsBlocked_newLookupFailsAtOnce() {
+        val never = CountDownLatch(1)
+        val dns = TimeoutDns(Dns { never.await(); emptyList() }, timeoutMs = 100, executor = TimeoutDns.boundedExecutor(1))
+        try {
+            dns.lookup("feeds.npr.org")
+            fail("The lookup must fail")
+        } catch (expected: UnknownHostException) {
+        }
+        // The one thread still waits for the first lookup
+        val start = System.nanoTime()
+        try {
+            dns.lookup("feeds.npr.org")
+            fail("The lookup must fail")
+        } catch (e: UnknownHostException) {
+            assertTrue(e.message!!.contains("No free DNS lookup thread"))
+        }
+        assertTrue((System.nanoTime() - start) / 1_000_000 < 100)
+        never.countDown()
+    }
+
+    @Test
     fun unknownHost_isPassedOn() {
         val dns = TimeoutDns(Dns { throw UnknownHostException("no such host") }, timeoutMs = 1000)
         try {
