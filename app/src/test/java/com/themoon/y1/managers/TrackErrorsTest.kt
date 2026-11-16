@@ -1,5 +1,7 @@
 package com.themoon.y1.managers
 
+import com.themoon.y1.managers.AudioPlayerManager.Companion.TrackErrorAction
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -17,6 +19,24 @@ class TrackErrorsTest {
     @Test
     fun aQueueOfOneTrackStopsAtItsFirstError() {
         assertTrue(AudioPlayerManager.stopsAfterErrors(1, queueSize = 1))
+    }
+
+    @Test
+    fun anErrorOfTheLastTrackStopsAtTheQueueEnd_exceptWithRepeatAll() {
+        // A 10-track album, the last file does not play
+        assertEquals(TrackErrorAction.STOP_AT_END, AudioPlayerManager.afterTrackError(1, 10, index = 9, repeatMode = 0))
+        assertEquals(TrackErrorAction.STOP_AT_END, AudioPlayerManager.afterTrackError(1, 10, index = 9, repeatMode = 1))
+        assertEquals(TrackErrorAction.NEXT, AudioPlayerManager.afterTrackError(1, 10, index = 9, repeatMode = 2))
+        // Another track: the next track plays
+        assertEquals(TrackErrorAction.NEXT, AudioPlayerManager.afterTrackError(1, 10, index = 4, repeatMode = 0))
+    }
+
+    @Test
+    fun aQueueOfOnlyBadFilesStillStopsAfterOnePass() {
+        assertEquals(TrackErrorAction.NEXT, AudioPlayerManager.afterTrackError(1, 3, index = 0, repeatMode = 2))
+        assertEquals(TrackErrorAction.NEXT, AudioPlayerManager.afterTrackError(2, 3, index = 1, repeatMode = 2))
+        assertEquals(TrackErrorAction.STOP_ALL_FAILED, AudioPlayerManager.afterTrackError(3, 3, index = 2, repeatMode = 2))
+        assertEquals(TrackErrorAction.STOP_ALL_FAILED, AudioPlayerManager.afterTrackError(3, 3, index = 2, repeatMode = 0))
     }
 
     @Test

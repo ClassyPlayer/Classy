@@ -271,19 +271,7 @@ class AudioPlayerManager private constructor() {
                     if (main.currentIndex < main.currentPlaylist.size - 1) {
                         nextTrack()
                     } else {
-                        isPlayingActive = false
-                        stopPeriodicPositionSaver()
-                        main.isPausedByHand = true
-                        main.currentIndex = 0
-
-                        exoPlayer?.playWhenReady = false
-                        if (isGaplessQueueActive) {
-                            exoPlayer?.seekTo(0, 0L)
-                        }
-
-                        prepareMusicTrack(0, initialSeekMs = 0L)
-                        main.updatePlayerUI()
-                        savePlaybackState(sync = true)
+                        stopAtQueueEnd(main)
                     }
                 }
             } catch (e: Exception) {
@@ -292,19 +280,44 @@ class AudioPlayerManager private constructor() {
         }
     }
 
+    /** The end of the queue (Repeat Off): pause at the start of the first track. */
+    private fun stopAtQueueEnd(main: MainActivity) {
+        isPlayingActive = false
+        stopPeriodicPositionSaver()
+        main.isPausedByHand = true
+        main.currentIndex = 0
+
+        exoPlayer?.playWhenReady = false
+        if (isGaplessQueueActive) {
+            exoPlayer?.seekTo(0, 0L)
+        }
+
+        prepareMusicTrack(0, initialSeekMs = 0L)
+        main.updatePlayerUI()
+        savePlaybackState(sync = true)
+    }
+
     /**
-     * The player cannot play the current track: skip to the next track. After one error for each track of the queue
-     * with no track that played, stop, so that a queue of files that do not play does not skip round and round.
+     * The player cannot play the current track: skip to the next track ([afterTrackError]). The last track of the
+     * queue stops at the queue end as a track end does, except with Repeat All. After one error for each track of the
+     * queue with no track that played, stop, so that a queue of files that do not play does not skip round and round.
      */
     private fun handleTrackError(errorMsg: String) {
         val main = MainActivity.instance ?: return
         main.runOnUiThread {
             main.consecutiveErrorCount++
-            if (stopsAfterErrors(main.consecutiveErrorCount, main.currentPlaylist.size)) {
-                stopAfterErrors(main)
-            } else {
-                Notice.error(main, "$errorMsg Skipping...")
-                nextTrack()
+            val repeatMode = Prefs.REPEAT_MODE.get(main.prefs)
+            when (afterTrackError(main.consecutiveErrorCount, main.currentPlaylist.size, main.currentIndex, repeatMode)) {
+                TrackErrorAction.STOP_ALL_FAILED -> stopAfterErrors(main)
+                TrackErrorAction.STOP_AT_END -> {
+                    Notice.error(main, errorMsg)
+                    main.consecutiveErrorCount = 0
+                    stopAtQueueEnd(main)
+                }
+                TrackErrorAction.NEXT -> {
+                    Notice.error(main, "$errorMsg Skipping...")
+                    nextTrack()
+                }
             }
         }
     }
@@ -2106,6 +2119,20 @@ class AudioPlayerManager private constructor() {
          * then the player stops, in place of a skip to the next track.
          */
         internal fun stopsAfterErrors(errors: Int, queueSize: Int): Boolean = errors >= queueSize
+
+        /** What the player does after an error of the track at [index]: see [afterTrackError]. */
+        internal enum class TrackErrorAction { NEXT, STOP_AT_END, STOP_ALL_FAILED }
+
+        /**
+         * The action after [errors] tracks after each other did not play, the last one at [index] of a queue of
+         * [queueSize] tracks, with the Repeat setting [repeatMode] (0 Off, 1 One, 2 All). Only Repeat All goes from
+         * the last track to the first one; Repeat Off and One stop there, as at the end of a track.
+         */
+        internal fun afterTrackError(errors: Int, queueSize: Int, index: Int, repeatMode: Int): TrackErrorAction = when {
+            stopsAfterErrors(errors, queueSize) -> TrackErrorAction.STOP_ALL_FAILED
+            repeatMode != 2 && index >= queueSize - 1 -> TrackErrorAction.STOP_AT_END
+            else -> TrackErrorAction.NEXT
+        }
 
         /**
          * The play queue files are written for a new queue ([stamp] is not [saved]), but not for a queue that the
