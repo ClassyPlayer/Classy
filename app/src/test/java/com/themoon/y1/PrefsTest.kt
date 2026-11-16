@@ -40,7 +40,9 @@ class PrefsTest {
             "screen_off_control", "double_click_favorite", "repeat_mode", "loop_scroll_on", "list_edges_fade",
             "eq_preset", "eq_profile_id", "group_albums_by_artist", "cover_pan_zoom", "mono_audio"
         )
-        assertEquals(before, Prefs.RESETTABLE.map { it.key }.toSet())
+        // Added after the model: Settings → Controls → Letter Jump and Letter Jump Sensitivity
+        val added = setOf("letter_jump", "letter_jump_sensitivity")
+        assertEquals(before + added, Prefs.RESETTABLE.map { it.key }.toSet())
     }
 
     @Test

@@ -762,5 +762,7 @@
   "Beta versions get new features first and can have bugs.": "Las versiones beta reciben las novedades primero y pueden tener errores.",
   "To leave, choose Stable: the player then waits for the next stable version.": "Para salir, elige Estable: el reproductor esperará a la próxima versión estable.",
   "This version is newer than the latest stable version.": "Esta versión es más nueva que la última versión estable.",
-  "Check again when the next stable version is out.": "Vuelve a comprobar cuando salga la próxima versión estable."
+  "Check again when the next stable version is out.": "Vuelve a comprobar cuando salga la próxima versión estable.",
+  "Letter Jump": "Salto por letras",
+  "Letter Jump Sensitivity": "Sensibilidad del salto"
 }
