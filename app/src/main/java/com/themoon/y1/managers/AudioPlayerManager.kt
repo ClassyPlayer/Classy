@@ -670,12 +670,7 @@ class AudioPlayerManager private constructor() {
 
             main.consecutiveErrorCount++
             when (afterTrackError(main.consecutiveErrorCount, main.currentPlaylist.size, index, Prefs.REPEAT_MODE.get(main.prefs))) {
-                TrackErrorAction.STOP_ALL_FAILED -> {
-                    Notice.error(main, "All tracks failed. Playback stopped.")
-                    main.isPausedByHand = true
-                    main.updatePlayerUI()
-                    main.consecutiveErrorCount = 0
-                }
+                TrackErrorAction.STOP_ALL_FAILED -> stopAfterErrors(main)
                 TrackErrorAction.STOP_AT_END -> {
                     Notice.error(main, "Corrupted file detected.")
                     main.consecutiveErrorCount = 0
@@ -905,11 +900,7 @@ class AudioPlayerManager private constructor() {
             Notice.error(main, failReason)
 
             when (afterTrackError(main.consecutiveErrorCount, main.currentPlaylist.size, index, Prefs.REPEAT_MODE.get(main.prefs))) {
-                TrackErrorAction.STOP_ALL_FAILED -> {
-                    main.isPausedByHand = true
-                    main.updatePlayerUI()
-                    main.consecutiveErrorCount = 0
-                }
+                TrackErrorAction.STOP_ALL_FAILED -> stopAfterErrors(main)
                 TrackErrorAction.STOP_AT_END -> {
                     main.consecutiveErrorCount = 0
                     stopAtQueueEnd(main)
