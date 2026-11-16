@@ -119,6 +119,59 @@ class LetterJumpTest {
         for (t in 0L..2000L step 120) assertFalse(speed.onStep(1, t))
     }
 
+    /** True for each step of [count] steps [gapMs] apart, the way [dir], when the wheel turns fast for [sensitivity]. */
+    private fun turn(sensitivity: LetterJump.Sensitivity?, count: Int, gapMs: Long, dir: Int = 1): List<Boolean> {
+        val speed = LetterJump.WheelSpeed()
+        return (0 until count).map { speed.onStep(dir, gapMs * it, sensitivity) }
+    }
+
+    @Test
+    fun wheelSpeed_lowNeedsSixStepsEachAtMost80MsApart() {
+        val low = LetterJump.Sensitivity.LOW
+        assertEquals(listOf(false, false, false, false, false, true, true), turn(low, 7, 80))
+        assertTrue(turn(low, 20, 81).none { it }) // 81 ms gaps: row by row
+        assertTrue(turn(low, 5, 50).none { it }) // the four fast steps of Normal are not enough
+    }
+
+    @Test
+    fun wheelSpeed_normalNeedsFourStepsEachAtMost100MsApart() {
+        val normal = LetterJump.Sensitivity.NORMAL
+        assertEquals(listOf(false, false, false, true), turn(normal, 4, 100))
+        assertTrue(turn(normal, 20, 101).none { it })
+        assertEquals(turn(normal, 10, 70), turn(LetterJump.Sensitivity.DEFAULT, 10, 70))
+        val speed = LetterJump.WheelSpeed() // no sensitivity given: Normal, as before the setting
+        assertEquals(listOf(false, false, false, true), (0 until 4).map { speed.onStep(1, 100L * it) })
+    }
+
+    @Test
+    fun wheelSpeed_highNeedsThreeStepsEachAtMost120MsApart() {
+        val high = LetterJump.Sensitivity.HIGH
+        assertEquals(listOf(false, false, true), turn(high, 3, 120))
+        assertTrue(turn(high, 20, 121).none { it })
+        assertEquals(listOf(false, false, true), turn(high, 3, 120, dir = -1))
+    }
+
+    @Test
+    fun wheelSpeed_offIsNeverFast() {
+        assertTrue(turn(null, 50, 5).none { it })
+        assertTrue(turn(null, 50, 5, dir = -1).none { it })
+        // Off in the middle of a fast turn forgets the steps before it
+        val speed = LetterJump.WheelSpeed()
+        for (t in 0L..100L step 50) speed.onStep(1, t, LetterJump.Sensitivity.NORMAL)
+        assertFalse(speed.onStep(1, 150, null))
+        assertFalse(speed.onStep(1, 200, LetterJump.Sensitivity.NORMAL))
+    }
+
+    @Test
+    fun sensitivity_comesFromTheSettings() {
+        assertNull(LetterJump.sensitivity(on = false, level = 1))
+        assertEquals(LetterJump.Sensitivity.LOW, LetterJump.sensitivity(on = true, level = 0))
+        assertEquals(LetterJump.Sensitivity.NORMAL, LetterJump.sensitivity(on = true, level = 1))
+        assertEquals(LetterJump.Sensitivity.HIGH, LetterJump.sensitivity(on = true, level = 2))
+        assertEquals(LetterJump.Sensitivity.NORMAL, LetterJump.sensitivity(on = true, level = 7)) // not known: the default
+        assertEquals(LetterJump.Sensitivity.values().size, LetterJump.Sensitivity.LABELS.size)
+    }
+
     // Letter mode. Rows: 0 = "All Songs", A A B B C D D E.
     private val rows = listOf(null, "A", "A", "B", "B", "C", "D", "D", "E")
     private val letters = { rows }
@@ -141,6 +194,17 @@ class LetterJumpTest {
         val mode = LetterJump.Mode()
         for (t in 0L..300L step 50) assertEquals(LetterJump.Step.ROW, mode.onStep(1, t, 1) { null })
         assertFalse(mode.isActive)
+    }
+
+    @Test
+    fun mode_offStepsRowByRowAndAChangeAppliesAtOnce() {
+        var sensitivity: LetterJump.Sensitivity? = null
+        val mode = LetterJump.Mode { sensitivity }
+        for (t in 0L..500L step 10) assertEquals(LetterJump.Step.ROW, mode.onStep(1, t, 1, letters))
+        assertFalse(mode.isActive)
+        sensitivity = LetterJump.Sensitivity.HIGH // the next turn reads the new value
+        val steps = (0 until 3).map { mode.onStep(1, 1000 + 100L * it, 1, letters) }
+        assertEquals(listOf(LetterJump.Step.ROW, LetterJump.Step.ROW, LetterJump.Step.LETTER), steps)
     }
 
     @Test

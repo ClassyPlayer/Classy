@@ -762,5 +762,7 @@
   "Beta versions get new features first and can have bugs.": "ベータ版は新機能をいち早く利用できますが、不具合がある場合があります。",
   "To leave, choose Stable: the player then waits for the next stable version.": "やめるには安定版を選んでください。プレーヤーは次の安定版を待ちます。",
   "This version is newer than the latest stable version.": "このバージョンは最新の安定版より新しいです。",
-  "Check again when the next stable version is out.": "次の安定版が出たら、もう一度確認してください。"
+  "Check again when the next stable version is out.": "次の安定版が出たら、もう一度確認してください。",
+  "Letter Jump": "頭文字ジャンプ",
+  "Letter Jump Sensitivity": "頭文字ジャンプの感度"
 }

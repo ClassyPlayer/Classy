@@ -40,6 +40,7 @@ import com.themoon.y1.lists.ListSpec
 import com.themoon.y1.lists.RowLook
 import com.themoon.y1.lists.RowSpec
 import com.themoon.y1.models.AlbumKey
+import com.themoon.y1.navigation.LetterJump
 import com.themoon.y1.navigation.NavigationManager
 import com.themoon.y1.navigation.ScreenState
 import com.themoon.y1.navigation.SettingsSubMode
@@ -216,6 +217,11 @@ class SettingsController(
             cycle("Vibration Strength", Prefs.VIBRATE_STRENGTH, VIBE_STRENGTH_NAMES, { if (it in VIBE_STRENGTH_NAMES.indices) it else 1 },
                 enabled = { Prefs.VIBRATE.get(prefs) }, feedbackAfter = true),
             toggle("Wheel Loop Scroll", Prefs.LOOP_SCROLL),
+            // The iPod letter jump: a fast wheel turn in an A–Z list or Cover Flow goes letter by letter (LetterJump)
+            toggle("Letter Jump", Prefs.LETTER_JUMP),
+            // How fast the turn must be (High: a slower turn starts it). Grey, and the wheel skips it, while Letter Jump is off
+            cycle("Letter Jump Sensitivity", Prefs.LETTER_JUMP_SENSITIVITY, LetterJump.Sensitivity.LABELS,
+                { LetterJump.Sensitivity.of(it).ordinal }, enabled = { Prefs.LETTER_JUMP.get(prefs) }),
             toggle("Screen-Off Control", Prefs.SCREEN_OFF_CONTROL),
             toggle("Double-Click to Favorite", Prefs.DOUBLE_CLICK_FAVORITE),
         )),

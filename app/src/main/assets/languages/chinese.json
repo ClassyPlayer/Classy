@@ -762,5 +762,7 @@
   "Beta versions get new features first and can have bugs.": "测试版会率先获得新功能，但可能存在错误。",
   "To leave, choose Stable: the player then waits for the next stable version.": "如要退出，请选择稳定版：播放器将等待下一个稳定版本。",
   "This version is newer than the latest stable version.": "此版本比最新的稳定版本更新。",
-  "Check again when the next stable version is out.": "下一个稳定版本发布后请再次检查。"
+  "Check again when the next stable version is out.": "下一个稳定版本发布后请再次检查。",
+  "Letter Jump": "字母跳转",
+  "Letter Jump Sensitivity": "字母跳转灵敏度"
 }

@@ -11,9 +11,27 @@ import java.util.Locale
  */
 object LetterJump {
 
-    /** A step is fast when it and the [FAST_STEPS] - 1 steps before it turn the same way, each at most [FAST_GAP_MS] apart. */
-    const val FAST_STEPS = 4
-    const val FAST_GAP_MS = 100L
+    /**
+     * Settings → Controls → Letter Jump Sensitivity: how fast a wheel turn must be to start letter mode. A step is
+     * fast when it and the [steps] - 1 steps before it turn the same way, each at most [gapMs] apart.
+     */
+    enum class Sensitivity(val steps: Int, val gapMs: Long) {
+        LOW(6, 80L),
+        NORMAL(4, 100L),
+        HIGH(3, 120L);
+
+        companion object {
+            /** The labels of the Settings row, in the order of the pref values (the [ordinal]). */
+            val LABELS = arrayOf("Low", "Normal", "High")
+            val DEFAULT = NORMAL
+
+            /** The sensitivity of pref value [level]; [DEFAULT] for a value that is not known. */
+            fun of(level: Int): Sensitivity = values().getOrElse(level) { DEFAULT }
+        }
+    }
+
+    /** The sensitivity for the Letter Jump settings, or null when Letter Jump is Off (the wheel always steps row by row). */
+    fun sensitivity(on: Boolean, level: Int): Sensitivity? = if (on) Sensitivity.of(level) else null
 
     /**
      * Letter mode ends this long after the last wheel step. The wheel driver sends no event when the thumb
@@ -97,15 +115,22 @@ object LetterJump {
         private val times = ArrayDeque<Long>()
         private var lastDirection = 0
 
-        /** Adds one step ([direction] -1 or 1, at [timeMs]) and returns true if the wheel now turns fast. */
-        fun onStep(direction: Int, timeMs: Long): Boolean {
+        /**
+         * Adds one step ([direction] -1 or 1, at [timeMs]) and returns true if the wheel now turns fast for
+         * [sensitivity]. Null (Letter Jump Off): never fast.
+         */
+        fun onStep(direction: Int, timeMs: Long, sensitivity: Sensitivity? = Sensitivity.DEFAULT): Boolean {
+            if (sensitivity == null) {
+                reset()
+                return false
+            }
             val dir = Integer.signum(direction)
             val last = times.peekLast()
-            if (dir != lastDirection || (last != null && timeMs - last > FAST_GAP_MS)) times.clear()
+            if (dir != lastDirection || (last != null && timeMs - last > sensitivity.gapMs)) times.clear()
             lastDirection = dir
             times.addLast(timeMs)
-            while (times.size > FAST_STEPS) times.removeFirst()
-            return times.size == FAST_STEPS
+            while (times.size > sensitivity.steps) times.removeFirst()
+            return times.size == sensitivity.steps
         }
 
         fun reset() {
@@ -137,12 +162,13 @@ object LetterJump {
     }
 
     /**
-     * Letter mode, as on the iPod. [FAST_STEPS] fast steps start it ([WheelSpeed]). Then each wheel step, slow
-     * or fast, moves one letter, and the letter box stays. It ends [IDLE_END_MS] after the last step, or at a
-     * centre, Back or Play/Pause press. At the end, the screen goes to [row] (the end value of [end]).
+     * Letter mode, as on the iPod. Fast steps start it ([WheelSpeed], with the [sensitivity] at each step: a
+     * change applies at once; null = Letter Jump Off). Then each wheel step, slow or fast, moves one letter, and
+     * the letter box stays. It ends [IDLE_END_MS] after the last step, or at a centre, Back or Play/Pause press.
+     * At the end, the screen goes to [row] (the end value of [end]).
      * Pure state: the screen gives it the wheel steps and the keys, and runs the idle timer.
      */
-    class Mode {
+    class Mode(private val sensitivity: () -> Sensitivity? = { Sensitivity.DEFAULT }) {
         private val speed = WheelSpeed()
         private var lastStepMs = 0L
         private var dropCentre = false
@@ -159,7 +185,7 @@ object LetterJump {
          * the letter of each row ([lettersFor]), null when the rows are not alphabetical.
          */
         fun onStep(direction: Int, timeMs: Long, current: Int, letters: () -> List<String?>?): Step {
-            if (!isActive && !speed.onStep(direction, timeMs)) return Step.ROW
+            if (!isActive && !speed.onStep(direction, timeMs, sensitivity())) return Step.ROW
             val list = letters()
             val from = if (isActive) row else current
             if (list == null || from !in list.indices) {

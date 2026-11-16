@@ -762,5 +762,7 @@
   "Beta versions get new features first and can have bugs.": "Бета-версии первыми получают новые функции и могут содержать ошибки.",
   "To leave, choose Stable: the player then waits for the next stable version.": "Чтобы выйти, выберите «Стабильный»: плеер дождётся следующей стабильной версии.",
   "This version is newer than the latest stable version.": "Эта версия новее последней стабильной версии.",
-  "Check again when the next stable version is out.": "Проверьте снова, когда выйдет следующая стабильная версия."
+  "Check again when the next stable version is out.": "Проверьте снова, когда выйдет следующая стабильная версия.",
+  "Letter Jump": "Переход по буквам",
+  "Letter Jump Sensitivity": "Чувствительность перехода"
 }
