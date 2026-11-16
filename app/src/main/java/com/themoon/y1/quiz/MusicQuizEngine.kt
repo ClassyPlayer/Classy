@@ -454,7 +454,7 @@ class MusicQuizEngine(private val context: Context? = null, private val random: 
         player.repeatMode = Player.REPEAT_MODE_ONE
         player.addListener(object : Player.EventListener {
             override fun onPlaybackStateChanged(state: Int) {
-                val file = previewFile ?: return
+                if (previewFile == null) return
                 if (state != Player.STATE_READY || clipStart >= 0) return
                 clipStart = clipStartMs(player.duration)
                 clipReadyAt = SystemClock.uptimeMillis()
