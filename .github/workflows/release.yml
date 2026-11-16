@@ -189,18 +189,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # No Y1 ROMs: the app on main needs Android 4.4 and the Y1 has 4.2, so a Y1 ROM starts without a launcher
+          # (#82). Add the Y1 Type A and Type B entries again when main supports the Y1. Until then, the Y1 builds are in
+          # the y1-exp pre-releases.
           - type: y2
             name: "Y2"
             filename: rom_y2.zip
             artifact: rom-y2
-          - type: a
-            name: "Y1 Type A"
-            filename: rom_y1_type_a.zip
-            artifact: rom-y1-type-a
-          - type: b
-            name: "Y1 Type B"
-            filename: rom_y1_type_b.zip
-            artifact: rom-y1-type-b
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -268,29 +263,16 @@ jobs:
           EOF
           fi
           cat << 'EOF' >> release_body.md
-          ### Classy Release
+          #### Release assets
 
-          Automated build with full support for **Innioasis Y1** (Type A & Type B) and **Innioasis Y2**.
-
-          #### 📦 Release Assets
-
-          | File | Target Device | Notes |
+          | File | Target device | Notes |
           | :--- | :--- | :--- |
-          | **`${{ needs.build-apk.outputs.apk_name }}`** | All Devices (Y1 / Y2) | Standalone launcher APK (sideload or install) |
-          | **`update.json`** | All Devices | OTA update metadata for in-app updater |
-          | **`rom_y2.zip`** | **Innioasis Y2** (MT6582) | Complete flashable ROM with dual-storage, watchdog & clickwheel keylayout |
-          | **`rom_y1_type_a.zip`** | **Innioasis Y1** (Type A) | Flashable ROM for Y1 players with original firmware **2.0.0 or higher** |
-          | **`rom_y1_type_b.zip`** | **Innioasis Y1** (Type B) | Flashable ROM for Y1 players with original firmware **below 2.0.0** |
-          | **`SHA256SUMS.txt`** | All Files | SHA-256 integrity checksums |
+          | `${{ needs.build-apk.outputs.apk_name }}` | Innioasis Y2 | Standalone launcher APK (sideload or install) |
+          | `update.json` | Innioasis Y2 | OTA update metadata for in-app updater |
+          | `rom_y2.zip` | Innioasis Y2 (MT6582) | Complete flashable ROM with dual-storage, watchdog & clickwheel keylayout |
+          | `SHA256SUMS.txt` | All files | SHA-256 integrity checksums |
 
-          #### ⚡ Flashing Instructions (SP Flash Tool)
-          1. Extract the corresponding zip file for your device.
-          2. Launch `flash_tool.exe` (or Linux `flash_tool`).
-          3. Load the scatter file (`MT6582_Android_scatter.txt` for Y2, `MT6572_Android_scatter.txt` for Y1).
-          4. Select **Firmware Upgrade** or **Download Only**.
-          5. Power off the device completely, click **Download**, and connect the USB cable.
-
-          ---
+          Y1 firmware is not in this release. Y1 builds are in the Y1 experimental pre-releases.
           EOF
 
       - name: Create GitHub Release
