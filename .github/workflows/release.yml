@@ -275,6 +275,18 @@ jobs:
           Y1 firmware is not in this release. Y1 builds are in the Y1 experimental pre-releases.
           EOF
 
+      # A run again for an existing tag replaces only the files it uploads: delete the Y1 ROMs of an older run
+      - name: Remove Y1 ROMs from an Existing Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG_NAME: ${{ needs.build-apk.outputs.tag_name }}
+        run: |
+          if gh release view "$TAG_NAME" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            for f in rom_y1_type_a.zip rom_y1_type_b.zip; do
+              gh release delete-asset "$TAG_NAME" "$f" --repo "$GITHUB_REPOSITORY" --yes 2>/dev/null && echo "Deleted $f" || true
+            done
+          fi
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
