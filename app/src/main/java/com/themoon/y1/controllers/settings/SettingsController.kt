@@ -157,11 +157,8 @@ class SettingsController(
             cycle("Repeat", { Prefs.REPEAT_MODE.get(prefs).let { if (it in 0..2) it else 0 } }, setRepeatMode, arrayOf("Off", "One", "All")),
             action("EQ", { eqName() + " 〉" }) { onOpenEqualizer() },
             toggle("Sound Check", Prefs.SOUND_CHECK) { AudioEffectManager.getInstance().applySoundCheck() },
-            // Left and right mixed on both channels, for one earbud (ExoPlayer; a FLAC track goes to ExoPlayer too)
-            toggle("Mono Audio", Prefs.MONO_AUDIO) {
-                AudioEffectManager.getInstance().applyAudioEffects()
-                AudioPlayerManager.getInstance().onMonoAudioChanged()
-            },
+            // Left and right mixed on both channels, for one earbud
+            toggle("Mono Audio", Prefs.MONO_AUDIO) { AudioEffectManager.getInstance().applyAudioEffects() },
             choice("Volume Limit", { volumeLimitText() + " 〉" }) { openPage("VolumeLimit") },
             cycle("Playback Speed", { speedIndex() }, { setSpeed(it) }, SPEED_LABELS),
         )),
@@ -998,8 +995,6 @@ class SettingsController(
 
         // The player keeps its own repeat mode: set it back to Off too.
         AudioPlayerManager.getInstance().setRepeatMode(0)
-        // Mono Audio Off: a FLAC track goes back to MediaPlayer
-        AudioPlayerManager.getInstance().onMonoAudioChanged()
 
         mainActivity?.onClockSettingsChanged()
         mainActivity?.batteryIconView?.setShowPercentage(false)
