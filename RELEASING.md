@@ -10,6 +10,7 @@ This guide is for maintainers. It explains how to publish beta and stable releas
 4. Before you promote it, check:
    - No open issue (or Reddit or Telegram report) shows a new bug in the beta.
    - *System Update* from the last stable release to the beta worked on at least one player.
+   - If the current stable release is a hotfix (from a `release/<tag>` branch), the beta has its fix: the beta was cut after the fix came to `main`.
 5. Promote that beta tag to stable ([Promote a beta to stable](#promote-a-beta-to-stable)) and write the release notes.
 
 You do not have to wait with merges while a beta is tested. Merge and cut the next beta when it is ready, and promote the older beta later from its own tag. Promote only a beta that is newer than the current stable release: a beta built from an older commit of `main` has older code, so System Update does not offer it to players on that stable release.
