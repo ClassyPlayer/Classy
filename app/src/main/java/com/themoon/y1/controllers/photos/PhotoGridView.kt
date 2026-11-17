@@ -107,9 +107,10 @@ class PhotoGridView(context: Context) : View(context) {
             } else {
                 canvas.drawRect(dst, emptyPaint)
                 if (p.path !in broken) PhotoThumbs.load(p) { b ->
+                    // Only for the photo still in the list (setPhotos may have put a new list meanwhile)
+                    if (photos.getOrNull(i) !== p) return@load
                     if (b == null) broken += p.path
-                    // Draw again only if the photo is still on the page
-                    if (photos.getOrNull(i) === p) invalidate()
+                    invalidate()
                 }
             }
             if (i == selected) {

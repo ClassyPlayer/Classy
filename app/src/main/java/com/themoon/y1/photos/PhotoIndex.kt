@@ -23,6 +23,9 @@ class PhotoItem(
     /** The date to sort by and to show: the EXIF date, else the file time. */
     val sortDate: Long get() = if (date > 0) date else modified
 
+    /** This version of the file: a photo replaced under the same name gets new thumbnails and art. */
+    val version: String get() = "$path|$size|$modified"
+
     /** The same file, unchanged (the cached EXIF data is still right). */
     fun isSameFile(size: Long, modified: Long): Boolean = this.size == size && this.modified == modified
 }
@@ -152,6 +155,15 @@ object PhotoIndex {
     fun countUnder(photos: List<PhotoItem>, dir: String): Int {
         val prefix = dir.trimEnd('/') + "/"
         return photos.count { it.path.startsWith(prefix) }
+    }
+
+    /**
+     * The records of the last index that a scan of [roots] cannot see (a microSD card that is not mounted now): they
+     * stay in the index, so the photos keep their found times and thumbnails until the card comes back.
+     */
+    fun notUnder(records: Collection<PhotoItem>, roots: List<String>): List<PhotoItem> {
+        val prefixes = roots.map { it.trimEnd('/') + "/" }
+        return records.filter { item -> prefixes.none { item.path.startsWith(it) } }
     }
 
     private const val DAY_MS = 24L * 60 * 60 * 1000

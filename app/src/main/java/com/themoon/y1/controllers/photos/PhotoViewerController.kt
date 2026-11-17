@@ -43,8 +43,8 @@ import java.util.concurrent.Executors
  * - Back: the grid, on this photo ([onLeave]).
  * - Play/Pause stays with the music: the slideshow never starts, stops or changes it.
  *
- * The photos next to this one decode ahead on a worker thread, at the screen size; the screen stays on only while
- * the slideshow runs, and screen off pauses it.
+ * The photos next to this one decode ahead on a worker thread, at the screen size. The screen stays on only while
+ * a timed slideshow runs ([holdsScreen]; Time Per Slide = Manual turns off as usual), and screen off pauses it.
  */
 class PhotoViewerController(
     private val activity: Activity,
@@ -87,7 +87,8 @@ class PhotoViewerController(
     /** The index that [front] shows (-1: none yet). */
     private var showing = -1
     private val bitmaps = HashMap<Int, Bitmap>()
-    private val decoding = HashSet<Int>()
+    /** The photos that decode now, with the callbacks that wait for them. */
+    private val decoding = HashMap<Int, MutableList<(Bitmap?) -> Unit>>()
     private var animating = false
 
     private var order: SlideshowOrder? = null
@@ -108,7 +109,7 @@ class PhotoViewerController(
             val onScreen = (activity as? MainActivity)?.isOnScreen != false
             // Screen off (or another app) pauses the slideshow; the screen stays on only while it runs
             if (!onScreen && isRunning()) pause()
-            screenHold.update(onScreen && isRunning())
+            screenHold.update(onScreen && holdsScreen())
             handler.postDelayed(this, HOLD_TICK_MS)
         }
     }
@@ -128,6 +129,9 @@ class PhotoViewerController(
     private fun match() = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
 
     private fun isRunning(): Boolean = order != null && !paused
+
+    /** The screen stays on: the slideshow runs and moves on by itself (not Manual, where nothing happens without a key). */
+    private fun holdsScreen(): Boolean = isRunning() && PhotoSettings.slideMs(prefs) > 0
 
     override fun onEnter(state: ScreenState) {
         centreOwn = false
@@ -211,10 +215,14 @@ class PhotoViewerController(
         }
     }
 
+    /** Decodes photo [i] once: a request for a photo that is decoding already waits for that decode. */
     private fun request(i: Int, done: ((Bitmap?) -> Unit)? = null) {
         val p = photos.getOrNull(i) ?: return
-        if (i in decoding && done == null) return
-        decoding += i
+        decoding[i]?.let { waiting ->
+            if (done != null) waiting += done
+            return
+        }
+        decoding[i] = if (done != null) mutableListOf(done) else mutableListOf()
         val t = token
         val w = screenW()
         val h = screenH()
@@ -226,9 +234,14 @@ class PhotoViewerController(
             val bmp = if (wanted) PhotoDecoder.decode(p.path, p.orientation, w, h, PhotoDecoder.Mode.FIT) else null
             handler.post {
                 if (t != token) return@post
-                decoding -= i
+                val waiting = decoding.remove(i).orEmpty()
                 if (bmp != null) bitmaps[i] = bmp
-                done?.invoke(bmp)
+                // Skipped, but the wheel came back to it meanwhile: decode it now (a skip is not a broken photo)
+                if (!wanted && waiting.isNotEmpty() && index == i) {
+                    for (d in waiting) request(i, d)
+                    return@post
+                }
+                for (d in waiting) d(bmp)
             }
         }
     }
@@ -323,7 +336,7 @@ class PhotoViewerController(
         paused = false
         showInfo(localize("Slideshow"), INFO_MS)
         schedule()
-        screenHold.update(true)
+        screenHold.update(holdsScreen())
         prefetch()
     }
 
@@ -345,7 +358,7 @@ class PhotoViewerController(
         paused = false
         showInfo(localize("Slideshow"), INFO_MS)
         schedule()
-        screenHold.update(true)
+        screenHold.update(holdsScreen())
     }
 
     private fun schedule() {

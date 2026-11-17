@@ -20,6 +20,18 @@ class PhotoIndexTest {
     private val dec2023 = 1_704_063_600_000L
 
     @Test
+    fun aScanWithoutTheCardKeepsTheRecordsOfTheCard() {
+        val internal = photo("/storage/sdcard0/Photos/a.jpg", added = 1)
+        val card = photo("/storage/sdcard1/Photos/b.jpg", added = 2)
+        val near = photo("/storage/sdcard0/Photos2/c.jpg")
+        val records = listOf(internal, card, near)
+        // Only the internal folder is walked: the card's record stays, and a folder that only starts the same too
+        assertEquals(listOf(card, near), PhotoIndex.notUnder(records, listOf("/storage/sdcard0/Photos")))
+        // Both walked: nothing is kept (the scan found again what is still there)
+        assertEquals(listOf(near), PhotoIndex.notUnder(records, listOf("/storage/sdcard0/Photos/", "/storage/sdcard1/Photos")))
+    }
+
+    @Test
     fun picturesOnly() {
         assertTrue(PhotoIndex.isPhoto("IMG_0001.JPG"))
         assertTrue(PhotoIndex.isPhoto("a.jpeg"))

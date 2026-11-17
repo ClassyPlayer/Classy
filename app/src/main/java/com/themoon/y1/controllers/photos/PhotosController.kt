@@ -273,22 +273,24 @@ class PhotosController(
     private fun showPanePhoto() {
         if (!pane.isShown) return
         val photos = PhotoLibrary.photos.orEmpty()
-        val known = panePhoto?.let { p -> photos.firstOrNull { it.path == p } }
+        val known = panePhoto?.let { v -> photos.firstOrNull { it.version == v } }
         val photo: PhotoItem = known ?: photos.takeIf { it.isNotEmpty() }?.let { it[random.nextInt(it.size)] } ?: run {
             paneImage.setImageResource(R.drawable.default_album)
             return
         }
-        if (photo.path == panePhoto && paneImage.drawable != null) return
-        panePhoto = photo.path
-        paneArt.get(photo.path)?.let {
+        // The version, not the path: a photo replaced under the same name decodes again
+        val version = photo.version
+        if (version == panePhoto && paneImage.drawable != null) return
+        panePhoto = version
+        paneArt.get(version)?.let {
             paneImage.setImageBitmap(it)
             return
         }
         paneWorker.execute {
             val bmp = PhotoDecoder.decode(photo.path, photo.orientation, PANE_W, PANE_H, PhotoDecoder.Mode.COVER)
             activity.runOnUiThread {
-                if (bmp != null) paneArt.put(photo.path, bmp)
-                if (panePhoto == photo.path && isShown() && bmp != null) paneImage.setImageBitmap(bmp)
+                if (bmp != null) paneArt.put(version, bmp)
+                if (panePhoto == version && isShown() && bmp != null) paneImage.setImageBitmap(bmp)
             }
         }
     }

@@ -51,25 +51,26 @@ object PhotoThumbs {
     }
 
     /** The thumbnail when it is in memory, else null (then [load]). */
-    fun cached(p: PhotoItem): Bitmap? = memory.get(p.path)
+    fun cached(p: PhotoItem): Bitmap? = memory.get(p.version)
 
     /** Makes or reads the thumbnail on the worker; [done] runs on the main thread (null: the photo cannot be read). */
     fun load(p: PhotoItem, done: (Bitmap?) -> Unit) {
-        memory.get(p.path)?.let {
+        val version = p.version
+        memory.get(version)?.let {
             done(it)
             return
         }
-        val waiting = pending[p.path]
+        val waiting = pending[version]
         if (waiting != null) {
             waiting += done
             return
         }
-        pending[p.path] = mutableListOf(done)
+        pending[version] = mutableListOf(done)
         worker.execute {
             val bmp = make(p)
             main.post {
-                if (bmp != null) memory.put(p.path, bmp)
-                pending.remove(p.path)?.forEach { it(bmp) }
+                if (bmp != null) memory.put(version, bmp)
+                pending.remove(version)?.forEach { it(bmp) }
             }
         }
     }

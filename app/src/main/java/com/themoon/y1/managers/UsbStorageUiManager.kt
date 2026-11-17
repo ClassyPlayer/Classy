@@ -21,6 +21,7 @@ import com.themoon.y1.ThemeManager
 import com.themoon.y1.controllers.settings.ActionScreens
 import com.themoon.y1.controllers.games.GamePlayerController
 import com.themoon.y1.navigation.NavigationManager
+import com.themoon.y1.photos.PhotoDecoder
 import com.themoon.y1.views.Notice
 import com.themoon.y1.views.TablerIcons
 
@@ -28,6 +29,8 @@ import com.themoon.y1.views.TablerIcons
 private const val CARD_BACK_MS = 20_000L
 /** The longest wait for the save of a game that ends for a share (the core can take seconds). */
 private const val GAME_SAVE_WAIT_MS = 10_000L
+/** The longest photo decode (a large photo on the Y2 takes about a second). */
+private const val PHOTO_READ_WAIT_MS = 5_000L
 
 class UsbStorageUiManager(
     private val activity: Activity,
@@ -169,12 +172,14 @@ class UsbStorageUiManager(
         AudioPlayerManager.getInstance().releaseForUsbStorage(musicPlayed)
         getExternalSdMountMonitor()?.setSuspended(true)
         Thread({
-            val gameDone = GamePlayerController.awaitGameWork(GAME_SAVE_WAIT_MS)
-            val ok = gameDone && run {
+            // The game saves, then no photo file stays open (a decode that runs ends, no new one starts)
+            val idle = GamePlayerController.awaitGameWork(GAME_SAVE_WAIT_MS) &&
+                PhotoDecoder.closeForUsbShare(PHOTO_READ_WAIT_MS)
+            val ok = idle && run {
                 UsbMassStorageController.ensureMassStorageFunction(activity)
                 UsbMassStorageController.setEnabled(true)
             }
-            if (!ok && gameDone) {
+            if (!ok && idle) {
                 UsbMassStorageController.restoreUsbFunction(activity)
             }
             activity.runOnUiThread {
@@ -246,6 +251,7 @@ class UsbStorageUiManager(
      */
     private fun reloadAfterShare(resume: Boolean) {
         getExternalSdMountMonitor()?.setSuspended(false)
+        PhotoDecoder.reopen()
         val main = activity as? MainActivity ?: return
         AudioPlayerManager.getInstance().reloadAfterUsbStorage(main, resume)
         // The computer may have added or removed games

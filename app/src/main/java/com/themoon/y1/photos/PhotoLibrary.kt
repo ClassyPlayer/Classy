@@ -85,14 +85,19 @@ object PhotoLibrary {
     private var setsOf: List<PhotoItem>? = null
     private val sets = HashMap<String, List<PhotoItem>>()
 
-    /** The photos of the set [key] ([PhotoIndex.select]), made once for each list of photos. */
+    /**
+     * The photos of the set [key] ([PhotoIndex.select]), made once for each list of photos. Recently Added is made each
+     * time: it depends on today's date, so a photo leaves it after 30 days without a new scan.
+     */
     fun set(key: String): List<PhotoItem> {
         val list = photos.orEmpty()
+        val now = System.currentTimeMillis()
+        if (key == PhotoIndex.RECENT) return PhotoIndex.select(list, key, now)
         if (list !== setsOf) {
             sets.clear()
             setsOf = list
         }
-        return sets.getOrPut(key) { PhotoIndex.select(list, key, System.currentTimeMillis()) }
+        return sets.getOrPut(key) { PhotoIndex.select(list, key, now) }
     }
 
     fun scan() {
@@ -122,16 +127,19 @@ object PhotoLibrary {
             // The first scan has no "found" times: the file time stands in, so not all photos are Recently Added
             val now = if (hadIndex) System.currentTimeMillis() else 0L
             for (root in roots) walk(root, 0, old, now, found)
+            val notWalked = PhotoIndex.notUnder(old.values, roots.map { it.absolutePath })
+            val index = if (notWalked.isEmpty()) found else found + notWalked
             try {
                 if (file != null) {
                     file.parentFile?.mkdirs()
                     val tmp = File(file.path + ".tmp")
-                    tmp.writeText(PhotoIndex.encode(found))
-                    if (!tmp.renameTo(file)) file.writeText(PhotoIndex.encode(found))
+                    val text = PhotoIndex.encode(index)
+                    tmp.writeText(text)
+                    if (!tmp.renameTo(file)) file.writeText(text)
                 }
             } catch (_: Exception) {}
             // Thumbnails of photos that are gone; not after an empty scan (a card that is not mounted yet)
-            if (found.isNotEmpty() && roots.size == StoragePaths.getPhotosDirs().size) PhotoThumbs.prune(found)
+            if (index.isNotEmpty()) PhotoThumbs.prune(index)
             main.post {
                 photos = found
                 isScanning = false

@@ -134,6 +134,8 @@ class PhotoPreviewView(context: Context) : FrameLayout(context) {
         if (!running) return
         val photos = PhotoLibrary.photos.orEmpty()
         if (photos.isEmpty()) {
+            // The library listener starts again when photos come ([libraryListener])
+            lastPath = null
             image.setImageBitmap(TablerIcons.renderTile(TablerIcons.PHOTO, PANE_W, PANE_W / 3,
                 ThemeManager.getTextColorSecondary(), 0x22888888, 0f))
             return
