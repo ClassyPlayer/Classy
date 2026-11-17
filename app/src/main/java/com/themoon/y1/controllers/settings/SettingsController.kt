@@ -180,6 +180,8 @@ class SettingsController(
             toggle("Lyrics Keep Screen On", Prefs.LYRICS_KEEP_SCREEN_ON),
             toggle("Cover Tilt", Prefs.ALBUM_TILT) { applyAlbumTiltSetting() },
         )),
+        // The photo slideshow: the same rows as Photos → Slideshow Settings
+        SettingsGroup("Photos", com.themoon.y1.controllers.photos.PhotoSettings.rows(rows)),
         SettingsGroup("Status Bar", listOf(
             toggle("Clock", Prefs.TIME_IN_TITLE) { mainActivity?.onClockSettingsChanged() },
             toggle("Battery Icon", Prefs.SHOW_BATTERY) { mainActivity?.let { StatusBarSettings.applyBattery(it) } },

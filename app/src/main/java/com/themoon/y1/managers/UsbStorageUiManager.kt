@@ -148,6 +148,11 @@ class UsbStorageUiManager(
             Notice.error(activity, localize("Wait for the game scan to finish, then try again."))
             return
         }
+        if (main?.isPhotoScanRunning() == true) {
+            // The photo scan reads the EXIF data of the photos on the card
+            Notice.error(activity, localize("Wait for the photo scan to finish, then try again."))
+            return
+        }
         if (UsbMassStorageController.hasShareableVolume(activity) == false) {
             // Nothing to share (no card): do not switch the USB function, so the computer keeps MTP.
             Notice.error(activity, localize("No microSD card."))
@@ -158,6 +163,8 @@ class UsbStorageUiManager(
         pauseAllPlaybackForUsb()
         // A game reads the card (its files, its music): it ends first, and the share waits for its save below
         main?.endGameForUsbShare()
+        // The photo viewer reads the photos on the card
+        main?.closePhotoForUsbShare()
         // An open track file on the card makes MountService kill this app during the share.
         AudioPlayerManager.getInstance().releaseForUsbStorage(musicPlayed)
         getExternalSdMountMonitor()?.setSuspended(true)
@@ -243,6 +250,7 @@ class UsbStorageUiManager(
         AudioPlayerManager.getInstance().reloadAfterUsbStorage(main, resume)
         // The computer may have added or removed games
         main.forgetGames()
+        main.forgetPhotos()
     }
 
     fun onUsbCableRemovedWhileShared() {

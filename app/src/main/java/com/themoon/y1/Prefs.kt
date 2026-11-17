@@ -133,6 +133,14 @@ object Prefs {
     // --- Display ---
     val BACKLIGHT_TIMER = add(IntPref(BacklightTimer.PREF_INDEX, BacklightTimer.DEFAULT_INDEX, PrefGroup.DISPLAY, resettable = true))
 
+    // --- Photos (the slideshow: Settings → Photos, and Photos → Slideshow Settings) ---
+    /** Index in [com.themoon.y1.controllers.photos.PhotoSettings.SLIDE_SECONDS] (the last = Manual). */
+    val PHOTOS_SLIDE_TIME = add(IntPref("photos_slide_time", 1, PrefGroup.DISPLAY, resettable = true))
+    val PHOTOS_REPEAT = add(BoolPref("photos_repeat", false, PrefGroup.DISPLAY, resettable = true))
+    val PHOTOS_SHUFFLE = add(BoolPref("photos_shuffle", false, PrefGroup.DISPLAY, resettable = true))
+    /** 0 = Off, 1 = Dissolve, 2 = Push, 3 = Random. */
+    val PHOTOS_TRANSITION = add(IntPref("photos_transition", 1, PrefGroup.DISPLAY, resettable = true))
+
     // --- Now Playing ---
     val SPECTRUM = add(BoolPref(NowPlayingSpectrum.PREF, false, PrefGroup.NOW_PLAYING, resettable = true))
     val TOTAL_TIME = add(BoolPref(NowPlayingTime.PREF_SHOW_TOTAL_TIME, false, PrefGroup.NOW_PLAYING, resettable = true))
@@ -194,6 +202,8 @@ object Prefs {
     /** last_played_song_path, _song_index, _position, _duration, _is_audiobook, _audiobook_path, _video_path. */
     val LAST_PLAYED = add(PrefFamily("last_played_", PrefGroup.STATE, inBackup = false))
     val HAS_SAVED_PLAYBACK_STATE = add(PrefKey("has_saved_playback_state", PrefGroup.STATE, inBackup = false))
+    /** The photo viewer said once how to start a slideshow. */
+    val PHOTOS_HINT_SHOWN = add(BoolPref("photos_hint_shown", false, PrefGroup.STATE))
     val BOOK_POSITION = add(PrefFamily("book_pos_", PrefGroup.DATA))
     val BOOK_DURATION = add(PrefFamily("book_dur_", PrefGroup.DATA))
     val VIDEO_POSITION = add(PrefFamily("video_pos_", PrefGroup.DATA))

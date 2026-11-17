@@ -11,7 +11,8 @@ object AssetInstaller {
 
     fun installBundledLanguages(context: Context, prefs: SharedPreferences) {
         val lastInstalledVersion = prefs.getInt("last_lang_version", 0)
-        val currentPackVersion = 1012
+        // 1014: the Photos strings (1013 is the Books branch)
+        val currentPackVersion = 1014
         if (lastInstalledVersion >= currentPackVersion) return
 
         val langFolder = File(context.filesDir, "languages")
@@ -38,7 +39,8 @@ object AssetInstaller {
 
         val lastThemeVersion = prefs.getInt("last_installed_theme_version", 0)
         // 1012: Play On row in the main menu of Classic Light and Classic Dark
-        val currentThemeVersion = 1013
+        // 1015: Photos row after Videos and the photo preview in the art pane (1014 is the Books branch)
+        val currentThemeVersion = 1015
         if (lastThemeVersion >= currentThemeVersion) return
 
         try {

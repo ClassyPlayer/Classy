@@ -130,6 +130,8 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
         const val STATE_JELLYFIN = 17
         const val STATE_GAMES = 18
         const val STATE_GAME_PLAYER = 19
+        const val STATE_PHOTOS = 22
+        const val STATE_PHOTO_VIEWER = 23
 
         const val BROWSER_ROOT = 0
         const val BROWSER_FOLDER = 1
@@ -262,6 +264,8 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     lateinit var layoutVideoPlayerMode: View
     lateinit var layoutGamesMode: View
     lateinit var layoutGamePlayerMode: View
+    lateinit var layoutPhotosMode: View
+    lateinit var layoutPhotoViewerMode: View
 
     lateinit var ivAlbumArt: ImageView
     var ivAlbumReflection: ImageView? = null
@@ -319,6 +323,25 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     fun endGameForUsbShare() {
         if (::gamePlayerController.isInitialized) gamePlayerController.endForUsbShare()
     }
+
+    lateinit var photosController: com.themoon.y1.controllers.photos.PhotosController
+    lateinit var photoViewerController: com.themoon.y1.controllers.photos.PhotoViewerController
+
+    /** The Photos scan reads the photo files on the card. */
+    fun isPhotoScanRunning(): Boolean = ::photosController.isInitialized && photosController.isScanning
+
+    /** The card was shared over USB: Photos scans the folders again. */
+    fun forgetPhotos() {
+        if (::photosController.isInitialized) photosController.forget()
+    }
+
+    /** Before the card is shared over USB: the photo on the screen closes (its file is on the card). */
+    fun closePhotoForUsbShare() {
+        if (::photoViewerController.isInitialized) photoViewerController.closeForUsbShare()
+    }
+
+    /** The status bar title again (a screen whose title changed while it shows). */
+    fun refreshStatusBarTitle() = updateStatusBarTitle()
     lateinit var bluetoothController: BluetoothController
     lateinit var wifiController: WifiController
     lateinit var wifiKeyboardController: WifiKeyboardController
@@ -529,6 +552,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     override fun onPause() {
         super.onPause()
         if (::gamePlayerController.isInitialized) gamePlayerController.onActivityPause()
+        if (::photoViewerController.isInitialized) photoViewerController.onActivityPause()
         systemNotifications.show()
         AudioPlayerManager.getInstance().savePlaybackState(sync = false)
     }
@@ -604,6 +628,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
             STATE_FM_RADIO -> ScreenState.FmRadio
             STATE_JELLYFIN -> ScreenState.Jellyfin()
             STATE_GAMES -> ScreenState.Games
+            STATE_PHOTOS -> ScreenState.Photos()
             else -> ScreenState.MainMenu
         }
         changeScreen(screenState)
@@ -644,6 +669,8 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
             is ScreenState.VideoPlayer -> STATE_VIDEO_PLAYER
             is ScreenState.Games -> STATE_GAMES
             is ScreenState.GamePlayer -> STATE_GAME_PLAYER
+            is ScreenState.Photos -> STATE_PHOTOS
+            is ScreenState.PhotoViewer -> STATE_PHOTO_VIEWER
         }
     }
 
@@ -1201,6 +1228,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
             STATE_EQUALIZER -> t("Equalizer")
             STATE_JELLYFIN -> t("Jellyfin")
             STATE_GAMES -> t("Games")
+            STATE_PHOTOS -> t("Photos")
             else -> t("Classy")
         }
     }
@@ -1225,6 +1253,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
             STATE_MENU -> true
             STATE_BROWSER -> ::browserController.isInitialized && browserController.isCoverPaneActive()
             STATE_VIDEOS -> ::videoBrowserController.isInitialized && videoBrowserController.isCoverPaneActive()
+            STATE_PHOTOS -> ::photosController.isInitialized && photosController.isPaneShown
             else -> false
         }
     }

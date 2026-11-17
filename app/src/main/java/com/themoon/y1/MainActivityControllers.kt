@@ -295,6 +295,26 @@ internal fun MainActivity.initControllers() {
         localize = { t(it) }
     )
 
+    com.themoon.y1.photos.PhotoLibrary.init(this)
+    com.themoon.y1.photos.PhotoThumbs.init(this)
+    photosController = com.themoon.y1.controllers.photos.PhotosController(
+        activity = this,
+        rootView = layoutPhotosMode as ViewGroup,
+        changeScreen = { state -> changeScreen(state) },
+        clickFeedback = { clickFeedback() },
+        refreshTitle = { refreshStatusBarTitle() },
+        localize = { t(it) }
+    )
+
+    photoViewerController = com.themoon.y1.controllers.photos.PhotoViewerController(
+        activity = this,
+        rootView = layoutPhotoViewerMode as ViewGroup,
+        prefs = prefs,
+        onLeave = { set, index -> photosController.rememberPhoto(set, index) },
+        clickFeedback = { clickFeedback() },
+        localize = { t(it) }
+    )
+
     gamePlayerController = GamePlayerController(
         activity = this,
         rootView = layoutGamePlayerMode as ViewGroup,
@@ -536,6 +556,8 @@ internal fun MainActivity.initControllers() {
         registerController(ScreenState.VideoPlayer::class.java, videoPlayerController)
         registerController(ScreenState.Games::class.java, gamesController)
         registerController(ScreenState.GamePlayer::class.java, gamePlayerController)
+        registerController(ScreenState.Photos::class.java, photosController)
+        registerController(ScreenState.PhotoViewer::class.java, photoViewerController)
     }
 }
 
@@ -572,6 +594,9 @@ internal fun MainActivity.handleMainMenuAction(action: String) {
         }
         "OPEN_GAMES" -> {
             changeScreen(ScreenState.Games)
+        }
+        "OPEN_PHOTOS" -> {
+            changeScreen(ScreenState.Photos())
         }
         "OPEN_SETTINGS", "SETTINGS" -> {
             changeScreen(MainActivity.STATE_SETTINGS)

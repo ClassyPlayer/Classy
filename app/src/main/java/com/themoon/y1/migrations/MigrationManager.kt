@@ -45,6 +45,7 @@ open class MigrationManager {
         registerMigration(Migration012GamesMenuItem())
         registerMigration(Migration013FillTrackLengths())
         registerMigration(Migration014MovePlaylistsFolder())
+        registerMigration(Migration016PhotosMenuItem())
     }
 
     /**
