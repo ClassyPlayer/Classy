@@ -57,7 +57,14 @@ class BookReaderController(
     var session: BookSession? = null
         private set
     private var opening: File? = null
+    /** Changes at each open and close: an open that is not the last one is thrown away. */
+    @Volatile
+    private var openToken = 0
+    /** Changes at each jump (chapter, place, bookmark): a late anchor of an older jump is not shown. */
+    private var jumpGeneration = 0
     private var shown = false
+    /** MainActivity is in the background (screen off): the screen hold stays released. */
+    private var paused = false
     private var busy = false
 
     /** A place to show when the reader shows again (a jump from the book menu). */
@@ -78,7 +85,7 @@ class BookReaderController(
 
     private val holdTask = object : Runnable {
         override fun run() {
-            val keep = shown && ReaderSettings.keepScreenOn(prefs) && SystemClock.uptimeMillis() - lastInputMs < IDLE_MS
+            val keep = shown && !paused && ReaderSettings.keepScreenOn(prefs) && SystemClock.uptimeMillis() - lastInputMs < IDLE_MS
             screenHold.update(keep)
             if (shown) handler.postDelayed(this, HOLD_TICK_MS)
         }
@@ -133,8 +140,15 @@ class BookReaderController(
 
     /** MainActivity went to the background (screen off): the place is saved and the screen may sleep. */
     fun onActivityPause() {
+        paused = true
         savePosition()
         screenHold.update(false)
+    }
+
+    /** MainActivity is on the screen again: the screen hold works again (after the next key). */
+    fun onActivityResume() {
+        paused = false
+        lastInputMs = SystemClock.uptimeMillis()
     }
 
     /** The card is shared over USB: the book closes (its zip is on the card) and the list shows. */
@@ -148,6 +162,7 @@ class BookReaderController(
         session?.close()
         session = null
         opening = null
+        openToken++
         view.clear()
         placesKnown = -1
     }
@@ -157,21 +172,30 @@ class BookReaderController(
     private fun open(file: File) {
         closeBook()
         opening = file
+        val token = ++openToken
         view.clear()
         view.message = localize("Loading...")
         Prefs.LAST_BOOK.setAsync(prefs, file.absolutePath)
         val cacheDir = File(activity.filesDir, "books")
         val language = LanguageManager.getInstance(activity).currentLangFileName
+        opensRunning.incrementAndGet()
         Thread({
             val result: Any = try {
-                BookOpener.open(file, cacheDir, language, { Xml.newPullParser() }) { opening != file }
+                BookOpener.open(file, cacheDir, language, { Xml.newPullParser() }) { openToken != token }
             } catch (e: DrmException) {
                 e
             } catch (e: Throwable) {
                 e
             }
+            if (openToken != token) {
+                // Closed meanwhile (another book, a USB share): close its file now, on this thread
+                (result as? com.themoon.y1.books.BookSource)?.close()
+                opensRunning.decrementAndGet()
+                return@Thread
+            }
             activity.runOnUiThread {
-                if (opening != file) {
+                opensRunning.decrementAndGet()
+                if (openToken != token) {
                     (result as? com.themoon.y1.books.BookSource)?.close()
                     return@runOnUiThread
                 }
@@ -215,6 +239,7 @@ class BookReaderController(
     }
 
     private fun start(s: BookSession) {
+        if (s !== session) return
         s.setStyle(currentStyle())
         val saved = SavedPosition.decode(prefs.getString(Prefs.EBOOK_POSITION.key(s.file.absolutePath), null))
         val pos = saved?.position?.takeIf { it.section < s.sectionCount } ?: BookPosition.START
@@ -223,6 +248,7 @@ class BookReaderController(
 
     /** The reader shows again (from its menu): new settings, a jump, or the same page. */
     private fun resume(s: BookSession) {
+        if (s !== session) return
         val jump = pendingJump
         val permille = pendingPermille
         pendingJump = null
@@ -283,10 +309,11 @@ class BookReaderController(
         if (!part.isLastPart) s.prefetch(part.section, part.part + 1) else s.prefetch(part.section + 1, 0)
     }
 
-    private fun turn(forward: Boolean) {
+    /** One step of the wheel or a page of Next/Previous ([byLines] false: a page whatever the Wheel setting). */
+    private fun turn(forward: Boolean, byLines: Boolean = false) {
         val p = view.part ?: return
         if (busy) return
-        val lines = ReaderSettings.wheelLines(prefs)
+        val lines = byLines
         if (forward) {
             if (lines) {
                 if (view.pageEnd() < p.lineCount) return show(p, view.topLine + 1)
@@ -307,7 +334,7 @@ class BookReaderController(
                 val page = PageMath.pageOf(p.pages, view.topLine)
                 return show(p, if (p.pages[page] == view.topLine) p.pages[page - 1] else pageBefore(p, view.topLine))
             }
-            previousPart(p)
+            previousPart(p, lines)
         }
     }
 
@@ -330,7 +357,7 @@ class BookReaderController(
         }
     }
 
-    private fun previousPart(p: LaidOut) {
+    private fun previousPart(p: LaidOut, byLines: Boolean) {
         val s = session ?: return
         val (section, part) = when {
             p.part > 0 -> p.section to p.part - 1
@@ -342,10 +369,10 @@ class BookReaderController(
             busy = false
             if (s !== session || prev == null) return@done
             if (prev.isEmpty) {
-                previousPart(prev)
+                previousPart(prev, byLines)
                 return@done
             }
-            show(prev, lastTop(prev))
+            show(prev, lastTop(prev, byLines))
         }
         if (part == Int.MAX_VALUE) s.load(section, Int.MAX_VALUE, done) else s.loadPart(section, part, done)
     }
@@ -359,8 +386,8 @@ class BookReaderController(
     }
 
     /** The top of the last page of [p]: its last page (Pages mode), or the lines that end it (Lines mode). */
-    private fun lastTop(p: LaidOut): Int {
-        if (!ReaderSettings.wheelLines(prefs)) return p.pages[p.lastPage()]
+    private fun lastTop(p: LaidOut, byLines: Boolean): Int {
+        if (!byLines) return p.pages[p.lastPage()]
         val h = view.pageHeight()
         val n = p.lineCount
         var t = n - 1
@@ -413,11 +440,13 @@ class BookReaderController(
 
     /** Shows [pos] when the reader shows again (call before going back to it). */
     fun jumpTo(pos: BookPosition) {
+        jumpGeneration++
         pendingJump = pos
         pendingPermille = -1
     }
 
     fun jumpToPermille(permille: Int) {
+        jumpGeneration++
         pendingJump = null
         pendingPermille = permille.coerceIn(0, 1000)
     }
@@ -432,11 +461,15 @@ class BookReaderController(
             return
         }
         jumpTo(BookPosition(entry.section, 0))
+        val generation = jumpGeneration
         s.readSection(entry.section) {
-            if (session !== s) return@readSection
+            if (session !== s || generation != jumpGeneration) return@readSection
             val offset = s.anchorsOf(entry.section)?.get(anchor) ?: 0
             val target = BookPosition(entry.section, offset)
-            if (shown) loadAt(s, target) else jumpTo(target)
+            if (shown) loadAt(s, target) else {
+                pendingJump = target
+                pendingPermille = -1
+            }
         }
     }
 
@@ -521,7 +554,7 @@ class BookReaderController(
     private fun wheel(delta: Int) {
         clickFeedback()
         if (ReaderSettings.wheelLines(prefs)) {
-            turn(delta > 0)
+            turn(delta > 0, byLines = true)
             return
         }
         if (wheelSum != 0 && (wheelSum > 0) != (delta > 0)) wheelSum = 0
@@ -556,6 +589,23 @@ class BookReaderController(
         /** The screen stays on while reading, until this long without a key. */
         const val IDLE_MS = 10 * 60_000L
         private const val HOLD_TICK_MS = 5_000L
+
+        /** Book opens on their worker threads that still hold or may open a book file. */
+        private val opensRunning = java.util.concurrent.atomic.AtomicInteger()
+
+        /** Before a USB share: waits up to [timeoutMs] for the book opens to end and close their files. */
+        fun awaitBookOpens(timeoutMs: Long): Boolean {
+            val end = SystemClock.uptimeMillis() + timeoutMs
+            while (opensRunning.get() > 0) {
+                if (SystemClock.uptimeMillis() > end) return false
+                try {
+                    Thread.sleep(50)
+                } catch (_: InterruptedException) {
+                    return false
+                }
+            }
+            return true
+        }
 
         fun isReaderScreen(state: ScreenState?): Boolean =
             state is ScreenState.BookReader || (state is ScreenState.Books && state.level.isReaderMenu)

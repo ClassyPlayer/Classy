@@ -546,6 +546,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
         updateStatusBarClock()
         applyTheme()
         if (::gamePlayerController.isInitialized) gamePlayerController.onActivityResume()
+        if (::bookReaderController.isInitialized) bookReaderController.onActivityResume()
     }
 
     override fun onPause() {

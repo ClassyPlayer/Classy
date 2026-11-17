@@ -44,6 +44,27 @@ class TxtBookTest {
         val bytes = "abcó".toByteArray(Charsets.UTF_8)
         assertTrue(TextEncoding.isUtf8(bytes.copyOf(bytes.size - 1)))
         assertFalse(TextEncoding.isUtf8(byteArrayOf('a'.code.toByte(), 0xF3.toByte(), 'b'.code.toByte())))
+        // A whole file that ends in a Latin-1 byte is not UTF-8
+        val cafe = "Café".toByteArray(charset("windows-1252"))
+        assertFalse(TextEncoding.isUtf8(cafe, complete = true))
+        assertTrue(TextEncoding.detect(cafe, "english.json", complete = true) != "UTF-8")
+        // ...and a lone byte that cannot start a UTF-8 character is not a cut character either
+        assertFalse(TextEncoding.isUtf8(byteArrayOf('a'.code.toByte(), 0xFF.toByte())))
+    }
+
+    @Test
+    fun longLinesAreCutAtWholeCharacters() {
+        // GBK: "a" then two-byte characters, no newline: the cut must not split one
+        val gbk = charset("GBK")
+        val text = "a" + "你".repeat(20_000)
+        val bytes = text.toByteArray(gbk)
+        val cut = TxtIndex.cutIn(bytes, bytes.size, 1, false, gbk)
+        assertEquals(text.substring(0, (cut - 1) / 2 + 1), String(bytes, 0, cut, gbk))
+        // UTF-16LE: an emoji (a surrogate pair) on the cut moves the cut past it
+        val emoji = "x".repeat(TxtIndex.TARGET_BYTES / 2 - 1) + "\uD83D\uDE00" + "y".repeat(10_000)
+        val u16 = emoji.toByteArray(Charsets.UTF_16LE)
+        val c16 = TxtIndex.cutIn(u16, u16.size, 2, false, Charsets.UTF_16LE)
+        assertFalse(Character.isHighSurrogate(String(u16, 0, c16, Charsets.UTF_16LE).last()))
     }
 
     @Test

@@ -33,7 +33,8 @@ class BookSession(val file: File, val source: BookSource) {
     private var closed = false
 
     // Worker thread only
-    private val sections = LinkedHashMap<Int, Section>()
+    /** In access order: the least recently used section goes first. */
+    private val sections = LinkedHashMap<Int, Section>(4, 0.75f, true)
     private val parts = LinkedHashMap<Long, LaidOut>()
 
     /** The anchors (TOC fragment ids) and char lengths of the sections read so far. */

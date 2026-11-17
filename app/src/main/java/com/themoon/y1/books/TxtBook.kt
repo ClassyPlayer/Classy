@@ -30,9 +30,9 @@ object TextEncoding {
      * answer becomes windows-1250 with a Central European UI language, or when the text reads better that way
      * ([looksCentralEuropean]).
      */
-    fun detect(sample: ByteArray, language: String?): String {
+    fun detect(sample: ByteArray, language: String?, complete: Boolean = false): String {
         bom(sample)?.let { return it.first }
-        if (isUtf8(sample)) return "UTF-8"
+        if (isUtf8(sample, complete)) return "UTF-8"
         val lang = language.orEmpty().lowercase(Locale.US)
         val fallback = fallbackFor(lang)
         val found = try {
@@ -87,13 +87,27 @@ object TextEncoding {
         else -> "windows-1252"
     }
 
-    /** True when [bytes] are valid UTF-8 (a sequence cut at the end of the sample counts as valid). */
-    fun isUtf8(bytes: ByteArray): Boolean {
+    /**
+     * True when [bytes] are valid UTF-8. When the sample is not the [complete] file, a character that the end of
+     * the sample cuts counts as valid: a lead byte and fewer continuation bytes than it needs.
+     */
+    fun isUtf8(bytes: ByteArray, complete: Boolean = false): Boolean {
         var end = bytes.size
-        // Leave out a multi-byte character that the sample cuts
-        var back = 0
-        while (back < 3 && end - back - 1 >= 0 && (bytes[end - back - 1].toInt() and 0xC0) == 0x80) back++
-        if (end - back - 1 >= 0 && (bytes[end - back - 1].toInt() and 0xC0) == 0xC0) end -= back + 1
+        if (!complete) {
+            var back = 0
+            while (back < 3 && end - back - 1 >= 0 && (bytes[end - back - 1].toInt() and 0xC0) == 0x80) back++
+            val leadAt = end - back - 1
+            if (leadAt >= 0) {
+                val lead = bytes[leadAt].toInt() and 0xFF
+                val needs = when {
+                    lead in 0xC2..0xDF -> 1
+                    lead in 0xE0..0xEF -> 2
+                    lead in 0xF0..0xF4 -> 3
+                    else -> 0
+                }
+                if (needs > back) end = leadAt
+            }
+        }
         val decoder = Charsets.UTF_8.newDecoder()
             .onMalformedInput(CodingErrorAction.REPORT)
             .onUnmappableCharacter(CodingErrorAction.REPORT)
@@ -138,8 +152,8 @@ class TxtIndex(
     }
 
     companion object {
-        /** 2: Central European text with a Western UI language (the charset of older indexes can be wrong). */
-        const val VERSION = 2
+        /** 3: cuts at whole characters in long lines (GBK, UTF-16); 2: Central European text with a Western UI. */
+        const val VERSION = 3
         const val TARGET_BYTES = 24 * 1024
 
         /** The index in [json] if it is for this [file] (same size and time) and this format version. */
@@ -177,13 +191,13 @@ class TxtIndex(
                     n += r
                 }
             }
-            val charset = TextEncoding.detect(sample, language)
+            val charset = TextEncoding.detect(sample, language, complete = sample.size.toLong() == size)
             val bomLength = TextEncoding.bom(sample)?.second ?: 0
             val unit = if (charset.startsWith("UTF-16", ignoreCase = true)) 2 else 1
             val bigEndian = charset.equals("UTF-16BE", ignoreCase = true) || charset.equals("UTF-16", ignoreCase = true)
-            val starts = cuts(file, bomLength.toLong(), size, unit, bigEndian)
-            val headings = ArrayList<TocEntry>()
             val cs = Charset.forName(charset)
+            val starts = cuts(file, bomLength.toLong(), size, unit, bigEndian, cs)
+            val headings = ArrayList<TocEntry>()
             for (i in 0 until starts.size - 1) {
                 if (cancelled()) break
                 val text = TxtFormatter.format(readSection(file, starts[i], starts[i + 1], cs))
@@ -193,7 +207,7 @@ class TxtIndex(
         }
 
         /** The section starts: after a newline once a section has [TARGET_BYTES], a blank line when one comes soon. */
-        internal fun cuts(file: File, from: Long, size: Long, unit: Int, bigEndian: Boolean): LongArray {
+        internal fun cuts(file: File, from: Long, size: Long, unit: Int, bigEndian: Boolean, charset: Charset): LongArray {
             val out = ArrayList<Long>()
             out += from
             RandomAccessFile(file, "r").use { raf ->
@@ -207,7 +221,7 @@ class TxtIndex(
                         if (r < 0) break
                         n += r
                     }
-                    val cut = cutIn(buf, n, unit, bigEndian)
+                    val cut = cutIn(buf, n, unit, bigEndian, charset)
                     start += cut
                     out += start
                 }
@@ -217,7 +231,7 @@ class TxtIndex(
         }
 
         /** Where to end a section in [buf] (its first [n] bytes): an offset after a newline, at a character start. */
-        internal fun cutIn(buf: ByteArray, n: Int, unit: Int, bigEndian: Boolean): Int {
+        internal fun cutIn(buf: ByteArray, n: Int, unit: Int, bigEndian: Boolean, charset: Charset): Int {
             fun isNewline(i: Int): Boolean = if (unit == 1) buf[i] == NL else {
                 if (bigEndian) buf[i] == 0.toByte() && buf[i + 1] == NL else buf[i] == NL && buf[i + 1] == 0.toByte()
             }
@@ -236,9 +250,34 @@ class TxtIndex(
                 i += unit
             }
             if (firstNewline > 0) return firstNewline
-            // One very long line: cut at a character start (UTF-8: not a continuation byte)
-            var cut = TARGET_BYTES - TARGET_BYTES % unit
-            if (unit == 1) while (cut < n && (buf[cut].toInt() and 0xC0) == 0x80) cut++
+            return characterCut(buf, TARGET_BYTES - TARGET_BYTES % unit, unit, bigEndian, charset)
+        }
+
+        /**
+         * One very long line: a cut at or before [at] after a whole character of [charset] (a GBK or Shift_JIS
+         * character has two bytes, a UTF-16 emoji two code units).
+         */
+        internal fun characterCut(buf: ByteArray, at: Int, unit: Int, bigEndian: Boolean, charset: Charset): Int {
+            if (charset == Charsets.UTF_8) {
+                var cut = at
+                while (cut < buf.size && (buf[cut].toInt() and 0xC0) == 0x80) cut++
+                return cut
+            }
+            var cut = at
+            if (unit == 1) {
+                // The decoder takes whole characters only, and leaves a character that [at] cuts
+                val input = ByteBuffer.wrap(buf, 0, at)
+                val decoder = charset.newDecoder()
+                    .onMalformedInput(CodingErrorAction.REPLACE)
+                    .onUnmappableCharacter(CodingErrorAction.REPLACE)
+                decoder.decode(input, java.nio.CharBuffer.allocate(at), false)
+                if (input.position() > 0) cut = input.position()
+            } else if (cut >= 2) {
+                // Not between the two halves of a surrogate pair
+                val unitBefore = if (bigEndian) ((buf[cut - 2].toInt() and 0xFF) shl 8) or (buf[cut - 1].toInt() and 0xFF)
+                else ((buf[cut - 1].toInt() and 0xFF) shl 8) or (buf[cut - 2].toInt() and 0xFF)
+                if (Character.isHighSurrogate(unitBefore.toChar())) cut += 2
+            }
             return cut
         }
 
