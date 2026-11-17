@@ -3,19 +3,20 @@ package com.themoon.y1.photos
 import kotlin.math.roundToInt
 
 /**
- * The layout of the Photos screens, written once in iPod classic points (a 320 x 240 screen) and scaled to the
- * screen ([scale] = width / 320: 1.5 on the 480 x 360 Y2). Both screens are 4:3, so the iPod grid of 5 x 4
- * thumbnails fits Classy the same way. No Android types: the maths is unit-tested.
+ * The layout of the Photos screens. It copies the iPod classic Photos layout: the sizes are in iPod classic screen
+ * units (its screen is 320 x 240) and scaled to the player's screen ([scale] = width / 320: 1.5 on the 480 x 360 Y2),
+ * as [com.themoon.y1.views.ClassyMetrics] does for the rest of the UI. The screen is 4:3 like the iPod's, so the
+ * 5 x 4 grid of thumbnails keeps its proportions. No Android types: the maths is unit-tested.
  */
 class PhotoGeometry(val width: Int, val height: Int, val top: Int) {
 
-    /** Screen pixels per iPod point. */
+    /** Screen pixels per iPod classic unit (1.5 on the Y2). */
     val scale: Float = width / IPOD_WIDTH
 
     /** The grid area: under the status bar ([top]) to the bottom of the screen. */
     val gridHeight: Int get() = (height - top).coerceAtLeast(1)
 
-    /** Rows that fit on one page: 4 on the iPod and on the Y2. */
+    /** Rows that fit on one page: 4 on the Y2, as on the iPod classic. */
     val rows: Int get() = (gridHeight / (CELL_HEIGHT * scale)).toInt().coerceAtLeast(1)
 
     val columns: Int get() = COLUMNS

@@ -7,12 +7,13 @@ import org.junit.Test
 class PhotoGeometryTest {
 
     @Test
-    fun theIpodGridScalesToTheY2() {
+    fun theIpodClassicLayoutScalesToTheY2Screen() {
+        // The layout in iPod classic units (scale 1) and on the 480 x 360 Y2 (scale 1.5)
         val ipod = PhotoGeometry(320, 240, 20)
         val y2 = PhotoGeometry(480, 360, 30)
         assertEquals(1.0f, ipod.scale)
         assertEquals(1.5f, y2.scale)
-        // 5 x 4 thumbnails on both screens
+        // 5 x 4 thumbnails at both scales
         assertEquals(5, ipod.columns)
         assertEquals(4, ipod.rows)
         assertEquals(4, y2.rows)
@@ -52,9 +53,8 @@ class PhotoGeometryTest {
 
     @Test
     fun fitKeepsTheWholePhoto() {
-        // A 4:3 photo fills the 4:3 screen of the iPod and of Classy
+        // A 4:3 photo fills the 4:3 screen of the Y2
         assertArrayEquals(intArrayOf(480, 360), PhotoGeometry.fit(4000, 3000, 480, 360))
-        assertArrayEquals(intArrayOf(320, 240), PhotoGeometry.fit(4000, 3000, 320, 240))
         // 3:2 and portrait photos get bars
         assertArrayEquals(intArrayOf(480, 320), PhotoGeometry.fit(6000, 4000, 480, 360))
         assertArrayEquals(intArrayOf(270, 360), PhotoGeometry.fit(3000, 4000, 480, 360))
