@@ -87,6 +87,8 @@ class BooksController(
     private var byPath: Map<String, BookItem> = emptyMap()
     var isScanning = false
         private set
+    /** [forget] came during a scan (the card came back while Books scanned it): scan again when it ends. */
+    private var rescanPending = false
     private var scanProgress: String? = null
 
     /** The book of each row of the rows list ([rowViews]); null for a row that is not a book. */
@@ -174,7 +176,10 @@ class BooksController(
 
     /** The books on the card may have changed (a USB share): the next visit scans again, or now if Books shows. */
     fun forget() {
-        if (isScanning) return
+        if (isScanning) {
+            rescanPending = true
+            return
+        }
         books = null
         thumbs.evictAll()
         paneCovers.evictAll()
@@ -199,6 +204,11 @@ class BooksController(
                 setBooks(found)
                 isScanning = false
                 scanProgress = null
+                if (rescanPending) {
+                    // This scan may have read the card before it was back: drop it and scan again
+                    rescanPending = false
+                    forget()
+                }
                 if (isShown() && !level.isReaderMenu) refresh()
             }
         }, "BookScanner").start()
