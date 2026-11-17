@@ -148,6 +148,11 @@ class UsbStorageUiManager(
             Notice.error(activity, localize("Wait for the game scan to finish, then try again."))
             return
         }
+        if (main?.isBookScanRunning() == true) {
+            // The book scan reads the EPUB files on the card
+            Notice.error(activity, localize("Wait for the book scan to finish, then try again."))
+            return
+        }
         if (UsbMassStorageController.hasShareableVolume(activity) == false) {
             // Nothing to share (no card): do not switch the USB function, so the computer keeps MTP.
             Notice.error(activity, localize("No microSD card."))
@@ -158,6 +163,8 @@ class UsbStorageUiManager(
         pauseAllPlaybackForUsb()
         // A game reads the card (its files, its music): it ends first, and the share waits for its save below
         main?.endGameForUsbShare()
+        // An open book keeps its EPUB file open on the card
+        main?.closeBookForUsbShare()
         // An open track file on the card makes MountService kill this app during the share.
         AudioPlayerManager.getInstance().releaseForUsbStorage(musicPlayed)
         getExternalSdMountMonitor()?.setSuspended(true)
@@ -241,8 +248,9 @@ class UsbStorageUiManager(
         getExternalSdMountMonitor()?.setSuspended(false)
         val main = activity as? MainActivity ?: return
         AudioPlayerManager.getInstance().reloadAfterUsbStorage(main, resume)
-        // The computer may have added or removed games
+        // The computer may have added or removed games and books
         main.forgetGames()
+        main.forgetBooks()
     }
 
     fun onUsbCableRemovedWhileShared() {

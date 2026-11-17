@@ -130,6 +130,8 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
         const val STATE_JELLYFIN = 17
         const val STATE_GAMES = 18
         const val STATE_GAME_PLAYER = 19
+        const val STATE_BOOKS = 20
+        const val STATE_BOOK_READER = 21
 
         const val BROWSER_ROOT = 0
         const val BROWSER_FOLDER = 1
@@ -262,6 +264,8 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     lateinit var layoutVideoPlayerMode: View
     lateinit var layoutGamesMode: View
     lateinit var layoutGamePlayerMode: View
+    lateinit var layoutBooksMode: View
+    lateinit var layoutBookReaderMode: View
 
     lateinit var ivAlbumArt: ImageView
     var ivAlbumReflection: ImageView? = null
@@ -306,6 +310,24 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     lateinit var videoPlayerController: VideoPlayerController
     lateinit var gamesController: GamesController
     lateinit var gamePlayerController: GamePlayerController
+    lateinit var booksController: com.themoon.y1.controllers.books.BooksController
+    lateinit var bookReaderController: com.themoon.y1.controllers.books.BookReaderController
+
+    /** The Books list reads the books on the card. */
+    fun isBookScanRunning(): Boolean = ::booksController.isInitialized && booksController.isScanning
+
+    /** The card was shared over USB: the Books lists scan the folders again. */
+    fun forgetBooks() {
+        if (::booksController.isInitialized) booksController.forget()
+    }
+
+    /** Before the card is shared over USB: the open book closes (its file is on the card). */
+    fun closeBookForUsbShare() {
+        if (::bookReaderController.isInitialized) bookReaderController.closeForUsbShare()
+    }
+
+    /** The status bar title again (a screen whose title changed while it shows). */
+    fun refreshStatusBarTitle() = updateStatusBarTitle()
 
     /** The Games list unpacks or reads the game folders on the card. */
     fun isGameScanRunning(): Boolean = ::gamesController.isInitialized && gamesController.isScanning
@@ -529,6 +551,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     override fun onPause() {
         super.onPause()
         if (::gamePlayerController.isInitialized) gamePlayerController.onActivityPause()
+        if (::bookReaderController.isInitialized) bookReaderController.onActivityPause()
         systemNotifications.show()
         AudioPlayerManager.getInstance().savePlaybackState(sync = false)
     }
@@ -604,6 +627,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
             STATE_FM_RADIO -> ScreenState.FmRadio
             STATE_JELLYFIN -> ScreenState.Jellyfin()
             STATE_GAMES -> ScreenState.Games
+            STATE_BOOKS -> ScreenState.Books()
             else -> ScreenState.MainMenu
         }
         changeScreen(screenState)
@@ -644,6 +668,8 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
             is ScreenState.VideoPlayer -> STATE_VIDEO_PLAYER
             is ScreenState.Games -> STATE_GAMES
             is ScreenState.GamePlayer -> STATE_GAME_PLAYER
+            is ScreenState.Books -> STATE_BOOKS
+            is ScreenState.BookReader -> STATE_BOOK_READER
         }
     }
 
@@ -654,6 +680,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
             else -> state
         }
         if (::browserController.isInitialized) browserController.endLetterJump()
+        if (::booksController.isInitialized) booksController.endLetterJump()
         tvFastScrollLetter?.animate()?.cancel()
         tvFastScrollLetter?.visibility = View.GONE
         syncCurrentScreenState(targetState)
@@ -1201,6 +1228,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
             STATE_EQUALIZER -> t("Equalizer")
             STATE_JELLYFIN -> t("Jellyfin")
             STATE_GAMES -> t("Games")
+            STATE_BOOKS -> t("Books")
             else -> t("Classy")
         }
     }
