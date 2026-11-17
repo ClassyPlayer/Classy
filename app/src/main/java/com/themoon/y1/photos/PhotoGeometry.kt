@@ -3,20 +3,19 @@ package com.themoon.y1.photos
 import kotlin.math.roundToInt
 
 /**
- * The layout of the Photos screens. It copies the iPod classic Photos layout: the sizes are in iPod classic screen
- * units (its screen is 320 x 240) and scaled to the player's screen ([scale] = width / 320: 1.5 on the 480 x 360 Y2),
- * as [com.themoon.y1.views.ClassyMetrics] does for the rest of the UI. The screen is 4:3 like the iPod's, so the
- * 5 x 4 grid of thumbnails keeps its proportions. No Android types: the maths is unit-tested.
+ * The layout of the Photos screens. The sizes are in base units of a 320 x 240 screen and scaled to the player's
+ * screen ([scale] = width / 320: 1.5 on the 480 x 360 Y2), as [com.themoon.y1.views.ClassyMetrics] does for the rest
+ * of the UI. No Android types: the maths is unit-tested.
  */
 class PhotoGeometry(val width: Int, val height: Int, val top: Int) {
 
-    /** Screen pixels per iPod classic unit (1.5 on the Y2). */
-    val scale: Float = width / IPOD_WIDTH
+    /** Screen pixels per base unit (1.5 on the Y2). */
+    val scale: Float = width / BASE_WIDTH
 
     /** The grid area: under the status bar ([top]) to the bottom of the screen. */
     val gridHeight: Int get() = (height - top).coerceAtLeast(1)
 
-    /** Rows that fit on one page: 4 on the Y2, as on the iPod classic. */
+    /** Rows that fit on one page: 4 on the Y2. */
     val rows: Int get() = (gridHeight / (CELL_HEIGHT * scale)).toInt().coerceAtLeast(1)
 
     val columns: Int get() = COLUMNS
@@ -40,7 +39,7 @@ class PhotoGeometry(val width: Int, val height: Int, val top: Int) {
     /** The width of the selection frame in pixels (2 points). */
     val frameWidth: Int get() = (FRAME * scale).roundToInt().coerceAtLeast(1)
 
-    /** The first row to show so that [index] is on the page (the page moves a row at a time, as on the iPod). */
+    /** The first row to show so that [index] is on the page (the page moves a row at a time). */
     fun firstRowFor(index: Int, firstRow: Int, count: Int): Int {
         val row = index / columns
         val lastRow = ((count - 1).coerceAtLeast(0)) / columns
@@ -54,8 +53,9 @@ class PhotoGeometry(val width: Int, val height: Int, val top: Int) {
     }
 
     companion object {
-        const val IPOD_WIDTH = 320f
-        const val IPOD_HEIGHT = 240f
+        /** The base screen of the sizes below (4:3, as the Y2). */
+        const val BASE_WIDTH = 320f
+        const val BASE_HEIGHT = 240f
         const val COLUMNS = 5
         /** One grid cell: 64 x 55 points (5 x 4 cells under the 20 point status bar). */
         const val CELL_HEIGHT = 55f

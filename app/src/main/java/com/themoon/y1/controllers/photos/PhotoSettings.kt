@@ -6,8 +6,8 @@ import com.themoon.y1.controllers.settings.SettingRow
 import com.themoon.y1.controllers.settings.SettingRows
 
 /**
- * The slideshow settings, as Photos → Settings on the iPod classic (without TV Out and Music: the music keeps its own
- * Play/Pause): one list of rows for Settings → Photos and for Photos → Slideshow Settings ([rows]).
+ * The slideshow settings of Settings → Photos ([rows]). No music setting: Play/Pause keeps the music on all Photos
+ * screens.
  */
 object PhotoSettings {
 

@@ -11,7 +11,7 @@ import com.themoon.y1.photos.PhotoItem
 import com.themoon.y1.photos.PhotoThumbs
 
 /**
- * The thumbnail grid of an album, as on the iPod classic: 5 x 4 thumbnails under the status bar ([PhotoGeometry]),
+ * The thumbnail grid of a set of photos: 5 x 4 thumbnails under the status bar ([PhotoGeometry]),
  * a frame in the theme colour on the selected photo, and the page moves one row at a time.
  * One view draws the whole page: no row views, so a wheel step only draws again.
  */

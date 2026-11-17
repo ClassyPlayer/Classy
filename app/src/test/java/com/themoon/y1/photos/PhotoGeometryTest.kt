@@ -7,19 +7,19 @@ import org.junit.Test
 class PhotoGeometryTest {
 
     @Test
-    fun theIpodClassicLayoutScalesToTheY2Screen() {
-        // The layout in iPod classic units (scale 1) and on the 480 x 360 Y2 (scale 1.5)
-        val ipod = PhotoGeometry(320, 240, 20)
+    fun theBaseLayoutScalesToTheY2Screen() {
+        // The layout in base units (scale 1) and on the 480 x 360 Y2 (scale 1.5)
+        val base = PhotoGeometry(320, 240, 20)
         val y2 = PhotoGeometry(480, 360, 30)
-        assertEquals(1.0f, ipod.scale)
+        assertEquals(1.0f, base.scale)
         assertEquals(1.5f, y2.scale)
         // 5 x 4 thumbnails at both scales
-        assertEquals(5, ipod.columns)
-        assertEquals(4, ipod.rows)
+        assertEquals(5, base.columns)
+        assertEquals(4, base.rows)
         assertEquals(4, y2.rows)
         assertEquals(20, y2.pageSize)
         // The same cell, 1.5 times larger
-        val a = ipod.thumbRect(6, 0)
+        val a = base.thumbRect(6, 0)
         val b = y2.thumbRect(6, 0)
         assertEquals((a[2] - a[0]) * 1.5f, (b[2] - b[0]).toFloat(), 1.5f)
         assertEquals((a[3] - a[1]) * 1.5f, (b[3] - b[1]).toFloat(), 1.5f)

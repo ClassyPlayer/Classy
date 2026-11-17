@@ -117,7 +117,7 @@ object ThemeManager {
         menuElements.add(MenuElement("btn_set", "button", "main_scroll_list", "", 0, 0, -1, 33, "Settings", "Settings", "›", "#FF8E8E93", "#FFFFFFFF", "", "", "", "OPEN_SETTINGS", "top|left", -1, 12, 21, -1, "bottom", "left", "", 0, 0, 0, 1.0f))
         menuElements.add(MenuElement("btn_web", "button", "main_scroll_list", "", 0, 0, -1, 33, "Web Server", "Web Server", "›", "#FF8E8E93", "#FFFFFFFF", "", "", "", "OPEN_WEBSERVER", "top|left", -1, 13, 21, -1, "bottom", "left", "", 0, 0, 0, 1.0f))
         menuElements.add(MenuElement("widget_cover", "widget_animated_cover", "", "", 242, 0, 238, 325, "", "", "", "", "", "", "", "", "NONE", "top|left", -1, -1, 16, -1, "bottom", "left", "", 0, 0, 0, 1.0f))
-        // While Photos is selected: the photos in the art pane, as on the iPod classic (PhotoPreviewView)
+        // While Photos is selected: random photos in the art pane (PhotoPreviewView)
         menuElements.add(MenuElement("widget_photos", "widget_photo_preview", "", "btn_photos", 242, 0, 238, 325, "", "", "", "", "", "", "", "", "NONE", "top|left", -1, -1, 16, -1, "bottom", "left", "", 0, 0, 0, 1.0f))
     }
 

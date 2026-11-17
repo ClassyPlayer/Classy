@@ -14,7 +14,6 @@ import com.themoon.y1.R
 import com.themoon.y1.StoragePaths
 import com.themoon.y1.ThemeManager
 import com.themoon.y1.controllers.ScreenController
-import com.themoon.y1.controllers.coverflow.CoverFlowTitle
 import com.themoon.y1.lists.ListScreen
 import com.themoon.y1.lists.ListSpec
 import com.themoon.y1.lists.Pane
@@ -101,7 +100,7 @@ class PhotosController(
         is PhotosLevel.Folder -> l.dir?.name ?: localize("Folders")
         is PhotosLevel.Grid -> {
             val name = setName(l.set)
-            if (grid.count > 0 && grid.visibility == View.VISIBLE) CoverFlowTitle.format(name, grid.selected + 1, grid.count) else name
+            if (grid.count > 0 && grid.visibility == View.VISIBLE) "$name (${grid.selected + 1} / ${grid.count})" else name
         }
     }
 

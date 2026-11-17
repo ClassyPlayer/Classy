@@ -5,7 +5,7 @@ import com.themoon.y1.StoragePaths
 import com.themoon.y1.controllers.menu.MenuOrder
 
 /**
- * Migration 016: the main menu has a new row *Photos* (after *Videos*, as on the iPod classic).
+ * Migration 016: the main menu has a new row *Photos* (after *Videos*).
  * - A saved order (Settings → Menus → Main Menu Items) gets Photos after Videos once.
  * - The row shows only when a Photos folder is there; else it starts hidden, and Main Menu Items can show it.
  *

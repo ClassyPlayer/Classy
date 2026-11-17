@@ -35,7 +35,7 @@ import java.util.Random
 import java.util.concurrent.Executors
 
 /**
- * A photo full screen, over the status bar, as on the iPod classic: the whole photo with black bars
+ * A photo full screen, over the status bar: the whole photo with black bars
  * ([PhotoDecoder.Mode.FIT]); the wheel, Next and Previous go to the next or previous photo.
  *
  * - Centre: starts the slideshow from this photo; during the slideshow it pauses and resumes it.
