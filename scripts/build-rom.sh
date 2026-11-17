@@ -188,11 +188,8 @@ download_launcher_apk() {
         apk_url="$(printf '%s\n' "$apk_urls" | grep -v -- '-y1\.apk$' | head -1 || true)"
     else
         apk_url="$(printf '%s\n' "$apk_urls" | grep -- '-y1\.apk$' | head -1 || true)"
-        if [ -z "$apk_url" ]; then
-            # Releases before the split have one APK, built for Android 4.4: it does not start on Android 4.2
-            apk_url="$(printf '%s\n' "$apk_urls" | head -1 || true)"
-            [ -z "$apk_url" ] || echo "warning: release ${tag} has no -y1.apk; using $(basename "$apk_url"), which needs Android 4.4" >&2
-        fi
+        # Releases before the split have one APK, built for Android 4.4: a Y1 ROM with it has no launcher that starts
+        [ -n "$apk_url" ] || die "release ${tag} has no -y1.apk (Android 4.2) for the Y1; pass --launcher-apk or a newer --launcher-tag"
     fi
     [ -n "$apk_url" ] || die "could not find launcher APK for release ${tag} in ${LAUNCHER_REPO}"
 

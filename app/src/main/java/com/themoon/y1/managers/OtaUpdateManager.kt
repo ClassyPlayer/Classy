@@ -576,8 +576,14 @@ class OtaUpdateManager(
     fun installApk(apkFile: File) {
         // Before any change: an update for a newer Android (for example a Y2 release on a Y1 with Android 4.2) would
         // replace the firmware copy with an app that this Android does not start: no launcher after the restart
+        // null: the manifest cannot be read (a manifest without a minimum gives 1), so the Android it needs is unknown
         val minSdk = ApkMinSdk.read(apkFile)
-        if (minSdk != null && minSdk > android.os.Build.VERSION.SDK_INT) {
+        if (minSdk == null) {
+            apkFile.delete()
+            activity.runOnUiThread { showUnverifiedDialog() }
+            return
+        }
+        if (minSdk > android.os.Build.VERSION.SDK_INT) {
             apkFile.delete()
             activity.runOnUiThread { showNeedsNewerAndroidDialog() }
             return

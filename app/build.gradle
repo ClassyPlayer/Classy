@@ -109,6 +109,21 @@ dependencies {
     implementation 'org.videolan.android:libvlc-all:3.3.14'
 }
 
+// ApkMinSdkTest reads the binary manifest that aapt2 wrote for the tested variant (the manifest its APK gets), so a
+// build tool that writes a format the update check cannot read fails the tests, not the update on the player
+tasks.withType(Test).configureEach { t ->
+    def match = t.name =~ /^test(Y[12])(Debug|Release)UnitTest$/
+    if (!match.matches()) return
+    def device = match.group(1)
+    def variant = device.toLowerCase() + match.group(2)
+    def resTask = "process${device}${match.group(2)}Resources"
+    t.dependsOn(resTask)
+    t.systemProperty("apkMinSdk.archive", layout.buildDirectory.file(
+        "intermediates/linked_resources_binary_format/${variant}/${resTask}/linked-resources-binary-format-${variant}.ap_"
+    ).get().asFile.path)
+    t.systemProperty("apkMinSdk.expected", device == "Y1" ? "17" : "19")
+}
+
 // Disable CheckAarMetadataTask to allow building against older SDK targets without metadata rejections.
 tasks.withType(com.android.build.gradle.internal.tasks.CheckAarMetadataTask).configureEach {
     enabled = false

@@ -2,8 +2,11 @@ package com.themoon.y1.managers
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeTrue
 import org.junit.Test
 import java.io.ByteArrayOutputStream
+import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
@@ -92,5 +95,19 @@ class ApkMinSdkTest {
     fun notABinaryManifest() {
         assertNull(ApkMinSdk.fromManifest("<manifest/>".toByteArray()))
         assertNull(ApkMinSdk.fromManifest(ByteArray(0)))
+    }
+
+    /**
+     * The manifest that aapt2 wrote for this build variant, as its APK has it (app/build.gradle gives the path).
+     * The update refuses an APK whose minSdkVersion this parser cannot read, so a new build tool that writes another
+     * format must fail here, not on the player.
+     */
+    @Test
+    fun readsTheManifestOfThisBuild() {
+        val archive = System.getProperty("apkMinSdk.archive")
+        assumeTrue("run through Gradle", archive != null)
+        val file = File(archive!!)
+        assertTrue("no $file: update the path in app/build.gradle", file.isFile)
+        assertEquals(System.getProperty("apkMinSdk.expected")!!.toInt(), ApkMinSdk.read(file))
     }
 }

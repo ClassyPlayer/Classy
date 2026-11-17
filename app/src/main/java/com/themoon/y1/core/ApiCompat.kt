@@ -30,15 +30,22 @@ object ApiCompat {
 
 /**
  * [use] for a [ZipFile]: ZipFile is a Closeable only from API 19 on Android, so `ZipFile(f).use {}` fails before it.
- * Closes the file at the end; when [block] fails, a close failure does not hide the first exception.
+ * Closes the file at the end, also when [block] returns from the calling function; when [block] fails, a close
+ * failure does not hide the first exception.
  */
 inline fun <R> ZipFile.useZip(block: (ZipFile) -> R): R {
-    val result = try {
-        block(this)
+    var failure: Throwable? = null
+    try {
+        return block(this)
     } catch (e: Throwable) {
-        try { close() } catch (_: Throwable) {}
+        failure = e
         throw e
+    } finally {
+        // finally: a return from inside [block] leaves this function without passing the lines after the try
+        if (failure == null) {
+            close()
+        } else {
+            try { close() } catch (_: Throwable) {}
+        }
     }
-    close()
-    return result
 }
