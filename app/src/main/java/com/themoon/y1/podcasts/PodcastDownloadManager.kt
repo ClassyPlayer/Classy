@@ -5,14 +5,9 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
 import java.io.FileOutputStream
-import java.security.SecureRandom
-import java.security.cert.X509Certificate
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
-import javax.net.ssl.SSLContext
-import javax.net.ssl.TrustManager
-import javax.net.ssl.X509TrustManager
 
 /**
  * Manages background downloading of podcast episodes, progress polling,
@@ -28,7 +23,7 @@ class PodcastDownloadManager private constructor() {
 
     private val activeDownloads = ConcurrentHashMap<String, Int>()
     private val executor: ExecutorService = Executors.newFixedThreadPool(2)
-    private val client: OkHttpClient = buildClient()
+    private val client: OkHttpClient get() = PodcastHttp.client
 
     fun isDownloading(audioUrl: String): Boolean = activeDownloads.containsKey(audioUrl)
     fun getProgress(audioUrl: String): Int = activeDownloads[audioUrl] ?: 0
@@ -116,25 +111,6 @@ class PodcastDownloadManager private constructor() {
     private fun removeStalePartFiles(dir: File) {
         dir.listFiles()?.forEach { f ->
             if (f.isFile && f.name.startsWith(PART_PREFIX) && f.name.endsWith(PART_SUFFIX)) f.delete()
-        }
-    }
-
-    private fun buildClient(): OkHttpClient {
-        return try {
-            val trustAll = object : X509TrustManager {
-                override fun checkClientTrusted(certs: Array<X509Certificate>, authType: String) {}
-                override fun checkServerTrusted(certs: Array<X509Certificate>, authType: String) {}
-                override fun getAcceptedIssuers(): Array<X509Certificate> = arrayOf()
-            }
-            val sslContext = SSLContext.getInstance("TLS", "Conscrypt")
-            sslContext.init(null, arrayOf<TrustManager>(trustAll), SecureRandom())
-
-            OkHttpClient.Builder()
-                .sslSocketFactory(sslContext.socketFactory, trustAll)
-                .hostnameVerifier { _, _ -> true }
-                .build()
-        } catch (e: Exception) {
-            OkHttpClient()
         }
     }
 

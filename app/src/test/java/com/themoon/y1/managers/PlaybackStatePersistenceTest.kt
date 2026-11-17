@@ -147,10 +147,10 @@ class PlaybackStatePersistenceTest {
     }
 
     @Test
-    fun testShouldUseGaplessQueue_returnsFalseForFlac() {
+    fun testShouldUseGaplessQueue_returnsTrueForFlacAlbum() {
         val apm = AudioPlayerManager.getInstance()
         val tracks = (1..5).map { File(tempFolder.root, "track$it.flac") }
-        assertFalse("Lists with FLAC files must not use gapless queue", apm.shouldUseGaplessQueue(tracks))
+        assertTrue("A FLAC album of <= 15 tracks must use the gapless queue", apm.shouldUseGaplessQueue(tracks))
     }
 
     @Test

@@ -21,6 +21,12 @@ object RowFocus {
     fun isLoopOn(context: Context): Boolean =
         Prefs.LOOP_SCROLL.get(AppPrefs.get(context))
 
+    /** Settings → Controls → Letter Jump (default On) and Letter Jump Sensitivity; null when Letter Jump is Off. */
+    fun letterJumpSensitivity(context: Context): LetterJump.Sensitivity? {
+        val prefs = AppPrefs.get(context)
+        return LetterJump.sensitivity(Prefs.LETTER_JUMP.get(prefs), Prefs.LETTER_JUMP_SENSITIVITY.get(prefs))
+    }
+
     fun isSelectable(row: View?): Boolean = row != null && row.visibility == View.VISIBLE && row.isFocusable
 
     /** The row after one step from [current] (-1 = no row) in the direction of [delta], or null to stay. */

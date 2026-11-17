@@ -58,9 +58,11 @@ class MusicQuizEngineTest {
         assertTrue(engine.resetSession(flacSongs))
         assertNotNull(engine.nextQuestion { _, song -> song.title })
 
-        // MediaPlayer on Android 4.4 cannot open Opus
-        val opusSongs = (1..4).map { createSong("Song $it", path = "/storage/sdcard0/Music/Song $it.opus") }
-        assertFalse(engine.resetSession(opusSongs))
+        // ExoPlayer plays Opus, also in .ogg files
+        val opusSongs = (1..2).map { createSong("Song $it", path = "/storage/sdcard0/Music/Song $it.opus") } +
+            (3..4).map { createSong("Song $it", path = "/storage/sdcard0/Music/Song $it.ogg") }
+        assertTrue(engine.resetSession(opusSongs))
+        assertNotNull(engine.nextQuestion { _, song -> song.title })
     }
 
     @Test
@@ -91,6 +93,30 @@ class MusicQuizEngineTest {
             assertEquals(coverSongs[3].file, q!!.song.file)
             assertTrue(q.type != MusicQuizEngine.TYPE_ALBUM_COVER)
         }
+    }
+
+    @Test
+    fun testPreviewError_skipsTheSong() {
+        val engine = newEngine()
+        val songs = (1..5).map { createSong("Song $it", path = "/storage/sdcard0/Music/Song $it.flac") }
+        engine.resetSession(songs)
+
+        // A clip that does not play (an ExoPlayer error, or no start in 5 s): the song is not asked again
+        engine.onPreviewError(songs[0].file)
+        for (i in 0 until 50) {
+            val q = engine.nextQuestion { _, s -> s.title }
+            assertNotNull(q)
+            assertTrue("A song whose clip does not play must not be asked again", q!!.song.file != songs[0].file)
+        }
+    }
+
+    @Test
+    fun testClipStalled_progressOrARepeatIsPlay() {
+        assertTrue(MusicQuizEngine.clipStalled(positionMs = 60_200, clipStartMs = 60_000, repeated = false))
+        assertFalse(MusicQuizEngine.clipStalled(positionMs = 64_000, clipStartMs = 60_000, repeated = false))
+        // A 2.4 s song that played to its end and started again is near 0 at the check: it plays
+        assertTrue(MusicQuizEngine.clipStalled(positionMs = 100, clipStartMs = 0, repeated = false))
+        assertFalse(MusicQuizEngine.clipStalled(positionMs = 100, clipStartMs = 0, repeated = true))
     }
 
     @Test

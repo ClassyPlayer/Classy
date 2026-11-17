@@ -43,6 +43,22 @@ class CoverFlowLetterJumpTest {
     }
 
     @Test
+    fun letterJumpOffMovesTheCoversAlsoOnAFastTurn() {
+        val ui = FakeUi()
+        val jump = CoverFlowLetterJump(albums, ui) { null }
+        assertTrue(fastTurn(jump, 1, 0, current = 1, steps = 20).none { it })
+        assertTrue(ui.shown.isEmpty())
+    }
+
+    @Test
+    fun lowSensitivityNeedsSixFastSteps() {
+        val ui = FakeUi()
+        val jump = CoverFlowLetterJump(albums, ui) { LetterJump.Sensitivity.LOW }
+        assertEquals(listOf(false, false, false, false, false, true), fastTurn(jump, 1, 0, current = 1, steps = 6))
+        assertEquals(listOf("B"), ui.shown)
+    }
+
+    @Test
     fun fastTurnMovesThroughTheLettersThenSettlesOnTheFirstAlbum() {
         val ui = FakeUi()
         val jump = CoverFlowLetterJump(albums, ui)

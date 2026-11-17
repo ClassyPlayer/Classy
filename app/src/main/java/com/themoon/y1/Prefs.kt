@@ -16,6 +16,7 @@ import com.themoon.y1.managers.UpdateChannel
 import com.themoon.y1.managers.UsbDrive
 import com.themoon.y1.managers.VolumeSteps
 import com.themoon.y1.models.AlbumKey
+import com.themoon.y1.navigation.LetterJump
 import com.themoon.y1.views.CoverPane
 import com.themoon.y1.views.ListEdges
 import com.themoon.y1.views.ToggleStyle
@@ -171,6 +172,10 @@ object Prefs {
     val VIBRATE = add(BoolPref("vibrate", true, PrefGroup.CONTROLS))
     val VIBRATE_STRENGTH = add(IntPref(ButtonVibration.PREF, ButtonVibration.DEFAULT, PrefGroup.CONTROLS))
     val LOOP_SCROLL = add(BoolPref("loop_scroll_on", true, PrefGroup.CONTROLS, resettable = true))
+    /** The iPod letter jump in the A–Z lists and Cover Flow ([LetterJump]). */
+    val LETTER_JUMP = add(BoolPref("letter_jump", true, PrefGroup.CONTROLS, resettable = true))
+    /** Letter Jump Sensitivity: the [LetterJump.Sensitivity] ordinal (0 = Low, 1 = Normal, 2 = High). */
+    val LETTER_JUMP_SENSITIVITY = add(IntPref("letter_jump_sensitivity", LetterJump.Sensitivity.DEFAULT.ordinal, PrefGroup.CONTROLS, resettable = true))
     val SCREEN_OFF_CONTROL = add(BoolPref("screen_off_control", false, PrefGroup.CONTROLS, resettable = true))
     val DOUBLE_CLICK_FAVORITE = add(BoolPref("double_click_favorite", true, PrefGroup.CONTROLS, resettable = true))
 

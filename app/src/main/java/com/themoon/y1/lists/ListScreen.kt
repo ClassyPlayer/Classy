@@ -27,8 +27,8 @@ import com.themoon.y1.views.ListItemViewFactory
  *   List Edges fade in the ListView), with the click feedback.
  * - Rows: one click feedback, then the row's action; a hold (long press) does the row's hold action.
  * - [ListSpec.pane]: the split screen shows with the list, and goes when a list without it shows or the screen exits.
- * - [ListSpec.letters]: the iPod letter jump ([LetterJump.Mode]) in [wheel], with the letter in [letterBox]; the
- *   screen gives its keys to [key] (a centre press ends letter mode).
+ * - [ListSpec.letters]: the iPod letter jump ([LetterJump.Mode], Settings → Controls → Letter Jump) in [wheel], with
+ *   the letter in [letterBox]; the screen gives its keys to [key] (a centre press ends letter mode).
  */
 class ListScreen(
     private val rows: LinearLayout,
@@ -50,7 +50,8 @@ class ListScreen(
     private val lastKeys = HashMap<String, String>()
     private var pane: Pane? = null
 
-    private val letterMode = LetterJump.Mode()
+    // Letter Jump and its Sensitivity are read at each step: a change in Settings applies at once
+    private val letterMode = LetterJump.Mode { RowFocus.letterJumpSensitivity(context) }
     private val letterIdle = Runnable { endLetters() }
     private var letters: List<String?>? = null
     private var lettersOf: ListSpec? = null

@@ -24,6 +24,7 @@ import com.themoon.y1.controllers.ScreenController
 import com.themoon.y1.managers.AlbumCoverManager
 import com.themoon.y1.models.SongItem
 import com.themoon.y1.navigation.NavigationManager
+import com.themoon.y1.navigation.RowFocus
 import com.themoon.y1.navigation.ScreenState
 import com.themoon.y1.views.CoverFlowLayout
 import com.themoon.y1.views.SmoothEdgeImageView
@@ -68,7 +69,7 @@ class CoverFlowController(
         override fun click() = clickFeedback()
         override fun postDelayed(task: Runnable, delayMs: Long) { rootView.postDelayed(task, delayMs) }
         override fun cancel(task: Runnable) { rootView.removeCallbacks(task) }
-    })
+    }) { RowFocus.letterJumpSensitivity(activity) }
 
     // Fly-by at the end of a letter jump (see CoverFlowFlyBy). Positions are album numbers that can be
     // fractional, and can be outside 0 until total after wheel steps (the cards show them modulo total).

@@ -82,6 +82,21 @@ jobs:
           echo "$OUTPUTS"
           echo "$OUTPUTS" >> "$GITHUB_OUTPUT"
 
+      # The player does not offer a release that has fewer commits of main than the installed build (a promoted older
+      # beta or a hotfix from release/<tag> gets a newer tag, but has older code). The count only goes up while main
+      # only grows: squash merges, no force push. 0 = not known: the player then compares only the tags.
+      - name: Count the Commits of main
+        id: lineage
+        run: |
+          if BASE=$(git merge-base HEAD origin/main); then
+            MAIN_COMMITS=$(git rev-list --count --first-parent "$BASE")
+          else
+            echo "::warning::This commit has no common commit with origin/main: the player compares only the tags"
+            MAIN_COMMITS=0
+          fi
+          echo "main_commits=$MAIN_COMMITS (merge base ${BASE:-none})"
+          echo "main_commits=$MAIN_COMMITS" >> "$GITHUB_OUTPUT"
+
       - name: Check Translation Consistency
         run: python3 scripts/check_translations.py --strict
 
@@ -104,6 +119,7 @@ jobs:
           KEY_ALIAS: ${{ secrets.CLASSY_RELEASE_KEY_ALIAS }}
           VERSION_CODE: ${{ steps.version.outputs.version_code }}
           VERSION_NAME: ${{ steps.version.outputs.version_name }}
+          MAIN_COMMITS: ${{ steps.lineage.outputs.main_commits }}
         run: |
           # One fixed key for all releases: Android installs an update over the app only with the same key.
           # Without the secrets (forks), Gradle signs with the runner's new debug key, as before.
@@ -121,7 +137,8 @@ jobs:
             echo "::warning::No release key in the secrets: the APK is signed with a new debug key"
           fi
           # Builds both flavours: y2 (minSdk 19) and y1 (minSdk 17)
-          ./gradlew assembleRelease -PappVersionCode="$VERSION_CODE" -PappVersionName="$VERSION_NAME" "${SIGNING[@]}"
+          ./gradlew assembleRelease -PappVersionCode="$VERSION_CODE" -PappVersionName="$VERSION_NAME" \
+            -PappMainCommits="$MAIN_COMMITS" "${SIGNING[@]}"
 
       - name: Package APK and Generate Update Metadata
         env:
@@ -132,6 +149,7 @@ jobs:
           APK_NAME_Y1: ${{ steps.version.outputs.apk_name_y1 }}
           TAG_NAME: ${{ steps.version.outputs.tag_name }}
           CHANNEL: ${{ steps.version.outputs.channel }}
+          MAIN_COMMITS: ${{ steps.lineage.outputs.main_commits }}
           REPOSITORY: ${{ github.repository }}
         run: |
           mkdir -p dist
@@ -147,6 +165,7 @@ jobs:
             "versionName": "$VERSION_NAME",
             "releaseName": "Classy $RELEASE_NAME",
             "channel": "$CHANNEL",
+            "mainCommits": $MAIN_COMMITS,
             "apkName": "$1",
             "apkUrl": "https://github.com/$REPOSITORY/releases/download/$TAG_NAME/$1",
             "outputFile": "$1"
@@ -264,30 +283,17 @@ jobs:
           EOF
           fi
           cat << 'EOF' >> release_body.md
-          ### Classy Release
+          #### Release assets
 
-          Automated build with full support for **Innioasis Y1** (Type A & Type B) and **Innioasis Y2**.
-
-          #### 📦 Release Assets
-
-          | File | Target Device | Notes |
+          | File | Target device | Notes |
           | :--- | :--- | :--- |
-          | **`${{ needs.build-apk.outputs.apk_name }}`** | **Innioasis Y2** (Android 4.4) | Standalone launcher APK (sideload or install) |
-          | **`${{ needs.build-apk.outputs.apk_name_y1 }}`** | **Innioasis Y1** (Android 4.2) | Standalone launcher APK (sideload or install) |
-          | **`update.json`** / **`update-y1.json`** | Y2 / Y1 | OTA update metadata for in-app updater |
-          | **`rom_y2.zip`** | **Innioasis Y2** (MT6582) | Complete flashable ROM with dual-storage, watchdog & clickwheel keylayout |
-          | **`rom_y1_type_a.zip`** | **Innioasis Y1** (Type A) | Flashable ROM for Y1 players with original firmware **2.0.0 or higher** |
-          | **`rom_y1_type_b.zip`** | **Innioasis Y1** (Type B) | Flashable ROM for Y1 players with original firmware **below 2.0.0** |
-          | **`SHA256SUMS.txt`** | All Files | SHA-256 integrity checksums |
-
-          #### ⚡ Flashing Instructions (SP Flash Tool)
-          1. Extract the corresponding zip file for your device.
-          2. Launch `flash_tool.exe` (or Linux `flash_tool`).
-          3. Load the scatter file (`MT6582_Android_scatter.txt` for Y2, `MT6572_Android_scatter.txt` for Y1).
-          4. Select **Firmware Upgrade** or **Download Only**.
-          5. Power off the device completely, click **Download**, and connect the USB cable.
-
-          ---
+          | `${{ needs.build-apk.outputs.apk_name }}` | Innioasis Y2 (Android 4.4) | Standalone launcher APK (sideload or install) |
+          | `${{ needs.build-apk.outputs.apk_name_y1 }}` | Innioasis Y1 (Android 4.2) | Standalone launcher APK (sideload or install) |
+          | `update.json` / `update-y1.json` | Y2 / Y1 | OTA update metadata for in-app updater |
+          | `rom_y2.zip` | Innioasis Y2 (MT6582) | Complete flashable ROM with dual-storage, watchdog & clickwheel keylayout |
+          | `rom_y1_type_a.zip` | Innioasis Y1 (Type A) | Flashable ROM for Y1 players with original firmware 2.0.0 or higher |
+          | `rom_y1_type_b.zip` | Innioasis Y1 (Type B) | Flashable ROM for Y1 players with original firmware below 2.0.0 |
+          | `SHA256SUMS.txt` | All files | SHA-256 integrity checksums |
           EOF
 
       - name: Create GitHub Release

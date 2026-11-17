@@ -4,15 +4,13 @@ import com.themoon.y1.Prefs
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.media.AudioManager
 import android.media.MediaMetadataRetriever
-import android.media.MediaPlayer
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
-import android.os.PowerManager
 import android.util.Base64
 import com.google.android.exoplayer2.C
+import com.google.android.exoplayer2.DefaultLoadControl
 import com.google.android.exoplayer2.DefaultRenderersFactory
 import com.google.android.exoplayer2.ExoPlaybackException
 import com.google.android.exoplayer2.MediaItem
@@ -25,17 +23,25 @@ import com.google.android.exoplayer2.audio.AudioRendererEventListener
 import com.google.android.exoplayer2.audio.AudioSink
 import com.google.android.exoplayer2.audio.DefaultAudioSink
 import com.google.android.exoplayer2.audio.SonicAudioProcessor
+import com.google.android.exoplayer2.ext.okhttp.OkHttpDataSource
 import com.google.android.exoplayer2.extractor.DefaultExtractorsFactory
+import com.google.android.exoplayer2.extractor.Extractor
+import com.google.android.exoplayer2.extractor.ExtractorsFactory
+import com.google.android.exoplayer2.extractor.flac.FlacExtractor
 import com.google.android.exoplayer2.mediacodec.MediaCodecInfo
 import com.google.android.exoplayer2.mediacodec.MediaCodecSelector
 import com.google.android.exoplayer2.mediacodec.MediaCodecUtil
+import com.google.android.exoplayer2.source.DefaultMediaSourceFactory
 import com.google.android.exoplayer2.source.ProgressiveMediaSource
+import com.google.android.exoplayer2.upstream.DefaultAllocator
 import com.google.android.exoplayer2.upstream.DefaultDataSourceFactory
 import com.google.android.exoplayer2.util.Util
 import com.themoon.y1.MainActivity
 import com.themoon.y1.R
 import com.themoon.y1.StoragePaths
 import com.themoon.y1.core.TimeFormat
+import com.themoon.y1.podcasts.PodcastHttp
+import com.themoon.y1.podcasts.PodcastStreamError
 import com.themoon.y1.views.Notice
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -48,23 +54,20 @@ import java.util.Locale
 import java.util.concurrent.Executors
 
 /**
- * Audio playback coordinator managing ExoPlayer, fallback MediaPlayer for FLAC,
+ * Audio playback coordinator managing ExoPlayer (all music, podcasts and audiobooks),
  * and audio metadata extraction across formats (Opus, OGG Vorbis, FLAC, ALAC/M4A).
  */
 class AudioPlayerManager private constructor() {
     var exoPlayer: SimpleExoPlayer? = null
+    /** Episode title and channel of the last podcast stream, for Now Playing after a retry. */
+    private var streamInfo: Pair<String, String>? = null
     val customEqProcessor: Y1EqAudioProcessor = Y1EqAudioProcessor()
     val crossfeedProcessor: Y1CrossfeedAudioProcessor = Y1CrossfeedAudioProcessor()
-    /** Settings → Playback → Mono Audio, for the ExoPlayer path ([AudioEffectManager.syncAudioEffects] sets it). */
+    /** Settings → Playback → Mono Audio ([AudioEffectManager.syncAudioEffects] sets it). */
     val monoProcessor: MonoAudioProcessor = MonoAudioProcessor()
-    var legacyPlayer: MediaPlayer? = null
-    var isUsingLegacyPlayer: Boolean = false
-    // The file that the legacy player has prepared, or null.
-    private var legacyPlayerPath: String? = null
-
-    private val flacLegacyFailedPaths: MutableSet<String> = HashSet()
     private var isGaplessQueueActive: Boolean = false
-    private var currentFileInputStream: FileInputStream? = null
+    // The last playback state of the player listener: see onPlayerStateChanged
+    private var lastPlaybackState: Int = Player.STATE_IDLE
 
     private var currentSpeed: Float = 1.0f
     private var currentMasterVolume: Float = 1.0f
@@ -131,114 +134,35 @@ class AudioPlayerManager private constructor() {
         try {
             exoPlayer?.volume = volume
         } catch (ignored: Throwable) {}
-
-        try {
-            legacyPlayer?.setVolume(volume, volume)
-        } catch (ignored: Throwable) {}
     }
 
     fun initPlayer(context: Context) {
         if (exoPlayer != null) return
 
-        val renderersFactory = object : DefaultRenderersFactory(context.applicationContext) {
-            override fun buildAudioRenderers(
-                ctx: Context,
-                extensionRendererMode: Int,
-                mediaCodecSelector: MediaCodecSelector,
-                enableDecoderFallback: Boolean,
-                audioSink: AudioSink,
-                eventHandler: Handler,
-                eventListener: AudioRendererEventListener,
-                out: java.util.ArrayList<com.google.android.exoplayer2.Renderer>
-            ) {
-                val procList = ArrayList<AudioProcessor>()
-                try {
-                    val ctor = Class.forName("com.google.android.exoplayer2.audio.ToInt16PcmAudioProcessor")
-                        .getDeclaredConstructor()
-                    ctor.isAccessible = true
-                    procList.add(ctor.newInstance() as AudioProcessor)
-                } catch (ignored: Exception) {}
-
-                val immortalSonic = object : AudioProcessor {
-                    private val sonic = SonicAudioProcessor()
-                    private var active = false
-
-                    override fun configure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
-                        var safeSampleRate = inputAudioFormat.sampleRate
-                        if (safeSampleRate > 48000) {
-                            safeSampleRate = 48000
-                        }
-                        sonic.setOutputSampleRateHz(safeSampleRate)
-                        val outputFormat = sonic.configure(inputAudioFormat)
-                        active = sonic.isActive
-                        return outputFormat
-                    }
-
-                    override fun isActive(): Boolean = active
-                    override fun queueInput(inputBuffer: ByteBuffer) = sonic.queueInput(inputBuffer)
-                    override fun queueEndOfStream() = sonic.queueEndOfStream()
-                    override fun getOutput(): ByteBuffer = sonic.output
-                    override fun isEnded(): Boolean = sonic.isEnded
-                    override fun flush() = sonic.flush()
-                    override fun reset() = sonic.reset()
-                }
-
-                procList.add(customEqProcessor)
-                procList.add(crossfeedProcessor)
-                // After the effects that can make the two channels different, so that the output is mono
-                procList.add(monoProcessor)
-                procList.add(immortalSonic)
-
-                val processors = procList.toTypedArray()
-                val strict16BitCaps = AudioCapabilities(intArrayOf(2), 2)
-                val customSink = DefaultAudioSink(strict16BitCaps, processors)
-
-                val customSelector = MediaCodecSelector { mimeType, requiresSecureDecoder, requiresTunnelingDecoder ->
-                    val decoders = mediaCodecSelector.getDecoderInfos(mimeType, requiresSecureDecoder, requiresTunnelingDecoder)
-                    if (mimeType != null && (mimeType.contains("mp4a") || mimeType.contains("aac") || mimeType.contains("alac"))) {
-                        val safeDecoders = ArrayList<MediaCodecInfo>()
-                        for (info in decoders) {
-                            if (info.name != null && info.name.lowercase(Locale.US).contains("mtk")) {
-                                continue
-                            }
-                            safeDecoders.add(info)
-                        }
-                        return@MediaCodecSelector safeDecoders
-                    }
-                    decoders
-                }
-
-                super.buildAudioRenderers(
-                    ctx,
-                    extensionRendererMode,
-                    customSelector,
-                    enableDecoderFallback,
-                    customSink,
-                    eventHandler,
-                    eventListener,
-                    out
-                )
-            }
-        }
-
         // Set before the first track: the sink mixes the first buffers before STATE_READY applies the effects
         monoProcessor.isEnabled = MainActivity.instance?.prefs?.let { Prefs.MONO_AUDIO.get(it) } ?: false
 
-        renderersFactory.setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
-
-        exoPlayer = SimpleExoPlayer.Builder(context.applicationContext, renderersFactory).build().apply {
+        lastPlaybackState = Player.STATE_IDLE
+        // Mono Audio after the effects that can make the two channels different, so that the output is mono
+        exoPlayer = newAudioPlayer(context, listOf(customEqProcessor, crossfeedProcessor, monoProcessor)).apply {
             // Partial wake lock while it plays: music continues when Android turns the screen off.
             setWakeMode(C.WAKE_MODE_LOCAL)
             val initialRepeatMode = MainActivity.instance?.prefs?.let { Prefs.REPEAT_MODE.get(it) } ?: 0
             repeatMode = exoRepeatMode(initialRepeatMode, exoHoldsWholeQueue())
             addListener(object : Player.EventListener {
                 override fun onPlayerStateChanged(playWhenReady: Boolean, playbackState: Int) {
+                    // This call also comes for a change of playWhenReady: the end of a track is handled once,
+                    // also when handleTrackCompletion pauses the player in STATE_ENDED
+                    val ended = playbackState == Player.STATE_ENDED && lastPlaybackState != Player.STATE_ENDED
+                    lastPlaybackState = playbackState
                     isPlayingActive = playWhenReady && (playbackState == Player.STATE_READY || playbackState == Player.STATE_BUFFERING)
                     if (isPlayingActive) {
                         AudioSources.app.musicStarts()
                         com.themoon.y1.cast.CastManager.onLocalPlay()
                     }
-                    if (playbackState == Player.STATE_READY && !isUsingLegacyPlayer) {
+                    if (playbackState == Player.STATE_READY) {
+                        // The track loaded: the count of tracks that do not play starts again
+                        MainActivity.instance?.consecutiveErrorCount = 0
                         if (playWhenReady) {
                             startPeriodicPositionSaver()
                         } else {
@@ -268,7 +192,7 @@ class AudioPlayerManager private constructor() {
                                 } catch (ignored: Exception) {}
                             }
                         }
-                    } else if (playbackState == Player.STATE_ENDED && !isUsingLegacyPlayer) {
+                    } else if (ended) {
                         isPlayingActive = false
                         stopPeriodicPositionSaver()
                         handleTrackCompletion()
@@ -285,7 +209,9 @@ class AudioPlayerManager private constructor() {
                     isPlayingActive = false
                     val currentPath = MainActivity.instance?.let { it.currentPlaylist.getOrNull(it.currentIndex)?.absolutePath }
                     android.util.Log.e("AudioPlayerManager", "ExoPlayer playback error on $currentPath: ${error.message}", error)
-                    if (!isUsingLegacyPlayer) {
+                    if (currentPath?.startsWith("/PODCAST_STREAM") == true) {
+                        handleStreamError(PodcastStreamError.reason(error))
+                    } else {
                         handleTrackError("Cannot play this file.")
                     }
                 }
@@ -311,27 +237,15 @@ class AudioPlayerManager private constructor() {
 
     fun setPlaybackSpeed(speed: Float) {
         currentSpeed = speed
-        if (exoPlayer != null && !isUsingLegacyPlayer) {
-            exoPlayer?.setPlaybackParameters(PlaybackParameters(speed, 1.0f))
-        } else if (isUsingLegacyPlayer) {
-            MainActivity.instance?.let { main ->
-                main.runOnUiThread {
-                    Notice.show(main, "Speed control is disabled for FLAC files on this device.")
-                }
-            }
-        }
+        exoPlayer?.setPlaybackParameters(PlaybackParameters(speed, 1.0f))
     }
 
     fun setShuffleMode(isShuffle: Boolean) {
-        if (exoPlayer != null && !isUsingLegacyPlayer) {
-            exoPlayer?.shuffleModeEnabled = isShuffle
-        }
+        exoPlayer?.shuffleModeEnabled = isShuffle
     }
 
     fun setRepeatMode(mode: Int) {
-        if (exoPlayer != null && !isUsingLegacyPlayer) {
-            exoPlayer?.repeatMode = exoRepeatMode(mode, exoHoldsWholeQueue())
-        }
+        exoPlayer?.repeatMode = exoRepeatMode(mode, exoHoldsWholeQueue())
     }
 
     /** ExoPlayer holds the whole play queue: the gapless queue, or the one track of a podcast stream. */
@@ -347,13 +261,8 @@ class AudioPlayerManager private constructor() {
             try {
                 val repeatMode = Prefs.REPEAT_MODE.get(main.prefs)
                 if (repeatMode == 1) {
-                    if (isUsingLegacyPlayer && legacyPlayer != null) {
-                        legacyPlayer?.seekTo(0)
-                        legacyPlayer?.start()
-                    } else if (exoPlayer != null) {
-                        exoPlayer?.seekTo(0)
-                        exoPlayer?.playWhenReady = true
-                    }
+                    exoPlayer?.seekTo(0)
+                    exoPlayer?.playWhenReady = true
                     LastFmScrobbler.getInstance(main).rearmCurrentTrack()
                 } else if (repeatMode == 2) {
                     // A track that ended has its bookmark at its end: the next pass must start each track at 0.
@@ -362,26 +271,7 @@ class AudioPlayerManager private constructor() {
                     if (main.currentIndex < main.currentPlaylist.size - 1) {
                         nextTrack()
                     } else {
-                        isPlayingActive = false
-                        stopPeriodicPositionSaver()
-                        main.isPausedByHand = true
-                        main.currentIndex = 0
-
-                        if (isUsingLegacyPlayer && legacyPlayer != null) {
-                            try {
-                                legacyPlayer?.pause()
-                                legacyPlayer?.seekTo(0)
-                            } catch (ignored: Exception) {}
-                        } else if (exoPlayer != null) {
-                            exoPlayer?.playWhenReady = false
-                            if (isGaplessQueueActive) {
-                                exoPlayer?.seekTo(0, 0L)
-                            }
-                        }
-
-                        prepareMusicTrack(0, initialSeekMs = 0L)
-                        main.updatePlayerUI()
-                        savePlaybackState(sync = true)
+                        stopAtQueueEnd(main)
                     }
                 }
             } catch (e: Exception) {
@@ -390,11 +280,85 @@ class AudioPlayerManager private constructor() {
         }
     }
 
+    /** The end of the queue (Repeat Off): pause at the start of the first track. */
+    private fun stopAtQueueEnd(main: MainActivity) {
+        isPlayingActive = false
+        stopPeriodicPositionSaver()
+        main.isPausedByHand = true
+        main.currentIndex = 0
+
+        exoPlayer?.playWhenReady = false
+        if (isGaplessQueueActive) {
+            exoPlayer?.seekTo(0, 0L)
+        }
+
+        prepareMusicTrack(0, initialSeekMs = 0L)
+        main.updatePlayerUI()
+        savePlaybackState(sync = true)
+    }
+
+    /**
+     * The player cannot play the current track: skip to the next track ([afterTrackError]). The last track of the
+     * queue stops at the queue end as a track end does, except with Repeat All. After one error for each track of the
+     * queue with no track that played, stop, so that a queue of files that do not play does not skip round and round.
+     */
     private fun handleTrackError(errorMsg: String) {
         val main = MainActivity.instance ?: return
         main.runOnUiThread {
-            Notice.error(main, "$errorMsg Skipping...")
-            nextTrack()
+            main.consecutiveErrorCount++
+            val repeatMode = Prefs.REPEAT_MODE.get(main.prefs)
+            when (afterTrackError(main.consecutiveErrorCount, main.currentPlaylist.size, main.currentIndex, repeatMode)) {
+                TrackErrorAction.STOP_ALL_FAILED -> stopAfterErrors(main)
+                TrackErrorAction.STOP_AT_END -> {
+                    Notice.error(main, errorMsg)
+                    main.consecutiveErrorCount = 0
+                    stopAtQueueEnd(main)
+                }
+                TrackErrorAction.NEXT -> {
+                    Notice.error(main, "$errorMsg Skipping...")
+                    nextTrack()
+                }
+            }
+        }
+    }
+
+    /** No track of the queue plays: pause and say so. Play tries the current track again. */
+    private fun stopAfterErrors(main: MainActivity) {
+        exoPlayer?.playWhenReady = false
+        isPlayingActive = false
+        stopPeriodicPositionSaver()
+        main.isPausedByHand = true
+        main.consecutiveErrorCount = 0
+        Notice.error(main, "All tracks failed. Playback stopped.")
+        main.updatePlayerUI()
+    }
+
+    /**
+     * A podcast stream that does not play: show why and stop. The stream is the whole queue, and its "/PODCAST_STREAM"
+     * name is not a file, so the next track would only show "Corrupted File". Play tries the stream again.
+     */
+    private fun handleStreamError(reason: String) {
+        val main = MainActivity.instance ?: return
+        main.runOnUiThread {
+            exoPlayer?.playWhenReady = false
+            stopPeriodicPositionSaver()
+            main.isPausedByHand = true
+            main.tvPlayerTitle.text = "Load Failed"
+            main.tvPlayerArtist.text = reason
+            main.tvPlayerAlbum.text = ""
+            Notice.error(main, reason)
+            main.updatePlayerUI()
+        }
+    }
+
+    /** The episode and the channel of the stream, in place of the error text of [handleStreamError]. */
+    private fun restoreStreamInfo() {
+        val main = MainActivity.instance ?: return
+        if (main.currentPlaylist.singleOrNull()?.absolutePath?.startsWith("/PODCAST_STREAM") != true) return
+        val (title, channel) = streamInfo ?: return
+        main.runOnUiThread {
+            main.tvPlayerTitle.text = title
+            main.tvPlayerArtist.text = channel
         }
     }
 
@@ -426,35 +390,32 @@ class AudioPlayerManager private constructor() {
         }
 
         isGaplessQueueActive = !isShuffle && shouldUseGaplessQueue(main.currentPlaylist)
-        if (!isUsingLegacyPlayer && exoPlayer != null) {
-            exoPlayer?.shuffleModeEnabled = isShuffle
-            setRepeatMode(repeatPref)
-        }
+        exoPlayer?.shuffleModeEnabled = isShuffle
+        setRepeatMode(repeatPref)
         main.isPausedByHand = false
 
         if (isGaplessQueueActive) {
-            val mediaItems = ArrayList<MediaItem>()
-            for (f in main.currentPlaylist) {
-                mediaItems.add(MediaItem.fromUri(Uri.fromFile(f)))
-            }
-            legacyPlayer?.let {
-                it.stop()
-                it.reset()
-            }
-            exoPlayer?.let { exo ->
-                exo.stop()
-                exo.setMediaItems(mediaItems, main.currentIndex, if (initialSeekMs > 0) initialSeekMs else 0L)
-                exo.shuffleModeEnabled = false
-                exo.repeatMode = exoRepeatMode(repeatPref, gapless = true)
-                exo.setPlaybackParameters(PlaybackParameters(currentSpeed, 1.0f))
-                exo.prepare()
-                if (!main.isPausedByHand) exo.playWhenReady = true
-            }
+            loadGaplessQueue(main, if (initialSeekMs > 0) initialSeekMs else 0L, repeatPref, play = true)
         }
 
         val seekParam = if (initialSeekMs >= 0) initialSeekMs else 0L
         prepareMusicTrack(main.currentIndex, initialSeekMs = seekParam)
         main.updatePlayerUI()
+    }
+
+    /**
+     * Loads the whole play queue into ExoPlayer for gapless play, at [startMs] of the current track, with the Repeat
+     * setting [repeatPref]. [play]: start to play; otherwise the queue stays paused.
+     */
+    private fun loadGaplessQueue(main: MainActivity, startMs: Long, repeatPref: Int, play: Boolean) {
+        val exo = exoPlayer ?: return
+        exo.stop()
+        exo.setMediaItems(main.currentPlaylist.map { MediaItem.fromUri(Uri.fromFile(it)) }, main.currentIndex, startMs)
+        exo.shuffleModeEnabled = false
+        exo.repeatMode = exoRepeatMode(repeatPref, gapless = true)
+        exo.setPlaybackParameters(PlaybackParameters(currentSpeed, 1.0f))
+        exo.playWhenReady = play
+        exo.prepare()
     }
 
     internal fun shouldUseGaplessQueue(list: List<File>): Boolean {
@@ -466,7 +427,6 @@ class AudioPlayerManager private constructor() {
             if (p.contains("/Audiobooks", ignoreCase = true) || p.contains("/Podcasts", ignoreCase = true) || p.startsWith("/PODCAST_STREAM")) {
                 return false
             }
-            if (f.name.lowercase(Locale.US).endsWith(".flac")) return false
         }
         return true
     }
@@ -475,10 +435,6 @@ class AudioPlayerManager private constructor() {
         val main = MainActivity.instance ?: return
 
         try {
-            legacyPlayer?.let {
-                it.stop()
-                it.reset()
-            }
             if (exoPlayer == null) {
                 initPlayer(main.applicationContext)
             } else {
@@ -486,8 +442,8 @@ class AudioPlayerManager private constructor() {
                 exoPlayer?.clearMediaItems()
             }
 
-            isUsingLegacyPlayer = false
             isGaplessQueueActive = false
+            streamInfo = title to channelName
 
             val safeChannel = channelName.replace("[\\\\/:*?\"<>|]".toRegex(), "_")
             val safeTitle = title.replace("[\\\\/:*?\"<>|]".toRegex(), "_") + ".mp3"
@@ -496,7 +452,11 @@ class AudioPlayerManager private constructor() {
             main.currentIndex = 0
 
             val mediaItem = MediaItem.fromUri(Uri.parse(url))
-            val dataSourceFactory = DefaultDataSourceFactory(main, Util.getUserAgent(main, "Y1_Launcher"))
+            // Android 4.4 HTTPS has no TLS 1.2, which most podcast hosts need: load the stream with the
+            // Conscrypt client of the podcast downloads
+            val httpFactory = OkHttpDataSource.Factory(PodcastHttp.client)
+                .setUserAgent(Util.getUserAgent(main, "Y1_Launcher"))
+            val dataSourceFactory = DefaultDataSourceFactory(main, httpFactory)
             val extractorsFactory = DefaultExtractorsFactory().setConstantBitrateSeekingEnabled(true)
             val mediaSource = ProgressiveMediaSource.Factory(dataSourceFactory, extractorsFactory).createMediaSource(mediaItem)
 
@@ -524,11 +484,13 @@ class AudioPlayerManager private constructor() {
             if (!imageUrl.isNullOrEmpty()) {
                 Thread {
                     try {
-                        val imgUrl = java.net.URL(imageUrl)
-                        val conn = imgUrl.openConnection() as java.net.HttpURLConnection
-                        conn.doInput = true
-                        conn.connect()
-                        val bmp = android.graphics.BitmapFactory.decodeStream(conn.inputStream)
+                        val request = okhttp3.Request.Builder().url(imageUrl).build()
+                        val call = PodcastHttp.client.newCall(request)
+                        call.timeout().timeout(PodcastHttp.SMALL_FILE_TIMEOUT_S, java.util.concurrent.TimeUnit.SECONDS)
+                        val bmp = call.execute().use { response ->
+                            response.body()?.takeIf { response.isSuccessful }?.byteStream()
+                                ?.let { android.graphics.BitmapFactory.decodeStream(it) }
+                        }
                         if (bmp != null) {
                             main.runOnUiThread {
                                 main.ivAlbumArt.setImageBitmap(bmp)
@@ -582,42 +544,26 @@ class AudioPlayerManager private constructor() {
     }
 
     fun playOrPauseMusic() {
-        if (isUsingLegacyPlayer && legacyPlayer != null) {
-            val player = legacyPlayer ?: return
-            if (player.isPlaying) {
-                if (AudioOutputLossManager.ignoresPause()) return
-                isPlayingActive = false
-                saveAudiobookBookmarkIfNeeded()
-                player.pause()
-                stopPeriodicPositionSaver()
-                MainActivity.instance?.isPausedByHand = true
-                savePlaybackState(sync = true)
-            } else {
-                AudioSources.app.musicStarts()
-                isPlayingActive = true
-                player.start()
-                com.themoon.y1.cast.CastManager.onLocalPlay()
-                startPeriodicPositionSaver()
-                MainActivity.instance?.isPausedByHand = false
-                savePlaybackPositionOnly(sync = false)
+        val player = exoPlayer ?: return
+        if (player.playWhenReady) {
+            if (AudioOutputLossManager.ignoresPause()) return
+            isPlayingActive = false
+            saveAudiobookBookmarkIfNeeded()
+            player.playWhenReady = false
+            stopPeriodicPositionSaver()
+            MainActivity.instance?.isPausedByHand = true
+            savePlaybackState(sync = true)
+        } else {
+            isPlayingActive = true
+            // After an error (for example a stream with no connection) the player is idle: load it again
+            if (player.playbackState == Player.STATE_IDLE && player.mediaItemCount > 0) {
+                restoreStreamInfo()
+                player.prepare()
             }
-        } else if (exoPlayer != null) {
-            val player = exoPlayer ?: return
-            if (player.playWhenReady) {
-                if (AudioOutputLossManager.ignoresPause()) return
-                isPlayingActive = false
-                saveAudiobookBookmarkIfNeeded()
-                player.playWhenReady = false
-                stopPeriodicPositionSaver()
-                MainActivity.instance?.isPausedByHand = true
-                savePlaybackState(sync = true)
-            } else {
-                isPlayingActive = true
-                player.playWhenReady = true
-                startPeriodicPositionSaver()
-                MainActivity.instance?.isPausedByHand = false
-                savePlaybackPositionOnly(sync = false)
-            }
+            player.playWhenReady = true
+            startPeriodicPositionSaver()
+            MainActivity.instance?.isPausedByHand = false
+            savePlaybackPositionOnly(sync = false)
         }
         MainActivity.instance?.updatePlayerUI()
     }
@@ -630,24 +576,13 @@ class AudioPlayerManager private constructor() {
         val main = MainActivity.instance
         val keepPosition = main != null && main.currentIndex in main.currentPlaylist.indices &&
             tracksBookmark(main.currentPlaylist[main.currentIndex].absolutePath, main)
+        val player = exoPlayer ?: return
         try {
-            if (isUsingLegacyPlayer && legacyPlayer != null) {
-                val player = legacyPlayer ?: return
-                if (player.isPlaying) {
-                    saveAudiobookBookmarkIfNeeded()
-                    player.pause()
-                }
-                if (!keepPosition) player.seekTo(0)
-            } else if (exoPlayer != null) {
-                val player = exoPlayer ?: return
-                if (player.playWhenReady) {
-                    saveAudiobookBookmarkIfNeeded()
-                    player.playWhenReady = false
-                }
-                if (!keepPosition) player.seekTo(0)
-            } else {
-                return
+            if (player.playWhenReady) {
+                saveAudiobookBookmarkIfNeeded()
+                player.playWhenReady = false
             }
+            if (!keepPosition) player.seekTo(0)
         } catch (e: Exception) {
             android.util.Log.e("AudioPlayerManager", "Failed to stop: ${e.message}")
         }
@@ -671,6 +606,8 @@ class AudioPlayerManager private constructor() {
             } else {
                 exo.seekTo(0, 0)
             }
+            // After an error the player is idle: load the new track
+            if (exo.playbackState == Player.STATE_IDLE) exo.prepare()
             return
         }
 
@@ -691,6 +628,7 @@ class AudioPlayerManager private constructor() {
             } else {
                 exo.seekTo(main.currentPlaylist.size - 1, 0)
             }
+            if (exo.playbackState == Player.STATE_IDLE) exo.prepare()
             return
         }
 
@@ -707,11 +645,7 @@ class AudioPlayerManager private constructor() {
         if (targetPos < 0) targetPos = 0
         if (targetPos > duration && duration > 0) targetPos = duration
 
-        if (isUsingLegacyPlayer && legacyPlayer != null) {
-            legacyPlayer?.seekTo(targetPos.toInt())
-        } else if (exoPlayer != null) {
-            exoPlayer?.seekTo(targetPos)
-        }
+        exoPlayer?.seekTo(targetPos)
         if (savePosition) savePlaybackPositionOnly(sync = true)
     }
 
@@ -731,15 +665,21 @@ class AudioPlayerManager private constructor() {
             main.tvPlayerAlbum.text = ""
             main.ivAlbumArt.setImageResource(R.drawable.default_album)
 
+            // The gapless queue has the file in ExoPlayer: its error (handleTrackError) counts the file and skips it
+            if (isGaplessQueueActive) return
+
             main.consecutiveErrorCount++
-            if (main.consecutiveErrorCount >= main.currentPlaylist.size) {
-                Notice.error(main, "All tracks failed. Playback stopped.")
-                main.isPausedByHand = true
-                main.updatePlayerUI()
-                main.consecutiveErrorCount = 0
-            } else {
-                Notice.error(main, "Corrupted file detected. Skipping...")
-                Handler(Looper.getMainLooper()).postDelayed({ nextTrack(fromStart) }, 1500)
+            when (afterTrackError(main.consecutiveErrorCount, main.currentPlaylist.size, index, Prefs.REPEAT_MODE.get(main.prefs))) {
+                TrackErrorAction.STOP_ALL_FAILED -> stopAfterErrors(main)
+                TrackErrorAction.STOP_AT_END -> {
+                    Notice.error(main, "Corrupted file detected.")
+                    main.consecutiveErrorCount = 0
+                    stopAtQueueEnd(main)
+                }
+                TrackErrorAction.NEXT -> {
+                    Notice.error(main, "Corrupted file detected. Skipping...")
+                    Handler(Looper.getMainLooper()).postDelayed({ nextTrack(fromStart) }, 1500)
+                }
             }
             return
         }
@@ -788,10 +728,6 @@ class AudioPlayerManager private constructor() {
             main.tvPlayerTimeCurrent.text = "0:00"
             main.tvPlayerTimeTotal.text = main.playerController.rightTimeText(0, 0)
         }
-
-        val ext = track.name.lowercase(Locale.US)
-        val isFlac = ext.endsWith(".flac")
-        isUsingLegacyPlayer = isFlac && !flacLegacyFailedPaths.contains(track.absolutePath)
 
         var t: String? = null
         var a: String? = null
@@ -912,86 +848,16 @@ class AudioPlayerManager private constructor() {
         }
 
         try {
-            if (isUsingLegacyPlayer) {
-                exoPlayer?.let {
-                    it.stop()
-                    it.clearMediaItems()
-                }
-
-                val player = legacyPlayer ?: MediaPlayer().apply {
-                    setWakeMode(main.applicationContext, PowerManager.PARTIAL_WAKE_LOCK)
-                    setAudioStreamType(AudioManager.STREAM_MUSIC)
-                    legacyPlayer = this
-                }
-                legacyPlayerPath = null
-                player.reset()
-
-                player.setOnCompletionListener { handleTrackCompletion() }
-                player.setOnErrorListener { _, what, extra ->
-                    if (isFlac && flacLegacyFailedPaths.add(track.absolutePath)) {
-                        prepareMusicTrack(index)
-                    } else {
-                        handleTrackError("Legacy Player Error: $what (extra $extra)")
-                    }
-                    true
-                }
-
-                currentFileInputStream?.let {
-                    try { it.close() } catch (ignored: Exception) {}
-                }
-                currentFileInputStream = FileInputStream(track)
-                player.setDataSource(currentFileInputStream!!.fd)
-                player.prepare()
-                legacyPlayerPath = track.absolutePath
-
-                if (effectiveSeekMs > 0) {
-                    player.seekTo(effectiveSeekMs.toInt())
-                }
-
-                if (!main.isPausedByHand) {
-                    AudioSources.app.musicStarts()
-                    player.start()
-                    com.themoon.y1.cast.CastManager.onLocalPlay()
-                    startPeriodicPositionSaver()
-                } else {
-                    stopPeriodicPositionSaver()
-                }
-                applyMasterVolume()
-
-                AudioEffectManager.getInstance().applyAudioEffects()
-                main.setupVisualizer()
-
-                val duration = player.duration
-                main.tvPlayerTimeTotal.text = main.playerController.rightTimeText(player.currentPosition, duration)
-                if (!main.isPausedByHand) {
-                    LastFmScrobbler.getInstance(main).onTrackStart(
-                        pendingScrobbleArtist,
-                        pendingScrobbleTitle,
-                        pendingScrobbleAlbum,
-                        duration.toLong(),
-                        pendingScrobblePath
-                    )
-                }
-            } else if (isGaplessQueueActive) {
+            if (isGaplessQueueActive) {
                 exoPlayer?.setPlaybackParameters(PlaybackParameters(currentSpeed, 1.0f))
             } else {
-                legacyPlayer?.let {
-                    it.stop()
-                    it.reset()
-                }
-
                 if (exoPlayer == null) {
                     initPlayer(main.applicationContext)
                 } else {
                     exoPlayer?.stop()
                 }
 
-                val mediaItem = MediaItem.fromUri(Uri.fromFile(track))
-                val dataSourceFactory = DefaultDataSourceFactory(main, Util.getUserAgent(main, "Y1_Launcher"))
-                val extractorsFactory = DefaultExtractorsFactory().setConstantBitrateSeekingEnabled(true)
-                val mediaSource = ProgressiveMediaSource.Factory(dataSourceFactory, extractorsFactory).createMediaSource(mediaItem)
-
-                exoPlayer?.setMediaSource(mediaSource)
+                exoPlayer?.setMediaItem(MediaItem.fromUri(Uri.fromFile(track)))
                 exoPlayer?.prepare()
                 // Only this track is in ExoPlayer: Repeat All goes to the next track in handleTrackCompletion.
                 exoPlayer?.repeatMode = exoRepeatMode(Prefs.REPEAT_MODE.get(main.prefs), gapless = false)
@@ -1015,7 +881,6 @@ class AudioPlayerManager private constructor() {
                 applyMasterVolume()
             }
 
-            main.consecutiveErrorCount = 0
             main.tvPlayerTrackCount.text = "${index + 1} of ${main.currentPlaylist.size}"
             if (!isRestoringPlaybackState) {
                 savePlaybackState(sync = false)
@@ -1034,12 +899,13 @@ class AudioPlayerManager private constructor() {
             main.tvPlayerAlbum.text = ""
             Notice.error(main, failReason)
 
-            if (main.consecutiveErrorCount >= main.currentPlaylist.size) {
-                main.isPausedByHand = true
-                main.updatePlayerUI()
-                main.consecutiveErrorCount = 0
-            } else {
-                Handler(Looper.getMainLooper()).postDelayed({ nextTrack(fromStart) }, 2000)
+            when (afterTrackError(main.consecutiveErrorCount, main.currentPlaylist.size, index, Prefs.REPEAT_MODE.get(main.prefs))) {
+                TrackErrorAction.STOP_ALL_FAILED -> stopAfterErrors(main)
+                TrackErrorAction.STOP_AT_END -> {
+                    main.consecutiveErrorCount = 0
+                    stopAtQueueEnd(main)
+                }
+                TrackErrorAction.NEXT -> Handler(Looper.getMainLooper()).postDelayed({ nextTrack(fromStart) }, 2000)
             }
         }
     }
@@ -1269,30 +1135,16 @@ class AudioPlayerManager private constructor() {
         } catch (ignored: Exception) {}
     }
 
-    fun getCurrentPosition(): Int {
-        if (isUsingLegacyPlayer && legacyPlayer != null) return legacyPlayer?.currentPosition ?: 0
-        if (!isUsingLegacyPlayer && exoPlayer != null) {
-            val pos = exoPlayer?.currentPosition ?: 0
-            return if (pos < 0) 0 else pos.toInt()
-        }
-        return 0
-    }
+    fun getCurrentPosition(): Int = (exoPlayer?.currentPosition ?: 0L).coerceAtLeast(0L).toInt()
 
-    fun getDuration(): Int {
-        if (isUsingLegacyPlayer && legacyPlayer != null) return legacyPlayer?.duration ?: 0
-        if (!isUsingLegacyPlayer && exoPlayer != null) {
-            val duration = exoPlayer?.duration ?: 0
-            return if (duration < 0) 0 else duration.toInt()
-        }
-        return 0
-    }
+    /** The duration in ms, or 0 while ExoPlayer does not know it ([C.TIME_UNSET] is negative). */
+    fun getDuration(): Int = (exoPlayer?.duration ?: 0L).coerceAtLeast(0L).toInt()
 
     /**
      * The duration of the file at [path] in ms, or 0 when the player does not know it. During a track
      * change the player can still hold the previous file; then it is 0, not the previous duration.
      */
     fun getDurationOf(path: String): Int {
-        if (isUsingLegacyPlayer) return if (legacyPlayerPath == path) getDuration() else 0
         val uri = exoPlayer?.currentMediaItem?.playbackProperties?.uri ?: return 0
         // A podcast stream has a web address, not the "/PODCAST_STREAM/..." name of the playlist.
         val isStream = path.startsWith("/PODCAST_STREAM")
@@ -1303,13 +1155,7 @@ class AudioPlayerManager private constructor() {
     fun isPlaying(): Boolean {
         val mainLooper = Looper.getMainLooper()
         if (mainLooper != null && Looper.myLooper() == mainLooper) {
-            val playing = if (isUsingLegacyPlayer && legacyPlayer != null) {
-                legacyPlayer?.isPlaying == true
-            } else if (!isUsingLegacyPlayer && exoPlayer != null) {
-                exoPlayer?.playWhenReady == true
-            } else {
-                false
-            }
+            val playing = exoPlayer?.playWhenReady == true
             isPlayingActive = playing
             return playing
         }
@@ -1331,11 +1177,8 @@ class AudioPlayerManager private constructor() {
         return currentPath != null && currentPath == file.absolutePath
     }
 
-    fun getAudioSessionId(): Int {
-        if (isUsingLegacyPlayer && legacyPlayer != null) return legacyPlayer?.audioSessionId ?: 0
-        if (!isUsingLegacyPlayer && exoPlayer != null) return exoPlayer?.audioSessionId ?: 0
-        return 0
-    }
+    /** The audio session of the player: the same for all tracks, so that the effects and the Visualizer stay. */
+    fun getAudioSessionId(): Int = exoPlayer?.audioSessionId ?: 0
 
     fun releasePlayer() {
         isPlayingActive = false
@@ -1343,12 +1186,6 @@ class AudioPlayerManager private constructor() {
         stopPeriodicPositionSaver()
         exoPlayer?.release()
         exoPlayer = null
-        legacyPlayer?.release()
-        legacyPlayer = null
-        try {
-            currentFileInputStream?.close()
-        } catch (ignored: Exception) {}
-        currentFileInputStream = null
     }
 
     /** True while the player is closed for a USB storage share; see [releaseForUsbStorage]. */
@@ -1363,7 +1200,7 @@ class AudioPlayerManager private constructor() {
      */
     fun releaseForUsbStorage(wasPlaying: Boolean) {
         resumeAfterUsbStorage = wasPlaying
-        if (exoPlayer == null && legacyPlayer == null) return
+        if (exoPlayer == null) return
         val main = MainActivity.instance
         val hasTrack = main != null && main.currentIndex in main.currentPlaylist.indices
         if (hasTrack) savePlaybackState(sync = true)
@@ -2102,29 +1939,11 @@ class AudioPlayerManager private constructor() {
             val isShuffle = Prefs.SHUFFLE.get(main.prefs)
             val repeatPref = Prefs.REPEAT_MODE.get(main.prefs)
             isGaplessQueueActive = !isShuffle && shouldUseGaplessQueue(main.currentPlaylist)
-            if (!isUsingLegacyPlayer && exoPlayer != null) {
-                exoPlayer?.shuffleModeEnabled = isShuffle
-                setRepeatMode(repeatPref)
-            }
+            exoPlayer?.shuffleModeEnabled = isShuffle
+            setRepeatMode(repeatPref)
 
             if (isGaplessQueueActive) {
-                val mediaItems = ArrayList<MediaItem>()
-                for (f in main.currentPlaylist) {
-                    mediaItems.add(MediaItem.fromUri(Uri.fromFile(f)))
-                }
-                legacyPlayer?.let {
-                    it.stop()
-                    it.reset()
-                }
-                exoPlayer?.let { exo ->
-                    exo.stop()
-                    exo.setMediaItems(mediaItems, main.currentIndex, savedPos)
-                    exo.shuffleModeEnabled = false
-                    exo.repeatMode = exoRepeatMode(repeatPref, gapless = true)
-                    exo.setPlaybackParameters(PlaybackParameters(currentSpeed, 1.0f))
-                    exo.playWhenReady = false
-                    exo.prepare()
-                }
+                loadGaplessQueue(main, savedPos, repeatPref, play = false)
             }
 
             prepareMusicTrack(main.currentIndex, initialSeekMs = savedPos, initialDurationMs = savedDur)
@@ -2149,8 +1968,175 @@ class AudioPlayerManager private constructor() {
             return inst
         }
 
+        /**
+         * An ExoPlayer for local audio files: the app's audio renderers with [effects] ([audioRenderersFactory]), the
+         * buffer in one block ([audioLoadControl]) and the extractors of [audioExtractorsFactory]. The main player and
+         * the Music Quiz clip player use it. Each player needs its own [effects] instances.
+         */
+        fun newAudioPlayer(context: Context, effects: List<AudioProcessor>): SimpleExoPlayer {
+            val app = context.applicationContext
+            return SimpleExoPlayer.Builder(app, audioRenderersFactory(app, effects))
+                .setLoadControl(audioLoadControl())
+                .setMediaSourceFactory(DefaultMediaSourceFactory(app, audioExtractorsFactory()))
+                .build()
+        }
+
+        /**
+         * The extractors of local files, also for the gapless queue: the FLAC frames go into the buffer, not PCM
+         * ([withCoreFlacExtractor]), and an MP3 file with no seek data seeks at a constant bitrate.
+         */
+        private fun audioExtractorsFactory(): ExtractorsFactory =
+            withCoreFlacExtractor(DefaultExtractorsFactory().setConstantBitrateSeekingEnabled(true))
+
+        /**
+         * The audio renderers of the app's ExoPlayer: 16-bit PCM, the [effects] processors, then a resample to
+         * 48 kHz or less (Sonic), and the extension decoders (FLAC, Opus, FFmpeg) first. Each player needs its own
+         * [effects] instances. The main player gives its EQ, Crossfeed and Mono Audio processors; a Music Quiz clip none.
+         */
+        fun audioRenderersFactory(context: Context, effects: List<AudioProcessor>): DefaultRenderersFactory {
+            val factory = object : DefaultRenderersFactory(context.applicationContext) {
+                override fun buildAudioRenderers(
+                    ctx: Context,
+                    extensionRendererMode: Int,
+                    mediaCodecSelector: MediaCodecSelector,
+                    enableDecoderFallback: Boolean,
+                    audioSink: AudioSink,
+                    eventHandler: Handler,
+                    eventListener: AudioRendererEventListener,
+                    out: java.util.ArrayList<com.google.android.exoplayer2.Renderer>
+                ) {
+                    val procList = ArrayList<AudioProcessor>()
+                    try {
+                        val ctor = Class.forName("com.google.android.exoplayer2.audio.ToInt16PcmAudioProcessor")
+                            .getDeclaredConstructor()
+                        ctor.isAccessible = true
+                        procList.add(ctor.newInstance() as AudioProcessor)
+                    } catch (ignored: Exception) {}
+
+                    val immortalSonic = object : AudioProcessor {
+                        private val sonic = SonicAudioProcessor()
+                        private var active = false
+
+                        override fun configure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
+                            var safeSampleRate = inputAudioFormat.sampleRate
+                            if (safeSampleRate > 48000) {
+                                safeSampleRate = 48000
+                            }
+                            sonic.setOutputSampleRateHz(safeSampleRate)
+                            val outputFormat = sonic.configure(inputAudioFormat)
+                            active = sonic.isActive
+                            return outputFormat
+                        }
+
+                        override fun isActive(): Boolean = active
+                        override fun queueInput(inputBuffer: ByteBuffer) = sonic.queueInput(inputBuffer)
+                        override fun queueEndOfStream() = sonic.queueEndOfStream()
+                        override fun getOutput(): ByteBuffer = sonic.output
+                        override fun isEnded(): Boolean = sonic.isEnded
+                        override fun flush() = sonic.flush()
+                        override fun reset() = sonic.reset()
+                    }
+
+                    procList.addAll(effects)
+                    procList.add(immortalSonic)
+
+                    val processors = procList.toTypedArray()
+                    val strict16BitCaps = AudioCapabilities(intArrayOf(2), 2)
+                    val customSink = DefaultAudioSink(strict16BitCaps, processors)
+
+                    val customSelector = MediaCodecSelector { mimeType, requiresSecureDecoder, requiresTunnelingDecoder ->
+                        val decoders = mediaCodecSelector.getDecoderInfos(mimeType, requiresSecureDecoder, requiresTunnelingDecoder)
+                        if (mimeType != null && (mimeType.contains("mp4a") || mimeType.contains("aac") || mimeType.contains("alac"))) {
+                            val safeDecoders = ArrayList<MediaCodecInfo>()
+                            for (info in decoders) {
+                                if (info.name != null && info.name.lowercase(Locale.US).contains("mtk")) {
+                                    continue
+                                }
+                                safeDecoders.add(info)
+                            }
+                            return@MediaCodecSelector safeDecoders
+                        }
+                        decoders
+                    }
+
+                    super.buildAudioRenderers(
+                        ctx,
+                        extensionRendererMode,
+                        customSelector,
+                        enableDecoderFallback,
+                        customSink,
+                        eventHandler,
+                        eventListener,
+                        out
+                    )
+                }
+            }
+            factory.setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
+            return factory
+        }
+
         /** After a USB storage share: the longest wait for the card before the play queue loads again. */
         private const val CARD_WAIT_MS = 60_000L
+
+        /** The most media data that the main player loads before it stops loading: 2 MB. */
+        internal const val BUFFER_TARGET_BYTES = 32 * C.DEFAULT_BUFFER_SEGMENT_SIZE
+
+        /**
+         * The buffer segments that the main player makes once, at the start: 4 MB. The loader checks the buffer after
+         * each 1 MB of the file, so the buffer can go 1 MB past [BUFFER_TARGET_BYTES]: 3 MB at most, in the block.
+         * This is true because the buffer holds the data of the file, not decoded PCM ([withCoreFlacExtractor]).
+         */
+        internal const val BUFFER_BLOCK_SEGMENTS = 64
+
+        /**
+         * The buffer of the main player: [BUFFER_TARGET_BYTES] at most, in segments of one block that the player keeps.
+         * Android 4.4 (Dalvik) makes each new 64 KB array with a GC_FOR_ALLOC that stops all threads for ~80 ms when
+         * its heap has no free run of 64 KB. With the default load control (up to 13 MB of new segments for each track)
+         * a FLAC track on the Y2 got 60 to 80 such stops in its first seconds: the audio stopped, and the position stayed
+         * at 0:00 or moved slowly. An MP3 file stops at the default 50 s as before (2 MB is 50 s at 320 kbit/s).
+         */
+        internal fun audioLoadControl(): DefaultLoadControl = DefaultLoadControl.Builder()
+            .setAllocator(DefaultAllocator(true, C.DEFAULT_BUFFER_SEGMENT_SIZE, BUFFER_BLOCK_SEGMENTS))
+            .setTargetBufferBytes(BUFFER_TARGET_BYTES)
+            .build()
+
+        /**
+         * [base] with ExoPlayer's own FLAC extractor in place of the FLAC extension's extractor. The extension's
+         * extractor decodes, so the buffer gets PCM, and between two checks of the loader (1 MB of the file) a FLAC
+         * file with long digital silence can give many MB. ExoPlayer's extractor gives the FLAC frames, and the
+         * extension's LibflacAudioRenderer decodes them into its own 16 output buffers.
+         */
+        internal fun withCoreFlacExtractor(base: ExtractorsFactory): ExtractorsFactory = object : ExtractorsFactory {
+            override fun createExtractors(): Array<Extractor> = withCoreFlacExtractor(base.createExtractors())
+
+            override fun createExtractors(uri: Uri, responseHeaders: Map<String, List<String>>): Array<Extractor> =
+                withCoreFlacExtractor(base.createExtractors(uri, responseHeaders))
+        }
+
+        internal fun withCoreFlacExtractor(extractors: Array<Extractor>): Array<Extractor> =
+            Array(extractors.size) { i ->
+                if (extractors[i] is com.google.android.exoplayer2.ext.flac.FlacExtractor) FlacExtractor() else extractors[i]
+            }
+
+        /**
+         * True when [errors] tracks after each other did not play and the queue has no more tracks to try ([queueSize]):
+         * then the player stops, in place of a skip to the next track.
+         */
+        internal fun stopsAfterErrors(errors: Int, queueSize: Int): Boolean = errors >= queueSize
+
+        /** What the player does after an error of the track at [index]: see [afterTrackError]. */
+        internal enum class TrackErrorAction { NEXT, STOP_AT_END, STOP_ALL_FAILED }
+
+        /**
+         * The action after [errors] tracks after each other did not play, the last one at [index] of a queue of
+         * [queueSize] tracks, with the Repeat setting [repeatMode] (0 Off, 1 One, 2 All). Only Repeat All goes from
+         * the last track to the first one; Repeat Off and One stop there, as at the end of a track.
+         */
+        internal fun afterTrackError(errors: Int, queueSize: Int, index: Int, repeatMode: Int): TrackErrorAction = when {
+            stopsAfterErrors(errors, queueSize) -> TrackErrorAction.STOP_ALL_FAILED
+            repeatMode != 2 && index >= queueSize - 1 -> TrackErrorAction.STOP_AT_END
+            else -> TrackErrorAction.NEXT
+        }
 
         /**
          * The play queue files are written for a new queue ([stamp] is not [saved]), but not for a queue that the

@@ -10,7 +10,12 @@ import com.themoon.y1.navigation.LetterJump
  * or at a centre, Back or Play/Pause press ([onKey]): then the box fades and the covers scroll past fast to the
  * first album of that letter ([Ui.goTo]).
  */
-class CoverFlowLetterJump(private val albums: List<SongItem>, private val ui: Ui) {
+class CoverFlowLetterJump(
+    private val albums: List<SongItem>,
+    private val ui: Ui,
+    /** Settings → Controls → Letter Jump Sensitivity, read at each step; null = Letter Jump Off. */
+    sensitivity: () -> LetterJump.Sensitivity? = { LetterJump.Sensitivity.DEFAULT },
+) {
 
     interface Ui {
         fun showLetter(letter: String)
@@ -22,7 +27,7 @@ class CoverFlowLetterJump(private val albums: List<SongItem>, private val ui: Ui
         fun cancel(task: Runnable)
     }
 
-    private val mode = LetterJump.Mode()
+    private val mode = LetterJump.Mode(sensitivity)
     private var letters: CoverFlowLetters? = null
     /** The album count that [letters] was made for; -1 = not made. */
     private var lettersSize = -1

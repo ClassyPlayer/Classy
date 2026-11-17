@@ -1,8 +1,15 @@
 package com.themoon.y1.quiz
 
 import android.content.Context
-import android.media.AudioManager
-import android.media.MediaPlayer
+import android.net.Uri
+import android.os.Handler
+import android.os.Looper
+import android.os.SystemClock
+import com.google.android.exoplayer2.ExoPlaybackException
+import com.google.android.exoplayer2.MediaItem
+import com.google.android.exoplayer2.Player
+import com.google.android.exoplayer2.SimpleExoPlayer
+import com.themoon.y1.managers.AudioPlayerManager
 import com.themoon.y1.managers.AudioSources
 import com.themoon.y1.managers.VirtualVolumeManager
 import com.themoon.y1.models.SongItem
@@ -29,6 +36,22 @@ class MusicQuizEngine(private val context: Context? = null, private val random: 
         const val TYPE_ALBUM = 2
         const val TYPE_YEAR = 3
         const val TYPE_ALBUM_COVER = 4
+
+        /** The time in which a clip must start: the player is ready and plays. */
+        const val CLIP_START_CHECK_MS = 5000L
+
+        /** A smaller step of the clip position after the player is ready is no progress (the clip hangs). */
+        const val CLIP_MIN_PROGRESS_MS = 500L
+
+        /** The time that a ready clip player gets to play before its progress is checked. */
+        const val CLIP_MIN_PLAY_MS = 1000L
+
+        /**
+         * True when a clip that started at [clipStartMs] is at [positionMs] with no progress. The position is in the
+         * song, so a short song that played to its end and started again ([repeated]) is at a small position: it plays.
+         */
+        internal fun clipStalled(positionMs: Long, clipStartMs: Long, repeated: Boolean): Boolean =
+            !repeated && positionMs - clipStartMs < CLIP_MIN_PROGRESS_MS
     }
 
     data class CoverOption(
@@ -67,10 +90,25 @@ class MusicQuizEngine(private val context: Context? = null, private val random: 
     var coverArtPredicate: ((SongItem) -> Boolean)? = null
 
     private val quizPool = ArrayList<SongItem>()
-    private var previewPlayer: MediaPlayer? = null
+    /**
+     * The clip player: one ExoPlayer for the whole quiz, so that its buffer (one block of 4 MB, see
+     * [AudioPlayerManager.newAudioPlayer]) is made only once. [releasePreview] releases it.
+     */
+    private var previewExoPlayer: SimpleExoPlayer? = null
+    // The song of the clip that plays (null: no clip), and the start of the clip (-1 until the player is ready)
+    private var previewFile: File? = null
+    private var clipStart = -1L
+    // The time (uptime) when the clip player was ready, for the check of the clip progress
+    private var clipReadyAt = 0L
+    // The clip played to the end of the song and started again (REPEAT_MODE_ONE): it plays
+    private var clipRepeated = false
+    private var previewCheck: Runnable? = null
+    private val previewHandler by lazy { Handler(Looper.getMainLooper()) }
+    // A volume change during a clip
+    private val previewGain: (Float) -> Unit = { gain -> previewExoPlayer?.volume = gain }
     private var lastTargetSongFile: File? = null
 
-    /** Songs whose clip MediaPlayer could not play (for example some FLAC files). They are not asked again. */
+    /** Songs whose clip did not play. They are not asked again. */
     private val unplayableFiles = HashSet<File>()
 
     fun resetSession(library: List<SongItem>): Boolean {
@@ -88,12 +126,7 @@ class MusicQuizEngine(private val context: Context? = null, private val random: 
         quizPool.clear()
         for (song in library) {
             val path = song.file.absolutePath
-            val lower = path.lowercase()
             if (path.contains("/Audiobooks") || path.contains("/Podcasts") || path.startsWith("/PODCAST_STREAM")) {
-                continue
-            }
-            // MediaPlayer on Android 4.4 cannot open Opus (also in .ogg files). It plays FLAC, as the main player does.
-            if (lower.endsWith(".opus") || lower.endsWith(".ogg")) {
                 continue
             }
             if (song.title.isNullOrBlank()) {
@@ -387,46 +420,99 @@ class MusicQuizEngine(private val context: Context? = null, private val random: 
         }
     }
 
+    /**
+     * Plays a clip of [file] in the clip player, from a random point in the middle of the song. A clip that does not
+     * start in [CLIP_START_CHECK_MS] (or an error) skips the song in later questions. Without a context (unit tests)
+     * there is no clip.
+     */
     private fun startPreview(file: File) {
         stopPreview()
+        val player = previewPlayer() ?: return
         AudioSources.app.musicStarts()
         try {
-            val mp = MediaPlayer()
-            previewPlayer = mp
-            mp.setAudioStreamType(AudioManager.STREAM_MUSIC)
-            mp.setDataSource(file.absolutePath)
-            VirtualVolumeManager.getInstance().applyTo(mp)
-
-            mp.setOnPreparedListener { player ->
-                try {
-                    VirtualVolumeManager.getInstance().applyTo(player)
-                    val duration = player.duration
-                    var start = 0
-                    if (duration > 20000) {
-                        val maxStart = duration - 12000
-                        start = (maxStart * 0.2).toInt() + random.nextInt((maxStart * 0.5).toInt().coerceAtLeast(1))
-                    }
-                    player.seekTo(start)
-                    player.start()
-                } catch (ignored: Throwable) {}
-            }
-
-            mp.setOnCompletionListener { player ->
-                try {
-                    player.seekTo(0)
-                    player.start()
-                } catch (ignored: Throwable) {}
-            }
-
-            mp.setOnErrorListener { _, _, _ ->
-                onPreviewFailed(file)
-                true
-            }
-
-            mp.prepareAsync()
+            previewFile = file
+            clipStart = -1L
+            clipRepeated = false
+            player.setMediaItem(MediaItem.fromUri(Uri.fromFile(file)))
+            player.prepare()
+            watchClipStart(file, CLIP_START_CHECK_MS)
         } catch (ignored: Throwable) {
-            onPreviewFailed(file)
+            onPreviewError(file)
         }
+    }
+
+    /** The clip player, made at the first clip of the quiz with the audio renderers of the main player, without its effects. */
+    private fun previewPlayer(): SimpleExoPlayer? {
+        previewExoPlayer?.let { return it }
+        val ctx = context ?: return null
+        val player = try {
+            AudioPlayerManager.newAudioPlayer(ctx, emptyList())
+        } catch (e: Throwable) {
+            android.util.Log.w("MusicQuizEngine", "Cannot make the clip player", e)
+            return null
+        }
+        player.repeatMode = Player.REPEAT_MODE_ONE
+        player.addListener(object : Player.EventListener {
+            override fun onPlaybackStateChanged(state: Int) {
+                if (previewFile == null) return
+                if (state != Player.STATE_READY || clipStart >= 0) return
+                clipStart = clipStartMs(player.duration)
+                clipReadyAt = SystemClock.uptimeMillis()
+                player.seekTo(clipStart)
+                player.playWhenReady = true
+            }
+
+            override fun onPositionDiscontinuity(reason: Int) {
+                if (reason == Player.DISCONTINUITY_REASON_PERIOD_TRANSITION && previewFile != null) clipRepeated = true
+            }
+
+            override fun onPlayerError(error: ExoPlaybackException) {
+                previewFile?.let { onPreviewError(it) }
+            }
+        })
+        previewExoPlayer = player
+        VirtualVolumeManager.getInstance().addGainListener(previewGain)
+        return player
+    }
+
+    /**
+     * The check of the clip of [file], [delayMs] from now. One deadline from the start of the clip, so that the check
+     * comes before the end of a short question: not ready at the deadline, or no progress, means that the clip does not
+     * play. A player that became ready less than [CLIP_MIN_PLAY_MS] before the deadline gets that time to play.
+     */
+    private fun watchClipStart(file: File, delayMs: Long) {
+        previewCheck?.let { previewHandler.removeCallbacks(it) }
+        val check = Runnable {
+            previewCheck = null
+            val player = previewExoPlayer
+            if (previewFile != file || player == null) return@Runnable
+            if (clipStart < 0) {
+                onPreviewError(file)
+                return@Runnable
+            }
+            val played = SystemClock.uptimeMillis() - clipReadyAt
+            if (played < CLIP_MIN_PLAY_MS) {
+                watchClipStart(file, CLIP_MIN_PLAY_MS - played)
+            } else if (clipStalled(player.currentPosition, clipStart, clipRepeated)) {
+                onPreviewError(file)
+            }
+        }
+        previewCheck = check
+        previewHandler.postDelayed(check, delayMs)
+    }
+
+    /** A random start in the middle of a song of [durationMs], so that the clip is not the intro; 0 for a short song. */
+    private fun clipStartMs(durationMs: Long): Long {
+        if (durationMs <= 20000) return 0L
+        val maxStart = durationMs - 12000
+        return (maxStart * 0.2).toLong() + random.nextInt((maxStart * 0.5).toInt().coerceAtLeast(1))
+    }
+
+    /** The clip of [file] did not play: stop it, and skip the song in later questions. */
+    internal fun onPreviewError(file: File) {
+        android.util.Log.w("MusicQuizEngine", "The clip of ${file.absolutePath} does not play")
+        stopPreview()
+        onPreviewFailed(file)
     }
 
     /** The clip of [file] did not play: later questions ask about other songs. */
@@ -435,11 +521,24 @@ class MusicQuizEngine(private val context: Context? = null, private val random: 
     }
 
     fun stopPreview() {
-        previewPlayer?.let { mp ->
-            try { VirtualVolumeManager.getInstance().unregisterMediaPlayer(mp) } catch (ignored: Throwable) {}
-            try { mp.stop() } catch (ignored: Throwable) {}
-            try { mp.release() } catch (ignored: Throwable) {}
+        previewFile = null
+        previewCheck?.let { previewHandler.removeCallbacks(it) }
+        previewCheck = null
+        previewExoPlayer?.let { exo ->
+            try {
+                exo.stop()
+                exo.clearMediaItems()
+            } catch (ignored: Throwable) {}
         }
-        previewPlayer = null
+    }
+
+    /** The quiz closes: stop the clip, and release the clip player and its buffer. */
+    fun releasePreview() {
+        stopPreview()
+        VirtualVolumeManager.getInstance().removeGainListener(previewGain)
+        previewExoPlayer?.let { exo ->
+            try { exo.release() } catch (ignored: Throwable) {}
+        }
+        previewExoPlayer = null
     }
 }
