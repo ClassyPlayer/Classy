@@ -1,0 +1,123 @@
+name: Bug Report
+description: Something in Classy does not work or behaves in an unexpected way
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug! Classy is made by a few people in their free time, so a clear report helps a lot.
+
+        Please give the issue a short title that says what goes wrong, for example "Cover Flow skips albums with no cover".
+        Not sure if it is a bug? Ask in [Discussions](https://github.com/ClassyPlayer/Classy/discussions) first.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before you start
+      options:
+        - label: I searched the [existing issues](https://github.com/ClassyPlayer/Classy/issues?q=is%3Aissue) and this bug is not reported yet.
+          required: true
+        - label: The bug still happens on the newest release of my update channel (Settings → General → System Update).
+          required: false
+
+  - type: dropdown
+    id: device
+    attributes:
+      label: Device
+      description: Which player does this happen on? Support for the Y1 is experimental.
+      options:
+        - Innioasis Y2
+        - Innioasis Y1
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Classy version
+      description: Settings → General → About → Software Version. The same number is shown next to System Update.
+      placeholder: e.g. 20261117 or 20261118-beta
+    validations:
+      required: true
+
+  - type: dropdown
+    id: channel
+    attributes:
+      label: Update channel
+      description: Settings → General → System Update → Update Channel.
+      options:
+        - Stable
+        - Beta
+        - Not sure
+    validations:
+      required: true
+
+  - type: dropdown
+    id: install
+    attributes:
+      label: How did you install this version?
+      options:
+        - System Update over Wi-Fi
+        - Innioasis Updater CE
+        - Firmware file (rom_y2.zip) flashed by hand
+        - App only (APK)
+        - Not sure
+    validations:
+      required: false
+
+  - type: textarea
+    id: bug-description
+    attributes:
+      label: What happened?
+      description: |
+        Describe the bug. If it is about a song, video, book or photo, say the file format (for example FLAC, M4B, EPUB) and where the file is (internal storage or microSD card).
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps-to-reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Which menus did you open and which buttons did you press?
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: frequency
+    attributes:
+      label: How often does it happen?
+      options:
+        - Every time
+        - Sometimes
+        - It happened once
+    validations:
+      required: false
+
+  - type: input
+    id: last-working
+    attributes:
+      label: Last version where it worked
+      description: If this worked before an update, which version was the last good one?
+      placeholder: e.g. 20261113-beta
+    validations:
+      required: false
+
+  - type: textarea
+    id: media
+    attributes:
+      label: Screenshots, video or logs
+      description: |
+        Drag and drop images or videos here. A photo of the screen is fine. Put logs (for example from `adb logcat`) in a code block.
+    validations:
+      required: false

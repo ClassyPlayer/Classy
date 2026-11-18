@@ -1,0 +1,74 @@
+name: Feature Request
+description: Suggest a new feature or a change to Classy
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping to make Classy better!
+
+        Still shaping the idea, or want to see what others think first? Post it in [Ideas](https://github.com/ClassyPlayer/Classy/discussions/categories/ideas) in Discussions.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before you start
+      options:
+        - label: I searched the [existing issues](https://github.com/ClassyPlayer/Classy/issues?q=is%3Aissue) and this idea is not there yet.
+          required: true
+        - label: I checked the [latest beta](https://github.com/ClassyPlayer/Classy/releases) and it does not have this yet.
+          required: false
+
+  - type: dropdown
+    id: device
+    attributes:
+      label: Device
+      description: Which player would you use this on?
+      options:
+        - Innioasis Y2
+        - Innioasis Y1
+        - Both
+    validations:
+      required: false
+
+  - type: input
+    id: version
+    attributes:
+      label: Classy version
+      description: Settings → General → About → Software Version.
+      placeholder: e.g. 20261117 or 20261118-beta
+    validations:
+      required: false
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What is missing or annoying?
+      description: Describe what you want to do with the player, and what gets in the way now.
+      placeholder: e.g. "My audiobooks are single M4B files, and I cannot jump to a chapter."
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What should Classy do?
+      description: Describe how it would work. Where in the menus would it be, and which buttons or which part of the click wheel would you use?
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Anything else?
+      description: Screenshots, mockups, links or related issues.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: help
+    attributes:
+      label: Can you help?
+      options:
+        - label: I can test a beta build with this feature on my player.
+        - label: I would like to work on this myself (pull request).
