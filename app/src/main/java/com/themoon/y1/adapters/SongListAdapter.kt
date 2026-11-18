@@ -208,7 +208,6 @@ class SongListAdapter(
 
             if (isPodcast) {
                 val audioUrl = song.genre
-                val imageUrl = song.album
                 val channelName = song.artist
 
                 val safeChannel = channelName.replace("[\\\\/:*?\"<>|]".toRegex(), "_")
@@ -245,7 +244,7 @@ class SongListAdapter(
                     }
                     main.changeScreen(3)
                 } else {
-                    main.showPodcastActionDialog(song.title, audioUrl, imageUrl, channelName)
+                    main.showPodcastActionDialog(song.title, audioUrl, channelName)
                 }
                 return@setOnClickListener
             }

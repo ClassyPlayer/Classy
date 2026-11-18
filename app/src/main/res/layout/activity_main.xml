@@ -422,9 +422,9 @@
 
         <!-- Bottom progress bar and track elapsed/remaining time -->
         <LinearLayout android:id="@+id/row_player_progress" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_gravity="bottom" android:orientation="horizontal" android:gravity="center_vertical" android:paddingLeft="26dp" android:paddingRight="26dp" android:paddingBottom="14dp">
-            <TextView android:id="@+id/tv_player_time_current" android:layout_width="54dp" android:layout_height="wrap_content" android:text="0:00" android:textColor="#000000" android:textStyle="bold" android:textSize="16sp" android:layout_marginRight="10dp"/>
+            <TextView android:id="@+id/tv_player_time_current" android:layout_width="wrap_content" android:minWidth="54dp" android:maxLines="1" android:layout_height="wrap_content" android:text="0:00" android:textColor="#000000" android:textStyle="bold" android:textSize="16sp" android:layout_marginRight="10dp"/>
             <ProgressBar android:id="@+id/player_progress" style="?android:attr/progressBarStyleHorizontal" android:progressDrawable="@drawable/progress_bar_now_playing" android:layout_width="0dp" android:layout_height="16dp" android:layout_weight="1" android:max="1000" android:progress="0"/>
-            <TextView android:id="@+id/tv_player_time_total" android:layout_width="54dp" android:layout_height="wrap_content" android:text="-0:00" android:textColor="#000000" android:textStyle="bold" android:textSize="16sp" android:layout_marginLeft="10dp"/>
+            <TextView android:id="@+id/tv_player_time_total" android:layout_width="wrap_content" android:minWidth="54dp" android:maxLines="1" android:layout_height="wrap_content" android:text="-0:00" android:textColor="#000000" android:textStyle="bold" android:textSize="16sp" android:layout_marginLeft="10dp"/>
         </LinearLayout>
 
         <!-- Temporary inline volume gauge replacing progress bar -->
@@ -436,9 +436,9 @@
 
         <!-- Scrub seek bar with diamond thumb -->
         <LinearLayout android:id="@+id/row_player_seek" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_gravity="bottom" android:orientation="horizontal" android:gravity="center_vertical" android:paddingLeft="26dp" android:paddingRight="26dp" android:paddingBottom="14dp" android:visibility="gone">
-            <TextView android:id="@+id/tv_player_seek_current" android:layout_width="54dp" android:layout_height="wrap_content" android:text="0:00" android:textColor="#000000" android:textStyle="bold" android:textSize="16sp" android:layout_marginRight="10dp"/>
+            <TextView android:id="@+id/tv_player_seek_current" android:layout_width="wrap_content" android:minWidth="54dp" android:maxLines="1" android:layout_height="wrap_content" android:text="0:00" android:textColor="#000000" android:textStyle="bold" android:textSize="16sp" android:layout_marginRight="10dp"/>
             <SeekBar android:id="@+id/seek_player_scrub" android:layout_width="0dp" android:layout_height="16dp" android:layout_weight="1" android:max="1000" android:progress="0" android:progressDrawable="@drawable/progress_bar_now_playing" android:thumb="@drawable/seek_diamond_thumb" android:splitTrack="false" android:focusable="false" android:clickable="false"/>
-            <TextView android:id="@+id/tv_player_seek_total" android:layout_width="54dp" android:layout_height="wrap_content" android:text="-0:00" android:textColor="#000000" android:textStyle="bold" android:textSize="16sp" android:layout_marginLeft="10dp"/>
+            <TextView android:id="@+id/tv_player_seek_total" android:layout_width="wrap_content" android:minWidth="54dp" android:maxLines="1" android:layout_height="wrap_content" android:text="-0:00" android:textColor="#000000" android:textStyle="bold" android:textSize="16sp" android:layout_marginLeft="10dp"/>
         </LinearLayout>
 
         <!-- Quick shuffle and repeat mode toggles -->

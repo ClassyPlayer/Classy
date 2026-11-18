@@ -246,7 +246,7 @@ internal fun MainActivity.initControllers() {
         onNavigateToPlayer = { changeScreen(MainActivity.STATE_PLAYER) },
         clickFeedback = { clickFeedback() },
         localize = { t(it) },
-        showLoadingPopup = { showLoadingPopup() },
+        showLoadingPopup = { message -> showLoadingPopup(message) },
         onHideLoadingPopup = { dismissLoadingOverlay() }
     )
 

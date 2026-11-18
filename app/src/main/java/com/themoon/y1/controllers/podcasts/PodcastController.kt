@@ -44,7 +44,7 @@ class PodcastController(
     private val onNavigateToPlayer: () -> Unit,
     private val clickFeedback: () -> Unit,
     private val localize: (String) -> String,
-    private val showLoadingPopup: () -> Unit = {},
+    private val showLoadingPopup: (message: String?) -> Unit = {},
     private val onHideLoadingPopup: () -> Unit = {}
 ) : ScreenController {
 
@@ -55,6 +55,15 @@ class PodcastController(
 
     /** The episodes of the last channel (its RSS URL): Back from an episode shows them again at once. */
     private var episodes: Pair<String, List<SongItem>>? = null
+
+    /**
+     * The number of the last episode list load; leaving the list adds one. Only that load may close the loading
+     * screen or show its list: leaving a slow show and opening it again makes two loads of the same show.
+     */
+    private var episodesRequest = 0
+
+    /** The loading screen shows for an episode list. */
+    private var episodesLoading = false
 
     override fun onEnter(state: ScreenState) {
         val list = when (state) {
@@ -75,6 +84,8 @@ class PodcastController(
     }
 
     override fun onExit() {
+        episodesRequest++
+        stopEpisodesLoading()
         shown = null
         screen.clear()
     }
@@ -104,7 +115,6 @@ class PodcastController(
         for (ch in channels) {
             rows += RowSpec(ch.title, onClick = {
                 episodes = null
-                Notice.show(activity, localize("Connecting to server: ") + ch.title)
                 open(ScreenState.PodcastEpisodes(ch.title, ch.rssUrl))
             })
         }
@@ -127,11 +137,18 @@ class PodcastController(
         }
         screen.show(ListSpec(title))
         val state = ScreenState.PodcastEpisodes(channelName, rssUrl)
+        // The feed of a big show takes seconds: the iPod spinner until the list comes (Back still leaves)
+        val request = ++episodesRequest
+        episodesLoading = true
+        showLoadingPopup(localize("Connecting to server..."))
         Thread {
             try {
                 val list = repository.fetchEpisodes(rssUrl, channelName)
                 activity.runOnUiThread {
+                    // A load that is no longer the last must not replace the list Back from an episode restores
+                    if (request != episodesRequest) return@runOnUiThread
                     episodes = rssUrl to list
+                    stopEpisodesLoading()
                     if (shown == state) showEpisodes(title, list)
                 }
             } catch (e: Exception) {
@@ -141,6 +158,8 @@ class PodcastController(
                     emptyList()
                 }
                 activity.runOnUiThread {
+                    if (request != episodesRequest) return@runOnUiThread
+                    stopEpisodesLoading()
                     if (downloaded.isNotEmpty()) {
                         Notice.show(activity, localize("Offline Mode: Showing downloaded episodes only."), long = true)
                         episodes = rssUrl to downloaded
@@ -155,6 +174,12 @@ class PodcastController(
                 }
             }
         }.start()
+    }
+
+    private fun stopEpisodesLoading() {
+        if (!episodesLoading) return
+        episodesLoading = false
+        onHideLoadingPopup()
     }
 
     /** A click on an episode opens its action screen, or plays it when it is downloaded (see [SongListAdapter]). */
@@ -194,7 +219,7 @@ class PodcastController(
     }
 
     /** The episode screen: Play (downloaded) or Stream, and Download. Back cancels. */
-    fun showActionDialog(title: String, audioUrl: String, imageUrl: String, channelName: String) {
+    fun showActionDialog(title: String, audioUrl: String, channelName: String) {
         val safeChannel = sanitize(channelName)
         val safeTitle = "${sanitize(title)}.mp3"
         val localFile = File(StoragePaths.getPodcastChannelDir(safeChannel), safeTitle)
@@ -217,11 +242,11 @@ class PodcastController(
             }
         } else {
             actions += ActionScreens.Action(localize("Stream (Play)")) {
-                Notice.show(activity, "${localize("Connecting to server: ")}\n$title")
+                // No notice: Now Playing shows the spinner over the art until the stream plays
                 val streamKey = "/PODCAST_STREAM/$safeChannel/$safeTitle"
                 var savedPos = prefs.getInt("book_pos_$streamKey", 0)
                 if (savedPos == 0) savedPos = prefs.getInt("book_pos_${localFile.absolutePath}", 0)
-                AudioPlayerManager.getInstance().playPodcastStream(audioUrl, title, imageUrl, channelName, savedPos)
+                AudioPlayerManager.getInstance().playPodcastStream(audioUrl, title, channelName, savedPos)
                 onNavigateToPlayer()
             }
             if (downloadManager.isDownloading(audioUrl)) {
@@ -245,7 +270,7 @@ class PodcastController(
     }
 
     fun searchApplePodcasts(keyword: String) {
-        showLoadingPopup()
+        showLoadingPopup(null)
 
         Thread {
             try {
