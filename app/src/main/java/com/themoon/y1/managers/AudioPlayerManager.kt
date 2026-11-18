@@ -481,24 +481,38 @@ class AudioPlayerManager private constructor() {
                 main.updatePlayerUI()
             }
 
-            if (!imageUrl.isNullOrEmpty()) {
-                Thread {
-                    try {
-                        val request = okhttp3.Request.Builder().url(imageUrl).build()
-                        val call = PodcastHttp.client.newCall(request)
-                        call.timeout().timeout(PodcastHttp.SMALL_FILE_TIMEOUT_S, java.util.concurrent.TimeUnit.SECONDS)
-                        val bmp = call.execute().use { response ->
-                            response.body()?.takeIf { response.isSuccessful }?.byteStream()
-                                ?.let { android.graphics.BitmapFactory.decodeStream(it) }
-                        }
-                        if (bmp != null) {
-                            main.runOnUiThread {
+            // The art: the episode image, else the show cover that opening the show kept (Podcasts/<show>/cover.jpg):
+            // most feeds have no episode images. Decoded at screen size: feed covers are up to 3000 px, too big for
+            // the Y2 memory.
+            val coverFile = File(StoragePaths.getPodcastChannelDir(safeChannel), "cover.jpg")
+            // An episode with no image has the album text of its SongItem ("Unknown Album"), not a web address
+            val episodeImage = imageUrl?.takeIf { it.startsWith("http", ignoreCase = true) }
+            Thread {
+                try {
+                    val side = Math.max(main.resources.displayMetrics.widthPixels, 480)
+                    val bmp = if (episodeImage == null && coverFile.length() > 0) {
+                        AlbumCoverManager.decodeSampledBitmapFromFile(coverFile.absolutePath, side, side)
+                    } else {
+                        episodeImage?.let { url ->
+                            val call = PodcastHttp.client.newCall(okhttp3.Request.Builder().url(url).build())
+                            call.timeout().timeout(PodcastHttp.SMALL_FILE_TIMEOUT_S, java.util.concurrent.TimeUnit.SECONDS)
+                            call.execute().use { response ->
+                                response.body()?.takeIf { response.isSuccessful }?.bytes()
+                            }
+                        }?.let { AlbumCoverManager.decodeSampledBitmapFromByteArray(it, side, side) }
+                    }
+                    if (bmp != null) {
+                        main.runOnUiThread {
+                            // Another stream or track started meanwhile: its art stays
+                            if (streamInfo == title to channelName &&
+                                main.currentPlaylist.singleOrNull()?.absolutePath?.startsWith("/PODCAST_STREAM") == true) {
                                 main.ivAlbumArt.setImageBitmap(bmp)
+                                main.updatePlayerUI()
                             }
                         }
-                    } catch (ignored: Exception) {}
-                }.start()
-            }
+                    }
+                } catch (ignored: Throwable) {}
+            }.start()
 
             exoPlayer?.playWhenReady = true
         } catch (ignored: Exception) {}
@@ -1160,6 +1174,16 @@ class AudioPlayerManager private constructor() {
             return playing
         }
         return isPlayingActive
+    }
+
+    /**
+     * A podcast stream that should play but waits for data (connecting, or the network is slower than the audio):
+     * Now Playing shows the spinner over the art. Main thread only.
+     */
+    fun isStreamLoading(): Boolean {
+        val player = exoPlayer ?: return false
+        if (!player.playWhenReady || player.playbackState != Player.STATE_BUFFERING) return false
+        return MainActivity.instance?.currentPlaylist?.singleOrNull()?.absolutePath?.startsWith("/PODCAST_STREAM") == true
     }
 
     fun isFileCurrentlyPlaying(file: File?): Boolean {

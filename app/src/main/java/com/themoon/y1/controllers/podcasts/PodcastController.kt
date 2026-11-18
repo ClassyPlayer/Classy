@@ -44,7 +44,7 @@ class PodcastController(
     private val onNavigateToPlayer: () -> Unit,
     private val clickFeedback: () -> Unit,
     private val localize: (String) -> String,
-    private val showLoadingPopup: () -> Unit = {},
+    private val showLoadingPopup: (message: String?) -> Unit = {},
     private val onHideLoadingPopup: () -> Unit = {}
 ) : ScreenController {
 
@@ -55,6 +55,9 @@ class PodcastController(
 
     /** The episodes of the last channel (its RSS URL): Back from an episode shows them again at once. */
     private var episodes: Pair<String, List<SongItem>>? = null
+
+    /** The episode list whose feed loads under the loading screen. */
+    private var loadingEpisodes: ScreenState? = null
 
     override fun onEnter(state: ScreenState) {
         val list = when (state) {
@@ -75,6 +78,7 @@ class PodcastController(
     }
 
     override fun onExit() {
+        stopEpisodesLoading()
         shown = null
         screen.clear()
     }
@@ -104,7 +108,6 @@ class PodcastController(
         for (ch in channels) {
             rows += RowSpec(ch.title, onClick = {
                 episodes = null
-                Notice.show(activity, localize("Connecting to server: ") + ch.title)
                 open(ScreenState.PodcastEpisodes(ch.title, ch.rssUrl))
             })
         }
@@ -127,10 +130,14 @@ class PodcastController(
         }
         screen.show(ListSpec(title))
         val state = ScreenState.PodcastEpisodes(channelName, rssUrl)
+        // The feed of a big show takes seconds: the iPod spinner until the list comes (Back still leaves)
+        loadingEpisodes = state
+        showLoadingPopup(localize("Connecting to server..."))
         Thread {
             try {
                 val list = repository.fetchEpisodes(rssUrl, channelName)
                 activity.runOnUiThread {
+                    if (shown == state) stopEpisodesLoading()
                     episodes = rssUrl to list
                     if (shown == state) showEpisodes(title, list)
                 }
@@ -141,6 +148,7 @@ class PodcastController(
                     emptyList()
                 }
                 activity.runOnUiThread {
+                    if (shown == state) stopEpisodesLoading()
                     if (downloaded.isNotEmpty()) {
                         Notice.show(activity, localize("Offline Mode: Showing downloaded episodes only."), long = true)
                         episodes = rssUrl to downloaded
@@ -155,6 +163,12 @@ class PodcastController(
                 }
             }
         }.start()
+    }
+
+    private fun stopEpisodesLoading() {
+        if (loadingEpisodes == null) return
+        loadingEpisodes = null
+        onHideLoadingPopup()
     }
 
     /** A click on an episode opens its action screen, or plays it when it is downloaded (see [SongListAdapter]). */
@@ -217,7 +231,7 @@ class PodcastController(
             }
         } else {
             actions += ActionScreens.Action(localize("Stream (Play)")) {
-                Notice.show(activity, "${localize("Connecting to server: ")}\n$title")
+                // No notice: Now Playing shows the spinner over the art until the stream plays
                 val streamKey = "/PODCAST_STREAM/$safeChannel/$safeTitle"
                 var savedPos = prefs.getInt("book_pos_$streamKey", 0)
                 if (savedPos == 0) savedPos = prefs.getInt("book_pos_${localFile.absolutePath}", 0)
@@ -245,7 +259,7 @@ class PodcastController(
     }
 
     fun searchApplePodcasts(keyword: String) {
-        showLoadingPopup()
+        showLoadingPopup(null)
 
         Thread {
             try {

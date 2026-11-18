@@ -11,6 +11,7 @@ import android.text.TextPaint
 import android.text.TextWatcher
 import android.view.Gravity
 import android.view.View
+import android.view.ViewGroup
 import android.view.ViewTreeObserver
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -292,17 +293,22 @@ object ClassyNowPlaying {
         L.setPadding(row, px(M.TIME_LEFT, d), row.paddingTop, screenWidth - px(M.TIME_RIGHT, d), px(bottomDp, d))
         val bold = ThemeManager.getCustomFontBold()
         val size = M.TIME_SP * d
-        L.setWidth(left, px(M.PROGRESS_LEFT - M.TIME_LEFT, d))
+        // The times are at least their iPod boxes wide and the bar takes the rest, so the bar is at its iPod place.
+        // A time of an hour or more ("-4:15:05") makes its box wider and the bar shorter, as on the iPod,
+        // in place of a second line.
+        L.setWidth(left, ViewGroup.LayoutParams.WRAP_CONTENT)
+        L.setMinWidth(left, px(M.PROGRESS_LEFT - M.TIME_LEFT, d))
         L.setMargins(left, left = 0, right = 0)
         L.styleCentredText(left, size, bold, box.toFloat(), height = box, hGravity = Gravity.LEFT)
-        L.setWeight(bar, 0f)
+        L.setWidth(bar, 0)
+        L.setWeight(bar, 1f)
         if (bar is SeekBar) {
             styleScrubBar(bar, d)
         } else {
-            L.setWidth(bar, px(M.PROGRESS_WIDTH, d))
             L.setHeight(bar, px(M.PROGRESS_HEIGHT, d))
         }
-        L.setWidth(right, px(M.TIME_RIGHT - M.PROGRESS_LEFT - M.PROGRESS_WIDTH, d))
+        L.setWidth(right, ViewGroup.LayoutParams.WRAP_CONTENT)
+        L.setMinWidth(right, px(M.TIME_RIGHT - M.PROGRESS_LEFT - M.PROGRESS_WIDTH, d))
         L.setMargins(right, left = 0, right = 0)
         L.styleCentredText(right, size, bold, box.toFloat(), height = box, hGravity = Gravity.RIGHT)
     }
@@ -310,7 +316,7 @@ object ClassyNowPlaying {
     /** The scrub bar shows the bar at the progress bar position and adds the diamond ([ScrubBarStyle]). */
     private fun styleScrubBar(bar: SeekBar, d: Float) {
         val diamondWidth = px(M.SCRUB_DIAMOND_WIDTH, d)
-        L.setWidth(bar, px(M.PROGRESS_WIDTH, d) + 2 * ScrubBarGeometry.outsetX(diamondWidth))
+        // Width by the layout weight: the negative margins add the outsets
         ScrubBarStyle.apply(bar, px(M.PROGRESS_HEIGHT, d), diamondWidth, px(M.SCRUB_DIAMOND_HEIGHT, d), RecordedEdits)
     }
 
