@@ -33,6 +33,7 @@ import androidx.palette.graphics.Palette
 import com.themoon.y1.views.AudioVisualizerView
 import com.themoon.y1.views.ClassySpinnerView
 import com.themoon.y1.views.SpectrumColors
+import com.themoon.y1.views.TablerIcons
 import java.io.File
 
 /**
@@ -117,6 +118,10 @@ class PlayerController(
     private val rowPlayerShuffleRepeat: LinearLayout? = rootView.findViewById(R.id.row_player_shuffle_repeat)
     private val tvScrubShuffleValue: TextView? = rootView.findViewById(R.id.tv_scrub_shuffle_value)
     private val tvScrubRepeatValue: TextView? = rootView.findViewById(R.id.tv_scrub_repeat_value)
+    private val ivScrubShuffleIcon: ImageView? = rootView.findViewById(R.id.iv_scrub_shuffle_icon)
+    private val ivScrubRepeatIcon: ImageView? = rootView.findViewById(R.id.iv_scrub_repeat_icon)
+    // The same Tabler glyphs as the shuffle/repeat state icons under the status bar
+    private val scrubGlyphs = HashMap<Array<String>, Bitmap>()
 
     private val rowPlayerRatingScrub: LinearLayout? = rootView.findViewById(R.id.row_player_rating_scrub)
     private val tvScrubStars = arrayOfNulls<TextView>(5)
@@ -538,6 +543,15 @@ class PlayerController(
 
         tvScrubShuffleValue?.text = "${localize("Shuffle")}: ${if (isShuffle) localize("Songs") else localize("Off")}"
         tvScrubRepeatValue?.text = "${localize("Repeat")}: $repeatText"
+        setScrubGlyph(ivScrubShuffleIcon, TablerIcons.SHUFFLE)
+        setScrubGlyph(ivScrubRepeatIcon, if (repeatMode == 1) TablerIcons.REPEAT_ONCE else TablerIcons.REPEAT)
+    }
+
+    private fun setScrubGlyph(iv: ImageView?, glyph: Array<String>) {
+        if (iv == null || iv.getTag(R.id.iv_scrub_repeat_icon) === glyph) return
+        val size = iv.layoutParams?.height?.takeIf { it > 0 } ?: return
+        iv.setImageBitmap(scrubGlyphs.getOrPut(glyph) { TablerIcons.render(glyph, size, SCRUB_GLYPH_COLOR) })
+        iv.setTag(R.id.iv_scrub_repeat_icon, glyph)
     }
 
     private fun updateRatingScrubStars() {
@@ -853,6 +867,9 @@ class PlayerController(
 
     companion object {
         const val LYRICS_STATE = 4
+
+        /** The blue of the shuffle/repeat toggle row (its labels in activity_main.xml). */
+        private const val SCRUB_GLYPH_COLOR = 0xFF6194D1.toInt()
 
         /** The volume row, for a moment over any bottom state ([showVolume]); never a value of nowPlayingBottomState. */
         const val VOLUME_STATE = -1
