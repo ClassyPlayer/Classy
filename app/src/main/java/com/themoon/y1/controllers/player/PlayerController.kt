@@ -14,6 +14,7 @@ import android.view.Gravity
 import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.ViewTreeObserver
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -75,7 +76,8 @@ class PlayerController(
     private val ivPauseOverlay: ImageView? = rootView.findViewById(R.id.iv_pause_overlay)
     // A podcast stream that waits for data: the iPod spinner on a dark rounded square over the art. Spectrum and
     // Lyrics hide the art: then the same spinner shows on Now Playing, over the middle of the art column.
-    private val streamLoadingOnArt: View? = frameAlbumArt?.let { newStreamLoadingView(it) }
+    private var placeWaitsForLayout = false
+    private val streamLoadingOnArt: View? =frameAlbumArt?.let { newStreamLoadingView(it) }
     private val streamLoadingCentred: View? = (rootView.findViewById<View>(R.id.layout_player_mode) as? FrameLayout)
         ?.let { newStreamLoadingView(it) }
 
@@ -339,7 +341,21 @@ class PlayerController(
     private fun placeOnArtColumn(v: View) {
         val column = frameAlbumArt?.parent as? View ?: return
         val host = v.parent as? View ?: return
-        if (column.width == 0 || host.width == 0) return
+        if (column.width == 0 || host.width == 0) {
+            // Now Playing is not laid out yet: place it on the first layout pass that gives both a size
+            if (!placeWaitsForLayout) {
+                placeWaitsForLayout = true
+                host.viewTreeObserver.addOnGlobalLayoutListener(object : ViewTreeObserver.OnGlobalLayoutListener {
+                    override fun onGlobalLayout() {
+                        if (column.width == 0 || host.width == 0) return
+                        host.viewTreeObserver.removeGlobalOnLayoutListener(this)
+                        placeWaitsForLayout = false
+                        if (v.visibility == View.VISIBLE) placeOnArtColumn(v)
+                    }
+                })
+            }
+            return
+        }
         val c = IntArray(2)
         val h = IntArray(2)
         column.getLocationInWindow(c)

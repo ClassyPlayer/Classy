@@ -145,9 +145,9 @@ class PodcastController(
             try {
                 val list = repository.fetchEpisodes(rssUrl, channelName)
                 activity.runOnUiThread {
-                    // Kept also for a load that is no longer the last: Back from an episode shows them at once
-                    episodes = rssUrl to list
+                    // A load that is no longer the last must not replace the list Back from an episode restores
                     if (request != episodesRequest) return@runOnUiThread
+                    episodes = rssUrl to list
                     stopEpisodesLoading()
                     if (shown == state) showEpisodes(title, list)
                 }

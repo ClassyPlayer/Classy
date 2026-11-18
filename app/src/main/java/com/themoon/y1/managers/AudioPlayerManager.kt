@@ -495,16 +495,19 @@ class AudioPlayerManager private constructor() {
             Thread {
                 try {
                     val side = Math.max(main.resources.displayMetrics.widthPixels, 480)
-                    val bmp = if (episodeImage == null && coverFile.length() > 0) {
-                        AlbumCoverManager.decodeSampledBitmapFromFile(coverFile.absolutePath, side, side)
-                    } else {
-                        episodeImage?.let { url ->
+                    // An episode image that fails (error, too big, not an image) also falls back to the show cover
+                    val bmp = episodeImage?.let { url ->
+                        try {
                             val call = PodcastHttp.client.newCall(okhttp3.Request.Builder().url(url).build())
                             call.timeout().timeout(PodcastHttp.SMALL_FILE_TIMEOUT_S, java.util.concurrent.TimeUnit.SECONDS)
                             call.execute().use { response ->
                                 response.body()?.takeIf { response.isSuccessful }?.byteStream()?.let { readArtBytes(it) }
-                            }
-                        }?.let { AlbumCoverManager.decodeSampledBitmapFromByteArray(it, side, side) }
+                            }?.let { AlbumCoverManager.decodeSampledBitmapFromByteArray(it, side, side) }
+                        } catch (e: Exception) {
+                            null
+                        }
+                    } ?: coverFile.takeIf { it.length() > 0 }?.let {
+                        AlbumCoverManager.decodeSampledBitmapFromFile(it.absolutePath, side, side)
                     }
                     if (bmp != null) {
                         main.runOnUiThread {
