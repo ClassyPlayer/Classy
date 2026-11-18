@@ -42,11 +42,28 @@ class PodcastCoverTest {
     }
 
     @Test
-    fun onlyImagesDecodedWholeHaveAPixelLimit() {
-        assertTrue(PodcastCover.isTooBig(4096, 4096, decodesWhole = true))
-        assertFalse(PodcastCover.isTooBig(2048, 2048, decodesWhole = true))
-        // A JPEG or a plain PNG is sampled while it is decoded
-        assertFalse(PodcastCover.isTooBig(12000, 12000, decodesWhole = false))
+    fun imagesDecodedWholeHaveTheLowerPixelLimit() {
+        assertFalse(PodcastCover.canDecode("image/png", 3000, 3000, pngHead(3000, 3000, 1)))
+        assertTrue(PodcastCover.canDecode("image/png", 2048, 2048, pngHead(2048, 2048, 1)))
+        assertFalse(PodcastCover.canDecode("image/gif", 3000, 3000, ByteArray(PodcastCover.HEAD_BYTES)))
+        assertTrue(PodcastCover.canDecode("image/gif", 1400, 1400, ByteArray(PodcastCover.HEAD_BYTES)))
+    }
+
+    @Test
+    fun otherImagesHaveASourceLimitThatFeedCoversFit() {
+        val jpeg = ByteArray(PodcastCover.HEAD_BYTES).also { it[0] = 0xFF.toByte(); it[1] = 0xD8.toByte() }
+        assertTrue(PodcastCover.canDecode("image/jpeg", 3000, 3000, jpeg))
+        assertTrue(PodcastCover.canDecode("image/png", 3000, 3000, pngHead(3000, 3000, 0)))
+        assertTrue(PodcastCover.canDecode("image/jpeg", 4096, 4096, jpeg))
+        // A progressive JPEG keeps its whole coefficients while it decodes, at any sample size
+        assertFalse(PodcastCover.canDecode("image/jpeg", 8000, 8000, jpeg))
+        assertFalse(PodcastCover.canDecode("image/jpeg", 12000, 1500, jpeg))
+    }
+
+    @Test
+    fun anImageWithNoSizeIsNotDecoded() {
+        assertFalse(PodcastCover.canDecode(null, -1, -1, ByteArray(PodcastCover.HEAD_BYTES)))
+        assertFalse(PodcastCover.canDecode("image/jpeg", 0, 500, ByteArray(PodcastCover.HEAD_BYTES)))
     }
 
     @Test

@@ -19,9 +19,18 @@ internal object PodcastCover {
 
     /**
      * The pixels of a GIF or an interlaced PNG that are decoded: Android 4.4 decodes these whole before it samples
-     * them (16 MB at 2048 x 2048), so a bigger one is not kept.
+     * them (16 MB at 2048 x 2048), so a bigger one is not decoded.
      */
     const val MAX_WHOLE_PIXELS = 2048 * 2048
+
+    /**
+     * The pixels of any other image that are decoded. A sample size makes the bitmap small, but a progressive JPEG
+     * keeps the coefficients of the whole image while it decodes. Feed covers are at most 3000 x 3000.
+     */
+    const val MAX_SOURCE_PIXELS = 4096 * 4096
+
+    /** The first bytes of a file that [canDecode] reads: a PNG header to its interlace byte. */
+    const val HEAD_BYTES = 29
 
     /** The JPEG quality of the kept cover. */
     const val JPEG_QUALITY = 90
@@ -30,13 +39,20 @@ internal object PodcastCover {
     fun isKept(mimeType: String?, width: Int, height: Int): Boolean =
         mimeType == "image/jpeg" && width in 1..MAX_SIDE && height in 1..MAX_SIDE
 
-    /** True for an image that Android 4.4 decodes whole and that is too big for that ([MAX_WHOLE_PIXELS]). */
-    fun isTooBig(width: Int, height: Int, decodesWhole: Boolean): Boolean =
-        decodesWhole && width.toLong() * height > MAX_WHOLE_PIXELS
+    /**
+     * True for an image that may be decoded, from its bounds and its first bytes ([head], [HEAD_BYTES] or more):
+     * [MAX_WHOLE_PIXELS] for an image that Android 4.4 decodes whole, [MAX_SOURCE_PIXELS] for any other.
+     * The kept cover and a cover that an older version kept as the feed gave it are both read through this.
+     */
+    fun canDecode(mimeType: String?, width: Int, height: Int, head: ByteArray): Boolean {
+        if (width <= 0 || height <= 0) return false
+        val decodesWhole = mimeType == "image/gif" || isInterlacedPng(head)
+        return width.toLong() * height <= if (decodesWhole) MAX_WHOLE_PIXELS else MAX_SOURCE_PIXELS
+    }
 
     /** True for a PNG whose header (IHDR) says Adam7 interlacing. */
     fun isInterlacedPng(bytes: ByteArray): Boolean {
-        if (bytes.size < 29) return false
+        if (bytes.size < HEAD_BYTES) return false
         for (i in PNG_SIGNATURE.indices) if (bytes[i] != PNG_SIGNATURE[i]) return false
         // Chunk length (4 bytes), "IHDR", width, height, depth, colour type, compression, filter, interlace
         if (bytes[12] != 'I'.code.toByte() || bytes[13] != 'H'.code.toByte() ||

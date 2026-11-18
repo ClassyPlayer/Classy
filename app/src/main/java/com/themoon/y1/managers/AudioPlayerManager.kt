@@ -40,6 +40,7 @@ import com.themoon.y1.MainActivity
 import com.themoon.y1.R
 import com.themoon.y1.StoragePaths
 import com.themoon.y1.core.TimeFormat
+import com.themoon.y1.io.SafeFiles
 import com.themoon.y1.podcasts.PodcastCover
 import com.themoon.y1.podcasts.PodcastHttp
 import com.themoon.y1.podcasts.PodcastStreamError
@@ -452,8 +453,13 @@ class AudioPlayerManager private constructor() {
             main.currentPlaylist.clear()
             main.currentPlaylist.add(stream)
             main.currentIndex = 0
-            // The play history and Last.fm skip this path; an older track path would count the stream as its play
+            // The play history and Last.fm skip this path. An older track would count the stream as its play,
+            // and Last.fm would get it as now playing when the stream is ready
             currentlyPlayingFilePath = stream.absolutePath
+            pendingScrobbleArtist = channelName
+            pendingScrobbleTitle = title
+            pendingScrobbleAlbum = null
+            pendingScrobblePath = stream.absolutePath
 
             val mediaItem = MediaItem.fromUri(Uri.parse(url))
             // Android 4.4 HTTPS has no TLS 1.2, which most podcast hosts need: load the stream with the
@@ -481,11 +487,15 @@ class AudioPlayerManager private constructor() {
                 main.tvPlayerArtist.text = channelName
                 main.tvPlayerAlbum.text = ""
                 main.ivAlbumArt.setImageResource(R.drawable.default_album)
+                // The home widgets drop the older track's cover until the show cover comes
+                main.lastAlbumArtBytes = null
                 // The art comes as for any track (readTrackArt: the show cover, as for a downloaded episode), so a
                 // newer track drops it and Spectrum waits for it
                 loadTrackArt(main, artRequests.start(stream.absolutePath), stream) { art, later ->
                     val cover = art.podcastCover ?: return@loadTrackArt
                     main.ivAlbumArt.setImageBitmap(cover)
+                    main.lastAlbumArtBytes = art.podcastBytes
+                    offerWidgetArt(main, art)
                     main.refreshNowPlayingPreview()
                     if (later) main.updatePlayerUI()
                 }
@@ -813,6 +823,8 @@ class AudioPlayerManager private constructor() {
                         val bmp = art.podcastCover
                         if (bmp != null) {
                             main.ivAlbumArt.setImageBitmap(bmp)
+                            // The home widgets get the show cover too (offerWidgetArt gave them its bitmap)
+                            main.lastAlbumArtBytes = art.podcastBytes
                             main.refreshNowPlayingPreview()
                             artApplied = true
                         }
@@ -952,6 +964,8 @@ class AudioPlayerManager private constructor() {
         var bytes: ByteArray? = null
         var embedded: Bitmap? = null
         var podcastCover: Bitmap? = null
+        /** The bytes of [podcastCover] for the home widgets, when it is a kept cover (PodcastCover.isKept). */
+        var podcastBytes: ByteArray? = null
         var folderCover: File? = null
         var fileCover: Bitmap? = null
         var fileBytes: ByteArray? = null
@@ -1052,15 +1066,17 @@ class AudioPlayerManager private constructor() {
     }
 
     /**
-     * Main thread: the home-screen widgets get the cover bytes of [art] (the embedded cover or the cover file) with the
-     * bitmap that Now Playing shows, in place of a second decode on the main thread. Their own (larger) bitmap is decoded
-     * on the prefetch thread when the track change settles, and replaces it if the cover is still the same.
+     * Main thread: the home-screen widgets get the cover bytes of [art] (the embedded cover, the show cover of a podcast
+     * or the cover file) with the bitmap that Now Playing shows, in place of a second decode on the main thread. Their
+     * own (larger) bitmap is decoded on the prefetch thread when the track change settles, and replaces it if the cover
+     * is still the same.
      */
     private fun offerWidgetArt(main: MainActivity, art: TrackArt) {
         val hwc = main.homeWidgetsController ?: return
         val (bytes, shown) = when {
             art.embedded != null -> art.bytes to art.embedded
-            art.podcastCover == null && art.fileCover != null -> art.fileBytes to art.fileCover
+            art.podcastCover != null -> art.podcastBytes to art.podcastCover
+            art.fileCover != null -> art.fileBytes to art.fileCover
             else -> return
         }
         if (bytes == null || bytes.isEmpty() || shown == null) return
@@ -1076,12 +1092,23 @@ class AudioPlayerManager private constructor() {
         }, NeighbourCovers.PREFETCH_DELAY_MS)
     }
 
-    /** Art thread: a cover image file, as MainActivity.applyCachedCoverArt reads it. */
-    /** The show cover of a podcast episode, at most 500 px: PodcastCover keeps it that size, an older one is sampled. */
+    /**
+     * The show cover of a podcast episode, at most 500 px: PodcastCover keeps it that size. One that an older version
+     * kept as the feed gave it is sampled, or not decoded when it is too big (it stays until the show opens again).
+     */
     private fun readPodcastCover(art: TrackArt, file: File) {
-        if (!file.exists()) return
+        if (!file.isFile) return
         val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeFile(file.absolutePath, opts)
+        val head = ByteArray(PodcastCover.HEAD_BYTES)
+        try {
+            file.inputStream().use { it.read(head) }
+        } catch (ignored: Exception) {
+            return
+        }
+        if (!PodcastCover.canDecode(opts.outMimeType, opts.outWidth, opts.outHeight, head)) return
+        // The home widgets decode the bytes they get: only a kept cover is small enough to give them
+        val kept = PodcastCover.isKept(opts.outMimeType, opts.outWidth, opts.outHeight)
 
         var scale = 1
         while (opts.outWidth / scale > PodcastCover.MAX_SIDE || opts.outHeight / scale > PodcastCover.MAX_SIDE) {
@@ -1090,9 +1117,11 @@ class AudioPlayerManager private constructor() {
 
         opts.inJustDecodeBounds = false
         opts.inSampleSize = scale
-        art.podcastCover = BitmapFactory.decodeFile(file.absolutePath, opts)
+        art.podcastCover = BitmapFactory.decodeFile(file.absolutePath, opts) ?: return
+        if (kept) art.podcastBytes = SafeFiles.readBytesFromFile(file)
     }
 
+    /** Art thread: a cover image file, as MainActivity.applyCachedCoverArt reads it. */
     private fun readCoverFile(art: TrackArt, file: File) {
         art.fileCover = BitmapFactory.decodeFile(file.absolutePath, BitmapFactory.Options().apply { inSampleSize = 2 }) ?: return
         art.fileBytes = try { file.readBytes() } catch (ignored: Exception) { null }

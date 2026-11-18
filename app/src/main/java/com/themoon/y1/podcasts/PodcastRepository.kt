@@ -260,9 +260,9 @@ class PodcastRepository private constructor() {
                         SafeFiles.writeBytesToFile(coverFile, made)
                         return@Thread
                     }
-                    // Not an image that can be kept: no reader may decode it, the download below replaces it
-                    SafeFiles.deleteFile(coverFile)
                 }
+                // A cover that cannot be made small stays until the download replaces it (the write is atomic):
+                // readers decode it only within PodcastCover.canDecode
                 val downloaded = imageUrl?.let { downloadCover(it) } ?: return@Thread
                 makeCover(downloaded)?.let { SafeFiles.writeBytesToFile(coverFile, it) }
             } catch (ignored: Throwable) {}
@@ -290,9 +290,7 @@ class PodcastRepository private constructor() {
         BitmapFactory.decodeByteArray(image, 0, image.size, opts)
         val width = opts.outWidth
         val height = opts.outHeight
-        if (width <= 0 || height <= 0) return null
-        val decodesWhole = opts.outMimeType == "image/gif" || PodcastCover.isInterlacedPng(image)
-        if (PodcastCover.isTooBig(width, height, decodesWhole)) return null
+        if (!PodcastCover.canDecode(opts.outMimeType, width, height, image)) return null
 
         opts.inJustDecodeBounds = false
         opts.inSampleSize = PodcastCover.sampleSize(width, height)
