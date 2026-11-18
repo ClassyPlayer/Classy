@@ -58,6 +58,8 @@ class PhotoGridView(context: Context) : View(context) {
 
     val count: Int get() = photos.size
 
+    val selectedPhoto: PhotoItem? get() = photos.getOrNull(selected)
+
     fun setPhotos(list: List<PhotoItem>, select: Int) {
         photos = list
         broken.clear()

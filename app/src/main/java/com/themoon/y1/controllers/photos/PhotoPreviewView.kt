@@ -134,8 +134,9 @@ class PhotoPreviewView(context: Context) : FrameLayout(context) {
         if (!running) return
         val photos = PhotoLibrary.photos.orEmpty()
         if (photos.isEmpty()) {
-            // The library listener starts again when photos come ([libraryListener])
+            // The library listener starts again when photos come ([libraryListener]); the next start shows no old photo
             lastPath = null
+            lastBitmap = null
             image.setImageBitmap(TablerIcons.renderTile(TablerIcons.PHOTO, PANE_W, PANE_W / 3,
                 ThemeManager.getTextColorSecondary(), 0x22888888, 0f))
             return
@@ -156,7 +157,8 @@ class PhotoPreviewView(context: Context) : FrameLayout(context) {
                     lastBitmap = bmp
                     image.setImageBitmap(bmp)
                 }
-                handler.postDelayed(change, if (bmp != null) CHANGE_MS else RETRY_MS)
+                // A read that a USB share refused tries again later, not at once
+                handler.postDelayed(change, if (bmp != null || PhotoDecoder.isClosed) CHANGE_MS else RETRY_MS)
             }
         }
     }

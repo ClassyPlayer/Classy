@@ -166,15 +166,16 @@ class UsbStorageUiManager(
         pauseAllPlaybackForUsb()
         // A game reads the card (its files, its music): it ends first, and the share waits for its save below
         main?.endGameForUsbShare()
-        // The photo viewer reads the photos on the card
+        // The photo viewer reads the photos on the card; no photo read or scan starts from now on
         main?.closePhotoForUsbShare()
+        PhotoDecoder.close()
         // An open track file on the card makes MountService kill this app during the share.
         AudioPlayerManager.getInstance().releaseForUsbStorage(musicPlayed)
         getExternalSdMountMonitor()?.setSuspended(true)
         Thread({
-            // The game saves, then no photo file stays open (a decode that runs ends, no new one starts)
+            // The game saves, then no photo file stays open (a decode or scan that runs ends, no new one starts)
             val idle = GamePlayerController.awaitGameWork(GAME_SAVE_WAIT_MS) &&
-                PhotoDecoder.closeForUsbShare(PHOTO_READ_WAIT_MS)
+                PhotoDecoder.awaitIdle(PHOTO_READ_WAIT_MS)
             val ok = idle && run {
                 UsbMassStorageController.ensureMassStorageFunction(activity)
                 UsbMassStorageController.setEnabled(true)

@@ -158,12 +158,16 @@ object PhotoIndex {
     }
 
     /**
-     * The records of the last index that a scan of [roots] cannot see (a microSD card that is not mounted now): they
-     * stay in the index, so the photos keep their found times and thumbnails until the card comes back.
+     * The records of the last index that a scan of [roots] could not see: outside the roots (a microSD card that is not
+     * mounted now) or in a folder that failed to list ([failed]). They stay in the index, so the photos keep their
+     * found times and thumbnails until a scan sees them again.
      */
-    fun notUnder(records: Collection<PhotoItem>, roots: List<String>): List<PhotoItem> {
-        val prefixes = roots.map { it.trimEnd('/') + "/" }
-        return records.filter { item -> prefixes.none { item.path.startsWith(it) } }
+    fun notSeen(records: Collection<PhotoItem>, roots: List<String>, failed: List<String> = emptyList()): List<PhotoItem> {
+        val walked = roots.map { it.trimEnd('/') + "/" }
+        val notListed = failed.map { it.trimEnd('/') + "/" }
+        return records.filter { item ->
+            walked.none { item.path.startsWith(it) } || notListed.any { item.path.startsWith(it) }
+        }
     }
 
     private const val DAY_MS = 24L * 60 * 60 * 1000

@@ -68,8 +68,10 @@ class PhotosController(
 
     private val paneArt = LruCache<String, Bitmap>(2)
     private val paneWorker = Executors.newSingleThreadExecutor { r -> Thread(r, "PhotoPane").apply { priority = Thread.NORM_PRIORITY - 1 } }
-    /** The photo of the art pane of the menu: one random photo, kept while Photos is open. */
+    /** The photo that the art pane of the menu shows ([PhotoItem.version]): one random photo, kept while Photos is open. */
     private var panePhoto: String? = null
+    /** The photo that decodes for the pane now; it becomes [panePhoto] only when it shows (a failed decode can retry). */
+    private var paneWanted: String? = null
     private val random = Random()
 
     private var centreDownAt = 0L
@@ -139,6 +141,7 @@ class PhotosController(
     fun forget() {
         paneArt.evictAll()
         panePhoto = null
+        paneWanted = null
         PhotoThumbs.clearMemory()
         PhotoPreviewView.forget()
         PhotoLibrary.forget()
@@ -273,24 +276,36 @@ class PhotosController(
     private fun showPanePhoto() {
         if (!pane.isShown) return
         val photos = PhotoLibrary.photos.orEmpty()
-        val known = panePhoto?.let { v -> photos.firstOrNull { it.version == v } }
+        val known = (paneWanted ?: panePhoto)?.let { v -> photos.firstOrNull { it.version == v } }
         val photo: PhotoItem = known ?: photos.takeIf { it.isNotEmpty() }?.let { it[random.nextInt(it.size)] } ?: run {
+            // No photos: a decode that still runs does not paint over the empty pane, and a photo that comes back shows
+            panePhoto = null
+            paneWanted = null
             paneImage.setImageResource(R.drawable.default_album)
             return
         }
         // The version, not the path: a photo replaced under the same name decodes again
         val version = photo.version
         if (version == panePhoto && paneImage.drawable != null) return
-        panePhoto = version
+        if (version == paneWanted) return
         paneArt.get(version)?.let {
             paneImage.setImageBitmap(it)
+            panePhoto = version
+            paneWanted = null
             return
         }
+        paneWanted = version
         paneWorker.execute {
             val bmp = PhotoDecoder.decode(photo.path, photo.orientation, PANE_W, PANE_H, PhotoDecoder.Mode.COVER)
             activity.runOnUiThread {
                 if (bmp != null) paneArt.put(version, bmp)
-                if (panePhoto == version && isShown() && bmp != null) paneImage.setImageBitmap(bmp)
+                if (paneWanted != version) return@runOnUiThread
+                paneWanted = null
+                // A failed decode (a USB share closed the reads, a broken file) keeps the old pane: the next time tries again
+                if (bmp != null && isShown()) {
+                    paneImage.setImageBitmap(bmp)
+                    panePhoto = version
+                }
             }
         }
     }
@@ -330,7 +345,7 @@ class PhotosController(
         if (grid.count == 0) return
         clickFeedback()
         gridFocus[set] = grid.selected
-        changeScreen(ScreenState.PhotoViewer(set, grid.selected, slideshow))
+        changeScreen(ScreenState.PhotoViewer(set, grid.selected, slideshow, path = grid.selectedPhoto?.path))
     }
 
     // --- Keys ---

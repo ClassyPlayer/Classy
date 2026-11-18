@@ -4,6 +4,7 @@ import android.content.Context
 import android.media.ExifInterface
 import android.os.Handler
 import android.os.Looper
+import android.util.AtomicFile
 import com.themoon.y1.StoragePaths
 import java.io.File
 
@@ -100,8 +101,9 @@ object PhotoLibrary {
         return sets.getOrPut(key) { PhotoIndex.select(list, key, now) }
     }
 
+    /** Scans the Photos folders on a worker thread; not while a USB share closes the photo files ([PhotoDecoder.close]). */
     fun scan() {
-        if (isScanning) return
+        if (isScanning || PhotoDecoder.isClosed) return
         isScanning = true
         scanCount = 0
         val roots = StoragePaths.getPhotosDirs().filter { it.isDirectory }
@@ -110,10 +112,9 @@ object PhotoLibrary {
             val old = HashMap<String, PhotoItem>()
             var hadIndex = false
             if (file != null) try {
-                if (file.isFile) {
-                    PhotoIndex.decode(file.readText()).associateByTo(old) { it.path }
-                    hadIndex = old.isNotEmpty()
-                }
+                // AtomicFile: the last whole index, also after a write that broke off
+                PhotoIndex.decode(String(AtomicFile(file).readFully(), Charsets.UTF_8)).associateByTo(old) { it.path }
+                hadIndex = old.isNotEmpty()
             } catch (_: Exception) {}
             // The last index first: the lists fill at once, the scan then brings the changes
             if (photos == null && old.isNotEmpty()) {
@@ -126,22 +127,10 @@ object PhotoLibrary {
             val found = ArrayList<PhotoItem>()
             // The first scan has no "found" times: the file time stands in, so not all photos are Recently Added
             val now = if (hadIndex) System.currentTimeMillis() else 0L
-            for (root in roots) walk(root, 0, old, now, found)
-            val notWalked = PhotoIndex.notUnder(old.values, roots.map { it.absolutePath })
-            val index = if (notWalked.isEmpty()) found else found + notWalked
-            try {
-                if (file != null) {
-                    file.parentFile?.mkdirs()
-                    val tmp = File(file.path + ".tmp")
-                    val text = PhotoIndex.encode(index)
-                    tmp.writeText(text)
-                    if (!tmp.renameTo(file)) file.writeText(text)
-                }
-            } catch (_: Exception) {}
-            // Thumbnails of photos that are gone; not after an empty scan (a card that is not mounted yet)
-            if (index.isNotEmpty()) PhotoThumbs.prune(index)
+            // One long photo read: a USB share waits for it, and a share that started first refuses it
+            val walked = PhotoDecoder.reading { walkAndSave(roots, old, now, found, file); true } == true
             main.post {
-                photos = found
+                if (walked) photos = found
                 isScanning = false
                 lastScanEnd = android.os.SystemClock.uptimeMillis()
                 if (rescanPending) {
@@ -154,14 +143,42 @@ object PhotoLibrary {
         notifyChanged()
     }
 
-    /** [now]: the "found" time of a new photo; 0 = its file time. */
-    private fun walk(dir: File, depth: Int, old: Map<String, PhotoItem>, now: Long, out: MutableList<PhotoItem>) {
-        val files = try { dir.listFiles() } catch (_: Exception) { null } ?: return
+    /** Walks [roots] into [found] and saves the index (with the records the walk could not see). */
+    private fun walkAndSave(roots: List<File>, old: Map<String, PhotoItem>, now: Long, found: MutableList<PhotoItem>, file: File?) {
+        val failed = ArrayList<String>()
+        for (root in roots) walk(root, 0, old, now, found, failed)
+        // The records that this walk could not see: an unmounted card, a folder that failed to list
+        val notSeen = PhotoIndex.notSeen(old.values, roots.map { it.absolutePath }, failed)
+        val index = if (notSeen.isEmpty()) found else found + notSeen
+        if (file != null) {
+            file.parentFile?.mkdirs()
+            val atomic = AtomicFile(file)
+            var out: java.io.FileOutputStream? = null
+            try {
+                out = atomic.startWrite()
+                out.write(PhotoIndex.encode(index).toByteArray(Charsets.UTF_8))
+                atomic.finishWrite(out)
+            } catch (_: Exception) {
+                // The last index stays
+                if (out != null) atomic.failWrite(out)
+            }
+        }
+        // Thumbnails of photos that are gone; not after an empty scan (a card that is not mounted yet)
+        if (index.isNotEmpty()) PhotoThumbs.prune(index)
+    }
+
+    /** [now]: the "found" time of a new photo; 0 = its file time. [failed]: the folders that could not be listed. */
+    private fun walk(dir: File, depth: Int, old: Map<String, PhotoItem>, now: Long, out: MutableList<PhotoItem>, failed: MutableList<String>) {
+        val files = try { dir.listFiles() } catch (_: Exception) { null }
+        if (files == null) {
+            failed += dir.absolutePath
+            return
+        }
         for (f in files) {
             val name = f.name
             if (name.startsWith(".")) continue
             if (f.isDirectory) {
-                if (depth < MAX_DEPTH) walk(f, depth + 1, old, now, out)
+                if (depth < MAX_DEPTH) walk(f, depth + 1, old, now, out, failed)
                 continue
             }
             if (!PhotoIndex.isPhoto(name)) continue

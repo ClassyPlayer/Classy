@@ -34,7 +34,8 @@ sealed interface ScreenState {
      * Photo [index] of the set [set] ([com.themoon.y1.photos.PhotoIndex.select]) full screen; [slideshow] = it opens
      * with the slideshow running, [shuffle] = a shuffled slideshow whatever Settings → Photos says (Shuffle Slideshow).
      */
-    data class PhotoViewer(val set: String, val index: Int, val slideshow: Boolean = false, val shuffle: Boolean = false) : ScreenState
+    /** [path]: the photo chosen in the grid; the viewer opens it, not [index], when the set changed meanwhile. */
+    data class PhotoViewer(val set: String, val index: Int, val slideshow: Boolean = false, val shuffle: Boolean = false, val path: String? = null) : ScreenState
     data object CoverFlow : ScreenState
     data object Playlists : ScreenState
     data class M3uPlaylistSongs(val m3uFile: File) : ScreenState

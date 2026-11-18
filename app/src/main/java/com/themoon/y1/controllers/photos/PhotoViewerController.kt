@@ -87,8 +87,13 @@ class PhotoViewerController(
     /** The index that [front] shows (-1: none yet). */
     private var showing = -1
     private val bitmaps = HashMap<Int, Bitmap>()
+    /** A decode that runs; [forDisplay]: a display request started it (not a prefetch). */
+    private class Decode(val forDisplay: Boolean) {
+        val waiting = ArrayList<(Bitmap?) -> Unit>()
+    }
+
     /** The photos that decode now, with the callbacks that wait for them. */
-    private val decoding = HashMap<Int, MutableList<(Bitmap?) -> Unit>>()
+    private val decoding = HashMap<Int, Decode>()
     private var animating = false
 
     private var order: SlideshowOrder? = null
@@ -145,7 +150,15 @@ class PhotoViewerController(
             handler.post { NavigationManager.getInstance().popBackStack() }
             return
         }
-        index = s.index.coerceIn(0, photos.size - 1)
+        // The photo chosen in the grid, also when the set changed since (Recently Added drops photos after 30 days)
+        val at = s.path?.let { p -> photos.indexOfFirst { it.path == p } } ?: s.index
+        if (at < 0) {
+            // It left the set: back to the grid, which shows the set as it is now
+            photos = emptyList()
+            handler.post { NavigationManager.getInstance().popBackStack() }
+            return
+        }
+        index = at.coerceIn(0, photos.size - 1)
         showing = -1
         show(index, PhotoSettings.TRANSITION_OFF, 1)
         handler.removeCallbacks(holdTask)
@@ -218,11 +231,11 @@ class PhotoViewerController(
     /** Decodes photo [i] once: a request for a photo that is decoding already waits for that decode. */
     private fun request(i: Int, done: ((Bitmap?) -> Unit)? = null) {
         val p = photos.getOrNull(i) ?: return
-        decoding[i]?.let { waiting ->
-            if (done != null) waiting += done
+        decoding[i]?.let { d ->
+            if (done != null) d.waiting += done
             return
         }
-        decoding[i] = if (done != null) mutableListOf(done) else mutableListOf()
+        decoding[i] = Decode(forDisplay = done != null).also { d -> if (done != null) d.waiting += done }
         val t = token
         val w = screenW()
         val h = screenH()
@@ -234,14 +247,16 @@ class PhotoViewerController(
             val bmp = if (wanted) PhotoDecoder.decode(p.path, p.orientation, w, h, PhotoDecoder.Mode.FIT) else null
             handler.post {
                 if (t != token) return@post
-                val waiting = decoding.remove(i).orEmpty()
+                val d = decoding.remove(i)
+                val waiting = d?.waiting.orEmpty()
                 if (bmp != null) bitmaps[i] = bmp
-                // Skipped, but the wheel came back to it meanwhile: decode it now (a skip is not a broken photo)
-                if (!wanted && waiting.isNotEmpty() && index == i) {
-                    for (d in waiting) request(i, d)
+                // Skipped (the wheel came back to it meanwhile), or a prefetch that failed while the photo was
+                // wanted on the screen: one decode of its own before "Could not open"
+                if (bmp == null && waiting.isNotEmpty() && index == i && (!wanted || d?.forDisplay == false)) {
+                    for (w in waiting) request(i, w)
                     return@post
                 }
-                for (d in waiting) d(bmp)
+                for (w in waiting) w(bmp)
             }
         }
     }

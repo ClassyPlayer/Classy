@@ -26,9 +26,20 @@ class PhotoIndexTest {
         val near = photo("/storage/sdcard0/Photos2/c.jpg")
         val records = listOf(internal, card, near)
         // Only the internal folder is walked: the card's record stays, and a folder that only starts the same too
-        assertEquals(listOf(card, near), PhotoIndex.notUnder(records, listOf("/storage/sdcard0/Photos")))
+        assertEquals(listOf(card, near), PhotoIndex.notSeen(records, listOf("/storage/sdcard0/Photos")))
         // Both walked: nothing is kept (the scan found again what is still there)
-        assertEquals(listOf(near), PhotoIndex.notUnder(records, listOf("/storage/sdcard0/Photos/", "/storage/sdcard1/Photos")))
+        assertEquals(listOf(near), PhotoIndex.notSeen(records, listOf("/storage/sdcard0/Photos/", "/storage/sdcard1/Photos")))
+    }
+
+    @Test
+    fun aFolderThatFailedToListKeepsItsRecords() {
+        val trip = photo("/s/Photos/Trip/a.jpg")
+        val tripDeep = photo("/s/Photos/Trip/Day 1/b.jpg")
+        val home = photo("/s/Photos/Home/c.jpg")
+        val tripper = photo("/s/Photos/Tripper/d.jpg")
+        val records = listOf(trip, tripDeep, home, tripper)
+        // Home was listed (its missing photos go), Trip and its subfolders were not
+        assertEquals(listOf(trip, tripDeep), PhotoIndex.notSeen(records, listOf("/s/Photos"), listOf("/s/Photos/Trip")))
     }
 
     @Test

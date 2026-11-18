@@ -10,24 +10,35 @@ import android.os.SystemClock
  * whole heap of the app on Android 4.4. The bounds come first, then a power-of-two sub-sample
  * ([PhotoGeometry.sampleSize]), then one exact scale with the EXIF turn ([ExifOrientation]).
  *
- * Every read of a photo file goes through here, so a USB share can wait until no photo file is open
- * ([closeForUsbShare]): an open file on the card makes MountService kill the app during the share.
+ * Every read of a photo file goes through [reading] (the decodes here and the photo scan), so a USB share can stop
+ * new reads ([close]) and wait until no photo file is open ([awaitIdle]): an open file on the card makes
+ * MountService kill the app during the share.
  */
 object PhotoDecoder {
 
     private val lock = Object()
-    /** Reads that run now (all decode threads: viewer, thumbnails, art panes). */
-    private var reading = 0
+    /** Reads that run now (viewer, thumbnails, art panes, the scan). */
+    private var active = 0
+    @Volatile
     private var closed = false
 
-    /**
-     * The card is about to be shared: no new read starts (they return null), and this waits up to [timeoutMs] for the
-     * reads that run. True when no photo file is open. Not on the main thread. [reopen] when the share ends.
-     */
-    fun closeForUsbShare(timeoutMs: Long): Boolean = synchronized(lock) {
+    /** Counts [close] calls: a read that returned null in another count was refused, not broken. */
+    @Volatile
+    var closings = 0
+        private set
+
+    /** No new photo read starts until [reopen] (a USB share starts or is on). Does not wait: see [awaitIdle]. */
+    fun close() = synchronized(lock) {
         closed = true
+        closings++
+    }
+
+    val isClosed: Boolean get() = closed
+
+    /** Waits up to [timeoutMs] until no photo read runs. True when no photo file is open. Not on the main thread. */
+    fun awaitIdle(timeoutMs: Long): Boolean = synchronized(lock) {
         val end = SystemClock.uptimeMillis() + timeoutMs
-        while (reading > 0) {
+        while (active > 0) {
             val left = end - SystemClock.uptimeMillis()
             if (left <= 0) return false
             try {
@@ -42,20 +53,24 @@ object PhotoDecoder {
     /** The share ended (or did not start): photos can be read again. */
     fun reopen() = synchronized(lock) { closed = false }
 
-    private inline fun <T> read(block: () -> T?): T? {
+    /** Runs [block], which reads photo files, unless reads are closed (then null without running it). */
+    fun <T> reading(block: () -> T?): T? {
         synchronized(lock) {
             if (closed) return null
-            reading++
+            active++
         }
         try {
             return block()
         } finally {
             synchronized(lock) {
-                reading--
-                if (reading == 0) lock.notifyAll()
+                active--
+                if (active == 0) lock.notifyAll()
             }
         }
     }
+
+    /** True when a read that returned null after starting at [closingsBefore] was refused by [close], not broken. */
+    fun wasRefused(closingsBefore: Int): Boolean = closed || closings != closingsBefore
 
     enum class Mode {
         /** The whole photo in the box (full screen; the view adds the black bars). */
@@ -67,7 +82,7 @@ object PhotoDecoder {
     }
 
     /** The size of the stored image (before the EXIF turn), or null when it is not a picture that Android reads. */
-    fun bounds(path: String): IntArray? = read { boundsOf(path) }
+    fun bounds(path: String): IntArray? = reading { boundsOf(path) }
 
     private fun boundsOf(path: String): IntArray? {
         val o = BitmapFactory.Options().apply { inJustDecodeBounds = true }
@@ -80,7 +95,7 @@ object PhotoDecoder {
     }
 
     /** [path] for a [boxW] x [boxH] box, turned upright ([orientation]); null when it cannot be read. */
-    fun decode(path: String, orientation: Int, boxW: Int, boxH: Int, mode: Mode): Bitmap? = read { decodeNow(path, orientation, boxW, boxH, mode) }
+    fun decode(path: String, orientation: Int, boxW: Int, boxH: Int, mode: Mode): Bitmap? = reading { decodeNow(path, orientation, boxW, boxH, mode) }
 
     private fun decodeNow(path: String, orientation: Int, boxW: Int, boxH: Int, mode: Mode): Bitmap? {
         val b = boundsOf(path) ?: return null

@@ -487,6 +487,8 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
         Thread({
             if (UsbMassStorageController.isEnabled()) {
                 externalSdMountMonitor?.setSuspended(true)
+                // The card is still shared (the app started again): no photo read until the share ends
+                com.themoon.y1.photos.PhotoDecoder.close()
                 runOnUiThread { showUsbStorageOverlay() }
             }
         }, "y1-ums-init-check").start()
