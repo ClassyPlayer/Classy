@@ -89,7 +89,8 @@ class PhotoViewerController(
     private val bitmaps = HashMap<Int, Bitmap>()
     /** A decode that runs; [forDisplay]: a display request started it (not a prefetch). */
     private class Decode(val forDisplay: Boolean) {
-        val waiting = ArrayList<(Bitmap?) -> Unit>()
+        /** The display request that waits for it: only the latest one (its transition is the one to show). */
+        var waiting: ((Bitmap?) -> Unit)? = null
     }
 
     /** The photos that decode now, with the callbacks that wait for them. */
@@ -237,14 +238,17 @@ class PhotoViewerController(
         }
     }
 
-    /** Decodes photo [i] once: a request for a photo that is decoding already waits for that decode. */
+    /**
+     * Decodes photo [i] once: a request for a photo that is decoding already waits for that decode, and replaces the
+     * display request that waited before it (a slideshow step after a wheel step shows its own transition).
+     */
     private fun request(i: Int, done: ((Bitmap?) -> Unit)? = null) {
         val p = photos.getOrNull(i) ?: return
         decoding[i]?.let { d ->
-            if (done != null) d.waiting += done
+            if (done != null) d.waiting = done
             return
         }
-        decoding[i] = Decode(forDisplay = done != null).also { d -> if (done != null) d.waiting += done }
+        decoding[i] = Decode(forDisplay = done != null).also { d -> d.waiting = done }
         val t = token
         val w = screenW()
         val h = screenH()
@@ -257,15 +261,15 @@ class PhotoViewerController(
             handler.post {
                 if (t != token) return@post
                 val d = decoding.remove(i)
-                val waiting = d?.waiting.orEmpty()
+                val waiting = d?.waiting
                 if (bmp != null) bitmaps[i] = bmp
                 // Skipped (the wheel came back to it meanwhile), or a prefetch that failed while the photo was
                 // wanted on the screen: one decode of its own before "Could not open"
-                if (bmp == null && waiting.isNotEmpty() && index == i && (!wanted || d?.forDisplay == false)) {
-                    for (w in waiting) request(i, w)
+                if (bmp == null && waiting != null && index == i && (!wanted || d?.forDisplay == false)) {
+                    request(i, waiting)
                     return@post
                 }
-                for (w in waiting) w(bmp)
+                waiting?.invoke(bmp)
             }
         }
     }

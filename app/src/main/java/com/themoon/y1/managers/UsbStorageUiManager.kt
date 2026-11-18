@@ -189,6 +189,9 @@ class UsbStorageUiManager(
                 usbStorageBusy = false
                 if (ok) {
                     showUsbStorageOverlay()
+                    // The cable went out after the check above (the unplug handler acts only with this screen up):
+                    // end the share as an unplug does
+                    if (!isComputerConnected) onUsbCableRemovedWhileShared()
                 } else {
                     reloadAfterShare(resume = true)
                     if (!idle || connected) Notice.error(activity, localize("Card busy. Try again."))
