@@ -9,6 +9,8 @@ body:
 
         Still shaping the idea, or want to see what others think first? Post it in [Ideas](https://github.com/ClassyPlayer/Classy/discussions/categories/ideas) in Discussions.
 
+        **Please write in your own words.** Using AI is not forbidden, but long generated text is tiring to read and often buries what you actually want. A few short sentences you typed yourself are better. This goes for non-native English speakers too: simple English with mistakes is completely fine, we will understand you.
+
   - type: checkboxes
     id: checks
     attributes:

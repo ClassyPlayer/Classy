@@ -10,6 +10,8 @@ body:
         Please give the issue a short title that says what goes wrong, for example "Cover Flow skips albums with no cover".
         Not sure if it is a bug? Ask in [Discussions](https://github.com/ClassyPlayer/Classy/discussions) first.
 
+        **Please write in your own words.** Using AI is not forbidden, but long generated text is tiring to read and often buries the one detail we need. A few short sentences you typed yourself are better. This goes for non-native English speakers too: simple English with mistakes is completely fine, we will understand you.
+
   - type: checkboxes
     id: checks
     attributes:
