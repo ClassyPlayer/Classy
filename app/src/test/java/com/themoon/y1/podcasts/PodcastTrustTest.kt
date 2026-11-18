@@ -37,6 +37,11 @@ class PodcastTrustTest {
         )
         needed.forEach { (name, sha) -> assertTrue("$name missing", sha in fingerprints) }
         assertTrue("Mozilla bundle not complete: ${fingerprints.size}", fingerprints.size > 100)
+        // Every block of the file loads: a damaged update fails here, not on the device with one root less
+        val blocks = PodcastTrust.ROOT_ASSETS.sumOf { path ->
+            File("src/main/assets", path).readText().split("-----BEGIN CERTIFICATE-----").size - 1
+        }
+        assertEquals("Roots that did not load", blocks, fingerprints.size)
         assertEquals("Duplicate roots", fingerprints.size, fingerprints.toSet().size)
     }
 
@@ -60,6 +65,14 @@ class PodcastTrustTest {
     fun brokenBlock_skipsOnlyThatCertificate() {
         val broken = "-----BEGIN CERTIFICATE-----\nAAAA\n-----END CERTIFICATE-----\n"
         val text = "# comment\n" + broken + resource("test-root.pem").pem() + "\n" + resource("test-leaf.pem").pem()
+        val roots = PodcastTrust.loadCertificates(listOf({ ByteArrayInputStream(text.toByteArray()) }))
+        assertEquals(listOf(resource("test-root.pem"), resource("test-leaf.pem")), roots)
+    }
+
+    @Test
+    fun blockWithNoEnd_doesNotTakeTheNextCertificate() {
+        val unterminated = "-----BEGIN CERTIFICATE-----\nAAAA\n"
+        val text = unterminated + resource("test-root.pem").pem() + unterminated + resource("test-leaf.pem").pem()
         val roots = PodcastTrust.loadCertificates(listOf({ ByteArrayInputStream(text.toByteArray()) }))
         assertEquals(listOf(resource("test-root.pem"), resource("test-leaf.pem")), roots)
     }

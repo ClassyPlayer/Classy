@@ -24,7 +24,9 @@ object PodcastTrust {
      */
     val ROOT_ASSETS = listOf("certs/mozilla-roots.pem")
 
-    private val PEM_BLOCK = Regex("-----BEGIN CERTIFICATE-----[\\s\\S]*?-----END CERTIFICATE-----")
+    /** One certificate. A block with no END stops at the next BEGIN, so it does not take the next certificate with it. */
+    private val PEM_BLOCK =
+        Regex("-----BEGIN CERTIFICATE-----(?:(?!-----BEGIN CERTIFICATE-----)[\\s\\S])*?-----END CERTIFICATE-----")
 
     /**
      * The certificates in [pems], each file holding one or more PEM blocks. A file or a certificate that does not load
