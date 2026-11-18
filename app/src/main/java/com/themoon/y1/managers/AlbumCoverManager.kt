@@ -595,6 +595,11 @@ class AlbumCoverManager private constructor() {
                     inSampleSize *= 2
                 }
             }
+            // A very wide or tall image keeps one side small: also bound the long side, or it decodes at full size
+            val maxSide = 2 * Math.max(reqWidth, reqHeight)
+            while (Math.max(width, height) / inSampleSize > maxSide) {
+                inSampleSize *= 2
+            }
             return Math.max(1, inSampleSize)
         }
     }

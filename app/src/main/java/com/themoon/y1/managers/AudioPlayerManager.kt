@@ -65,6 +65,10 @@ class AudioPlayerManager private constructor() {
     /** The number of the last podcast stream started: only its art loader may set the art. */
     @Volatile
     private var streamArtRequest = 0
+
+    /** The stream whose art is still loading, 0 when none ([isArtLoading]). */
+    @Volatile
+    private var streamArtLoading = 0
     val customEqProcessor: Y1EqAudioProcessor = Y1EqAudioProcessor()
     val crossfeedProcessor: Y1CrossfeedAudioProcessor = Y1CrossfeedAudioProcessor()
     /** Settings → Playback → Mono Audio ([AudioEffectManager.syncAudioEffects] sets it). */
@@ -492,11 +496,14 @@ class AudioPlayerManager private constructor() {
             // An episode with no image has the album text of its SongItem ("Unknown Album"), not a web address
             val episodeImage = imageUrl?.let { okhttp3.HttpUrl.parse(it.trim()) }
             val artRequest = ++streamArtRequest
+            // Until it is decided, the default cover shows: Spectrum must not take its colour for the episode
+            streamArtLoading = artRequest
             Thread {
+                var bmp: android.graphics.Bitmap? = null
                 try {
                     val side = Math.max(main.resources.displayMetrics.widthPixels, 480)
                     // An episode image that fails (error, too big, not an image) also falls back to the show cover
-                    val bmp = episodeImage?.let { url ->
+                    bmp = episodeImage?.let { url ->
                         try {
                             val call = PodcastHttp.client.newCall(okhttp3.Request.Builder().url(url).build())
                             call.timeout().timeout(PodcastHttp.SMALL_FILE_TIMEOUT_S, java.util.concurrent.TimeUnit.SECONDS)
@@ -509,17 +516,17 @@ class AudioPlayerManager private constructor() {
                     } ?: coverFile.takeIf { it.length() > 0 }?.let {
                         AlbumCoverManager.decodeSampledBitmapFromFile(it.absolutePath, side, side)
                     }
-                    if (bmp != null) {
-                        main.runOnUiThread {
-                            // Another stream or track started meanwhile: its art stays
-                            if (artRequest == streamArtRequest &&
-                                main.currentPlaylist.singleOrNull()?.absolutePath?.startsWith("/PODCAST_STREAM") == true) {
-                                main.ivAlbumArt.setImageBitmap(bmp)
-                                main.updatePlayerUI()
-                            }
-                        }
-                    }
                 } catch (ignored: Throwable) {}
+                val art = bmp
+                main.runOnUiThread {
+                    // Another stream or track started meanwhile: its art stays
+                    if (artRequest != streamArtRequest) return@runOnUiThread
+                    streamArtLoading = 0
+                    if (main.currentPlaylist.singleOrNull()?.absolutePath?.startsWith("/PODCAST_STREAM") != true) return@runOnUiThread
+                    if (art != null) main.ivAlbumArt.setImageBitmap(art)
+                    // Also with no art: Spectrum takes the colour of the default cover, now the final one
+                    main.updatePlayerUI()
+                }
             }.start()
 
             exoPlayer?.playWhenReady = true
@@ -987,7 +994,7 @@ class AudioPlayerManager private constructor() {
     }
 
     /** True while the cover of a new track is still loading (Now Playing shows the default cover). */
-    fun isArtLoading(): Boolean = artRequests.isLoading
+    fun isArtLoading(): Boolean = artRequests.isLoading || streamArtLoading != 0
 
     /**
      * The cover of a track, read and decoded on the art thread, in the order that prepareMusicTrack uses:
@@ -1230,6 +1237,7 @@ class AudioPlayerManager private constructor() {
     fun releasePlayer() {
         isPlayingActive = false
         streamArtRequest++
+        streamArtLoading = 0
         currentlyPlayingFilePath = null
         stopPeriodicPositionSaver()
         exoPlayer?.release()
