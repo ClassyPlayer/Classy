@@ -219,7 +219,7 @@ class PodcastController(
     }
 
     /** The episode screen: Play (downloaded) or Stream, and Download. Back cancels. */
-    fun showActionDialog(title: String, audioUrl: String, imageUrl: String, channelName: String) {
+    fun showActionDialog(title: String, audioUrl: String, channelName: String) {
         val safeChannel = sanitize(channelName)
         val safeTitle = "${sanitize(title)}.mp3"
         val localFile = File(StoragePaths.getPodcastChannelDir(safeChannel), safeTitle)
@@ -246,7 +246,7 @@ class PodcastController(
                 val streamKey = "/PODCAST_STREAM/$safeChannel/$safeTitle"
                 var savedPos = prefs.getInt("book_pos_$streamKey", 0)
                 if (savedPos == 0) savedPos = prefs.getInt("book_pos_${localFile.absolutePath}", 0)
-                AudioPlayerManager.getInstance().playPodcastStream(audioUrl, title, imageUrl, channelName, savedPos)
+                AudioPlayerManager.getInstance().playPodcastStream(audioUrl, title, channelName, savedPos)
                 onNavigateToPlayer()
             }
             if (downloadManager.isDownloading(audioUrl)) {

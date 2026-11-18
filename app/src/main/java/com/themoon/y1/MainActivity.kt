@@ -1078,11 +1078,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     }
 
     fun showPodcastActionDialog(title: String, audioUrl: String, channelTitle: String) {
-        podcastController.showActionDialog(title, audioUrl, "", channelTitle)
-    }
-
-    fun showPodcastActionDialog(title: String, audioUrl: String, imageUrl: String, channelTitle: String) {
-        podcastController.showActionDialog(title, audioUrl, imageUrl, channelTitle)
+        podcastController.showActionDialog(title, audioUrl, channelTitle)
     }
 
     fun turnOffScreen() {
