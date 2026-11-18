@@ -3,7 +3,7 @@ package com.themoon.y1.views
 import com.themoon.y1.Prefs
 import android.content.Context
 import android.content.SharedPreferences
-import android.graphics.PorterDuff
+import android.graphics.Bitmap
 import android.graphics.Rect
 import android.graphics.drawable.ColorDrawable
 import android.text.Editable
@@ -28,7 +28,7 @@ import com.themoon.y1.views.ClassyMetrics as M
 
 /**
  * Now Playing in the Classy layout: tilted art at (15, 52), text column at x = 240 with fixed
- * baselines, rating stars under the album, shuffle/repeat icons under the status bar on the right,
+ * baselines, rating stars under the album, Tabler shuffle/repeat icons under the status bar on the right,
  * and the progress bar and times at classic positions. All changes are recorded by [ClassyLayout].
  */
 object ClassyNowPlaying {
@@ -50,7 +50,9 @@ object ClassyNowPlaying {
     // Now Playing code also writes it to y1_settings, so both are watched.
     private val repeatListener = SharedPreferences.OnSharedPreferenceChangeListener { prefs, key ->
         if (key == Prefs.REPEAT_MODE.key && L.isActive) {
-            repeatIcon?.get()?.let { setModeIcon(it, repeatIconRes(Prefs.REPEAT_MODE.get(prefs))) }
+            repeatIcon?.get()?.let {
+                setModeIcon(it, repeatGlyph(Prefs.REPEAT_MODE.get(prefs)), it.resources.displayMetrics.density)
+            }
         }
     }
 
@@ -214,22 +216,24 @@ object ClassyNowPlaying {
         for (i in lines.indices) L.setMargins(lines[i], top = margins[i])
     }
 
-    // Shuffle and repeat state icons, under the status bar on the right.
+    // Shuffle and repeat state icons, under the status bar on the right, as on the iPod classic.
 
     private fun applyModeIcons(main: MainActivity, d: Float) {
         val shuffle = main.findViewById<ImageView>(R.id.iv_player_shuffle_status) ?: return
         val repeat = main.findViewById<ImageView>(R.id.iv_player_repeat_status) ?: return
-        val box = px(M.MODE_ICON_BOX, d)
+        val slot = px(M.MODE_ICON_SLOT, d)
         (shuffle.parent?.parent as? View)?.let { bar ->
-            L.setPadding(bar, bar.paddingLeft, px(M.MODE_ICON_CENTRE_Y, d) - box / 2, px(M.MODE_ICON_RIGHT, d), bar.paddingBottom)
+            L.setPadding(bar, bar.paddingLeft, px(M.MODE_ICON_TOP, d), px(M.MODE_ICON_RIGHT, d), bar.paddingBottom)
         }
         for (iv in arrayOf(shuffle, repeat)) {
-            L.setWidth(iv, box)
-            L.setHeight(iv, box)
+            L.setWidth(iv, slot)
+            L.setHeight(iv, px(M.MODE_ICON_HEIGHT, d))
         }
+        // The gap is on the repeat icon, so a shuffle icon that shows alone takes the right slot.
         L.setMargins(shuffle, right = 0)
-        setModeIcon(shuffle, R.drawable.ic_shuffle)
-        setModeIcon(repeat, repeatIconRes(Prefs.REPEAT_MODE.get(main.prefs)))
+        L.setMargins(repeat, left = px(M.MODE_ICON_GAP, d))
+        setModeIcon(shuffle, TablerIcons.SHUFFLE, d)
+        setModeIcon(repeat, repeatGlyph(Prefs.REPEAT_MODE.get(main.prefs)), d)
         repeatIcon = WeakReference(repeat)
         if (listenedPrefs.isEmpty()) {
             for (name in arrayOf("AppPrefs", "y1_settings")) {
@@ -240,23 +244,30 @@ object ClassyNowPlaying {
         }
     }
 
-    private fun repeatIconRes(mode: Int): Int = if (mode == 1) R.drawable.ic_repeat_one else R.drawable.ic_repeat
+    private fun repeatGlyph(mode: Int): Array<String> = if (mode == 1) TablerIcons.REPEAT_ONCE else TablerIcons.REPEAT
 
-    private fun setModeIcon(iv: ImageView, res: Int) {
+    // Rendered glyphs by (glyph, height, colour): Classic Dark changes the colour without a restart.
+    private val glyphCache = HashMap<Triple<Array<String>, Int, Int>, Bitmap>()
+
+    private fun setModeIcon(iv: ImageView, glyph: Array<String>, d: Float) {
         val oldDrawable = iv.drawable
         val oldFilter = iv.colorFilter
+        val oldScale = iv.scaleType
         L.record(iv, "image") {
             (it as ImageView).setImageDrawable(oldDrawable)
             it.colorFilter = oldFilter
+            it.scaleType = oldScale
             it.setTag(R.id.iv_player_repeat_status, null)
         }
-        // A new drawable decodes the resource again and asks for a layout; only change it when it differs
-        if (iv.getTag(R.id.iv_player_repeat_status) != res) {
-            iv.setImageResource(res)
-            iv.setTag(R.id.iv_player_repeat_status, res)
+        val key = Triple(glyph, px(M.MODE_ICON_HEIGHT, d), detailColor())
+        // A new bitmap asks for a layout; only change it when it differs
+        if (iv.getTag(R.id.iv_player_repeat_status) != key) {
+            val bmp = glyphCache.getOrPut(key) { TablerIcons.renderFitted(glyph, key.second, key.third) }
+            iv.setImageBitmap(bmp)
+            iv.setTag(R.id.iv_player_repeat_status, key)
         }
-        iv.setColorFilter(detailColor(), PorterDuff.Mode.SRC_IN)
-        iv.scaleType = ImageView.ScaleType.FIT_CENTER
+        iv.clearColorFilter()
+        iv.scaleType = ImageView.ScaleType.CENTER
     }
 
     // Progress bar, scrub bar and volume bar

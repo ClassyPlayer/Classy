@@ -41,6 +41,15 @@ object TablerIcons {
         "M3 7h3a5 5 0 0 1 5 5a5 5 0 0 0 5 5h5",
         "M21 7h-5a4.978 4.978 0 0 0 -3 1m-4 8a4.984 4.984 0 0 1 -3 1h-3"
     )
+    val REPEAT: Array<String> = arrayOf(
+        "M4 12v-3a3 3 0 0 1 3 -3h13m-3 -3l3 3l-3 3",
+        "M20 12v3a3 3 0 0 1 -3 3h-13m3 3l-3 -3l3 -3"
+    )
+    val REPEAT_ONCE: Array<String> = arrayOf(
+        "M4 12v-3a3 3 0 0 1 3 -3h13m-3 -3l3 3l-3 3",
+        "M20 12v3a3 3 0 0 1 -3 3h-13m3 3l-3 -3l3 -3",
+        "M11 11l1 -1v4"
+    )
     val LOGIN: Array<String> = arrayOf(
         "M15 8v-2a2 2 0 0 0 -2 -2h-7a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h7a2 2 0 0 0 2 -2v-2",
         "M21 12h-13l3 -3",
@@ -193,4 +202,37 @@ object TablerIcons {
         }
         return bmp
     }
+
+    /**
+     * Renders a Tabler icon cropped to its own strokes (path bounds plus the half stroke), [heightPx] tall and as
+     * wide as the glyph's aspect needs, so a layout can place the visible glyph edges exactly.
+     */
+    fun renderFitted(paths: Array<String>, heightPx: Int, color: Int): Bitmap {
+        val parsed = paths.mapNotNull { runCatching { PathParser.createPathFromPathData(it) }.getOrNull() }
+        val bounds = RectF()
+        val one = RectF()
+        for ((i, p) in parsed.withIndex()) {
+            p.computeBounds(one, true)
+            if (i == 0) bounds.set(one) else bounds.union(one)
+        }
+        bounds.inset(-STROKE / 2, -STROKE / 2)
+        val scale = heightPx / bounds.height()
+        val widthPx = Math.ceil((bounds.width() * scale).toDouble()).toInt().coerceAtLeast(1)
+        val bmp = Bitmap.createBitmap(widthPx, heightPx, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bmp)
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            this.color = color
+            style = Paint.Style.STROKE
+            strokeWidth = STROKE
+            strokeCap = Paint.Cap.ROUND
+            strokeJoin = Paint.Join.ROUND
+        }
+        canvas.translate((widthPx - bounds.width() * scale) / 2f, 0f)
+        canvas.scale(scale, scale)
+        canvas.translate(-bounds.left, -bounds.top)
+        for (p in parsed) canvas.drawPath(p, paint)
+        return bmp
+    }
+
+    private const val STROKE = 2.0f
 }

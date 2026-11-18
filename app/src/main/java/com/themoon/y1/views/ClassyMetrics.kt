@@ -62,9 +62,14 @@ object ClassyMetrics {
     const val NP_COUNT_BASELINE = 214
     /** Play On: the speaker name, one line under the count. */
     const val NP_PLAY_ON_BASELINE = 241
-    const val MODE_ICON_BOX = 28
-    const val MODE_ICON_CENTRE_Y = 45
-    const val MODE_ICON_RIGHT = 10
+    // Shuffle and repeat icons, right-aligned under the status bar as in Apple's iPod classic Now Playing image:
+    // glyphs 13-14 px tall from y 24, shuffle in x 268..287 and repeat in x 293..311 (8 px from the edge).
+    // Each glyph is centred in a slot as wide as the iPod's; the one that shows alone takes the right slot.
+    const val MODE_ICON_TOP = 36
+    const val MODE_ICON_HEIGHT = 20
+    const val MODE_ICON_SLOT = 30
+    const val MODE_ICON_GAP = 7
+    const val MODE_ICON_RIGHT = 12
     const val PROGRESS_LEFT = 87
     const val PROGRESS_TOP = 309
     const val PROGRESS_WIDTH = 306
