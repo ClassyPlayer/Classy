@@ -69,6 +69,18 @@ class AudioPlayerManager private constructor() {
     /** The stream whose art is still loading, 0 when none ([isArtLoading]). */
     @Volatile
     private var streamArtLoading = 0
+
+    /** The download of the episode image of the last stream, cancelled when another stream or track takes over. */
+    @Volatile
+    private var streamArtCall: okhttp3.Call? = null
+
+    /** Drops the art of the last podcast stream: its result is ignored and its download stops. */
+    private fun cancelStreamArt() {
+        streamArtRequest++
+        streamArtLoading = 0
+        streamArtCall?.cancel()
+        streamArtCall = null
+    }
     val customEqProcessor: Y1EqAudioProcessor = Y1EqAudioProcessor()
     val crossfeedProcessor: Y1CrossfeedAudioProcessor = Y1CrossfeedAudioProcessor()
     /** Settings → Playback → Mono Audio ([AudioEffectManager.syncAudioEffects] sets it). */
@@ -495,26 +507,33 @@ class AudioPlayerManager private constructor() {
             val coverFile = File(StoragePaths.getPodcastChannelDir(safeChannel), "cover.jpg")
             // An episode with no image has the album text of its SongItem ("Unknown Album"), not a web address
             val episodeImage = imageUrl?.let { okhttp3.HttpUrl.parse(it.trim()) }
-            val artRequest = ++streamArtRequest
+            cancelStreamArt()
+            val artRequest = streamArtRequest
             // Until it is decided, the default cover shows: Spectrum must not take its colour for the episode
             streamArtLoading = artRequest
             Thread {
                 var bmp: android.graphics.Bitmap? = null
                 try {
                     val side = Math.max(main.resources.displayMetrics.widthPixels, 480)
+                    // A budget of pixels: a very wide or tall image keeps one side small and would decode at full size
+                    val maxPixels = 4 * side * side
                     // An episode image that fails (error, too big, not an image) also falls back to the show cover
                     bmp = episodeImage?.let { url ->
                         try {
                             val call = PodcastHttp.client.newCall(okhttp3.Request.Builder().url(url).build())
                             call.timeout().timeout(PodcastHttp.SMALL_FILE_TIMEOUT_S, java.util.concurrent.TimeUnit.SECONDS)
+                            streamArtCall = call
+                            // Superseded before the call was kept: cancelStreamArt could not reach it
+                            if (artRequest != streamArtRequest) call.cancel()
                             call.execute().use { response ->
                                 response.body()?.takeIf { response.isSuccessful }?.byteStream()?.let { readArtBytes(it) }
-                            }?.let { AlbumCoverManager.decodeSampledBitmapFromByteArray(it, side, side) }
+                            }?.let { AlbumCoverManager.decodeSampledBitmapFromByteArray(it, side, side, maxPixels) }
                         } catch (e: Exception) {
                             null
                         }
-                    } ?: coverFile.takeIf { it.length() > 0 }?.let {
-                        AlbumCoverManager.decodeSampledBitmapFromFile(it.absolutePath, side, side)
+                    }
+                    if (bmp == null && artRequest == streamArtRequest && coverFile.length() > 0) {
+                        bmp = AlbumCoverManager.decodeSampledBitmapFromFile(coverFile.absolutePath, side, side, maxPixels)
                     }
                 } catch (ignored: Throwable) {}
                 val art = bmp
@@ -843,6 +862,8 @@ class AudioPlayerManager private constructor() {
             pendingScrobblePath = track.absolutePath
         } catch (ignored: Throwable) {}
 
+        // A local track takes over: the art of an earlier podcast stream no longer holds Spectrum back
+        cancelStreamArt()
         // The cover is read and decoded on the art thread, and shows here if the track is still the same
         loadTrackArt(main, artRequests.start(track.absolutePath), track) { art, later ->
             main.lastAlbumArtBytes = art.bytes
@@ -1236,8 +1257,7 @@ class AudioPlayerManager private constructor() {
 
     fun releasePlayer() {
         isPlayingActive = false
-        streamArtRequest++
-        streamArtLoading = 0
+        cancelStreamArt()
         currentlyPlayingFilePath = null
         stopPeriodicPositionSaver()
         exoPlayer?.release()

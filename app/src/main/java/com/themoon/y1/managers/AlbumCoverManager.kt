@@ -553,14 +553,15 @@ class AlbumCoverManager private constructor() {
                 s.hashCode().toString()
             }
         }
-        fun decodeSampledBitmapFromFile(path: String, reqWidth: Int, reqHeight: Int): Bitmap? {
+        /** [maxPixels] > 0 also bounds the decoded pixels, for a wide or tall image that keeps one side small. */
+        fun decodeSampledBitmapFromFile(path: String, reqWidth: Int, reqHeight: Int, maxPixels: Int = 0): Bitmap? {
             return try {
                 val options = BitmapFactory.Options().apply {
                     inJustDecodeBounds = true
                 }
                 BitmapFactory.decodeFile(path, options)
 
-                options.inSampleSize = calculateInSampleSize(options, reqWidth, reqHeight)
+                options.inSampleSize = calculateInSampleSize(options, reqWidth, reqHeight, maxPixels)
                 options.inJustDecodeBounds = false
                 options.inPreferredConfig = Bitmap.Config.RGB_565
                 BitmapFactory.decodeFile(path, options)
@@ -568,14 +569,15 @@ class AlbumCoverManager private constructor() {
                 null
             }
         }
-        fun decodeSampledBitmapFromByteArray(data: ByteArray, reqWidth: Int, reqHeight: Int): Bitmap? {
+        /** [maxPixels] > 0 also bounds the decoded pixels, for a wide or tall image that keeps one side small. */
+        fun decodeSampledBitmapFromByteArray(data: ByteArray, reqWidth: Int, reqHeight: Int, maxPixels: Int = 0): Bitmap? {
             return try {
                 val options = BitmapFactory.Options().apply {
                     inJustDecodeBounds = true
                 }
                 BitmapFactory.decodeByteArray(data, 0, data.size, options)
 
-                options.inSampleSize = calculateInSampleSize(options, reqWidth, reqHeight)
+                options.inSampleSize = calculateInSampleSize(options, reqWidth, reqHeight, maxPixels)
                 options.inJustDecodeBounds = false
                 options.inPreferredConfig = Bitmap.Config.RGB_565
                 BitmapFactory.decodeByteArray(data, 0, data.size, options)
@@ -583,7 +585,7 @@ class AlbumCoverManager private constructor() {
                 null
             }
         }
-        fun calculateInSampleSize(options: BitmapFactory.Options, reqWidth: Int, reqHeight: Int): Int {
+        fun calculateInSampleSize(options: BitmapFactory.Options, reqWidth: Int, reqHeight: Int, maxPixels: Int = 0): Int {
             val height = options.outHeight
             val width = options.outWidth
             var inSampleSize = 1
@@ -595,10 +597,11 @@ class AlbumCoverManager private constructor() {
                     inSampleSize *= 2
                 }
             }
-            // A very wide or tall image keeps one side small: also bound the long side, or it decodes at full size
-            val maxSide = 2 * Math.max(reqWidth, reqHeight)
-            while (Math.max(width, height) / inSampleSize > maxSide) {
-                inSampleSize *= 2
+            // Only for callers that ask: thumbnails and quiz tiles crop the centre and keep the detail of the short side
+            if (maxPixels > 0) {
+                while ((width / inSampleSize).toLong() * (height / inSampleSize) > maxPixels) {
+                    inSampleSize *= 2
+                }
             }
             return Math.max(1, inSampleSize)
         }
