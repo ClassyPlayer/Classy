@@ -286,7 +286,11 @@ class PhotosController(
         }
         // The version, not the path: a photo replaced under the same name decodes again
         val version = photo.version
-        if (version == panePhoto && paneImage.drawable != null) return
+        if (version == panePhoto && paneImage.drawable != null) {
+            // It shows already: a decode of another photo that still runs must not replace it
+            paneWanted = null
+            return
+        }
         if (version == paneWanted) return
         paneArt.get(version)?.let {
             paneImage.setImageBitmap(it)

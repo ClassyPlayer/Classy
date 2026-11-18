@@ -55,7 +55,7 @@ object PhotoThumbs {
 
     /**
      * Makes or reads the thumbnail on the worker; [done] runs on the main thread (null: the photo cannot be read).
-     * It does not run when a USB share refused the read ([PhotoDecoder.close]).
+     * It does not run when a USB share refused the read ([PhotoDecoder.close]) and reads are still closed.
      */
     fun load(p: PhotoItem, done: (Bitmap?) -> Unit) {
         val version = p.version
@@ -70,14 +70,19 @@ object PhotoThumbs {
         }
         pending[version] = mutableListOf(done)
         worker.execute {
-            val closings = PhotoDecoder.closings
             val bmp = make(p)
-            // A read that a USB share refused is not a broken photo: no answer, the grid asks again when it draws
-            val refused = bmp == null && PhotoDecoder.wasRefused(closings)
+            // A null from make() comes from a decode, so this is about that read
+            val refused = bmp == null && PhotoDecoder.lastReadRefused()
             main.post {
                 if (bmp != null) memory.put(version, bmp)
-                val waiting = pending.remove(version)
-                if (!refused) waiting?.forEach { it(bmp) }
+                val waiting = pending.remove(version).orEmpty()
+                if (!refused) {
+                    waiting.forEach { it(bmp) }
+                    return@post
+                }
+                // A USB share refused the read (not a broken photo). Reads still closed: no answer, the grid asks again
+                // after the rescan. Reads open again already: one more try for the requests that joined meanwhile.
+                if (!PhotoDecoder.isClosed) for (w in waiting) load(p, w)
             }
         }
     }

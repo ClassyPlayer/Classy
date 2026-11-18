@@ -176,11 +176,13 @@ class UsbStorageUiManager(
             // The game saves, then no photo file stays open (a decode or scan that runs ends, no new one starts)
             val idle = GamePlayerController.awaitGameWork(GAME_SAVE_WAIT_MS) &&
                 PhotoDecoder.awaitIdle(PHOTO_READ_WAIT_MS)
-            val ok = idle && run {
+            // The cable went out during the waits: no share (the unplug handler saw no share to end)
+            val connected = idle && isComputerConnected
+            val ok = connected && run {
                 UsbMassStorageController.ensureMassStorageFunction(activity)
                 UsbMassStorageController.setEnabled(true)
             }
-            if (!ok && idle) {
+            if (!ok && connected) {
                 UsbMassStorageController.restoreUsbFunction(activity)
             }
             activity.runOnUiThread {
@@ -189,7 +191,7 @@ class UsbStorageUiManager(
                     showUsbStorageOverlay()
                 } else {
                     reloadAfterShare(resume = true)
-                    Notice.error(activity, localize("Card busy. Try again."))
+                    if (!idle || connected) Notice.error(activity, localize("Card busy. Try again."))
                 }
             }
         }, "y1-ums-on").start()

@@ -147,7 +147,7 @@ class PhotoViewerController(
         forceShuffle = s.shuffle
         photos = PhotoLibrary.set(set)
         if (photos.isEmpty()) {
-            handler.post { NavigationManager.getInstance().popBackStack() }
+            backIfShown()
             return
         }
         // The photo chosen in the grid, also when the set changed since (Recently Added drops photos after 30 days)
@@ -155,7 +155,7 @@ class PhotoViewerController(
         if (at < 0) {
             // It left the set: back to the grid, which shows the set as it is now
             photos = emptyList()
-            handler.post { NavigationManager.getInstance().popBackStack() }
+            backIfShown()
             return
         }
         index = at.coerceIn(0, photos.size - 1)
@@ -168,6 +168,15 @@ class PhotoViewerController(
         } else if (!Prefs.PHOTOS_HINT_SHOWN.get(prefs)) {
             Prefs.PHOTOS_HINT_SHOWN.set(prefs, true)
             showInfo(localize("Press the centre button for a slideshow"), HINT_MS)
+        }
+    }
+
+    /** Back after [onEnter] returns, only while the viewer still shows (a USB share or a Back press may close it first). */
+    private fun backIfShown() {
+        handler.post {
+            if (shown && NavigationManager.getInstance().currentState is ScreenState.PhotoViewer) {
+                NavigationManager.getInstance().popBackStack()
+            }
         }
     }
 
@@ -219,8 +228,8 @@ class PhotoViewerController(
             return
         }
         request(i) { b ->
-            // Only the photo that is still wanted
-            if (index == i && shown) {
+            // Only the photo that is still wanted, and once (a wheel step and the slideshow can both wait for it)
+            if (index == i && shown && showing != i) {
                 if (b != null) display(b, transition, direction) else showBroken()
                 showing = i
                 prefetch()

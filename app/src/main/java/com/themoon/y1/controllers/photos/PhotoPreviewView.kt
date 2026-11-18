@@ -134,7 +134,9 @@ class PhotoPreviewView(context: Context) : FrameLayout(context) {
         if (!running) return
         val photos = PhotoLibrary.photos.orEmpty()
         if (photos.isEmpty()) {
-            // The library listener starts again when photos come ([libraryListener]); the next start shows no old photo
+            // The library listener starts again when photos come ([libraryListener]); the next start shows no old photo,
+            // and a decode that still runs is dropped
+            token++
             lastPath = null
             lastBitmap = null
             image.setImageBitmap(TablerIcons.renderTile(TablerIcons.PHOTO, PANE_W, PANE_W / 3,

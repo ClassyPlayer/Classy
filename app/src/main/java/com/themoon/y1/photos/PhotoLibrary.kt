@@ -74,6 +74,11 @@ object PhotoLibrary {
         scan()
     }
 
+    /** The microSD card is mounted: scan again if the photos are loaded or a scan runs (it may have missed the card). */
+    fun onCardReady() {
+        if (photos != null || isScanning) forget()
+    }
+
     /** Scans again when the last scan is older than [REFRESH_MS] (Photos opens: new photos may be on the card). */
     fun refresh() {
         if (isScanning) return

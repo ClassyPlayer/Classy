@@ -22,16 +22,13 @@ object PhotoDecoder {
     @Volatile
     private var closed = false
 
-    /** Counts [close] calls: a read that returned null in another count was refused, not broken. */
-    @Volatile
-    var closings = 0
-        private set
+    /** For each thread: [reading] refused its last read (reads were closed), so its null is not a broken photo. */
+    private val refused = object : ThreadLocal<Boolean>() {
+        override fun initialValue() = false
+    }
 
     /** No new photo read starts until [reopen] (a USB share starts or is on). Does not wait: see [awaitIdle]. */
-    fun close() = synchronized(lock) {
-        closed = true
-        closings++
-    }
+    fun close() = synchronized(lock) { closed = true }
 
     val isClosed: Boolean get() = closed
 
@@ -56,6 +53,7 @@ object PhotoDecoder {
     /** Runs [block], which reads photo files, unless reads are closed (then null without running it). */
     fun <T> reading(block: () -> T?): T? {
         synchronized(lock) {
+            refused.set(closed)
             if (closed) return null
             active++
         }
@@ -69,8 +67,8 @@ object PhotoDecoder {
         }
     }
 
-    /** True when a read that returned null after starting at [closingsBefore] was refused by [close], not broken. */
-    fun wasRefused(closingsBefore: Int): Boolean = closed || closings != closingsBefore
+    /** True when the last [reading] on this thread was refused by [close]: its null is not a broken photo. */
+    fun lastReadRefused(): Boolean = refused.get() == true
 
     enum class Mode {
         /** The whole photo in the box (full screen; the view adds the black bars). */

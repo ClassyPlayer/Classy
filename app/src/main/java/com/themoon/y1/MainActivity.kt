@@ -454,6 +454,8 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
             setListener(object : ExternalSdMountMonitor.Listener {
                 override fun onSecondaryStorageReady() {
                     StoragePaths.invalidate()
+                    // A photo scan without the card (it mounted after the share ended) missed its photos
+                    runOnUiThread { com.themoon.y1.photos.PhotoLibrary.onCardReady() }
                     runMigrationsAsync {
                         scanVideos()
                         val onLibraryReady = {
