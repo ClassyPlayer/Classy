@@ -61,6 +61,10 @@ class AudioPlayerManager private constructor() {
     var exoPlayer: SimpleExoPlayer? = null
     /** Episode title and channel of the last podcast stream, for Now Playing after a retry. */
     private var streamInfo: Pair<String, String>? = null
+
+    /** The number of the last podcast stream started: only its art loader may set the art. */
+    @Volatile
+    private var streamArtRequest = 0
     val customEqProcessor: Y1EqAudioProcessor = Y1EqAudioProcessor()
     val crossfeedProcessor: Y1CrossfeedAudioProcessor = Y1CrossfeedAudioProcessor()
     /** Settings → Playback → Mono Audio ([AudioEffectManager.syncAudioEffects] sets it). */
@@ -486,7 +490,8 @@ class AudioPlayerManager private constructor() {
             // the Y2 memory.
             val coverFile = File(StoragePaths.getPodcastChannelDir(safeChannel), "cover.jpg")
             // An episode with no image has the album text of its SongItem ("Unknown Album"), not a web address
-            val episodeImage = imageUrl?.takeIf { it.startsWith("http", ignoreCase = true) }
+            val episodeImage = imageUrl?.let { okhttp3.HttpUrl.parse(it.trim()) }
+            val artRequest = ++streamArtRequest
             Thread {
                 try {
                     val side = Math.max(main.resources.displayMetrics.widthPixels, 480)
@@ -497,14 +502,14 @@ class AudioPlayerManager private constructor() {
                             val call = PodcastHttp.client.newCall(okhttp3.Request.Builder().url(url).build())
                             call.timeout().timeout(PodcastHttp.SMALL_FILE_TIMEOUT_S, java.util.concurrent.TimeUnit.SECONDS)
                             call.execute().use { response ->
-                                response.body()?.takeIf { response.isSuccessful }?.bytes()
+                                response.body()?.takeIf { response.isSuccessful }?.byteStream()?.let { readArtBytes(it) }
                             }
                         }?.let { AlbumCoverManager.decodeSampledBitmapFromByteArray(it, side, side) }
                     }
                     if (bmp != null) {
                         main.runOnUiThread {
                             // Another stream or track started meanwhile: its art stays
-                            if (streamInfo == title to channelName &&
+                            if (artRequest == streamArtRequest &&
                                 main.currentPlaylist.singleOrNull()?.absolutePath?.startsWith("/PODCAST_STREAM") == true) {
                                 main.ivAlbumArt.setImageBitmap(bmp)
                                 main.updatePlayerUI()
@@ -516,6 +521,21 @@ class AudioPlayerManager private constructor() {
 
             exoPlayer?.playWhenReady = true
         } catch (ignored: Exception) {}
+    }
+
+    /**
+     * The bytes of an episode image, or null over [MAX_STREAM_ART_BYTES]: the server sends the body, and its
+     * Content-Length can be missing or wrong, so the count is of the bytes read.
+     */
+    private fun readArtBytes(input: java.io.InputStream): ByteArray? {
+        val out = java.io.ByteArrayOutputStream()
+        val buffer = ByteArray(16 * 1024)
+        while (true) {
+            val n = input.read(buffer)
+            if (n < 0) return out.toByteArray()
+            if (out.size() + n > MAX_STREAM_ART_BYTES) return null
+            out.write(buffer, 0, n)
+        }
     }
 
     fun playTrackListWithOffset(list: List<File>, index: Int, offsetMs: Int) {
@@ -1206,6 +1226,7 @@ class AudioPlayerManager private constructor() {
 
     fun releasePlayer() {
         isPlayingActive = false
+        streamArtRequest++
         currentlyPlayingFilePath = null
         stopPeriodicPositionSaver()
         exoPlayer?.release()
@@ -1980,6 +2001,8 @@ class AudioPlayerManager private constructor() {
     }
 
     companion object {
+        /** Episode images over this are not loaded: covers are well under 1 MB, and the Y2 heap is small. */
+        private const val MAX_STREAM_ART_BYTES = 4 * 1024 * 1024
         @Volatile
         private var instance: AudioPlayerManager? = null
         @Synchronized

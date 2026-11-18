@@ -56,8 +56,14 @@ class PodcastController(
     /** The episodes of the last channel (its RSS URL): Back from an episode shows them again at once. */
     private var episodes: Pair<String, List<SongItem>>? = null
 
-    /** The episode list whose feed loads under the loading screen. */
-    private var loadingEpisodes: ScreenState? = null
+    /**
+     * The number of the last episode list load; leaving the list adds one. Only that load may close the loading
+     * screen or show its list: leaving a slow show and opening it again makes two loads of the same show.
+     */
+    private var episodesRequest = 0
+
+    /** The loading screen shows for an episode list. */
+    private var episodesLoading = false
 
     override fun onEnter(state: ScreenState) {
         val list = when (state) {
@@ -78,6 +84,7 @@ class PodcastController(
     }
 
     override fun onExit() {
+        episodesRequest++
         stopEpisodesLoading()
         shown = null
         screen.clear()
@@ -131,14 +138,17 @@ class PodcastController(
         screen.show(ListSpec(title))
         val state = ScreenState.PodcastEpisodes(channelName, rssUrl)
         // The feed of a big show takes seconds: the iPod spinner until the list comes (Back still leaves)
-        loadingEpisodes = state
+        val request = ++episodesRequest
+        episodesLoading = true
         showLoadingPopup(localize("Connecting to server..."))
         Thread {
             try {
                 val list = repository.fetchEpisodes(rssUrl, channelName)
                 activity.runOnUiThread {
-                    if (shown == state) stopEpisodesLoading()
+                    // Kept also for a load that is no longer the last: Back from an episode shows them at once
                     episodes = rssUrl to list
+                    if (request != episodesRequest) return@runOnUiThread
+                    stopEpisodesLoading()
                     if (shown == state) showEpisodes(title, list)
                 }
             } catch (e: Exception) {
@@ -148,7 +158,8 @@ class PodcastController(
                     emptyList()
                 }
                 activity.runOnUiThread {
-                    if (shown == state) stopEpisodesLoading()
+                    if (request != episodesRequest) return@runOnUiThread
+                    stopEpisodesLoading()
                     if (downloaded.isNotEmpty()) {
                         Notice.show(activity, localize("Offline Mode: Showing downloaded episodes only."), long = true)
                         episodes = rssUrl to downloaded
@@ -166,8 +177,8 @@ class PodcastController(
     }
 
     private fun stopEpisodesLoading() {
-        if (loadingEpisodes == null) return
-        loadingEpisodes = null
+        if (!episodesLoading) return
+        episodesLoading = false
         onHideLoadingPopup()
     }
 
