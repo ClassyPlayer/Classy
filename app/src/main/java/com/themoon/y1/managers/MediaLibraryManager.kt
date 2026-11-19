@@ -298,6 +298,8 @@ class MediaLibraryManager private constructor() {
                     al = mmr.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_ALBUM)
                     trackStr = mmr.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_CD_TRACK_NUMBER)
                     y = mmr.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DATE)
+                    // Android 4.4 gives no year for an ID3v2.4 tag (TDRC)
+                    if (y.isNullOrBlank() && lower.endsWith(".mp3")) y = Id3Year.read(f)
                     g = mmr.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_GENRE)
                     aa = mmr.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_ALBUMARTIST)
                     cp = mmr.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_COMPOSER)
