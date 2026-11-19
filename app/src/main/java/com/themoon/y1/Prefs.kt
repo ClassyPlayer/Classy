@@ -201,6 +201,7 @@ object Prefs {
     val LETTER_JUMP_SENSITIVITY = add(IntPref("letter_jump_sensitivity", LetterJump.Sensitivity.DEFAULT.ordinal, PrefGroup.CONTROLS, resettable = true))
     val SCREEN_OFF_CONTROL = add(BoolPref("screen_off_control", false, PrefGroup.CONTROLS, resettable = true))
     val DOUBLE_CLICK_FAVORITE = add(BoolPref("double_click_favorite", true, PrefGroup.CONTROLS, resettable = true))
+    val BACK_HOLD_NOW_PLAYING = add(BoolPref("back_hold_now_playing", true, PrefGroup.CONTROLS, resettable = true))
 
     // --- Connectivity ---
     /** USB Drive: Ask, Always or Never ([UsbDrive]). */

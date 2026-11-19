@@ -11,6 +11,8 @@ import android.view.View
 import android.widget.AbsListView
 import android.widget.LinearLayout
 import com.themoon.y1.MainActivity
+import com.themoon.y1.Prefs
+import com.themoon.y1.handleMainMenuAction
 import com.themoon.y1.controllers.ScreenController
 import com.themoon.y1.controllers.player.PlayerController
 import com.themoon.y1.managers.AudioPlayerManager
@@ -259,6 +261,15 @@ class InputRouter private constructor() {
             // Back on release (onKeyUp), like the other buttons: a held press does nothing yet
             val now = System.currentTimeMillis()
             if (!isBackSuppressed && now >= backDebounceUntil) backPress.onPress(event.repeatCount)
+            // Held (the first key repeat): to Now Playing, when Settings > Controls > Hold Back for Now Playing is On
+            val main = MainActivity.instance
+            if (event.repeatCount == 1 && main != null && main.currentScreenState != MainActivity.STATE_PLAYER &&
+                Prefs.BACK_HOLD_NOW_PLAYING.get(main.prefs)
+            ) {
+                suppressBackUntilRelease()
+                main.clickFeedback()
+                main.handleMainMenuAction("OPEN_PLAYER")
+            }
             return true
         }
         if (isPlayPauseKey(keyCode)) {
