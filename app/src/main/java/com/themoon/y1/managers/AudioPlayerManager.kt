@@ -618,13 +618,20 @@ class AudioPlayerManager private constructor() {
         main.updatePlayerUI()
     }
 
-    /** Plays queue entry [index] (the Queue list of the Now Playing menu). */
+    /** Plays queue entry [index] (the Queue list of the Now Playing menu), also when the player was paused. */
     fun jumpTo(index: Int) {
         saveAudiobookBookmarkIfNeeded()
         val main = MainActivity.instance ?: return
         if (index !in main.currentPlaylist.indices) return
-        if (isGaplessQueueActive && exoPlayer != null) {
-            exoPlayer?.seekTo(index, 0)
+        main.isPausedByHand = false
+        isPlayingActive = true
+        val exo = exoPlayer
+        if (isGaplessQueueActive && exo != null) {
+            exo.seekTo(index, 0)
+            // After an error the player is idle: load the queue again
+            if (exo.playbackState == Player.STATE_IDLE) exo.prepare()
+            exo.playWhenReady = true
+            startPeriodicPositionSaver()
             return
         }
         main.currentIndex = index

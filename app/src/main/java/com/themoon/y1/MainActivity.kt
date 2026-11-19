@@ -1008,6 +1008,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
             playerController.updatePlayerUI()
         }
         ClassyLayout.refreshPlayIcon(this)
+        com.themoon.y1.controllers.player.NowPlayingContextMenu.refreshQueue()
         val am = AudioPlayerManager.getInstance()
         sendBluetoothMetaToCar()
         BluetoothAvrcpManager.getInstance(this).updatePlaybackState(am.isPlaying())

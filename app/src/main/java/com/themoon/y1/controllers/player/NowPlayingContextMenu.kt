@@ -61,15 +61,37 @@ object NowPlayingContextMenu {
 
     private fun main0() = MainActivity.instance
 
-    /** The playing queue; the playing track is checked, and a row plays that track. */
-    private fun showQueue(main: MainActivity, localize: (String) -> String) {
+    /** The Queue screen that is open (0: none), the row that it shows checked, and the translation of its title. */
+    private var queueKey = 0
+    private var queueChecked = -1
+    private var queueLocalize: ((String) -> String)? = null
+
+    private fun queueSpec(main: MainActivity, localize: (String) -> String): ActionScreens.Spec {
         val titles = HashMap<String, String>()
         for (s in MainActivity.customLibrary) titles[s.file.absolutePath] = s.title
+        queueChecked = main.currentIndex
         val rows = main.currentPlaylist.mapIndexed { i, f ->
             ActionScreens.Action(titles[f.absolutePath]?.takeIf { it.isNotEmpty() } ?: f.nameWithoutExtension, checked = i == main.currentIndex) {
                 com.themoon.y1.managers.AudioPlayerManager.getInstance().jumpTo(i)
             }
         }
-        ActionScreens.open(ActionScreens.Spec(localize("Queue"), actions = rows))
+        return ActionScreens.Spec(localize("Queue"), actions = rows)
+    }
+
+    /** The playing queue; the playing track is checked, and a row plays that track. */
+    private fun showQueue(main: MainActivity, localize: (String) -> String) {
+        queueLocalize = localize
+        queueKey = ActionScreens.open(queueSpec(main, localize))
+    }
+
+    /** MainActivity.updatePlayerUI: moves the check mark of an open Queue screen to the track that plays now. */
+    fun refreshQueue() {
+        val key = queueKey
+        val main = main0()
+        val localize = queueLocalize
+        if (key == 0 || main == null || localize == null || main.currentIndex == queueChecked) return
+        if (ActionScreens.spec(key) == null) { queueKey = 0; return }
+        if (com.themoon.y1.navigation.NavigationManager.getInstance().currentState != ActionScreens.route(key)) return // not showing
+        ActionScreens.replace(key, queueSpec(main, localize))
     }
 }
