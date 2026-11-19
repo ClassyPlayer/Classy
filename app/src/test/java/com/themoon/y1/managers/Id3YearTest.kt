@@ -65,4 +65,16 @@ class Id3YearTest {
 
     @Test fun compressedFrameIsSkipped() =
         assertNull(Id3Year.read(tag(3, 0, ByteArray(0), "TYER".toByteArray() + byteArrayOf(0, 0, 0, 5, 0, 0x80.toByte()) + byteArrayOf(0, 0, 0, 0, 1))))
+
+    @Test fun v23TagUnsynchronisationKeepsLaterFramesInPlace() {
+        // The TIT2 body has FF FE, stored unsynchronised as FF 00 FE: its size stays 5, it takes 6 bytes in the file
+        fun v3frame(id: String, body: ByteArray) = id.toByteArray() + byteArrayOf(0, 0, 0, body.size.toByte(), 0, 0) + body
+        val tyer = v3frame("TYER", byteArrayOf(3) + "1999".toByteArray())
+        val stored = v3frame("TIT2", byteArrayOf(1, 0xFF.toByte(), 0xFE.toByte(), 0x41, 0)).let {
+            it.copyOfRange(0, 11) + byteArrayOf(0xFF.toByte(), 0, 0xFE.toByte(), 0x41, 0) // size 5, stored with the extra 00
+        } + tyer
+        val head = "ID3".toByteArray() + byteArrayOf(3, 0, 0x80.toByte()) + syncsafe(stored.size)
+        val f = File.createTempFile("id3", ".mp3").apply { writeBytes(head + stored); deleteOnExit() }
+        assertEquals("1999", Id3Year.read(f))
+    }
 }

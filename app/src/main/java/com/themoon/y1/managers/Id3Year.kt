@@ -8,10 +8,28 @@ import java.io.RandomAccessFile
  * does not give the year of a v2.4 tag. Null when there is none. Frames are skipped by seeking, so cover art costs nothing.
  */
 object Id3Year {
+    /** v2.3 tags with the unsynchronisation flag are read whole to undo it; a larger one gives no year. */
+    private const val MAX_UNSYNC_TAG = 4 * 1024 * 1024
+
     fun read(file: File): String? = try {
         RandomAccessFile(file, "r").use { parse(it) }
     } catch (_: Exception) {
         null
+    }
+
+    /** Where the frames are read from: the file, or the tag in memory after its unsynchronisation was undone. */
+    private class Cursor(private val f: RandomAccessFile?, private val mem: ByteArray?) {
+        private var p = 0
+        var pos: Long
+            get() = f?.filePointer ?: p.toLong()
+            set(v) { if (f != null) f.seek(v) else p = v.toInt() }
+        fun readFully(b: ByteArray) {
+            if (f != null) f.readFully(b) else {
+                if (p + b.size > mem!!.size) throw java.io.EOFException()
+                System.arraycopy(mem, p, b, 0, b.size)
+                p += b.size
+            }
+        }
     }
 
     private fun syncsafe(b: ByteArray, o: Int) =
@@ -39,27 +57,38 @@ object Id3Year {
         val version = h[3].toInt()
         if (version != 3 && version != 4) return null
         val tagFlags = h[5].toInt()
-        val tagUnsync = tagFlags and 0x80 != 0
-        val end = 10L + syncsafe(h, 6)
+        var end = 10L + syncsafe(h, 6)
+        var c = Cursor(f, null)
+        if (version == 3 && tagFlags and 0x80 != 0) {
+            // v2.3 unsynchronises the whole tag, and the sizes inside it are those of the original data
+            val n = end - 10
+            if (n > MAX_UNSYNC_TAG) return null
+            val raw = ByteArray(n.toInt())
+            f.readFully(raw)
+            val tag = deUnsync(raw)
+            c = Cursor(null, h + tag)
+            c.pos = 10
+            end = 10L + tag.size
+        }
         if (tagFlags and 0x40 != 0) {
             // Extended header: v2.4 gives its size with the size field, v2.3 without it
             val eh = ByteArray(4)
-            f.readFully(eh)
+            c.readFully(eh)
             val size = if (version == 4) syncsafe(eh, 0).toLong() else be32(eh, 0) + 4L
             if (size < 4 || 10L + size > end) return null
-            f.seek(10L + size)
+            c.pos = 10L + size
         }
         var best: String? = null
         val fh = ByteArray(10)
-        while (f.filePointer + 10 <= end) {
-            f.readFully(fh)
+        while (c.pos + 10 <= end) {
+            c.readFully(fh)
             if (fh[0].toInt() == 0) break // padding
             val id = String(fh, 0, 4, Charsets.ISO_8859_1)
             val size = if (version == 4) syncsafe(fh, 4) else be32(fh, 4)
-            if (size < 0 || f.filePointer + size > end) break
+            if (size < 0 || c.pos + size > end) break
             if ((id == "TDRC" || id == "TYER") && size in 2..128) {
                 val data = ByteArray(size)
-                f.readFully(data)
+                c.readFully(data)
                 val fmt = fh[9].toInt() and 255
                 val v4 = version == 4
                 val packed = if (v4) fmt and 0x0C != 0 else fmt and 0xC0 != 0 // compressed or encrypted: skip
@@ -67,7 +96,7 @@ object Id3Year {
                 if (if (v4) fmt and 0x40 != 0 else fmt and 0x20 != 0) skip += 1 // group identifier
                 if (v4 && fmt and 0x01 != 0) skip += 4 // data length indicator
                 var body = if (packed || skip >= size) continue else data.copyOfRange(skip, size)
-                if (tagUnsync || (v4 && fmt and 0x02 != 0)) body = deUnsync(body)
+                if (v4 && fmt and 0x02 != 0) body = deUnsync(body)
                 if (body.size < 2) continue
                 val charset = when (body[0].toInt()) {
                     1 -> Charsets.UTF_16
@@ -81,7 +110,7 @@ object Id3Year {
                     best = year
                 }
             } else {
-                f.seek(f.filePointer + size)
+                c.pos = c.pos + size
             }
         }
         return best
