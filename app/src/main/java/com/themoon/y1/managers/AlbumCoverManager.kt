@@ -207,10 +207,7 @@ class AlbumCoverManager private constructor() {
         val diskFile = getDiskThumbFile(albumKey)
         if (diskFile.exists() && diskFile.length() > 0) {
             try {
-                val opts = BitmapFactory.Options().apply {
-                    inPreferredConfig = Bitmap.Config.RGB_565
-                }
-                val bmp = BitmapFactory.decodeFile(diskFile.absolutePath, opts)
+                val bmp = decodeDiskThumb(diskFile)
                 if (bmp != null) {
                     memoryCache.put(albumKey, bmp)
                     return bmp
@@ -218,6 +215,29 @@ class AlbumCoverManager private constructor() {
             } catch (ignored: Throwable) {}
         }
         return null
+    }
+
+    /**
+     * Decodes a disk thumbnail (256 × 256 JPEG). Before Android 5 the bitmap is purgeable: its pixels are in ashmem,
+     * not in the Java heap. The Dalvik heap does not move objects, so after the library loads it has no free block of
+     * 128 KB (one cover) in one piece: each new cover in the heap was a full GC (~90 ms, measured on the Y2) that freed
+     * almost nothing, and Cover Flow froze while the cache filled. Only decodeByteArray and decodeFileDescriptor
+     * make a purgeable bitmap (decodeFile reads a stream). A purgeable bitmap decodes at its first use: [Bitmap.getPixel]
+     * decodes it now, on this thread, not at its first draw on the main thread.
+     */
+    @Suppress("DEPRECATION")
+    private fun decodeDiskThumb(file: File): Bitmap? {
+        val data = file.readBytes()
+        val opts = BitmapFactory.Options().apply {
+            inPreferredConfig = Bitmap.Config.RGB_565
+            if (android.os.Build.VERSION.SDK_INT < 21) {
+                inPurgeable = true
+                inInputShareable = false // a copy of the JPEG in native memory: the Java array can go
+            }
+        }
+        val bmp = BitmapFactory.decodeByteArray(data, 0, data.size, opts) ?: return null
+        bmp.getPixel(0, 0)
+        return bmp
     }
 
     fun loadCoverAsync(song: SongItem?, callback: CoverCallback?) {
@@ -242,10 +262,7 @@ class AlbumCoverManager private constructor() {
 
             if (diskThumb.exists() && diskThumb.length() > 0) {
                 try {
-                    val opts = BitmapFactory.Options().apply {
-                        inPreferredConfig = Bitmap.Config.RGB_565
-                    }
-                    bmp = BitmapFactory.decodeFile(diskThumb.absolutePath, opts)
+                    bmp = decodeDiskThumb(diskThumb)
                 } catch (t: Throwable) {
                     bmp = null
                 }
