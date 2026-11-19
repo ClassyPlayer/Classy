@@ -32,6 +32,9 @@ object NowPlayingContextMenu {
         localize: (String) -> String
     ) {
         val rows = ArrayList<ActionScreens.Action>()
+        main0()?.let { m ->
+            if (m.currentPlaylist.size > 1) rows += ActionScreens.Action(localize("Queue"), opensList = true) { showQueue(m, localize) }
+        }
         rows += ActionScreens.Action(if (isFavorite) localize("Remove from Favorites") else localize("Add to Favorites")) {
             onToggleFavorite()
         }
@@ -54,5 +57,19 @@ object NowPlayingContextMenu {
             rows += ActionScreens.Action(PlayOnMenu.rowLabel(main), opensList = true) { PlayOnMenu.open(main, fromNowPlaying = true) }
         }
         ActionScreens.open(ActionScreens.Spec(localize("Now Playing"), actions = rows))
+    }
+
+    private fun main0() = MainActivity.instance
+
+    /** The playing queue; the playing track is checked, and a row plays that track. */
+    private fun showQueue(main: MainActivity, localize: (String) -> String) {
+        val titles = HashMap<String, String>()
+        for (s in MainActivity.customLibrary) titles[s.file.absolutePath] = s.title
+        val rows = main.currentPlaylist.mapIndexed { i, f ->
+            ActionScreens.Action(titles[f.absolutePath]?.takeIf { it.isNotEmpty() } ?: f.nameWithoutExtension, checked = i == main.currentIndex) {
+                com.themoon.y1.managers.AudioPlayerManager.getInstance().jumpTo(i)
+            }
+        }
+        ActionScreens.open(ActionScreens.Spec(localize("Queue"), actions = rows))
     }
 }

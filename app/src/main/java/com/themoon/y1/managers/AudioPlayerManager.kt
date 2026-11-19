@@ -618,6 +618,20 @@ class AudioPlayerManager private constructor() {
         main.updatePlayerUI()
     }
 
+    /** Plays queue entry [index] (the Queue list of the Now Playing menu). */
+    fun jumpTo(index: Int) {
+        saveAudiobookBookmarkIfNeeded()
+        val main = MainActivity.instance ?: return
+        if (index !in main.currentPlaylist.indices) return
+        if (isGaplessQueueActive && exoPlayer != null) {
+            exoPlayer?.seekTo(index, 0)
+            return
+        }
+        main.currentIndex = index
+        prepareMusicTrack(index)
+        main.updatePlayerUI()
+    }
+
     fun prevTrack() {
         saveAudiobookBookmarkIfNeeded()
         val main = MainActivity.instance ?: return
