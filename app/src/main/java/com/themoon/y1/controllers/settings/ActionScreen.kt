@@ -31,6 +31,8 @@ object ActionScreens {
         val checked: Boolean? = null,
         val opensList: Boolean = false,
         val closes: Boolean = !opensList,
+        /** Not null: a value row ([onOff] shows as the switch of the Settings rows). */
+        val value: String? = null,
         val run: () -> Unit
     )
 
@@ -147,7 +149,8 @@ object ActionScreens {
         spec.info.map { RowSpec(it, RowLook.INFO) } + spec.actions.map { action ->
             val onClick = { choose(action, close) }
             val checked = action.checked
-            if (checked == null) RowSpec(action.label, RowLook.VALUE, value = if (action.opensList) "〉" else "", onClick = onClick)
+            if (action.value != null) RowSpec(action.label, RowLook.VALUE, value = action.value, onClick = onClick)
+            else if (checked == null) RowSpec(action.label, RowLook.VALUE, value = if (action.opensList) "〉" else "", onClick = onClick)
             else RowSpec(action.label, RowLook.CHOICE, checked = checked, onClick = onClick)
         },
         focus = if (spec.selectAction) Focus.FIRST else Focus.NONE

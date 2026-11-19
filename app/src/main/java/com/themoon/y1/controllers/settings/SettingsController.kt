@@ -33,6 +33,8 @@ import com.themoon.y1.managers.VolumeSteps
 import com.themoon.y1.managers.LanguageManager
 import com.themoon.y1.managers.LastFmScrobbler
 import com.themoon.y1.managers.PowerMenu
+import com.themoon.y1.managers.RadioSwitch
+import com.themoon.y1.core.extensions.onOff
 import com.themoon.y1.managers.UpdateChannel
 import com.themoon.y1.managers.UsbDrive
 import com.themoon.y1.lists.Focus
@@ -501,8 +503,24 @@ class SettingsController(
     }
 
     /** The Power screen: Restart and Power Off. The centre button does the action at once; Back closes the screen. */
-    private fun buildPowerUI() {
-        val spec = ActionScreens.Spec(localize("Power"), actions = PowerMenu.Action.values().map { action ->
+    private fun buildPowerUI() = buildPowerUI(RadioSwitch.wifiOn(activity), RadioSwitch.bluetoothOn())
+
+    /** Wi-Fi and Bluetooth come up a moment after the press, so the switch shows the new state at once. */
+    private fun buildPowerUI(wifi: Boolean, bt: Boolean) {
+        val radios = listOf(
+            ActionScreens.Action(localize("Wi-Fi"), closes = false, value = onOff(wifi, localize)) {
+                RadioSwitch.toggleWifi(activity)
+                buildPowerUI(!wifi, bt)
+            },
+            ActionScreens.Action(localize("Bluetooth"), closes = false, value = onOff(bt, localize)) {
+                RadioSwitch.toggleBluetooth { activity.runOnUiThread(it) }
+                buildPowerUI(wifi, !bt)
+            }
+        )
+        val brightness = ActionScreens.Action(localize("Brightness"), opensList = true) {
+            mainActivity?.changeScreen(MainActivity.STATE_BRIGHTNESS)
+        }
+        val spec = ActionScreens.Spec(localize("Power"), actions = radios + brightness + PowerMenu.Action.values().map { action ->
             ActionScreens.Action(localize(action.label)) {
                 PowerMenu.run(activity, action) {
                     Notice.error(
