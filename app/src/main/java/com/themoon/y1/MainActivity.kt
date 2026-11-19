@@ -1559,7 +1559,8 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     class MediaBtnReceiver : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             val event = intent.getParcelableExtra<KeyEvent>(Intent.EXTRA_KEY_EVENT) ?: return
-            if (event.action != KeyEvent.ACTION_DOWN || event.repeatCount != 0) return
+            val isSkip = event.keyCode == KeyEvent.KEYCODE_MEDIA_NEXT || event.keyCode == 87 ||
+                event.keyCode == KeyEvent.KEYCODE_MEDIA_PREVIOUS || event.keyCode == 88
 
             val pm = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
             val isScreenOn = if (Build.VERSION.SDK_INT >= 20) {
@@ -1574,12 +1575,26 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
                 // Media keys from a remote (car, Bluetooth headphones, wired headset) always act
                 val keys = com.themoon.y1.navigation.RemoteMediaKeys
                 val device = keys.deviceName(event)
-                android.util.Log.w("MediaButton", KeyEvent.keyCodeToString(event.keyCode) + " from " + (device ?: "unknown device") +
-                    " with the screen off: " + keys.screenOffDecision(event.keyCode, device, isScreenOffCtrl))
+                if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
+                    android.util.Log.w("MediaButton", KeyEvent.keyCodeToString(event.keyCode) + " from " + (device ?: "unknown device") +
+                        " with the screen off: " + keys.screenOffDecision(event.keyCode, device, isScreenOffCtrl))
+                }
                 if (!keys.actsWithScreenOff(event.keyCode, device, isScreenOffCtrl)) {
                     return
                 }
+                if (isSkip) {
+                    // Android sends the press, one long-press ~0.5 s later (no repeats), then the release:
+                    // a hold seeks until the release, a short press skips on the release (as with the screen on)
+                    val router = com.themoon.y1.navigation.InputRouter.getInstance()
+                    if (event.action == KeyEvent.ACTION_DOWN) {
+                        router.onSkipKeyDown(event.keyCode, event.repeatCount, event.eventTime, keyUpReliable = true)
+                    } else if (event.action == KeyEvent.ACTION_UP) {
+                        router.onSkipKeyUp(event.keyCode, event.eventTime - event.downTime)
+                    }
+                    return
+                }
             }
+            if (event.action != KeyEvent.ACTION_DOWN || event.repeatCount != 0) return
 
             val am = AudioPlayerManager.getInstance()
             when (event.keyCode) {

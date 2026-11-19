@@ -47,13 +47,15 @@ class InputRouter private constructor() {
     private var seekStartMs = 0L
     private var lastSeekTickMs = 0L
     private var lastSkipRepeatMs = 0L
+    /** Screen off: Android sends one long-press and then the key-up, no repeats, so the key-up ends the seek. */
+    private var seekKeyUpReliable = false
     private val seekHandler = Handler(Looper.getMainLooper())
     private val seekTickRunnable = object : Runnable {
         override fun run() {
             if (seekDirection == 0) return
             val now = SystemClock.uptimeMillis()
-            if (now - lastSkipRepeatMs > SEEK_REPEAT_TIMEOUT_MS) {
-                // No key repeats any more, so the key-up went elsewhere
+            if (seekTimedOut(now, lastSkipRepeatMs, seekStartMs, seekKeyUpReliable)) {
+                // No key repeats any more (or too long without the key-up), so the key-up went elsewhere
                 stopSeek()
                 return
             }
@@ -377,7 +379,7 @@ class InputRouter private constructor() {
      * the longer the button is held (see [seekSpeed]); a short press changes the track on release
      * (see [onSkipKeyUp]). Returns the offset of the first seek tick in ms, or 0.
      */
-    internal fun onSkipKeyDown(keyCode: Int, repeatCount: Int, eventTimeMs: Long): Int {
+    internal fun onSkipKeyDown(keyCode: Int, repeatCount: Int, eventTimeMs: Long, keyUpReliable: Boolean = false): Int {
         if (repeatCount == 0) {
             stopSeek()
             isSkipKeyHeld = false
@@ -389,6 +391,7 @@ class InputRouter private constructor() {
             return 0
         }
         seekDirection = if (keyCode == KeyEvent.KEYCODE_MEDIA_NEXT || keyCode == 87) 1 else -1
+        seekKeyUpReliable = keyUpReliable
         seekStartMs = eventTimeMs
         lastSeekTickMs = eventTimeMs - SEEK_TICK_MS
         // One click when the seek starts; a click on every tick would buzz
@@ -458,6 +461,14 @@ class InputRouter private constructor() {
         private const val SEEK_MAX_SPEED = 120.0
         private const val SEEK_RAMP_MS = 7_000L
         private const val SEEK_REPEAT_TIMEOUT_MS = 1_000L
+        private const val SEEK_KEY_UP_CAP_MS = 30_000L
+
+        /**
+         * True when a seek must stop. Screen on: no key repeat for 1 s (the key-up was lost). Screen off, no repeats
+         * come: only a 30 s cap, in case the key-up never arrives.
+         */
+        internal fun seekTimedOut(nowMs: Long, lastRepeatMs: Long, seekStartMs: Long, keyUpReliable: Boolean): Boolean =
+            if (keyUpReliable) nowMs - seekStartMs > SEEK_KEY_UP_CAP_MS else nowMs - lastRepeatMs > SEEK_REPEAT_TIMEOUT_MS
 
         // Forward seeks stop this far before the end, so seeking alone never skips to the next track
         private const val SEEK_END_MARGIN_MS = 1_000

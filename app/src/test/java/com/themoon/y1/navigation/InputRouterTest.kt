@@ -171,6 +171,16 @@ class InputRouterTest {
     }
 
     @Test
+    fun testSkipKeys_seekTimeout() {
+        // Screen on: repeats come all the time, so 1 s without one means the key-up was lost
+        assertFalse(InputRouter.seekTimedOut(nowMs = 1_900L, lastRepeatMs = 1_000L, seekStartMs = 0L, keyUpReliable = false))
+        assertTrue(InputRouter.seekTimedOut(nowMs = 2_100L, lastRepeatMs = 1_000L, seekStartMs = 0L, keyUpReliable = false))
+        // Screen off: Android sends one long-press and then the key-up, no repeats; only a 30 s cap
+        assertFalse(InputRouter.seekTimedOut(nowMs = 29_000L, lastRepeatMs = 500L, seekStartMs = 500L, keyUpReliable = true))
+        assertTrue(InputRouter.seekTimedOut(nowMs = 31_000L, lastRepeatMs = 500L, seekStartMs = 500L, keyUpReliable = true))
+    }
+
+    @Test
     fun testSkipKeys_seekSpeedGrowsSmoothlyFrom4xTo120x() {
         assertEquals(4.0, InputRouter.seekSpeed(0L), 1e-9)
         assertEquals(4.0 * Math.sqrt(30.0), InputRouter.seekSpeed(3_500L), 1e-9)
