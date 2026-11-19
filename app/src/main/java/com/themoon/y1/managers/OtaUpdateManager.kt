@@ -54,6 +54,23 @@ class OtaUpdateManager(
         // dist/update.json with every release, so this URL needs nothing committed to the repo.
         const val UPDATE_JSON_URL = "https://github.com/ClassyPlayer/Classy/releases/latest/download/update.json"
 
+        /** The update metadata of the Y1 build (minSdk 17), with its own APK. */
+        const val UPDATE_JSON_URL_Y1 = "https://github.com/ClassyPlayer/Classy/releases/latest/download/update-y1.json"
+
+        /**
+         * The update metadata for Android [sdk]. Below Android 4.4 (the Y1 has 4.2) the player gets the Y1 build, also
+         * when the app now installed is the other one. update.json stays the Y2 build: the Y2 players with older
+         * versions of Classy read it.
+         */
+        fun updateJsonUrl(sdk: Int = android.os.Build.VERSION.SDK_INT): String =
+            if (sdk < android.os.Build.VERSION_CODES.KITKAT) UPDATE_JSON_URL_Y1 else UPDATE_JSON_URL
+
+        /** The release asset name of the update metadata for Android [sdk], as [updateJsonUrl] (for the Beta channel). */
+        fun manifestName(sdk: Int = android.os.Build.VERSION.SDK_INT): String =
+            if (sdk < android.os.Build.VERSION_CODES.KITKAT) MANIFEST_Y1 else UpdateChannel.MANIFEST
+
+        const val MANIFEST_Y1 = "update-y1.json"
+
         fun extractBuildNumber(suffix: String?): Int {
             if (suffix.isNullOrEmpty()) return 0
             val m = Pattern.compile("(\\d+)").matcher(suffix)
@@ -222,12 +239,14 @@ class OtaUpdateManager(
 
                 val channel = UpdateChannel.current(AppPrefs.get(activity), myVersionName)
                 val client = getUpdateHttpClient()
-                // Stable: the release marked Latest. Beta: the newest release with update metadata, a beta or not
+                // The channel picks the release, the player picks the metadata file in it (update.json or update-y1.json).
+                // Stable: the release marked Latest. Beta: the newest release with that file, a beta or not
+                val manifest = manifestName()
                 val manifestUrls = if (channel == UpdateChannel.BETA) {
-                    UpdateChannel.manifestUrls(fetch(client, UpdateChannel.RELEASES_API_URL))
-                        .ifEmpty { throw Exception("No release with ${UpdateChannel.MANIFEST}") }
+                    UpdateChannel.manifestUrls(fetch(client, UpdateChannel.RELEASES_API_URL), manifest)
+                        .ifEmpty { throw Exception("No release with $manifest") }
                 } else {
-                    listOf(UPDATE_JSON_URL)
+                    listOf(updateJsonUrl())
                 }
                 var root = JSONObject()
                 for (manifestUrl in manifestUrls) {
@@ -482,6 +501,17 @@ class OtaUpdateManager(
         ))
     }
 
+    /** Says that the update needs a newer Android than this player has (nothing changed). */
+    private fun showNeedsNewerAndroidDialog() {
+        ActionScreens.open(ActionScreens.Spec(
+            localize("Cannot Update"),
+            listOf(
+                localize("This update needs a newer Android version than this player has, so nothing was changed."),
+                localize("Keep this version until there is an update for this player.")
+            )
+        ))
+    }
+
     /** Says why the update cannot install and how the user can update (verdict CANNOT_REPLACE). */
     private fun showCannotUpdateDialog() {
         ActionScreens.open(ActionScreens.Spec(
@@ -509,7 +539,9 @@ class OtaUpdateManager(
     }
 
     private fun stageInto(apkFile: File, staged: MutableList<Pair<File, String>>) {
-        java.util.zip.ZipFile(apkFile).use { zip ->
+        // ZipFile is Closeable only from API 19: close it in finally
+        val zip = java.util.zip.ZipFile(apkFile)
+        try {
             val abi = listOf(android.os.Build.CPU_ABI, android.os.Build.CPU_ABI2)
                 .firstOrNull { a -> a.isNotEmpty() && zip.entries().asSequence().any { it.name.startsWith("lib/$a/") } }
                 ?: return
@@ -523,6 +555,8 @@ class OtaUpdateManager(
                 staged += out to name
                 zip.getInputStream(entry).use { input -> out.outputStream().use { input.copyTo(it) } }
             }
+        } finally {
+            zip.close()
         }
     }
 
@@ -540,6 +574,20 @@ class OtaUpdateManager(
     }
 
     fun installApk(apkFile: File) {
+        // Before any change: an update for a newer Android (for example a Y2 release on a Y1 with Android 4.2) would
+        // replace the firmware copy with an app that this Android does not start: no launcher after the restart
+        // null: the manifest cannot be read (a manifest without a minimum gives 1), so the Android it needs is unknown
+        val minSdk = ApkMinSdk.read(apkFile)
+        if (minSdk == null) {
+            apkFile.delete()
+            activity.runOnUiThread { showUnverifiedDialog() }
+            return
+        }
+        if (minSdk > android.os.Build.VERSION.SDK_INT) {
+            apkFile.delete()
+            activity.runOnUiThread { showNeedsNewerAndroidDialog() }
+            return
+        }
         // Before any change: the script below copies the APK, and files from it, into /system as root
         val verdict = updateVerdict(apkFile)
         if (verdict != UpdateSignature.Verdict.INSTALL) {
@@ -567,19 +615,17 @@ class OtaUpdateManager(
             val apkPath = apkFile.absolutePath
             val logPath = StoragePaths.primaryFile("y1_update_log.txt").absolutePath
 
-            // Migrate boot screen (android.policy.jar + boot strings) for OTA update before reboot
+            // Migrate boot screen (android.policy.jar + boot strings) for OTA update before reboot (Y2 with Android 4.4 only)
             var tempJarPath: String? = null
             var tempApkPath: String? = null
-            try {
+            if (com.themoon.y1.migrations.BootScreenMigrator.isSupported()) try {
                 if (!com.themoon.y1.migrations.BootScreenMigrator.isPolicyJarPatched()) {
-                    java.util.zip.ZipFile(apkFile).use { zip ->
-                        zip.getEntry("assets/" + com.themoon.y1.migrations.BootScreenMigrator.ASSET_POLICY_JAR)?.let { entry ->
-                            val tempJar = File(activity.cacheDir, "ota_android_policy.jar")
-                            zip.getInputStream(entry).use { input ->
-                                tempJar.outputStream().use { output -> input.copyTo(output) }
-                            }
-                            tempJarPath = tempJar.absolutePath
-                        }
+                    com.themoon.y1.migrations.BootScreenMigrator.readZipEntry(
+                        apkFile, "assets/" + com.themoon.y1.migrations.BootScreenMigrator.ASSET_POLICY_JAR
+                    )?.let { bytes ->
+                        val tempJar = File(activity.cacheDir, "ota_android_policy.jar")
+                        tempJar.writeBytes(bytes)
+                        tempJarPath = tempJar.absolutePath
                     }
                 }
                 if (!com.themoon.y1.migrations.BootScreenMigrator.isFrameworkResPatched() &&

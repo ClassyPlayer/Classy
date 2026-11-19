@@ -75,6 +75,7 @@ version_name=$e_tag
 version_code=$e_code
 release_name=$e_name
 apk_name=Classy-$e_tag.apk
+apk_name_y1=Classy-$e_tag-y1.apk
 channel=$e_channel"
 
   if [ "$status" -eq 0 ] && [ "$out" = "$want" ]; then

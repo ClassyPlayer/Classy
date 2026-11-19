@@ -14,6 +14,7 @@ import com.themoon.y1.R
 import com.themoon.y1.ThemeManager
 import com.themoon.y1.controllers.ScreenController
 import com.themoon.y1.controllers.settings.ActionScreens
+import com.themoon.y1.core.ApiCompat
 import com.themoon.y1.core.extensions.onOff
 import com.themoon.y1.lists.ListScreen
 import com.themoon.y1.lists.ListSpec
@@ -440,7 +441,7 @@ class JellyfinUiController(
 
     private fun freeBytes(): Long = try {
         val stat = StatFs(SyncManager.getSyncRoot().absolutePath)
-        stat.availableBlocksLong * stat.blockSizeLong
+        ApiCompat.availableBytes(stat)
     } catch (ignored: Exception) {
         0L
     }

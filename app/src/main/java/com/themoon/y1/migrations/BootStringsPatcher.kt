@@ -5,7 +5,6 @@ import java.io.RandomAccessFile
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.util.zip.CRC32
-import java.util.zip.ZipFile
 
 object BootStringsPatcher {
 
@@ -19,12 +18,9 @@ object BootStringsPatcher {
     fun isPatched(apkFile: File): Boolean {
         if (!apkFile.exists()) return false
         return try {
-            ZipFile(apkFile).use { zip ->
-                val entry = zip.getEntry("resources.arsc") ?: return false
-                val bytes = zip.getInputStream(entry).use { it.readBytes() }
-                val str = String(bytes, Charsets.ISO_8859_1)
-                str.contains("Classy is starting") && !str.contains("Android is upgrading")
-            }
+            val bytes = BootScreenMigrator.readZipEntry(apkFile, "resources.arsc") ?: return false
+            val str = String(bytes, Charsets.ISO_8859_1)
+            str.contains("Classy is starting") && !str.contains("Android is upgrading")
         } catch (_: Throwable) {
             false
         }
@@ -39,10 +35,7 @@ object BootStringsPatcher {
         if (isPatched(apkFile)) return true
 
         try {
-            val arsc = ZipFile(apkFile).use { zip ->
-                val entry = zip.getEntry("resources.arsc") ?: return false
-                zip.getInputStream(entry).use { it.readBytes() }
-            }
+            val arsc = BootScreenMigrator.readZipEntry(apkFile, "resources.arsc") ?: return false
             if (arsc.size < 12) return false
 
             val buf = ByteBuffer.wrap(arsc).order(ByteOrder.LITTLE_ENDIAN)

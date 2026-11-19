@@ -12,6 +12,7 @@ import android.widget.AbsListView
 import android.widget.AdapterView
 import android.widget.ListView
 import android.widget.ScrollView
+import com.themoon.y1.core.ApiCompat
 import java.util.Collections
 import java.util.WeakHashMap
 
@@ -153,7 +154,7 @@ object ListEdges {
      * selection must follow the focus, or the list jumps back.
      */
     internal fun revealRow(list: ListView, row: View) {
-        if (!isFade(list.context) || list.isInLayout || list.height == 0 || row.parent !== list) return
+        if (!isFade(list.context) || ApiCompat.isInLayout(list, (list as? EdgeFadeListView)?.inOwnLayout == true) || list.height == 0 || row.parent !== list) return
         val pos = list.getPositionForView(row)
         if (pos == AdapterView.INVALID_POSITION) return
         val delta = revealDelta(
@@ -352,8 +353,17 @@ open class EdgeFadeListView(context: Context) : ListView(context) {
         painter.draw(canvas, this, moreAbove(), moreBelow())
     }
 
+    /** True while [onLayout] runs: before API 18, Android cannot tell that a layout pass runs ([ListEdges.revealRow]). */
+    internal var inOwnLayout = false
+        private set
+
     override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
-        super.onLayout(changed, l, t, r, b)
+        inOwnLayout = true
+        try {
+            super.onLayout(changed, l, t, r, b)
+        } finally {
+            inOwnLayout = false
+        }
         ListEdges.updateLength(this)
     }
 
