@@ -844,5 +844,8 @@
   "September": "Сентябрь",
   "October": "Октябрь",
   "November": "Ноябрь",
-  "December": "Декабрь"
+  "December": "Декабрь",
+  "Queue": "Очередь",
+  "Earlier Tracks": "Предыдущие треки",
+  "Later Tracks": "Следующие треки"
 }
