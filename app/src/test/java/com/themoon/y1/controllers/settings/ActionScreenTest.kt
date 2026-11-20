@@ -122,4 +122,28 @@ class ActionScreenTest {
         // A message: info rows only
         assertTrue(ActionScreens.list(ActionScreens.Spec("Bluetooth Pairing", listOf("Code", "123456"))) {}.rows.all { it.look == RowLook.INFO })
     }
+
+    @Test
+    fun aRowKeyIsTheKeyWhenGivenElseTheLabel() {
+        val spec = ActionScreens.Spec(
+            "Queue",
+            actions = listOf(
+                ActionScreens.Action("Intro", key = "queue0") {},
+                ActionScreens.Action("Intro", key = "queue1") {},
+                ActionScreens.Action("Shuffle") {}
+            )
+        )
+        assertEquals(listOf("queue0", "queue1", "Shuffle"), ActionScreens.list(spec) {}.rows.map { it.key })
+    }
+
+    @Test
+    fun aScreenCanOpenOnTheCheckedRow() {
+        val spec = ActionScreens.Spec("Queue", actions = listOf(ActionScreens.Action("A", checked = false) {}), focusChecked = true)
+        assertEquals(Focus.CHECKED, ActionScreens.list(spec) {}.focus)
+        // Kept when the info rows change, and no row at all still wins
+        val key = ActionScreens.add(spec)
+        ActionScreens.setInfo(key, listOf("x"))
+        assertTrue(ActionScreens.spec(key)!!.focusChecked)
+        assertEquals(Focus.NONE, ActionScreens.list(ActionScreens.Spec("Q", selectAction = false, focusChecked = true)) {}.focus)
+    }
 }

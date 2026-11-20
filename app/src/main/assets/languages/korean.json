@@ -845,5 +845,7 @@
   "October": "10월",
   "November": "11월",
   "December": "12월",
-  "Queue": "대기열"
+  "Queue": "대기열",
+  "Earlier Tracks": "이전 트랙",
+  "Later Tracks": "다음 트랙"
 }

@@ -46,7 +46,9 @@ object ActionScreens {
         val info: List<String> = emptyList(),
         val actions: List<Action> = emptyList(),
         val selectAction: Boolean = true,
-        val onCancel: (() -> Unit)? = null
+        val onCancel: (() -> Unit)? = null,
+        /** The screen opens on the row with the check mark (the playing track of a queue), not on the first row. */
+        val focusChecked: Boolean = false
     )
 
     /** The screens that are kept: an entry under a newer screen can show again when Back comes back to it. */
@@ -71,7 +73,7 @@ object ActionScreens {
     @Synchronized
     fun setInfo(key: Int, info: List<String>): Boolean {
         val old = specs[key] ?: return false
-        specs[key] = Spec(old.title, info, old.actions, old.selectAction, old.onCancel)
+        specs[key] = Spec(old.title, info, old.actions, old.selectAction, old.onCancel, old.focusChecked)
         return true
     }
 
@@ -153,7 +155,7 @@ object ActionScreens {
             if (checked == null) RowSpec(action.label, RowLook.VALUE, value = if (action.opensList) "〉" else "", key = key, onClick = onClick)
             else RowSpec(action.label, RowLook.CHOICE, checked = checked, key = key, onClick = onClick)
         },
-        focus = if (spec.selectAction) Focus.FIRST else Focus.NONE
+        focus = if (!spec.selectAction) Focus.NONE else if (spec.focusChecked) Focus.CHECKED else Focus.FIRST
     )
 }
 
