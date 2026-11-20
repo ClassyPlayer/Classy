@@ -153,6 +153,12 @@ object StoragePaths {
     /** The Photos folders on each storage (a folder in it is an album). Not made when missing. */
     fun getPhotosDirs(): List<File> = mediaDirs("Photos")
 
+    /**
+     * The Books folders (ebooks: EPUB and TXT) on each storage, and the Ebook folder of the stock Innioasis firmware.
+     * Not made when missing.
+     */
+    fun getBooksDirs(): List<File> = mediaDirs("Books") + mediaDirs("Ebook")
+
     fun getVideosDirs(): List<File> {
         val list = ArrayList<File>()
         list.addAll(getMoviesDirs())
@@ -162,7 +168,18 @@ object StoragePaths {
 
     fun getPodcastsDir(): File = File(getPrimaryRoot(), "Podcasts")
 
-    fun getPodcastChannelDir(safeChannel: String): File = File(getPodcastsDir(), safeChannel)
+    /**
+     * The folder of a podcast show, always directly in Podcasts: the name comes from the feed, and "", "." or ".."
+     * would be Podcasts itself or the folder above it, so each of these gets "_" for its characters.
+     */
+    fun getPodcastChannelDir(safeChannel: String): File {
+        val name = when (safeChannel) {
+            "", "." -> "_"
+            ".." -> "__"
+            else -> safeChannel
+        }
+        return File(getPodcastsDir(), name)
+    }
 
     fun getCoversDir(): File = ensureDir(File(getPrimaryRoot(), "Y1_Covers"))
 

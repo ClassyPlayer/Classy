@@ -6,6 +6,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.HandlerThread
@@ -52,6 +53,14 @@ object PowerMenu {
     fun isAndroidPowerMenu(reason: String?): Boolean = reason == REASON_GLOBAL_ACTIONS
 
     /**
+     * The su commands of [action] on Android [sdk]. `svc power reboot|shutdown` came in Android 4.4: Android 4.2 (Y1)
+     * has only `svc power stayon`, and for other words `svc` shows its help and ends with exit code 0, so the
+     * fallback would not run.
+     */
+    fun commands(action: Action, sdk: Int): List<String> =
+        if (sdk >= Build.VERSION_CODES.KITKAT) action.commands else action.commands.filterNot { it.startsWith("svc ") }
+
+    /**
      * Android's menu window has a fade-out animation of ~100 ms, which shows the menu even when we close it at once.
      * With window_animation_scale 0 it goes at once: measured on the Y2 (2026-10-28), 20 long presses showed the menu
      * in 1 frame of 1 press, else 0 (with the default scale 1: ~100-130 ms in 5 of 12 presses).
@@ -77,15 +86,22 @@ object PowerMenu {
         if (player.isPlaying()) player.playOrPauseMusic()
         player.savePlaybackState(sync = true)
 
+        val sdk = Build.VERSION.SDK_INT
+        val commands = commands(action, sdk)
         val dryRun = isDryRun()
-        Log.w(TAG, "${action.label}: su -c '${action.commands.first()}'${if (dryRun) " (dry run: not run)" else ""}")
+        Log.w(TAG, "${action.label}: su -c '${commands.first()}'${if (dryRun) " (dry run: not run)" else ""}")
         if (dryRun) return
 
         val app = context.applicationContext
         Thread({
-            if (action.commands.none { runAsRoot(it) } && !startShutdownActivity(app, action)) {
-                Handler(Looper.getMainLooper()).post(onFailed)
+            // Below Android 4.4 Android's ShutdownActivity comes first: it saves the state as `svc power` does, and an
+            // app in /system/app has the SHUTDOWN permission there. Then `reboot`, which does not tell the apps.
+            val done = if (sdk >= Build.VERSION_CODES.KITKAT) {
+                commands.any { runAsRoot(it) } || startShutdownActivity(app, action)
+            } else {
+                startShutdownActivity(app, action) || commands.any { runAsRoot(it) }
             }
+            if (!done) Handler(Looper.getMainLooper()).post(onFailed)
         }, "y1-power").start()
     }
 

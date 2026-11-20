@@ -32,7 +32,6 @@ android {
 
     defaultConfig {
         applicationId "com.themoon.y1"
-        minSdk 19
         targetSdk 35
         versionCode appVersionCode
         versionName appVersionName
@@ -45,6 +44,20 @@ android {
         buildConfigField "String", "LASTFM_API_KEY", "\"${lastFmApiKey}\""
         buildConfigField "String", "LASTFM_API_SECRET", "\"${lastFmApiSecret}\""
         buildConfigField "int", "MAIN_COMMITS", "${appMainCommits}"
+    }
+    // One APK for each player. Both have the same applicationId and key, so one installs over the other.
+    // The code is the same: below Android 4.4 it takes the fallbacks in core/ApiCompat and the SDK_INT checks.
+    // y2: Android 4.4 (API 19), as before. y1: Android 4.2 (API 17); lint (NewApi is fatal) checks the code for it.
+    flavorDimensions "device"
+    productFlavors {
+        y2 {
+            dimension "device"
+            minSdk 19
+        }
+        y1 {
+            dimension "device"
+            minSdk 17
+        }
     }
     buildFeatures {
         buildConfig true
@@ -77,6 +90,8 @@ android {
 dependencies {
     testImplementation libs.junit
     testImplementation 'org.json:json:20231013'
+    // Android's own XmlPullParser (KXml2), for the EPUB package tests on the JVM
+    testImplementation 'net.sf.kxml:kxml2:2.3.0'
     androidTestImplementation libs.ext.junit
     androidTestImplementation libs.espresso.core
     implementation libs.kotlinx.coroutines.core
@@ -91,9 +106,28 @@ dependencies {
     implementation 'com.squareup.okhttp3:okhttp:3.12.13'
     implementation 'org.conscrypt:conscrypt-android:2.5.2'
     implementation 'androidx.multidex:multidex:2.0.1'
+    // Books: HTML parser for the EPUB chapters (Apache-2.0, Java 1.4 bytecode: runs on API 17)
+    implementation 'org.ccil.cowan.tagsoup:tagsoup:1.2.1'
+    // Books: text encoding of .txt files (MPL-1.1). 2.0.x is the last line for API < 26; 2.0.5 uses no API 19+ calls
+    implementation 'com.github.albfernandez:juniversalchardet:2.0.5'
     // KitKat MediaCodec has a pre-API 21 frame timing drift bug in ExoPlayer;
     // LibVLC is used exclusively for video playback while ExoPlayer handles audio.
     implementation 'org.videolan.android:libvlc-all:3.3.14'
+}
+
+// ApkMinSdkTest reads the binary manifest that aapt2 wrote for the tested variant (the manifest its APK gets), so a
+// build tool that writes a format the update check cannot read fails the tests, not the update on the player
+tasks.withType(Test).configureEach { t ->
+    def match = t.name =~ /^test(Y[12])(Debug|Release)UnitTest$/
+    if (!match.matches()) return
+    def device = match.group(1)
+    def variant = device.toLowerCase() + match.group(2)
+    def resTask = "process${device}${match.group(2)}Resources"
+    t.dependsOn(resTask)
+    t.systemProperty("apkMinSdk.archive", layout.buildDirectory.file(
+        "intermediates/linked_resources_binary_format/${variant}/${resTask}/linked-resources-binary-format-${variant}.ap_"
+    ).get().asFile.path)
+    t.systemProperty("apkMinSdk.expected", device == "Y1" ? "17" : "19")
 }
 
 // Disable CheckAarMetadataTask to allow building against older SDK targets without metadata rejections.

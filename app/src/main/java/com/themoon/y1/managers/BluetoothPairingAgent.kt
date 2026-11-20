@@ -8,6 +8,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
@@ -45,7 +46,7 @@ class BluetoothPairingAgent(
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             when (intent.action) {
-                BluetoothDevice.ACTION_PAIRING_REQUEST -> {
+                PairingCompat.ACTION_PAIRING_REQUEST -> {
                     quietFor(BluetoothPairingPolicy.QUIET_PAIRING_MS)
                     stopScan()
                     onPairingRequest(intent)
@@ -59,7 +60,7 @@ class BluetoothPairingAgent(
     fun register() {
         if (registered) return
         val filter = IntentFilter().apply {
-            addAction(BluetoothDevice.ACTION_PAIRING_REQUEST)
+            addAction(PairingCompat.ACTION_PAIRING_REQUEST)
             addAction(BluetoothDevice.ACTION_BOND_STATE_CHANGED)
             // Before com.android.settings.bluetooth.BluetoothPairingRequest (priority 0).
             priority = IntentFilter.SYSTEM_HIGH_PRIORITY - 1
@@ -79,8 +80,8 @@ class BluetoothPairingAgent(
     @SuppressLint("MissingPermission")
     private fun onPairingRequest(intent: Intent) {
         val device = intent.getParcelableExtra<BluetoothDevice>(BluetoothDevice.EXTRA_DEVICE) ?: return
-        val variant = intent.getIntExtra(BluetoothDevice.EXTRA_PAIRING_VARIANT, -1)
-        val key = intent.getIntExtra(BluetoothDevice.EXTRA_PAIRING_KEY, -1)
+        val variant = intent.getIntExtra(PairingCompat.EXTRA_PAIRING_VARIANT, -1)
+        val key = intent.getIntExtra(PairingCompat.EXTRA_PAIRING_KEY, -1)
         val address = device.address
         val action = BluetoothPairingPolicy.actionFor(variant)
         Log.w(TAG, "Pairing request from $address variant=$variant -> $action")
@@ -91,25 +92,25 @@ class BluetoothPairingAgent(
                     val index = nextPinIndex[address] ?: 0
                     val pin = BluetoothPairingPolicy.pinForAttempt(index) ?: BluetoothPairingPolicy.PINS[0]
                     sentPinIndex[address] = index
-                    val ok = device.setPin(pin.toByteArray())
+                    val ok = PairingCompat.setPin(device, pin.toByteArray())
                     Log.w(TAG, "setPin($pin) for $address: $ok")
                 }
                 Action.CONFIRM -> {
-                    val ok = device.setPairingConfirmation(true)
+                    val ok = PairingCompat.setPairingConfirmation(device, true)
                     Log.w(TAG, "setPairingConfirmation(true) for $address: $ok")
                 }
                 Action.SHOW_CODE_AND_CONFIRM -> {
                     // Numeric comparison: the Y2 cannot compare, so it accepts at once and shows the
                     // code; the user compares it on the other device (car), which also asks to confirm.
                     showCode(device, variant, BluetoothPairingPolicy.formatCode(variant, key))
-                    val ok = device.setPairingConfirmation(true)
+                    val ok = PairingCompat.setPairingConfirmation(device, true)
                     Log.w(TAG, "setPairingConfirmation(true) for $address: $ok")
                 }
                 Action.SHOW_CODE_AND_SEND_PIN -> {
                     val code = BluetoothPairingPolicy.formatCode(variant, key)
                     showCode(device, variant, code)
                     if (code != null) {
-                        val ok = device.setPin(code.toByteArray())
+                        val ok = PairingCompat.setPin(device, code.toByteArray())
                         Log.w(TAG, "setPin(shown code) for $address: $ok")
                     }
                 }
@@ -159,7 +160,7 @@ class BluetoothPairingAgent(
                     try {
                         // The Bluetooth screen starts a scan after each bond change; a scan makes pairing fail.
                         BluetoothAdapter.getDefaultAdapter()?.cancelDiscovery()
-                        device.createBond()
+                        PairingCompat.createBond(device)
                     } catch (e: Exception) {
                         Log.e(TAG, "createBond retry failed for $address", e)
                         nextPinIndex.remove(address)
@@ -219,4 +220,33 @@ class BluetoothPairingAgent(
         /** False while a pairing runs and shortly after a bond: do not start a device scan then. */
         fun scanAllowed(): Boolean = SystemClock.elapsedRealtime() >= quietUntil
     }
+}
+
+/**
+ * The pairing part of the [BluetoothDevice] API. It is public from API 19 (Y2, Android 4.4). On API 17 and 18
+ * (Y1, Android 4.2) the same constants and methods are there, but hidden: the methods are called through
+ * reflection. When a hidden method is not there, the call throws, and the caller logs the error and stops.
+ */
+@SuppressLint("MissingPermission")
+internal object PairingCompat {
+    // The values of BluetoothDevice.ACTION_PAIRING_REQUEST, EXTRA_PAIRING_VARIANT and EXTRA_PAIRING_KEY
+    // (the compiler copies these constants into the code, so API 19 gets the same values).
+    const val ACTION_PAIRING_REQUEST = "android.bluetooth.device.action.PAIRING_REQUEST"
+    const val EXTRA_PAIRING_VARIANT = "android.bluetooth.device.extra.PAIRING_VARIANT"
+    const val EXTRA_PAIRING_KEY = "android.bluetooth.device.extra.PAIRING_KEY"
+
+    fun setPin(device: BluetoothDevice, pin: ByteArray): Boolean =
+        if (Build.VERSION.SDK_INT >= 19) device.setPin(pin)
+        else callHidden(device, "setPin", arrayOf(ByteArray::class.java), pin)
+
+    fun setPairingConfirmation(device: BluetoothDevice, confirm: Boolean): Boolean =
+        if (Build.VERSION.SDK_INT >= 19) device.setPairingConfirmation(confirm)
+        else callHidden(device, "setPairingConfirmation", arrayOf(Boolean::class.javaPrimitiveType!!), confirm)
+
+    fun createBond(device: BluetoothDevice): Boolean =
+        if (Build.VERSION.SDK_INT >= 19) device.createBond()
+        else callHidden(device, "createBond", emptyArray())
+
+    private fun callHidden(device: BluetoothDevice, name: String, types: Array<Class<*>>, vararg args: Any): Boolean =
+        BluetoothDevice::class.java.getMethod(name, *types).invoke(device, *args) as? Boolean ?: false
 }

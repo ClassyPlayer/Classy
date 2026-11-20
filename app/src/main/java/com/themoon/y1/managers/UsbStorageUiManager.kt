@@ -20,6 +20,7 @@ import com.themoon.y1.StoragePaths
 import com.themoon.y1.ThemeManager
 import com.themoon.y1.controllers.settings.ActionScreens
 import com.themoon.y1.controllers.games.GamePlayerController
+import com.themoon.y1.core.ApiCompat
 import com.themoon.y1.navigation.NavigationManager
 import com.themoon.y1.photos.PhotoDecoder
 import com.themoon.y1.views.Notice
@@ -31,6 +32,8 @@ private const val CARD_BACK_MS = 20_000L
 private const val GAME_SAVE_WAIT_MS = 10_000L
 /** The longest photo decode (a large photo on the Y2 takes about a second). */
 private const val PHOTO_READ_WAIT_MS = 5_000L
+/** The longest wait for a book that is opening (a large TXT builds its index first). */
+private const val BOOK_OPEN_WAIT_MS = 10_000L
 
 class UsbStorageUiManager(
     private val activity: Activity,
@@ -156,6 +159,11 @@ class UsbStorageUiManager(
             Notice.error(activity, localize("Wait for the photo scan to finish, then try again."))
             return
         }
+        if (main?.isBookScanRunning() == true) {
+            // The book scan reads the EPUB files on the card
+            Notice.error(activity, localize("Wait for the book scan to finish, then try again."))
+            return
+        }
         if (UsbMassStorageController.hasShareableVolume(activity) == false) {
             // Nothing to share (no card): do not switch the USB function, so the computer keeps MTP.
             Notice.error(activity, localize("No microSD card."))
@@ -169,13 +177,17 @@ class UsbStorageUiManager(
         // The photo viewer reads the photos on the card; no photo read or scan starts from now on
         main?.closePhotoForUsbShare()
         PhotoDecoder.close()
+        // An open book keeps its EPUB file open on the card
+        main?.closeBookForUsbShare()
         // An open track file on the card makes MountService kill this app during the share.
         AudioPlayerManager.getInstance().releaseForUsbStorage(musicPlayed)
         getExternalSdMountMonitor()?.setSuspended(true)
         Thread({
-            // The game saves, then no photo file stays open (a decode or scan that runs ends, no new one starts)
+            // The game saves, then no photo file stays open (a decode or scan that runs ends, no new one starts).
+            // A book that is still opening closes its EPUB file when its open ends (closeBookForUsbShare).
             val idle = GamePlayerController.awaitGameWork(GAME_SAVE_WAIT_MS) &&
-                PhotoDecoder.awaitIdle(PHOTO_READ_WAIT_MS)
+                PhotoDecoder.awaitIdle(PHOTO_READ_WAIT_MS) &&
+                com.themoon.y1.controllers.books.BookReaderController.awaitBookOpens(BOOK_OPEN_WAIT_MS)
             // The cable went out during the waits: no share (the unplug handler saw no share to end)
             val connected = idle && isComputerConnected
             val ok = connected && run {
@@ -260,9 +272,10 @@ class UsbStorageUiManager(
         PhotoDecoder.reopen()
         val main = activity as? MainActivity ?: return
         AudioPlayerManager.getInstance().reloadAfterUsbStorage(main, resume)
-        // The computer may have added or removed games
+        // The computer may have added or removed games, photos and books
         main.forgetGames()
         main.forgetPhotos()
+        main.forgetBooks()
     }
 
     fun onUsbCableRemovedWhileShared() {
@@ -378,7 +391,7 @@ class UsbStorageUiManager(
             cardRemovedReceiver?.let { try { activity.unregisterReceiver(it) } catch (_: Exception) {} }
             cardRemovedReceiver = null
             // Without this, Android selects another row of the screen under it
-            focusBeforeOverlay?.takeIf { it.isAttachedToWindow }?.requestFocus()
+            focusBeforeOverlay?.takeIf { ApiCompat.isAttachedToWindow(it) }?.requestFocus()
             focusBeforeOverlay = null
         }
         try {

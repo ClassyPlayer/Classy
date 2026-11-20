@@ -176,13 +176,21 @@ download_launcher_apk() {
         tag="$(resolve_latest_launcher_tag)"
     fi
 
-    apk_url="$(
+    local apk_urls
+    apk_urls="$(
         curl -fsSL -A 'classy-rom-build/1.0' \
             "https://github.com/${LAUNCHER_REPO}/releases/expanded_assets/${tag}" \
         | grep -Eo "href=\"/${LAUNCHER_REPO}/releases/download/[^\"]+(Classy|InniClassic|app-release)[^\"]*\.apk\"" \
-        | head -1 \
-        | sed 's/^href="//; s/"$//'
+        | sed 's/^href="//; s/"$//' || true
     )"
+    # Releases have two APKs: Classy-<tag>.apk (Y2, minSdk 19) and Classy-<tag>-y1.apk (Y1, Android 4.2, minSdk 17)
+    if [ "$TYPE" = "y2" ]; then
+        apk_url="$(printf '%s\n' "$apk_urls" | grep -v -- '-y1\.apk$' | head -1 || true)"
+    else
+        apk_url="$(printf '%s\n' "$apk_urls" | grep -- '-y1\.apk$' | head -1 || true)"
+        # Releases before the split have one APK, built for Android 4.4: a Y1 ROM with it has no launcher that starts
+        [ -n "$apk_url" ] || die "release ${tag} has no -y1.apk (Android 4.2) for the Y1; pass --launcher-apk or a newer --launcher-tag"
+    fi
     [ -n "$apk_url" ] || die "could not find launcher APK for release ${tag} in ${LAUNCHER_REPO}"
 
     apk_url="https://github.com${apk_url}"
@@ -367,22 +375,31 @@ audit_rom_contents() {
         errors=$((errors + 1))
     fi
 
-    if [ ! -f "$sys_mount/framework/android.policy.jar" ]; then
+    # The boot screen jar is built from the Y2's Android 4.4 framework: Y1 ROMs (Android 4.2) keep the stock jar
+    if [ "$rom_type" = "y2" ]; then
+        if [ ! -f "$sys_mount/framework/android.policy.jar" ]; then
+            echo "audit fail: /system/framework/android.policy.jar missing" >&2
+            errors=$((errors + 1))
+        elif [ "$(sha256_of "$sys_mount/framework/android.policy.jar")" != "$BOOT_POLICY_JAR_SHA256" ]; then
+            echo "audit fail: /system/framework/android.policy.jar is not the patched Classy boot screen jar" >&2
+            errors=$((errors + 1))
+        fi
+
+        if [ -f "$sys_mount/framework/android.policy.odex" ]; then
+            echo "audit fail: stale /system/framework/android.policy.odex still present" >&2
+            errors=$((errors + 1))
+        fi
+
+        if [ -f "$sys_mount/framework/framework-res.apk" ] \
+            && ! python3 "$REPO_ROOT/tools/swap_boot_strings.py" "$sys_mount/framework/framework-res.apk" --check >/dev/null 2>&1; then
+            echo "audit fail: framework-res.apk still has stock boot strings" >&2
+            errors=$((errors + 1))
+        fi
+    elif [ ! -f "$sys_mount/framework/android.policy.jar" ]; then
         echo "audit fail: /system/framework/android.policy.jar missing" >&2
         errors=$((errors + 1))
-    elif [ "$(sha256_of "$sys_mount/framework/android.policy.jar")" != "$BOOT_POLICY_JAR_SHA256" ]; then
-        echo "audit fail: /system/framework/android.policy.jar is not the patched Classy boot screen jar" >&2
-        errors=$((errors + 1))
-    fi
-
-    if [ -f "$sys_mount/framework/android.policy.odex" ]; then
-        echo "audit fail: stale /system/framework/android.policy.odex still present" >&2
-        errors=$((errors + 1))
-    fi
-
-    if [ -f "$sys_mount/framework/framework-res.apk" ] \
-        && ! python3 "$REPO_ROOT/tools/swap_boot_strings.py" "$sys_mount/framework/framework-res.apk" --check >/dev/null 2>&1; then
-        echo "audit fail: framework-res.apk still has stock boot strings" >&2
+    elif [ "$(sha256_of "$sys_mount/framework/android.policy.jar")" = "$BOOT_POLICY_JAR_SHA256" ]; then
+        echo "audit fail: /system/framework/android.policy.jar is the Android 4.4 boot screen jar (Y1 runs Android 4.2)" >&2
         errors=$((errors + 1))
     fi
 
@@ -452,6 +469,10 @@ audit_rom_contents() {
             echo "audit fail: Generic.kl is not identical to Stock.kl" >&2
             errors=$((errors + 1))
         fi
+        if ! cmp -s "$sys_mount/usr/keylayout/mtk-kpd.kl" "$SCRIPT_DIR/Stock.kl"; then
+            echo "audit fail: mtk-kpd.kl is not identical to scripts/Stock.kl (Y1 wheel would send DPAD_UP/DOWN)" >&2
+            errors=$((errors + 1))
+        fi
     fi
 
     if [ -n "$user_mount" ] && [ -d "$user_mount" ]; then
@@ -498,7 +519,9 @@ elif [ -n "$LAUNCHER_TAG" ]; then
     download_launcher_apk "$LAUNCHER_APK" "$LAUNCHER_TAG"
 else
     # Check if a built APK exists in the repository
-    LOCAL_BUILT_APK="$(find "$REPO_ROOT/app/build/outputs/apk" -name '*.apk' 2>/dev/null | head -1 || true)"
+    # The flavour for the ROM: y2 (minSdk 19) for the Y2, y1 (minSdk 17) for the Y1 types a|b
+    if [ "$TYPE" = "y2" ]; then apk_flavor="y2"; else apk_flavor="y1"; fi
+    LOCAL_BUILT_APK="$(find "$REPO_ROOT/app/build/outputs/apk/$apk_flavor" -name '*.apk' 2>/dev/null | head -1 || true)"
     if [ -n "$LOCAL_BUILT_APK" ] && [ -f "$LOCAL_BUILT_APK" ]; then
         echo "==> Using repository built APK: $LOCAL_BUILT_APK"
         cp "$LOCAL_BUILT_APK" "$LAUNCHER_APK"
@@ -661,15 +684,21 @@ if [ -f "$MOUNT_SYS/framework/framework-res.apk" ]; then
     sudo chmod 644 "$MOUNT_SYS/framework/framework-res.apk"
     sudo chown root:root "$MOUNT_SYS/framework/framework-res.apk"
 
-    echo "==> Patching boot screen (android.policy.jar + boot strings)"
-    verify_sha256 "$REPO_ROOT/tools/rom_assets/android.policy.jar" "$BOOT_POLICY_JAR_SHA256"
-    sudo cp -f "$REPO_ROOT/tools/rom_assets/android.policy.jar" "$MOUNT_SYS/framework/android.policy.jar"
-    sudo rm -f "$MOUNT_SYS/framework/android.policy.odex"
-    sudo chmod 644 "$MOUNT_SYS/framework/android.policy.jar"
-    sudo chown root:root "$MOUNT_SYS/framework/android.policy.jar"
-    sudo python3 "$REPO_ROOT/tools/swap_boot_strings.py" "$MOUNT_SYS/framework/framework-res.apk"
-    sudo chmod 644 "$MOUNT_SYS/framework/framework-res.apk"
-    sudo chown root:root "$MOUNT_SYS/framework/framework-res.apk"
+    # The jar is the Y2's Android 4.4 android.policy.jar with the patch: in the Y1's Android 4.2 it does not match
+    # the framework (and its odex files), so Y1 ROMs keep the stock jar and the stock boot strings
+    if [ "$TYPE" = "y2" ]; then
+        echo "==> Patching boot screen (android.policy.jar + boot strings)"
+        verify_sha256 "$REPO_ROOT/tools/rom_assets/android.policy.jar" "$BOOT_POLICY_JAR_SHA256"
+        sudo cp -f "$REPO_ROOT/tools/rom_assets/android.policy.jar" "$MOUNT_SYS/framework/android.policy.jar"
+        sudo rm -f "$MOUNT_SYS/framework/android.policy.odex"
+        sudo chmod 644 "$MOUNT_SYS/framework/android.policy.jar"
+        sudo chown root:root "$MOUNT_SYS/framework/android.policy.jar"
+        sudo python3 "$REPO_ROOT/tools/swap_boot_strings.py" "$MOUNT_SYS/framework/framework-res.apk"
+        sudo chmod 644 "$MOUNT_SYS/framework/framework-res.apk"
+        sudo chown root:root "$MOUNT_SYS/framework/framework-res.apk"
+    else
+        echo "==> Y1 (Android 4.2): stock boot screen kept (the Classy boot screen jar is for Android 4.4)"
+    fi
 fi
 
 # Y2 Solar base only: strip Solar before installing Classy. Type a|b skip this (Y1 path unchanged).
@@ -771,10 +800,13 @@ if [ "$TYPE" = "y2" ]; then
     done
 else
     echo "==> Pinning Y1 keylayout (scripts/Stock.kl)"
-    sudo cp "$SCRIPT_DIR/Stock.kl" "$MOUNT_SYS/usr/keylayout/Stock.kl"
-    sudo cp "$SCRIPT_DIR/Stock.kl" "$MOUNT_SYS/usr/keylayout/Generic.kl"
-    sudo chmod 644 "$MOUNT_SYS/usr/keylayout/Stock.kl" "$MOUNT_SYS/usr/keylayout/Generic.kl"
-    sudo chown root:root "$MOUNT_SYS/usr/keylayout/Stock.kl" "$MOUNT_SYS/usr/keylayout/Generic.kl"
+    # mtk-kpd.kl too: the Y1 keypad/wheel device is named mtk-kpd, so Android reads that file
+    # (not Generic.kl) and its stock content sends DPAD_UP/DOWN for the wheel, which the launcher ignores.
+    for kl_name in Stock.kl Generic.kl mtk-kpd.kl; do
+        sudo cp "$SCRIPT_DIR/Stock.kl" "$MOUNT_SYS/usr/keylayout/$kl_name"
+        sudo chmod 644 "$MOUNT_SYS/usr/keylayout/$kl_name"
+        sudo chown root:root "$MOUNT_SYS/usr/keylayout/$kl_name"
+    done
 fi
 
 audit_rom_contents "$BASE_DIR" "$MOUNT_SYS" "$MOUNT_USER" "$TYPE"

@@ -23,6 +23,8 @@ internal fun MainActivity.initViewBindings() {
     layoutVideoPlayerMode = findViewById(R.id.layout_video_player_mode)
     layoutGamesMode = findViewById(R.id.layout_games_mode)
     layoutGamePlayerMode = findViewById(R.id.layout_game_player_mode)
+    layoutBooksMode = findViewById(R.id.layout_books_mode)
+    layoutBookReaderMode = findViewById(R.id.layout_book_reader_mode)
     layoutPhotosMode = findViewById(R.id.layout_photos_mode)
     layoutPhotoViewerMode = findViewById(R.id.layout_photo_viewer_mode)
 

@@ -22,7 +22,7 @@ Every GitHub release body must follow this exact structure:
    - Focus on what changed for the user (features, UI changes, audio/hardware behavior, bug fixes) with light technical context where helpful (for example, `mtkbt` daemon, `libaudiocustparam.so`, `/system/app`, `.y1_thumbs_cache`).
 2. **Release assets table**:
    - Use sentence case with no emoji (`#### Release assets`).
-   - Keep file names in inline code (`Classy-<TAG>.apk`, `update.json`, `rom_y2.zip`, `rom_y1_type_a.zip`, `rom_y1_type_b.zip`, `SHA256SUMS.txt`) without bold decoration on every cell.
+   - Keep file names in inline code (`Classy-<TAG>.apk`, `Classy-<TAG>-y1.apk`, `update.json`, `update-y1.json`, `rom_y2.zip`, `rom_y1_type_a.zip`, `rom_y1_type_b.zip`, `SHA256SUMS.txt`) without bold decoration on every cell.
 3. **Full changelog link**:
    - End with `Full changelog: https://github.com/ClassyPlayer/Classy/compare/<PREV_TAG>...<TAG>`.
    - **Never** include the `Flashing Instructions (SP Flash Tool)` section or decorative `---` horizontal rules.
@@ -37,12 +37,14 @@ Every GitHub release body must follow this exact structure:
 
 | File | Target device | Notes |
 | :--- | :--- | :--- |
-| `Classy-<TAG>.apk` | Innioasis Y2 | Standalone launcher APK (sideload or install) |
-| `update.json` | Innioasis Y2 | OTA update metadata for in-app updater |
+| `Classy-<TAG>.apk` | Innioasis Y2 (Android 4.4) | Standalone launcher APK (sideload or install) |
+| `Classy-<TAG>-y1.apk` | Innioasis Y1 (Android 4.2) | Standalone launcher APK (sideload or install) |
+| `update.json` | Innioasis Y2 | OTA update metadata for the in-app updater |
+| `update-y1.json` | Innioasis Y1 | OTA update metadata for the in-app updater |
 | `rom_y2.zip` | Innioasis Y2 (MT6582) | Complete flashable ROM with dual-storage, watchdog & clickwheel keylayout |
+| `rom_y1_type_a.zip` | Innioasis Y1 (Type A) | Flashable ROM for Y1 players with original firmware 2.0.0 or higher |
+| `rom_y1_type_b.zip` | Innioasis Y1 (Type B) | Flashable ROM for Y1 players with original firmware below 2.0.0 |
 | `SHA256SUMS.txt` | All files | SHA-256 integrity checksums |
-
-Y1 firmware is not in this release. Y1 builds are in the Y1 experimental pre-releases.
 
 Full changelog: https://github.com/ClassyPlayer/Classy/compare/<PREV_TAG>...<TAG>
 ```

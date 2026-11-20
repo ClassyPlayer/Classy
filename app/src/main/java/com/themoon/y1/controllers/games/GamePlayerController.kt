@@ -201,10 +201,12 @@ class GamePlayerController(
                 item?.let { gameTitle = it.title }
                 gameArt = art
                 if (!ok) {
-                    // What is wrong and what to do; the details stay in y1_game_log.txt (internal storage) for developers
+                    // What is wrong and what to do; the details stay in y1_game_log.txt (internal storage) for developers.
+                    // Below Android 4.4 (the Y1) no firmware has a core that loads, so System Update is no help there
                     Notice.error(activity, localize(
-                        if (FliwheelBridge.lastFailure == FliwheelBridge.Failure.NO_CORE) "Games need the latest firmware. Install it with System Update."
-                        else "This game could not start. The file may be encrypted or damaged."
+                        if (FliwheelBridge.lastFailure != FliwheelBridge.Failure.NO_CORE) "This game could not start. The file may be encrypted or damaged."
+                        else if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.KITKAT) "Games could not start on this Android version."
+                        else "Games need the latest firmware. Install it with System Update."
                     ))
                     onExitRequested()
                     return@runOnUiThread

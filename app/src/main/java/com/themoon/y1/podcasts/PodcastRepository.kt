@@ -1,16 +1,24 @@
 package com.themoon.y1.podcasts
 
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.Rect
 import com.themoon.y1.StoragePaths
 import com.themoon.y1.io.SafeFiles
 import com.themoon.y1.models.PodcastChannel
 import com.themoon.y1.models.PodcastEpisode
 import com.themoon.y1.models.SongItem
+import okhttp3.HttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.xmlpull.v1.XmlPullParser
 import org.xmlpull.v1.XmlPullParserFactory
 import java.io.BufferedReader
 import java.io.BufferedWriter
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
@@ -207,9 +215,7 @@ class PodcastRepository private constructor() {
         }
         isStream.close()
 
-        if (channelImageUrl.isNotEmpty()) {
-            cacheChannelCover(channelName, channelImageUrl)
-        }
+        keepChannelCover(channelName, channelImageUrl.takeIf { it.isNotEmpty() })
         if (episodes.isNotEmpty()) keepEpisodeList(channelName, episodes)
 
         return episodes
@@ -236,27 +242,77 @@ class PodcastRepository private constructor() {
         return PodcastOfflineEpisodes.list(channelName, files, kept)
     }
 
-    private fun cacheChannelCover(channelName: String, imageUrl: String) {
+    /**
+     * Keeps the show cover as [PodcastCover] says: downloaded from [imageUrl] once, or a cover that an older version
+     * kept as it came made small. Off the feed thread, so the episode list does not wait for it.
+     */
+    private fun keepChannelCover(channelName: String, imageUrl: String?) {
         Thread {
             try {
-                val safeChannel = channelName.replace("[\\\\/:*?\"<>|]".toRegex(), "_")
-                val channelDir = StoragePaths.getPodcastChannelDir(safeChannel)
-                if (!channelDir.exists()) channelDir.mkdirs()
-
-                val coverFile = File(channelDir, "cover.jpg")
-                if (!coverFile.exists() || coverFile.length() == 0L) {
-                    val req = Request.Builder().url(imageUrl).build()
-                    val resp = client.newCall(req).execute()
-                    if (resp.isSuccessful) {
-                        resp.body()?.byteStream()?.use { input ->
-                            FileOutputStream(coverFile).use { output ->
-                                input.copyTo(output)
-                            }
-                        }
+                val coverFile = File(StoragePaths.getPodcastChannelDir(PodcastOfflineEpisodes.safeName(channelName)),
+                    PodcastCover.FILE_NAME)
+                if (coverFile.length() > 0) {
+                    val bounds = boundsOf(coverFile)
+                    if (PodcastCover.isKept(bounds.outMimeType, bounds.outWidth, bounds.outHeight)) return@Thread
+                    val made = coverFile.takeIf { it.length() <= PodcastCover.MAX_BYTES }
+                        ?.let { SafeFiles.readBytesFromFile(it) }?.let { makeCover(it) }
+                    if (made != null) {
+                        SafeFiles.writeBytesToFile(coverFile, made)
+                        return@Thread
                     }
                 }
-            } catch (ignored: Exception) {}
+                // A cover that cannot be made small stays until the download replaces it (the write is atomic):
+                // readers decode it only within PodcastCover.canDecode
+                val downloaded = imageUrl?.let { downloadCover(it) } ?: return@Thread
+                makeCover(downloaded)?.let { SafeFiles.writeBytesToFile(coverFile, it) }
+            } catch (ignored: Throwable) {}
         }.start()
+    }
+
+    private fun downloadCover(imageUrl: String): ByteArray? {
+        val url = HttpUrl.parse(imageUrl.trim()) ?: return null
+        val call = client.newCall(Request.Builder().url(url).build())
+        call.timeout().timeout(PodcastHttp.SMALL_FILE_TIMEOUT_S, TimeUnit.SECONDS)
+        return call.execute().use { response ->
+            response.body()?.takeIf { response.isSuccessful }?.byteStream()?.let { PodcastCover.readAtMost(it) }
+        }
+    }
+
+    private fun boundsOf(file: File): BitmapFactory.Options =
+        BitmapFactory.Options().apply {
+            inJustDecodeBounds = true
+            BitmapFactory.decodeFile(file.absolutePath, this)
+        }
+
+    /** The kept cover made from [image] (any format Android decodes), or null if it is not an image that can be. */
+    private fun makeCover(image: ByteArray): ByteArray? {
+        val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeByteArray(image, 0, image.size, opts)
+        val width = opts.outWidth
+        val height = opts.outHeight
+        if (!PodcastCover.canDecode(opts.outMimeType, width, height, image)) return null
+
+        opts.inJustDecodeBounds = false
+        opts.inSampleSize = PodcastCover.sampleSize(width, height)
+        val sampled = BitmapFactory.decodeByteArray(image, 0, image.size, opts) ?: return null
+        try {
+            val (w, h) = PodcastCover.fit(sampled.width, sampled.height)
+            val cover = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+            try {
+                // White under a transparent PNG: JPEG has no alpha
+                Canvas(cover).apply {
+                    drawColor(Color.WHITE)
+                    drawBitmap(sampled, null, Rect(0, 0, w, h), Paint(Paint.FILTER_BITMAP_FLAG))
+                }
+                val out = ByteArrayOutputStream()
+                if (!cover.compress(Bitmap.CompressFormat.JPEG, PodcastCover.JPEG_QUALITY, out)) return null
+                return out.toByteArray()
+            } finally {
+                cover.recycle()
+            }
+        } finally {
+            sampled.recycle()
+        }
     }
 
     private fun buildConscryptHttpClient(): OkHttpClient {

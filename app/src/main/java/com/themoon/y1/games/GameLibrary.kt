@@ -1,6 +1,7 @@
 package com.themoon.y1.games
 
 import android.util.Log
+import com.themoon.y1.core.useZip
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -142,7 +143,7 @@ object GameLibrary {
             }
         }
         val complete = try {
-            ZipFile(ipg).use { zip ->
+            ZipFile(ipg).useZip { zip ->
                 zip.entries().asSequence().filter { !it.isDirectory }.all { e ->
                     val f = File(target, e.name)
                     f.isFile && (e.size < 0 || f.length() == e.size)
@@ -165,7 +166,7 @@ object GameLibrary {
         return try {
             target.mkdirs()
             File(target, MARKER).delete()
-            ZipFile(ipg).use { zip ->
+            ZipFile(ipg).useZip { zip ->
                 val buffer = ByteArray(32 * 1024)
                 for (entry in zip.entries()) {
                     val out = File(target, entry.name)

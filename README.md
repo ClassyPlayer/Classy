@@ -20,7 +20,7 @@ The album covers in the screenshots are from Creative Commons albums, for exampl
 
 - **The iPod interface**: Classic Light and Classic Dark (Auto changes at sunrise and sunset), menus that slide, Cover Flow, a letter jump in long lists, and Now Playing with synced and romanised lyrics.
 - **Library**: music on the internal storage and the microSD card, by artist, album, genre, composer, folder and playlist. Favorites, Recently Played, Top 25 Most Played and Last.fm scrobbles.
-- **More than music**: videos, a photo viewer with slideshows, audiobooks with bookmarks, podcasts, Music Quiz and iPod click wheel games.
+- **More than music**: videos, a photo viewer with slideshows, audiobooks with bookmarks, an ebook reader (EPUB and TXT, with covers, chapters and bookmarks), podcasts, Music Quiz and iPod click wheel games.
 - **Wireless**: Play On (Sonos, DLNA, Google Cast), Bluetooth headphones and car audio, Jellyfin sync, upload from a browser, and updates over Wi-Fi.
 - **FM radio** with saved stations, also with the screen off. **Battery** history of the last 24 hours and 10 days.
 
@@ -31,7 +31,7 @@ File formats, folders, covers, lyrics files, playlists and the known limits: [Fi
 | Player | Status |
 | :--- | :--- |
 | Innioasis Y2 | Supported. Each release has the firmware (`rom_y2.zip`) and the app (`Classy-<version>.apk`). |
-| Innioasis Y1 | Experimental. The Y1 runs Android 4.2, and the release app needs Android 4.4. Status and test builds: [#82](https://github.com/ClassyPlayer/Classy/issues/82). |
+| Innioasis Y1 | Experimental. The Y1 runs Android 4.2 and gets its own build of the app. Status and test builds: [#82](https://github.com/ClassyPlayer/Classy/issues/82). |
 
 ## Install
 
@@ -56,8 +56,10 @@ You need JDK 17 and the Android SDK:
 ./gradlew assembleDebug testDebugUnitTest
 ```
 
+`assembleY2Debug` builds only the Y2 app (Android 4.4) and `assembleY1Debug` only the Y1 app (Android 4.2); `assembleDebug` builds both.
+
 - The Last.fm API keys are not in the repository. Without them, only the upload to Last.fm is off. To add them, make an API account at [last.fm/api/account/create](https://www.last.fm/api/account/create) and put `lastfm.api.key=…` and `lastfm.api.secret=…` in `local.properties`.
-- A debug build has a different signing key from the releases, so it does not install over a release. To test it on a player, make a firmware with it on Linux (the script uses `sudo` and loop mounts): `scripts/build-rom.sh y2 --launcher-apk app/build/outputs/apk/debug/app-debug.apk rom_y2.zip`.
+- A debug build has a different signing key from the releases, so it does not install over a release. To test it on a player, make a firmware with it on Linux (the script uses `sudo` and loop mounts): `scripts/build-rom.sh y2 --launcher-apk app/build/outputs/apk/y2/debug/app-y2-debug.apk rom_y2.zip`.
 - Bugs and ideas: [issues](https://github.com/ClassyPlayer/Classy/issues). Pull requests: one change each, with a [Conventional Commits](https://www.conventionalcommits.org/) title. Add each new text that the user sees to all files in `app/src/main/assets/languages/` (CI runs `python3 scripts/check_translations.py --strict`).
 - Maintainers publish releases as described in [RELEASING.md](RELEASING.md).
 

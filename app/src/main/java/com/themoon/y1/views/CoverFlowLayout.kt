@@ -3,6 +3,7 @@ package com.themoon.y1.views
 import android.content.Context
 import android.util.AttributeSet
 import android.widget.FrameLayout
+import com.themoon.y1.core.ApiCompat
 
 /**
  * Custom FrameLayout container for Cover Flow.
@@ -44,6 +45,9 @@ class CoverFlowLayout @JvmOverloads constructor(
 
     private var localLayoutPending = false
 
+    /** True while [onLayout] lays out the children: before API 18, Android cannot tell that a layout pass runs. */
+    private var inOwnLayout = false
+
     private val localLayout = Runnable {
         localLayoutPending = false
         if (isLayoutRequested && width > 0 && height > 0 && parent != null) {
@@ -57,7 +61,7 @@ class CoverFlowLayout @JvmOverloads constructor(
     }
 
     override fun requestLayout() {
-        if (!isLayoutBoundary || isInLayout || width == 0 || height == 0 || windowToken == null) {
+        if (!isLayoutBoundary || ApiCompat.isInLayout(this, inOwnLayout) || width == 0 || height == 0 || windowToken == null) {
             super.requestLayout()
             return
         }
@@ -70,7 +74,12 @@ class CoverFlowLayout @JvmOverloads constructor(
     }
 
     override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
-        super.onLayout(changed, left, top, right, bottom)
+        inOwnLayout = true
+        try {
+            super.onLayout(changed, left, top, right, bottom)
+        } finally {
+            inOwnLayout = false
+        }
         val childTop = childTopForHeight?.invoke(bottom - top) ?: return
         for (i in 0 until childCount) {
             val child = getChildAt(i)

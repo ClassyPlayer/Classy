@@ -246,7 +246,7 @@ internal fun MainActivity.initControllers() {
         onNavigateToPlayer = { changeScreen(MainActivity.STATE_PLAYER) },
         clickFeedback = { clickFeedback() },
         localize = { t(it) },
-        showLoadingPopup = { showLoadingPopup() },
+        showLoadingPopup = { message -> showLoadingPopup(message) },
         onHideLoadingPopup = { dismissLoadingOverlay() }
     )
 
@@ -319,6 +319,30 @@ internal fun MainActivity.initControllers() {
         activity = this,
         rootView = layoutGamePlayerMode as ViewGroup,
         onExitRequested = { NavigationManager.getInstance().popBackStack() },
+        clickFeedback = { clickFeedback() },
+        localize = { t(it) }
+    )
+
+    bookReaderController = com.themoon.y1.controllers.books.BookReaderController(
+        activity = this,
+        rootView = layoutBookReaderMode as ViewGroup,
+        prefs = prefs,
+        onOpenMenu = { file -> changeScreen(ScreenState.Books(com.themoon.y1.navigation.BooksLevel.ReaderMenu(file))) },
+        onLeave = {
+            NavigationManager.getInstance().popBackStackTo {
+                !com.themoon.y1.controllers.books.BookReaderController.isReaderScreen(it)
+            }
+        },
+        clickFeedback = { clickFeedback() },
+        localize = { t(it) }
+    )
+
+    booksController = com.themoon.y1.controllers.books.BooksController(
+        activity = this,
+        rootView = layoutBooksMode as ViewGroup,
+        prefs = prefs,
+        reader = bookReaderController,
+        changeScreen = { state -> changeScreen(state) },
         clickFeedback = { clickFeedback() },
         localize = { t(it) }
     )
@@ -556,6 +580,8 @@ internal fun MainActivity.initControllers() {
         registerController(ScreenState.VideoPlayer::class.java, videoPlayerController)
         registerController(ScreenState.Games::class.java, gamesController)
         registerController(ScreenState.GamePlayer::class.java, gamePlayerController)
+        registerController(ScreenState.Books::class.java, booksController)
+        registerController(ScreenState.BookReader::class.java, bookReaderController)
         registerController(ScreenState.Photos::class.java, photosController)
         registerController(ScreenState.PhotoViewer::class.java, photoViewerController)
     }
@@ -597,6 +623,9 @@ internal fun MainActivity.handleMainMenuAction(action: String) {
         }
         "OPEN_PHOTOS" -> {
             changeScreen(ScreenState.Photos())
+        }
+        "OPEN_BOOKS" -> {
+            changeScreen(ScreenState.Books())
         }
         "OPEN_SETTINGS", "SETTINGS" -> {
             changeScreen(MainActivity.STATE_SETTINGS)

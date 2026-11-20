@@ -31,6 +31,13 @@ class SettingsSpecTest {
             val to = code2.indexOf("\n    )\n", from)
             for (m in re.findAll(code2.substring(from, to))) photos.second += m.groupValues[2]
         }
+        // Settings → Books shows the rows of the reader (the same list as Reader Settings in a book)
+        out.firstOrNull { it.first == "Books" }?.let { books ->
+            val reader = source("ReaderSettings.kt", "books")
+            val from = reader.indexOf("fun rows(")
+            val to = reader.indexOf("\n    )\n", from)
+            for (m in re.findAll(reader.substring(from, to))) books.second += m.groupValues[2]
+        }
         return out
     }
 
@@ -43,6 +50,7 @@ class SettingsSpecTest {
                 "Display" to listOf("Brightness", "Backlight"),
                 "Now Playing" to listOf("Spectrum", "Total Time", "Lyrics", "Lyrics Keep Screen On", "Cover Tilt"),
                 "Photos" to listOf("Time Per Slide", "Repeat Slideshow", "Shuffle Photos", "Transitions"),
+                "Books" to listOf("Page Colours", "Font Size", "Line Spacing", "Font", "Wheel", "Wheel Clicks per Page", "Keep Screen On"),
                 "Status Bar" to listOf("Clock", "Battery Icon", "Battery Percentage"),
                 "Appearance" to listOf("Theme", "Toggle Style", "List Edges", "Menu Cover Motion", "Fill Video Screen"),
                 "Menus" to listOf("Main Menu Items", "Music Menu Items", "Group Albums"),
@@ -63,10 +71,11 @@ class SettingsSpecTest {
     }
 
     @Test
-    fun theTopLevelHasAtMostFourteenShortGroupsAndEachRowIsInOneGroup() {
+    fun theTopLevelHasAtMostFifteenShortGroupsAndEachRowIsInOneGroup() {
         val groups = specGroups()
-        // 13 with Battery (2026-10-31): the top level as Settings of iOS and macOS; 14 with Photos (the slideshow)
-        assertTrue(groups.size in 6..14)
+        // 13 with Battery (2026-10-31): the top level as Settings of iOS and macOS; 15 with Photos (the slideshow)
+        // and Books (the ebook reader)
+        assertTrue(groups.size in 6..15)
         for ((title, rows) in groups) {
             assertTrue("$title: label too long", title.length <= 12)
             assertTrue("$title: ${rows.size} rows", rows.size in 1..10)

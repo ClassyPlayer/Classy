@@ -16,7 +16,6 @@ import android.bluetooth.BluetoothProfile
 import android.media.AudioManager
 import android.media.audiofx.BassBoost
 import android.media.audiofx.Equalizer
-import android.media.audiofx.LoudnessEnhancer
 import android.media.audiofx.Virtualizer
 import android.media.audiofx.Visualizer
 import android.net.ConnectivityManager
@@ -130,6 +129,8 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
         const val STATE_JELLYFIN = 17
         const val STATE_GAMES = 18
         const val STATE_GAME_PLAYER = 19
+        const val STATE_BOOKS = 20
+        const val STATE_BOOK_READER = 21
         const val STATE_PHOTOS = 22
         const val STATE_PHOTO_VIEWER = 23
 
@@ -239,7 +240,8 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     var equalizer: Equalizer? = null
     var bassBoost: BassBoost? = null
     var virtualizer: Virtualizer? = null
-    var loudnessEnhancer: LoudnessEnhancer? = null
+    /** A LoudnessEnhancer (API 19); typed as AudioEffect so that this code also loads on API 17. */
+    var loudnessEnhancer: android.media.audiofx.AudioEffect? = null
     var currentAudioSessionId: Int = -1
 
     private var usbStateReceiverReady: Boolean = false
@@ -264,6 +266,8 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     lateinit var layoutVideoPlayerMode: View
     lateinit var layoutGamesMode: View
     lateinit var layoutGamePlayerMode: View
+    lateinit var layoutBooksMode: View
+    lateinit var layoutBookReaderMode: View
     lateinit var layoutPhotosMode: View
     lateinit var layoutPhotoViewerMode: View
 
@@ -310,6 +314,24 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     lateinit var videoPlayerController: VideoPlayerController
     lateinit var gamesController: GamesController
     lateinit var gamePlayerController: GamePlayerController
+    lateinit var booksController: com.themoon.y1.controllers.books.BooksController
+    lateinit var bookReaderController: com.themoon.y1.controllers.books.BookReaderController
+
+    /** The Books list reads the books on the card. */
+    fun isBookScanRunning(): Boolean = ::booksController.isInitialized && booksController.isScanning
+
+    /** The card was shared over USB: the Books lists scan the folders again. */
+    fun forgetBooks() {
+        if (::booksController.isInitialized) booksController.forget()
+    }
+
+    /** Before the card is shared over USB: the open book closes (its file is on the card). */
+    fun closeBookForUsbShare() {
+        if (::bookReaderController.isInitialized) bookReaderController.closeForUsbShare()
+    }
+
+    /** The status bar title again (a screen whose title changed while it shows). */
+    fun refreshStatusBarTitle() = updateStatusBarTitle()
 
     /** The Games list unpacks or reads the game folders on the card. */
     fun isGameScanRunning(): Boolean = ::gamesController.isInitialized && gamesController.isScanning
@@ -340,8 +362,6 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
         if (::photoViewerController.isInitialized) photoViewerController.closeForUsbShare()
     }
 
-    /** The status bar title again (a screen whose title changed while it shows). */
-    fun refreshStatusBarTitle() = updateStatusBarTitle()
     lateinit var bluetoothController: BluetoothController
     lateinit var wifiController: WifiController
     lateinit var wifiKeyboardController: WifiKeyboardController
@@ -352,6 +372,8 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     lateinit var webServerController: WebServerController
     var otaUpdateManager: OtaUpdateManager? = null
     var externalSdMountMonitor: ExternalSdMountMonitor? = null
+    /** The thread that waits for the primary storage before the library load at start (Y1), or null. */
+    private var primaryStorageWait: Thread? = null
     private var powerMenuInterceptor: PowerMenuInterceptor? = null
     private var pairingAgent: BluetoothPairingAgent? = null
     var powerBacklightManager: PowerBacklightManager? = null
@@ -436,17 +458,46 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
             android.util.Log.i("Classy", "Secondary storage not ready yet at onCreate, will load library once mounted")
             playbackRestored = AudioPlayerManager.getInstance().restoreLastPlaybackState(this)
         } else {
-            runMigrationsAsync {
-                loadLibraryCache {
-                    if (!playbackRestored) {
-                        playbackRestored = AudioPlayerManager.getInstance().restoreLastPlaybackState(this)
-                    }
-                    val mgr = com.themoon.y1.migrations.MigrationManager.getInstance(applicationContext)
-                    if (mgr.isPendingMediaRescan() && !isCustomScanning) {
-                        scanVideos()
-                        startMediaLibraryScan()
+            val startLibraryLoad = {
+                runMigrationsAsync {
+                    loadLibraryCache {
+                        if (!playbackRestored) {
+                            playbackRestored = AudioPlayerManager.getInstance().restoreLastPlaybackState(this)
+                        }
+                        val mgr = com.themoon.y1.migrations.MigrationManager.getInstance(applicationContext)
+                        if (mgr.isPendingMediaRescan() && !isCustomScanning) {
+                            scanVideos()
+                            startMediaLibraryScan()
+                        }
                     }
                 }
+            }
+            // Y1: a big microSD card in /storage/sdcard0 mounts ~20 s after boot; a cache read before that finds no
+            // files and the library stayed empty. Wait only while the card is on its way (checking or unmounted), at
+            // most 2 min. With no card (removed), a shared or a damaged card, the load starts at once.
+            // Only below Android 4.4: the Y2 (internal storage in /storage/sdcard0) keeps loading at once, as before.
+            val storageComing = {
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.KITKAT) false
+                else when (android.os.Environment.getExternalStorageState()) {
+                    android.os.Environment.MEDIA_CHECKING, android.os.Environment.MEDIA_UNMOUNTED -> true
+                    else -> false
+                }
+            }
+            if (!storageComing()) {
+                startLibraryLoad()
+            } else {
+                primaryStorageWait = Thread(wait@{
+                    var waitedMs = 0
+                    while (storageComing() && waitedMs < 120_000) {
+                        // Interrupted by onDestroy: no load for a closed activity
+                        try { Thread.sleep(500) } catch (_: InterruptedException) { return@wait }
+                        waitedMs += 500
+                    }
+                    runOnUiThread {
+                        primaryStorageWait = null
+                        if (!isFinishing && !isDestroyed) startLibraryLoad()
+                    }
+                }, "y1-wait-primary-storage").apply { start() }
             }
         }
 
@@ -551,11 +602,13 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
         updateStatusBarClock()
         applyTheme()
         if (::gamePlayerController.isInitialized) gamePlayerController.onActivityResume()
+        if (::bookReaderController.isInitialized) bookReaderController.onActivityResume()
     }
 
     override fun onPause() {
         super.onPause()
         if (::gamePlayerController.isInitialized) gamePlayerController.onActivityPause()
+        if (::bookReaderController.isInitialized) bookReaderController.onActivityPause()
         if (::photoViewerController.isInitialized) photoViewerController.onActivityPause()
         systemNotifications.show()
         AudioPlayerManager.getInstance().savePlaybackState(sync = false)
@@ -632,6 +685,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
             STATE_FM_RADIO -> ScreenState.FmRadio
             STATE_JELLYFIN -> ScreenState.Jellyfin()
             STATE_GAMES -> ScreenState.Games
+            STATE_BOOKS -> ScreenState.Books()
             STATE_PHOTOS -> ScreenState.Photos()
             else -> ScreenState.MainMenu
         }
@@ -673,6 +727,8 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
             is ScreenState.VideoPlayer -> STATE_VIDEO_PLAYER
             is ScreenState.Games -> STATE_GAMES
             is ScreenState.GamePlayer -> STATE_GAME_PLAYER
+            is ScreenState.Books -> STATE_BOOKS
+            is ScreenState.BookReader -> STATE_BOOK_READER
             is ScreenState.Photos -> STATE_PHOTOS
             is ScreenState.PhotoViewer -> STATE_PHOTO_VIEWER
         }
@@ -685,6 +741,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
             else -> state
         }
         if (::browserController.isInitialized) browserController.endLetterJump()
+        if (::booksController.isInitialized) booksController.endLetterJump()
         tvFastScrollLetter?.animate()?.cancel()
         tvFastScrollLetter?.visibility = View.GONE
         syncCurrentScreenState(targetState)
@@ -1109,11 +1166,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     }
 
     fun showPodcastActionDialog(title: String, audioUrl: String, channelTitle: String) {
-        podcastController.showActionDialog(title, audioUrl, "", channelTitle)
-    }
-
-    fun showPodcastActionDialog(title: String, audioUrl: String, imageUrl: String, channelTitle: String) {
-        podcastController.showActionDialog(title, audioUrl, imageUrl, channelTitle)
+        podcastController.showActionDialog(title, audioUrl, channelTitle)
     }
 
     fun turnOffScreen() {
@@ -1232,6 +1285,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
             STATE_EQUALIZER -> t("Equalizer")
             STATE_JELLYFIN -> t("Jellyfin")
             STATE_GAMES -> t("Games")
+            STATE_BOOKS -> t("Books")
             STATE_PHOTOS -> t("Photos")
             else -> t("Classy")
         }
@@ -1552,6 +1606,8 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
         powerMenuInterceptor?.unregister()
         com.themoon.y1.managers.CellRadioManager.stop(this)
         externalSdMountMonitor?.stop()
+        primaryStorageWait?.interrupt()
+        primaryStorageWait = null
         audioVisualizer?.release()
         audioVisualizer = null
         AudioPlayerManager.getInstance().releasePlayer()

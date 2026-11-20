@@ -36,6 +36,10 @@ sealed interface ScreenState {
      */
     /** [path]: the photo chosen in the grid; the viewer opens it, not [index], when the set changed meanwhile. */
     data class PhotoViewer(val set: String, val index: Int, val slideshow: Boolean = false, val shuffle: Boolean = false, val path: String? = null) : ScreenState
+    /** Main menu → Books: the ebook library ([level]) and the menu of the open book. */
+    data class Books(val level: BooksLevel = BooksLevel.Root) : ScreenState
+    /** An ebook ([file]) on the reader page. */
+    data class BookReader(val file: File) : ScreenState
     data object CoverFlow : ScreenState
     data object Playlists : ScreenState
     data class M3uPlaylistSongs(val m3uFile: File) : ScreenState
@@ -86,9 +90,43 @@ sealed interface PhotosLevel {
     data class Folder(val dir: File?) : PhotosLevel
 }
 
-/** A level of the folder browser: the file tree of Folders, or of the background picker of Settings. */
+/**
+ * The levels of Books. The library lists (Root to Folder), and the book menu of the open book ([isReaderMenu]:
+ * Back from its top goes to the page).
+ */
+sealed interface BooksLevel {
+    val isReaderMenu: Boolean get() = false
+
+    data object Root : BooksLevel
+    data object All : BooksLevel
+    data object Authors : BooksLevel
+    data class Author(val name: String) : BooksLevel
+    /** A folder of the file tree; [dir] null = the Books folders of all storages. */
+    data class Folder(val dir: File?) : BooksLevel
+
+    data class ReaderMenu(val file: File) : BooksLevel {
+        override val isReaderMenu: Boolean get() = true
+    }
+    data class Chapters(val file: File) : BooksLevel {
+        override val isReaderMenu: Boolean get() = true
+    }
+    data class GoTo(val file: File) : BooksLevel {
+        override val isReaderMenu: Boolean get() = true
+    }
+    data class Bookmarks(val file: File) : BooksLevel {
+        override val isReaderMenu: Boolean get() = true
+    }
+    data class Info(val file: File) : BooksLevel {
+        override val isReaderMenu: Boolean get() = true
+    }
+    data class ReaderSettings(val file: File) : BooksLevel {
+        override val isReaderMenu: Boolean get() = true
+    }
+}
+
+/** A level of the folder browser: the file tree of Folders, or of the background picker of Settings, or of Books. */
 val ScreenState.isFolderLevel: Boolean
-    get() = this is ScreenState.Browser && mode is BrowserMode.Folder
+    get() = (this is ScreenState.Browser && mode is BrowserMode.Folder) || (this is ScreenState.Books && level is BooksLevel.Folder)
 
 /**
  * Browser navigation modes for music library, file tree, playlists, and podcasts.

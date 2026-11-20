@@ -141,6 +141,21 @@ object Prefs {
     /** 0 = Off, 1 = Dissolve, 2 = Push, 3 = Random. */
     val PHOTOS_TRANSITION = add(IntPref("photos_transition", 1, PrefGroup.DISPLAY, resettable = true))
 
+    // --- Books (the reader: Settings → Books, and Reader Settings in a book) ---
+    /** Page Colours: 0 = Follow System (the Classy theme), 1 = Light, 2 = Dark ([com.themoon.y1.controllers.books.ReaderSettings]). */
+    val READER_COLORS = add(IntPref("reader_colors", 0, PrefGroup.DISPLAY, resettable = true))
+    /** Index in ReaderSettings.FONT_SIZES. */
+    val READER_FONT_SIZE = add(IntPref("reader_font_size", 2, PrefGroup.DISPLAY, resettable = true))
+    /** Index in ReaderSettings.LINE_SPACINGS. */
+    val READER_LINE_SPACING = add(IntPref("reader_line_spacing", 1, PrefGroup.DISPLAY, resettable = true))
+    /** 0 = the theme font, 1 = Serif, 2 = Sans. */
+    val READER_FONT = add(IntPref("reader_font", 0, PrefGroup.DISPLAY, resettable = true))
+    /** 0 = the wheel turns pages, 1 = it moves the text a line. */
+    val READER_WHEEL_MODE = add(IntPref("reader_wheel_mode", 0, PrefGroup.DISPLAY, resettable = true))
+    /** Index in ReaderSettings.WHEEL_CLICKS: the wheel clicks of one page turn. */
+    val READER_WHEEL_CLICKS = add(IntPref("reader_wheel_clicks", 1, PrefGroup.DISPLAY, resettable = true))
+    val READER_KEEP_SCREEN_ON = add(BoolPref("reader_keep_screen_on", true, PrefGroup.DISPLAY, resettable = true))
+
     // --- Now Playing ---
     val SPECTRUM = add(BoolPref(NowPlayingSpectrum.PREF, false, PrefGroup.NOW_PLAYING, resettable = true))
     val TOTAL_TIME = add(BoolPref(NowPlayingTime.PREF_SHOW_TOTAL_TIME, false, PrefGroup.NOW_PLAYING, resettable = true))
@@ -206,6 +221,12 @@ object Prefs {
     val PHOTOS_HINT_SHOWN = add(BoolPref("photos_hint_shown", false, PrefGroup.STATE))
     val BOOK_POSITION = add(PrefFamily("book_pos_", PrefGroup.DATA))
     val BOOK_DURATION = add(PrefFamily("book_dur_", PrefGroup.DATA))
+    /** The reading place of an ebook: "ebook_pos_<path>" = "section:offset:permille" ([com.themoon.y1.books.SavedPosition]). */
+    val EBOOK_POSITION = add(PrefFamily("ebook_pos_", PrefGroup.DATA))
+    /** The bookmarks of an ebook: "ebook_marks_<path>" = a JSON list ([com.themoon.y1.books.Bookmark]). */
+    val EBOOK_MARKS = add(PrefFamily("ebook_marks_", PrefGroup.DATA))
+    /** The ebook that Books → Continue Reading opens. */
+    val LAST_BOOK = add(StringPref("last_read_book_path", "", PrefGroup.STATE, inBackup = false))
     val VIDEO_POSITION = add(PrefFamily("video_pos_", PrefGroup.DATA))
     val RATING = add(PrefFamily("rating_", PrefGroup.DATA))
     val META_TITLE = add(PrefFamily("meta_title_", PrefGroup.DATA))

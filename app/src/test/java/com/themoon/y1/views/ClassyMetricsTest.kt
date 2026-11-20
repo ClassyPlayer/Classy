@@ -31,6 +31,25 @@ class ClassyMetricsTest {
     }
 
     @Test
+    fun modeIconsSitWhereTheIpodDrawsThem() {
+        // iPod classic (320 x 240): shuffle x 268..287, repeat x 293..311, both from y 24 to y 37; times 1.5.
+        val m = ClassyMetrics
+        val repeatRight = 480 - m.MODE_ICON_RIGHT
+        val repeatLeft = repeatRight - m.MODE_ICON_SLOT
+        val shuffleRight = repeatLeft - m.MODE_ICON_GAP
+        val shuffleLeft = shuffleRight - m.MODE_ICON_SLOT
+        assertEquals(312 * 1.5, repeatRight + 0.0, 1.5)
+        assertEquals(293 * 1.5, repeatLeft + 0.0, 1.5)
+        assertEquals(288 * 1.5, shuffleRight + 0.0, 1.5)
+        assertEquals(268 * 1.5, shuffleLeft + 0.0, 1.5)
+        assertEquals(24 * 1.5, m.MODE_ICON_TOP + 0.0, 0.5)
+        assertEquals(38 * 1.5, m.MODE_ICON_TOP + m.MODE_ICON_HEIGHT + 0.0, 1.5)
+        // Below the status bar and its rule, and above the song title (they sit right of the art, beside its top)
+        assertTrue(m.MODE_ICON_TOP > m.STATUS_BAR_HEIGHT)
+        assertTrue(m.MODE_ICON_TOP + m.MODE_ICON_HEIGHT < m.NP_TITLE_BASELINE - m.NP_TITLE_SP)
+    }
+
+    @Test
     fun statusItemsShareOneBox() {
         // Play/pause: rows 7..20 of the 30 px bar, the rows of the capitals; centre line y = 14.
         // Battery: 1 px more above and below (rows 6..21), the same centre line.

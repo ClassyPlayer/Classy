@@ -265,6 +265,17 @@ class StoragePathsParityTest {
     }
 
     @Test
+    fun podcastChannelDir_staysDirectlyInPodcasts() {
+        val podcasts = StoragePaths.getPodcastsDir()
+        for (name in listOf("The WAN Show", "", ".", "..", "...", ".hidden")) {
+            val dir = StoragePaths.getPodcastChannelDir(name)
+            assertEquals(name, podcasts.canonicalFile, dir.canonicalFile.parentFile)
+        }
+        assertEquals("The WAN Show", StoragePaths.getPodcastChannelDir("The WAN Show").name)
+        assertEquals("__", StoragePaths.getPodcastChannelDir("..").name)
+    }
+
+    @Test
     fun isAudiobooksRoot_stringAndFile() {
         assertFalse(StoragePaths.isAudiobooksRoot(null as String?))
         assertFalse(StoragePaths.isAudiobooksRoot(null as File?))

@@ -12,7 +12,7 @@
 #                  unset, the tags come from git (after a fetch from origin). Set but empty means no tags.
 #                  A tag given by hand must not have the date and number of an existing tag.
 #
-# Prints key=value lines: tag_name, version_name, version_code, release_name, apk_name, channel.
+# Prints key=value lines: tag_name, version_name, version_code, release_name, apk_name, apk_name_y1, channel.
 #
 # Tag scheme (the app compares versions by date, then by the first number in the suffix):
 #   first build of a day:   20261114 (stable)     20261114-beta (beta)
@@ -151,5 +151,7 @@ echo "tag_name=${TAG_NAME}"
 echo "version_name=${TAG_NAME}"
 echo "version_code=$(version_code_of_tag "$TAG_NAME")"
 echo "release_name=$(release_name_of_tag "$TAG_NAME")"
+# Y2 build (minSdk 19) under the name it always had; the Y1 build (minSdk 17) with -y1
 echo "apk_name=Classy-${TAG_NAME}.apk"
+echo "apk_name_y1=Classy-${TAG_NAME}-y1.apk"
 echo "channel=${CHANNEL}"

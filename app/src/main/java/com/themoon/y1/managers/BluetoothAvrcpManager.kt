@@ -64,9 +64,8 @@ class BluetoothAvrcpManager private constructor(private val context: Context) {
                     android.media.RemoteControlClient.FLAG_KEY_MEDIA_NEXT or
                     android.media.RemoteControlClient.FLAG_KEY_MEDIA_PREVIOUS
             )
-            rcc.setOnGetPlaybackPositionListener {
-                AudioPlayerManager.getInstance().getCurrentPosition().toLong()
-            }
+            // API 18. Before it (Y1, Android 4.2) the car gets the play state without the position.
+            if (android.os.Build.VERSION.SDK_INT >= 18) Api18.setPositionListener(rcc)
             audioManager.registerRemoteControlClient(rcc)
             remoteControlClient = rcc
         } catch (e: Exception) {
@@ -221,9 +220,30 @@ class BluetoothAvrcpManager private constructor(private val context: Context) {
         val hasTrack = player.getDuration() > 0 || lastTrack != null
         val state = AvrcpMetadataLogic.playState(hasTrack, isPlaying)
         try {
-            rcc.setPlaybackState(state, player.getCurrentPosition().toLong(), if (isPlaying) 1.0f else 0f)
+            if (android.os.Build.VERSION.SDK_INT >= 18) {
+                Api18.setPlaybackState(rcc, state, player.getCurrentPosition().toLong(), if (isPlaying) 1.0f else 0f)
+            } else {
+                rcc.setPlaybackState(state)
+            }
         } catch (e: Exception) {
             android.util.Log.w(TAG, "Play state update failed", e)
+        }
+    }
+
+    /**
+     * The RemoteControlClient calls of API 18, in a class of their own: Android 4.2 then loads and checks
+     * this manager without the API 18 listener interface.
+     */
+    @android.annotation.TargetApi(18)
+    private object Api18 {
+        fun setPositionListener(rcc: android.media.RemoteControlClient) {
+            rcc.setOnGetPlaybackPositionListener {
+                AudioPlayerManager.getInstance().getCurrentPosition().toLong()
+            }
+        }
+
+        fun setPlaybackState(rcc: android.media.RemoteControlClient, state: Int, positionMs: Long, speed: Float) {
+            rcc.setPlaybackState(state, positionMs, speed)
         }
     }
 

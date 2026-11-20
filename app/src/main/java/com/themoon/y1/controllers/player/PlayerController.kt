@@ -5,13 +5,16 @@ import com.themoon.y1.Prefs
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.drawable.BitmapDrawable
+import android.graphics.drawable.GradientDrawable
 import android.graphics.Typeface
 import android.os.Handler
 import android.os.Looper
 import android.util.LruCache
+import android.view.Gravity
 import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.ViewTreeObserver
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -28,7 +31,9 @@ import com.themoon.y1.models.SongItem
 import com.themoon.y1.navigation.ScreenState
 import androidx.palette.graphics.Palette
 import com.themoon.y1.views.AudioVisualizerView
+import com.themoon.y1.views.ClassySpinnerView
 import com.themoon.y1.views.SpectrumColors
+import com.themoon.y1.views.TablerIcons
 import java.io.File
 
 /**
@@ -70,6 +75,26 @@ class PlayerController(
     private val frameAlbumArt: FrameLayout? = rootView.findViewById(R.id.frame_album_art)
     private val frameAlbumReflection: FrameLayout? = rootView.findViewById(R.id.frame_album_reflection)
     private val ivPauseOverlay: ImageView? = rootView.findViewById(R.id.iv_pause_overlay)
+    // A podcast stream that waits for data: the iPod spinner on a dark rounded square over the art. Spectrum and
+    // Lyrics hide the art: then the same spinner shows on Now Playing, over the middle of the art column.
+    private var placeWaitsForLayout = false
+    private val streamLoadingOnArt: View? =frameAlbumArt?.let { newStreamLoadingView(it) }
+    private val streamLoadingCentred: View? = (rootView.findViewById<View>(R.id.layout_player_mode) as? FrameLayout)
+        ?.let { newStreamLoadingView(it) }
+
+    private fun newStreamLoadingView(parent: FrameLayout): View {
+        val d = activity.resources.displayMetrics.density
+        val spinner = ClassySpinnerView(activity).apply { color = Color.WHITE }
+        return FrameLayout(activity).apply {
+            visibility = View.GONE
+            background = GradientDrawable().apply {
+                setColor(0xA0000000.toInt())
+                cornerRadius = 12 * d
+            }
+            addView(spinner, FrameLayout.LayoutParams((40 * d).toInt(), (40 * d).toInt(), Gravity.CENTER))
+            parent.addView(this, FrameLayout.LayoutParams((72 * d).toInt(), (72 * d).toInt(), Gravity.CENTER))
+        }
+    }
     private val visualizerView = AudioVisualizerView(activity).apply { visibility = View.GONE }
     private var visualizerApplied = false
     // Spectrum colour: main colour of the cover (Palette), cached per track path
@@ -93,6 +118,10 @@ class PlayerController(
     private val rowPlayerShuffleRepeat: LinearLayout? = rootView.findViewById(R.id.row_player_shuffle_repeat)
     private val tvScrubShuffleValue: TextView? = rootView.findViewById(R.id.tv_scrub_shuffle_value)
     private val tvScrubRepeatValue: TextView? = rootView.findViewById(R.id.tv_scrub_repeat_value)
+    private val ivScrubShuffleIcon: ImageView? = rootView.findViewById(R.id.iv_scrub_shuffle_icon)
+    private val ivScrubRepeatIcon: ImageView? = rootView.findViewById(R.id.iv_scrub_repeat_icon)
+    // The same Tabler glyphs as the shuffle/repeat state icons under the status bar
+    private val scrubGlyphs = HashMap<Array<String>, Bitmap>()
 
     private val rowPlayerRatingScrub: LinearLayout? = rootView.findViewById(R.id.row_player_rating_scrub)
     private val tvScrubStars = arrayOfNulls<TextView>(5)
@@ -280,7 +309,11 @@ class PlayerController(
             playerProgress.progress = 0
         }
 
-        if (am.isPlaying()) {
+        val streamLoading = refreshStreamLoading()
+        if (streamLoading) {
+            ivAlbumArt.alpha = 1.0f
+            ivPauseOverlay?.visibility = View.GONE
+        } else if (am.isPlaying()) {
             ivAlbumArt.alpha = 1.0f
             ivPauseOverlay?.visibility = View.GONE
             // The progress loop stops while paused, so restart it on resume or a delayed start
@@ -295,6 +328,45 @@ class PlayerController(
         }
 
         updateShuffleRepeatStatusIcons()
+    }
+
+    /** Shows the stream spinner on the art, or in the centre when Spectrum or Lyrics hide the art. */
+    private fun refreshStreamLoading(): Boolean {
+        val streamLoading = AudioPlayerManager.getInstance().isStreamLoading()
+        val artShows = frameAlbumArt?.visibility == View.VISIBLE
+        streamLoadingOnArt?.visibility = if (streamLoading && artShows) View.VISIBLE else View.GONE
+        streamLoadingCentred?.let { v ->
+            v.visibility = if (streamLoading && !artShows) View.VISIBLE else View.GONE
+            if (v.visibility == View.VISIBLE) v.post { placeOnArtColumn(v) }
+        }
+        return streamLoading
+    }
+
+    /** Moves [v] (centred on Now Playing) to the middle of the column of the art, where Spectrum shows. */
+    private fun placeOnArtColumn(v: View) {
+        val column = frameAlbumArt?.parent as? View ?: return
+        val host = v.parent as? View ?: return
+        if (column.width == 0 || host.width == 0) {
+            // Now Playing is not laid out yet: place it on the first layout pass that gives both a size
+            if (!placeWaitsForLayout) {
+                placeWaitsForLayout = true
+                host.viewTreeObserver.addOnGlobalLayoutListener(object : ViewTreeObserver.OnGlobalLayoutListener {
+                    override fun onGlobalLayout() {
+                        if (column.width == 0 || host.width == 0) return
+                        host.viewTreeObserver.removeGlobalOnLayoutListener(this)
+                        placeWaitsForLayout = false
+                        if (v.visibility == View.VISIBLE) placeOnArtColumn(v)
+                    }
+                })
+            }
+            return
+        }
+        val c = IntArray(2)
+        val h = IntArray(2)
+        column.getLocationInWindow(c)
+        host.getLocationInWindow(h)
+        v.translationX = (c[0] - h[0] + column.width / 2f) - host.width / 2f
+        v.translationY = (c[1] - h[1] + column.height / 2f) - host.height / 2f
     }
 
     /** The lyrics of the new track are in place: an open Lyrics view shows them, or closes if the track has none. */
@@ -471,6 +543,15 @@ class PlayerController(
 
         tvScrubShuffleValue?.text = "${localize("Shuffle")}: ${if (isShuffle) localize("Songs") else localize("Off")}"
         tvScrubRepeatValue?.text = "${localize("Repeat")}: $repeatText"
+        setScrubGlyph(ivScrubShuffleIcon, TablerIcons.SHUFFLE)
+        setScrubGlyph(ivScrubRepeatIcon, if (repeatMode == 1) TablerIcons.REPEAT_ONCE else TablerIcons.REPEAT)
+    }
+
+    private fun setScrubGlyph(iv: ImageView?, glyph: Array<String>) {
+        if (iv == null || iv.getTag(R.id.iv_scrub_repeat_icon) === glyph) return
+        val size = iv.layoutParams?.height?.takeIf { it > 0 } ?: return
+        iv.setImageBitmap(scrubGlyphs.getOrPut(glyph) { TablerIcons.render(glyph, size, SCRUB_GLYPH_COLOR) })
+        iv.setTag(R.id.iv_scrub_repeat_icon, glyph)
     }
 
     private fun updateRatingScrubStars() {
@@ -591,6 +672,7 @@ class PlayerController(
         }
         visualizerView.visibility = if (showSpectrum) View.VISIBLE else View.GONE
         visualizerApplied = isOn
+        refreshStreamLoading()
         refreshVisualizerCapture()
     }
 
@@ -785,6 +867,9 @@ class PlayerController(
 
     companion object {
         const val LYRICS_STATE = 4
+
+        /** The blue of the shuffle/repeat toggle row (its labels in activity_main.xml). */
+        private const val SCRUB_GLYPH_COLOR = 0xFF6194D1.toInt()
 
         /** The volume row, for a moment over any bottom state ([showVolume]); never a value of nowPlayingBottomState. */
         const val VOLUME_STATE = -1

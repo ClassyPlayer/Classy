@@ -10,26 +10,45 @@ import javax.net.ssl.TrustManagerFactory
 import javax.net.ssl.X509TrustManager
 
 /**
- * The certificate check of the podcast client: the root certificates of Android, then the Let's Encrypt roots in
- * `assets/certs`. Android 4.4 does not have ISRG Root X1 (2015) and X2 (2020), and many podcast hosts use Let's Encrypt.
+ * The certificate check of the podcast client: the root certificates of Android, then the Mozilla roots in
+ * `assets/certs`. The roots of Android 4.4 are from 2013: it has no ISRG Root X1/X2 (Let's Encrypt) and no USERTrust
+ * ECC, the root of the Sectigo ECC certificates (megaphone.fm, the host of many podcasts, #102).
  */
 object PodcastTrust {
 
     private const val TAG = "PodcastTrust"
 
-    /** The bundled roots, from https://letsencrypt.org/certificates/ (SHA-256 fingerprints in the PR, #102). */
-    val ROOT_ASSETS = listOf("certs/isrg-root-x1.pem", "certs/isrg-root-x2.pem")
+    /**
+     * The bundled roots: Mozilla's list of roots for TLS servers, as curl publishes it (https://curl.se/ca/cacert.pem,
+     * MPL-2.0, the date is in the file header). Update it by downloading the file again and checking its `.sha256`.
+     */
+    val ROOT_ASSETS = listOf("certs/mozilla-roots.pem")
 
-    /** The certificates in [pems]. A file that does not load is skipped, so the other roots still work. */
+    /** One certificate. A block with no END stops at the next BEGIN, so it does not take the next certificate with it. */
+    private val PEM_BLOCK =
+        Regex("-----BEGIN CERTIFICATE-----(?:(?!-----BEGIN CERTIFICATE-----)[\\s\\S])*?-----END CERTIFICATE-----")
+
+    /**
+     * The certificates in [pems], each file holding one or more PEM blocks. A file or a certificate that does not load
+     * is skipped, so the other roots still work.
+     */
     fun loadCertificates(pems: List<() -> InputStream>): List<X509Certificate> {
         val factory = CertificateFactory.getInstance("X.509")
-        return pems.mapNotNull { open ->
-            try {
-                open().use { factory.generateCertificate(it) as X509Certificate }
+        return pems.flatMap { open ->
+            val text = try {
+                open().use { it.reader(Charsets.US_ASCII).readText() }
             } catch (e: Exception) {
-                Log.w(TAG, "Root certificate not loaded: $e")
-                null
+                Log.w(TAG, "Root certificate file not loaded: $e")
+                return@flatMap emptyList()
             }
+            PEM_BLOCK.findAll(text).mapNotNull { block ->
+                try {
+                    factory.generateCertificate(block.value.byteInputStream(Charsets.US_ASCII)) as X509Certificate
+                } catch (e: Exception) {
+                    Log.w(TAG, "Root certificate not loaded: $e")
+                    null
+                }
+            }.toList()
         }
     }
 

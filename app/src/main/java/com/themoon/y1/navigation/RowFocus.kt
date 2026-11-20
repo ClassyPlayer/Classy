@@ -73,7 +73,22 @@ object RowFocus {
         if (list is ListView && ListEdges.focusRow(list, position)) return
         val first = list.firstVisiblePosition
         val row = if (position in first..list.lastVisiblePosition) list.getChildAt(position - first) else null
-        if (row?.requestFocus() == true) return
+        if (row?.requestFocus() == true) {
+            // Android 4.2 does not scroll a ListView to a row that only got the focus: with List Edges = Cut
+            // a step down stopped at the row that was half on the screen. Fade mode scrolls in ListEdges.revealRow.
+            // Android 4.4 (Y2) scrolls by itself: keep its behaviour.
+            // A ListView-typed call: on the smart-cast list the call goes to AbsListView.setSelectionFromTop (API 21)
+            val listView: ListView? = list as? ListView
+            if (android.os.Build.VERSION.SDK_INT < 19 && listView != null) {
+                val delta = ListEdges.revealDelta(row.top, row.bottom, list.paddingTop, list.height - list.paddingBottom, 0, false, false)
+                // Also when nothing has to scroll: the selection must follow the focus, or the next layout puts the
+                // focus back on the old selected row and the wheel step down stays on the same row (as in ListEdges.revealRow).
+                if (delta != 0 || position != listView.selectedItemPosition) {
+                    listView.setSelectionFromTop(position, row.top - delta - list.paddingTop)
+                }
+            }
+            return
+        }
         list.setSelection(position)
         // The row view exists after the next layout
         list.post { list.getChildAt(position - list.firstVisiblePosition)?.requestFocus() }

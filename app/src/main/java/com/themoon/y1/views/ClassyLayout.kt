@@ -379,6 +379,12 @@ object ClassyLayout {
         }
     }
 
+    internal fun setMinWidth(tv: TextView, width: Int) {
+        val old = tv.minWidth
+        record(tv, "minWidth") { (it as TextView).minWidth = old }
+        if (tv.minWidth != width) tv.minWidth = width
+    }
+
     internal fun setWeight(v: View, weight: Float) {
         val lp = v.layoutParams as? LinearLayout.LayoutParams ?: return
         val old = lp.weight
