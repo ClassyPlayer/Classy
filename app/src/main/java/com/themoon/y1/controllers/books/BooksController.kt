@@ -41,6 +41,7 @@ import com.themoon.y1.navigation.BooksLevel
 import com.themoon.y1.navigation.InputRouter
 import com.themoon.y1.navigation.NavigationManager
 import com.themoon.y1.navigation.ScreenState
+import com.themoon.y1.navigation.WheelKind
 import com.themoon.y1.navigation.isFolderLevel
 import com.themoon.y1.views.ClassicMenuStyle
 import com.themoon.y1.views.EdgeFadeListView
@@ -159,6 +160,10 @@ class BooksController(
     }
 
     override fun onWheel(delta: Int, event: KeyEvent): Boolean = screen.wheel(delta, event.eventTime)
+
+    override fun wheelKind(): WheelKind = screen.wheelKind
+
+    override fun onWheelTouch(isTouching: Boolean, timeMs: Long) = screen.wheelTouch(isTouching, timeMs)
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean = screen.key(event)
 

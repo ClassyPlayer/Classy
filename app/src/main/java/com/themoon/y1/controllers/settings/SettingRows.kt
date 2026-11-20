@@ -56,14 +56,15 @@ class SettingRows(
      */
     fun cycle(
         label: String, pref: IntPref, values: Array<String>, valid: (Int) -> Int = { if (it in values.indices) it else 0 },
-        enabled: () -> Boolean = { true }, feedbackAfter: Boolean = false, onChange: (Int) -> Unit = {}
-    ): SettingRow = cycle(label, { valid(pref.get(prefs)) }, { pref.set(prefs, it) }, values, enabled, feedbackAfter, onChange)
+        enabled: () -> Boolean = { true }, feedbackAfter: Boolean = false, visible: () -> Boolean = { true },
+        onChange: (Int) -> Unit = {}
+    ): SettingRow = cycle(label, { valid(pref.get(prefs)) }, { pref.set(prefs, it) }, values, enabled, feedbackAfter, visible, onChange)
 
     /** A cycle row for a value that is not a pref of its own. [get] gives an index in [values]. */
     fun cycle(
         label: String, get: () -> Int, set: (Int) -> Unit, values: Array<String>, enabled: () -> Boolean = { true },
-        feedbackAfter: Boolean = false, onChange: (Int) -> Unit = {}
-    ): SettingRow = SettingRow(label) {
+        feedbackAfter: Boolean = false, visible: () -> Boolean = { true }, onChange: (Int) -> Unit = {}
+    ): SettingRow = SettingRow(label, visible) {
         RowSpec(localize(label), RowLook.VALUE, value = localize(values[get()]), enabled = enabled(),
             feedbackAfter = feedbackAfter, onClick = {
                 val next = (get() + 1) % values.size

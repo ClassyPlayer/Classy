@@ -17,9 +17,12 @@ import com.themoon.y1.views.ListEdges
  */
 object RowFocus {
 
-    /** Settings → Controls → Wheel Loop Scroll (default On). */
+    /**
+     * Settings → Controls → Wheel Loop Scroll (default On). With the Y2 pad wheel, a turn stops at the list end
+     * ([PadWheel.stepMayWrap]).
+     */
     fun isLoopOn(context: Context): Boolean =
-        Prefs.LOOP_SCROLL.get(AppPrefs.get(context))
+        Prefs.LOOP_SCROLL.get(AppPrefs.get(context)) && PadWheel.stepMayWrap
 
     /** Settings → Controls → Letter Jump (default On) and Letter Jump Sensitivity; null when Letter Jump is Off. */
     fun letterJumpSensitivity(context: Context): LetterJump.Sensitivity? {

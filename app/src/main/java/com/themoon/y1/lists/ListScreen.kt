@@ -13,6 +13,8 @@ import android.widget.ScrollView
 import android.widget.TextView
 import com.themoon.y1.ThemeManager
 import com.themoon.y1.navigation.LetterJump
+import com.themoon.y1.navigation.PadWheel
+import com.themoon.y1.navigation.WheelKind
 import com.themoon.y1.navigation.RowFocus
 import com.themoon.y1.views.ListItemViewFactory
 
@@ -53,6 +55,9 @@ class ListScreen(
     // Letter Jump and its Sensitivity are read at each step: a change in Settings applies at once
     private val letterMode = LetterJump.Mode { RowFocus.letterJumpSensitivity(context) }
     private val letterIdle = Runnable { endLetters() }
+
+    /** [WheelKind.LETTERS] in letter mode, else [WheelKind.LIST]. */
+    val wheelKind: WheelKind get() = if (letterMode.isActive) WheelKind.LETTERS else WheelKind.LIST
     private var letters: List<String?>? = null
     private var lettersOf: ListSpec? = null
 
@@ -131,6 +136,7 @@ class ListScreen(
      */
     fun wheel(delta: Int, timeMs: Long = SystemClock.uptimeMillis()): Boolean {
         val s = spec ?: return false
+        if (letterMode.isIdle(timeMs)) endLetters() // the end timer did not run yet
         if (s.letters && letterStep(s, delta, timeMs)) return true
         val moved = if (s.isLong) list?.let { stepLong(s, it, delta) } else RowFocus.step(rows, delta)
         if (moved != null) clickFeedback()
@@ -195,11 +201,10 @@ class ListScreen(
      * returns true. Else false: the wheel steps one row.
      */
     private fun letterStep(s: ListSpec, delta: Int, timeMs: Long): Boolean {
-        if (letterMode.isIdle(timeMs)) endLetters() // the idle timer did not run yet
         // In letter mode the jump goes on from the letter row: its view (and the focus) can still be on the way
         val from = if (letterMode.isActive) letterMode.row else selectedIndex(s).takeIf { it >= 0 } ?: longIndex
         if (from < 0) return false
-        val step = letterMode.onStep(delta, timeMs, from) {
+        val step = letterMode.onStep(delta, timeMs, from, PadWheel.stepSpeed) {
             if (lettersOf !== s) {
                 letters = LetterJump.lettersFor(rowTexts(s))
                 lettersOf = s
@@ -218,9 +223,20 @@ class ListScreen(
             clickFeedback()
         }
         jumpLetter?.let { letterBox?.show(it) }
-        rows.removeCallbacks(letterIdle)
-        rows.postDelayed(letterIdle, LetterJump.IDLE_END_MS)
+        scheduleLetterEnd(timeMs)
         return true
+    }
+
+    /** The pad wheel: the thumb touched or lifted at [timeMs] ([com.themoon.y1.controllers.ScreenController.onWheelTouch]). */
+    fun wheelTouch(isTouching: Boolean, timeMs: Long) {
+        if (!letterMode.isActive) return
+        letterMode.onTouch(isTouching, timeMs)
+        scheduleLetterEnd(timeMs)
+    }
+
+    private fun scheduleLetterEnd(nowMs: Long) {
+        rows.removeCallbacks(letterIdle)
+        rows.postDelayed(letterIdle, (letterMode.endMs() - nowMs).coerceAtLeast(0L))
     }
 
     private fun rowTexts(s: ListSpec): List<String?> {

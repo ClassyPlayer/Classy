@@ -29,6 +29,7 @@ import com.themoon.y1.core.TimeFormat
 import com.themoon.y1.managers.AudioPlayerManager
 import com.themoon.y1.models.SongItem
 import com.themoon.y1.navigation.ScreenState
+import com.themoon.y1.navigation.WheelKind
 import androidx.palette.graphics.Palette
 import com.themoon.y1.views.AudioVisualizerView
 import com.themoon.y1.views.ClassySpinnerView
@@ -752,6 +753,9 @@ class PlayerController(
     private fun formatTime(ms: Int): String {
         return TimeFormat.format(ms)
     }
+
+    // The wheel moves volume (or the time while it seeks)
+    override fun wheelKind(): WheelKind = WheelKind.VALUE
 
     override fun onWheel(delta: Int, event: KeyEvent): Boolean {
         handleNowPlayingWheelInput(delta > 0)

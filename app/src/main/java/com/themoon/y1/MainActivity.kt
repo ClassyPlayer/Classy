@@ -402,6 +402,8 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
         vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
         // The app may have died during a game: the wheel then still reports pads, and no list would scroll
         com.themoon.y1.games.WheelSensor.resetTestMode()
+        // The Y2 wheel from its touch pads (Settings → Controls → Wheel Mode)
+        com.themoon.y1.navigation.PadWheel.attach(this)
 
         window.setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN)
         setContentView(R.layout.activity_main)
@@ -770,6 +772,8 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     }
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        // The wheel's own step keys while the pad wheel reads the pads
+        if (com.themoon.y1.navigation.PadWheel.filterKey(event)) return true
         // A key during a menu slide ends the slide at once, then acts on the new screen as normal. Not the repeats of
         // a held key: a held centre opens a screen (Now Playing menu, Add to Playlist), and its repeats must not stop
         // the slide of that screen.
@@ -1527,6 +1531,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
                 }
                 Intent.ACTION_SCREEN_ON -> {
                     isScreenSleeping = false
+                    com.themoon.y1.navigation.PadWheel.onScreenOn()
                     powerBacklightManager?.resetTimer()
                     updateScreenOffFeedback(true)
                     updateStatusBarClock()
@@ -1604,6 +1609,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     }
 
     override fun onDestroy() {
+        com.themoon.y1.navigation.PadWheel.detach(this)
         com.themoon.y1.battery.BatteryGuard.removeListener(batteryGuardListener)
         menuSlide?.let { NavigationManager.getInstance().removeDirectionListener(it) }
         // The overlays of this window: an object must not keep the closed activity

@@ -13,6 +13,7 @@ import com.themoon.y1.controllers.ScreenController
 import com.themoon.y1.navigation.LetterJump
 import com.themoon.y1.navigation.RowFocus
 import com.themoon.y1.navigation.ScreenState
+import com.themoon.y1.navigation.WheelKind
 
 /**
  * Controller for Display Brightness screen:
@@ -40,6 +41,8 @@ class BrightnessController(
     override fun onRefreshUI() {
         loadBrightnessUI()
     }
+
+    override fun wheelKind(): WheelKind = WheelKind.VALUE
 
     override fun onWheel(delta: Int, event: KeyEvent): Boolean {
         val fast = wheelSpeed.onStep(delta, event.eventTime, RowFocus.letterJumpSensitivity(activity))

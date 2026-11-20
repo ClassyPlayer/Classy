@@ -44,6 +44,7 @@ import com.themoon.y1.lists.RowSpec
 import com.themoon.y1.models.AlbumKey
 import com.themoon.y1.navigation.LetterJump
 import com.themoon.y1.navigation.NavigationManager
+import com.themoon.y1.navigation.PadWheel
 import com.themoon.y1.navigation.ScreenState
 import com.themoon.y1.navigation.SettingsSubMode
 import com.themoon.y1.sync.jellyfin.JellyfinSyncProvider
@@ -222,6 +223,9 @@ class SettingsController(
             // Grey, and the wheel skips it, while Button Vibration is off
             cycle("Vibration Strength", Prefs.VIBRATE_STRENGTH, VIBE_STRENGTH_NAMES, { if (it in VIBE_STRENGTH_NAMES.indices) it else 1 },
                 enabled = { Prefs.VIBRATE.get(prefs) }, feedbackAfter = true),
+            // The Y2 wheel from its touch pads: Classic = its step keys, Smooth = 10 rows a turn, Quick = 15 (PadWheel)
+            cycle("Wheel Mode", Prefs.WHEEL_MODE, PadWheel.MODE_LABELS, { if (it in PadWheel.MODE_LABELS.indices) it else PadWheel.DEFAULT_MODE },
+                visible = { PadWheel.isSupported() }),
             toggle("Wheel Loop Scroll", Prefs.LOOP_SCROLL),
             // The iPod letter jump: a fast wheel turn in an A–Z list or Cover Flow goes letter by letter (LetterJump)
             toggle("Letter Jump", Prefs.LETTER_JUMP),

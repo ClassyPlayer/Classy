@@ -26,8 +26,10 @@ import com.themoon.y1.controllers.ScreenController
 import com.themoon.y1.managers.AlbumCoverManager
 import com.themoon.y1.models.SongItem
 import com.themoon.y1.navigation.NavigationManager
+import com.themoon.y1.navigation.PadWheel
 import com.themoon.y1.navigation.RowFocus
 import com.themoon.y1.navigation.ScreenState
+import com.themoon.y1.navigation.WheelKind
 import com.themoon.y1.views.CoverFlowLayout
 import com.themoon.y1.views.SmoothEdgeImageView
 
@@ -627,6 +629,10 @@ class CoverFlowController(
         return true
     }
 
+    override fun wheelKind(): WheelKind = if (letterJump.isActive) WheelKind.LETTERS else WheelKind.VALUE
+
+    override fun onWheelTouch(isTouching: Boolean, timeMs: Long) = letterJump.onTouch(isTouching, timeMs)
+
     private fun handleCoverFlowWheelInput(keyCode: Int, event: KeyEvent) {
         val dir = if (keyCode == 22) 1 else -1
         val eventTime = event.eventTime
@@ -650,7 +656,7 @@ class CoverFlowController(
 
         val lag = now - eventTime
         lastCoverFlowWheelTime = now
-        if (letterJump.onStep(dir, eventTime, currentCoverFlowIndex)) return
+        if (letterJump.onStep(dir, eventTime, currentCoverFlowIndex, PadWheel.stepSpeed)) return
         if (cfViews != null && uniqueAlbumList.isNotEmpty()) {
             // Only the target changes; the next frame moves the cards (also for many steps before it).
             motion.step(dir, eventTime)
