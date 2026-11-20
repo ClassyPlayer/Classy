@@ -49,6 +49,8 @@ class InputRouter private constructor() {
     private var seekStartMs = 0L
     private var lastSeekTickMs = 0L
     private var lastSkipRepeatMs = 0L
+    /** The Back press in progress woke the screen from the fake screen off. */
+    private var backWokeScreen = false
     private val seekHandler = Handler(Looper.getMainLooper())
     private val seekTickRunnable = object : Runnable {
         override fun run() {
@@ -192,6 +194,8 @@ class InputRouter private constructor() {
         // Wake from fake screen off
         if (isFakeScreenOff) {
             if (action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
+                // A Back that wakes the screen is no Back hold: its first key repeat must not open Now Playing
+                backWokeScreen = isBackKey(keyCode)
                 onWakeFromFakeScreenOff.run()
             }
             return true
@@ -263,7 +267,8 @@ class InputRouter private constructor() {
             if (!isBackSuppressed && now >= backDebounceUntil) backPress.onPress(event.repeatCount)
             // Held (the first key repeat): to Now Playing, when Settings > Controls > Hold Back for Now Playing is On
             val main = MainActivity.instance
-            if (event.repeatCount == 1 && main != null && main.currentScreenState != MainActivity.STATE_PLAYER &&
+            if (event.repeatCount == 0) backWokeScreen = false
+            if (event.repeatCount == 1 && !backWokeScreen && main != null && main.currentScreenState != MainActivity.STATE_PLAYER &&
                 Prefs.BACK_HOLD_NOW_PLAYING.get(main.prefs)
             ) {
                 suppressBackUntilRelease()
