@@ -8,8 +8,6 @@
     TextViews made in code need resource ids.
 -->
 <resources>
-    <item name="coverflow_title" type="id" />
-    <item name="coverflow_artist" type="id" />
     <item name="wifi_power_row" type="id" />
 
     <!-- Main menu rows, in order. A menu with more rows uses View.generateViewId() for the rest. -->
