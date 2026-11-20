@@ -1559,8 +1559,8 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     class MediaBtnReceiver : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             val event = intent.getParcelableExtra<KeyEvent>(Intent.EXTRA_KEY_EVENT) ?: return
-            val isSkip = event.keyCode == KeyEvent.KEYCODE_MEDIA_NEXT || event.keyCode == 87 ||
-                event.keyCode == KeyEvent.KEYCODE_MEDIA_PREVIOUS || event.keyCode == 88
+            val router = com.themoon.y1.navigation.InputRouter.getInstance()
+            val isSkip = router.isSkipKey(event.keyCode)
 
             val pm = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
             val isScreenOn = if (Build.VERSION.SDK_INT >= 20) {
@@ -1582,15 +1582,9 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
                 if (!keys.actsWithScreenOff(event.keyCode, device, isScreenOffCtrl)) {
                     return
                 }
-                if (isSkip) {
-                    // Android sends the press, one long-press ~0.5 s later (no repeats), then the release:
-                    // a hold seeks until the release, a short press skips on the release (as with the screen on)
-                    val router = com.themoon.y1.navigation.InputRouter.getInstance()
-                    if (event.action == KeyEvent.ACTION_DOWN) {
-                        router.onSkipKeyDown(event.keyCode, event.repeatCount, event.eventTime, keyUpReliable = true)
-                    } else if (event.action == KeyEvent.ACTION_UP) {
-                        router.onSkipKeyUp(event.keyCode, event.eventTime - event.downTime)
-                    }
+                // The radio keeps its own Next/Previous (skip on the press), below
+                if (isSkip && !com.themoon.y1.managers.AudioSources.app.radioHasButtons) {
+                    router.onScreenOffSkipKey(event)
                     return
                 }
             }
