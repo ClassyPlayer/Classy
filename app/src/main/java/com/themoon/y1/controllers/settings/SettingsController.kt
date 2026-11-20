@@ -521,7 +521,7 @@ class SettingsController(
     private fun buildPowerUI(wifi: Boolean, bt: Boolean) {
         val radios = listOf(
             ActionScreens.Action(localize("Wi-Fi"), closes = false, value = onOff(wifi, localize)) {
-                radioRequested(RadioSwitch.toggleWifi(activity)) { buildPowerUI(!wifi, bt) }
+                radioRequested(RadioSwitch.setWifi(activity, !wifi)) { buildPowerUI(!wifi, bt) }
             },
             ActionScreens.Action(localize("Bluetooth"), closes = false, value = onOff(bt, localize)) {
                 // enable() comes later: when it is refused, the switch goes back to what the radio is

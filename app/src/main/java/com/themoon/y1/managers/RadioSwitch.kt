@@ -12,9 +12,10 @@ object RadioSwitch {
     /** What Android did with a request: [DONE] (the switch shows the new state), [BUSY] (a start is under way), [FAILED]. */
     enum class Request { DONE, BUSY, FAILED }
 
-    fun toggleWifi(c: Context): Request {
+    /** [on]: the state the row shows after the press. Android reports "off" while Wi-Fi is still starting, so it is not read again. */
+    fun setWifi(c: Context, on: Boolean): Request {
         val wm = c.applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager ?: return Request.FAILED
-        return if (wm.setWifiEnabled(!wm.isWifiEnabled)) Request.DONE else Request.FAILED
+        return if (wm.setWifiEnabled(on)) Request.DONE else Request.FAILED
     }
 
     fun bluetoothOn(): Boolean = BluetoothAdapter.getDefaultAdapter()?.isEnabled == true
@@ -28,7 +29,10 @@ object RadioSwitch {
     fun toggleBluetooth(runOnUi: (Runnable) -> Unit, onFailed: () -> Unit): Request {
         val ba = BluetoothAdapter.getDefaultAdapter() ?: return Request.FAILED
         if (ba.isEnabled) return if (ba.disable()) Request.DONE else Request.FAILED
-        if (bluetoothStarting) return Request.BUSY
+        // While Bluetooth starts or stops isEnabled is false: a press then waits, it does not start it again
+        if (bluetoothStarting || ba.state == BluetoothAdapter.STATE_TURNING_ON || ba.state == BluetoothAdapter.STATE_TURNING_OFF) {
+            return Request.BUSY
+        }
         bluetoothStarting = true
         // The Y2 Bluetooth service must run first, else enable() does nothing
         Thread {
