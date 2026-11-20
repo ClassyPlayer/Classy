@@ -298,6 +298,8 @@ class MediaLibraryManager private constructor() {
                     al = mmr.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_ALBUM)
                     trackStr = mmr.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_CD_TRACK_NUMBER)
                     y = mmr.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DATE)
+                    // v2.3 tags (TYER) come as YEAR, not DATE; on the Y2 a v2.4 tag (TDRC) gives neither
+                    if (y.isNullOrBlank()) y = mmr.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_YEAR)
                     g = mmr.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_GENRE)
                     aa = mmr.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_ALBUMARTIST)
                     cp = mmr.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_COMPOSER)
@@ -308,6 +310,8 @@ class MediaLibraryManager private constructor() {
                     try { fis?.close() } catch (_: Throwable) {}
                     try { mmr?.release() } catch (_: Throwable) {}
                 }
+                // Android 4.4 gives no year for an ID3v2.4 tag (TDRC), so read it from the file. After the retriever is released, so nothing here costs the file its other tags
+                if (y.isNullOrBlank() && lower.endsWith(".mp3")) y = Id3Year.read(f)
             }
 
             if (!t.isNullOrBlank()) title = t
