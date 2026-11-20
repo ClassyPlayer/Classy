@@ -64,7 +64,9 @@ class AlbumCoverManager private constructor() {
 
     init {
         val maxMemory = (Runtime.getRuntime().maxMemory() / 1024).toInt()
-        val cacheSizeKb = Math.min(MEMORY_CACHE_MAX_KB, Math.max(2048, maxMemory / 8))
+        // Before Android 5 the thumbnails are purgeable (pixels in ashmem, not in the Java heap): a larger cache costs no heap.
+        val cacheSizeKb = if (android.os.Build.VERSION.SDK_INT < 21) PURGEABLE_CACHE_KB
+        else Math.min(MEMORY_CACHE_MAX_KB, Math.max(2048, maxMemory / 8))
 
         memoryCache = object : LruCache<String, Bitmap>(cacheSizeKb) {
             override fun sizeOf(key: String, bitmap: Bitmap?): Int {
@@ -562,8 +564,10 @@ class AlbumCoverManager private constructor() {
         private const val TAG = "AlbumCoverManager"
         const val THUMB_SIZE: Int = 256
         private const val NO_ART_SUFFIX = ".noart"
-        // 12 MB: approx. 96 covers. A larger cache made more GCs while it filled.
+        // 12 MB: approx. 96 covers. A larger cache made more GCs while it filled (thumbnails in the Java heap).
         private const val MEMORY_CACHE_MAX_KB = 12288
+        // 24 MB: approx. 190 covers, for purgeable thumbnails (before Android 5), which are not in the Java heap.
+        private const val PURGEABLE_CACHE_KB = 24576
         // Signature of the album list at the last complete pre-generation (deleted with the disk cache).
         private const val PREGEN_SIGNATURE_FILE = "pregen-albums.sig"
 
