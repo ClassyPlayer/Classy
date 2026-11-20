@@ -174,7 +174,7 @@ class CoverFlowController(
         }
 
         // A scan pre-generates by itself; here only when the album list changed (for example after a sync).
-        AlbumCoverManager.getInstance().pregenerateThumbnailsIfChanged(uniqueAlbumList)
+        checkThumbnails()
 
         if (uniqueAlbumList.isEmpty()) {
             val tvEmpty = TextView(activity).apply {
@@ -254,21 +254,39 @@ class CoverFlowController(
     private val mainHandler = Handler(Looper.getMainLooper())
     private val prepareTask = Runnable { prepareCovers() }
     private var scratch: Bitmap? = null
+    /** False after a library load until the thumbnail check ran for the new album list (see [checkThumbnails]). */
+    @Volatile
+    private var thumbnailsChecked = false
 
     /**
      * Does the slow work of the first entry before the user opens Cover Flow, so that the first entry after an app
      * start or a library change is as fast as the next ones (Y2: before, up to 2.5 s with no frame). That work: the
-     * thumbnail check of all albums (when the album list changed), the covers around the current album, and the
-     * cards with their art bitmaps. On Android 4.4 a bitmap allocation often starts a full garbage collection
-     * (~60 ms, all threads stop). Call it after each library load, from any thread: it starts [PREPARE_DELAY_MS]
-     * later, and prepares one card for each main-thread message, so keys still go through.
+     * thumbnail check of all albums (when the album list changed), the covers around the current album, the
+     * placeholder, and the cards with their art bitmaps. On Android 4.4 a bitmap allocation often starts a full
+     * garbage collection (~60 ms, all threads stop). Call it after each library load, from any thread: it starts
+     * [PREPARE_DELAY_MS] later, and prepares one card for each main-thread message, so keys still go through.
      */
     fun prepareSoon() {
+        thumbnailsChecked = false
         mainHandler.removeCallbacks(prepareTask)
         mainHandler.postDelayed(prepareTask, PREPARE_DELAY_MS)
     }
 
     private fun isOpen() = NavigationManager.getInstance().currentState is ScreenState.CoverFlow
+
+    /**
+     * Starts the thumbnail check of all albums one time for each album list (the list changes only at a library
+     * load, which calls [prepareSoon]). The check makes a key for each album on a new thread: at each entry, that
+     * was garbage and CPU time in the first steps.
+     */
+    private fun checkThumbnails() {
+        if (thumbnailsChecked) return
+        val manager = AlbumCoverManager.getInstance()
+        // A check that runs now can be for the old list: check again at the next entry.
+        if (manager.isPregenerating()) return
+        thumbnailsChecked = true
+        manager.pregenerateThumbnailsIfChanged(uniqueAlbumList)
+    }
 
     private fun prepareCovers() {
         if (uniqueAlbumList.isEmpty() || isOpen()) return
@@ -280,8 +298,12 @@ class CoverFlowController(
         }
         if (currentCoverFlowIndex >= uniqueAlbumList.size) currentCoverFlowIndex = 0
         val manager = AlbumCoverManager.getInstance()
-        manager.pregenerateThumbnailsIfChanged(uniqueAlbumList)
-        // The covers first (worker thread), then the cards with them (no placeholder art to draw first).
+        checkThumbnails()
+        // Decoded on the first cover miss otherwise: an icon decode and a bitmap allocation in the first steps.
+        manager.getPlaceholder(activity)
+        // The covers that the first steps show, in the memory cache (requested first: the worker takes the newest first).
+        prefetchAround(currentCoverFlowIndex, visibleCoversCount / 2 + PREFETCH_AHEAD, visibleCoversCount / 2 + 1)
+        // The covers of the cards first (worker thread), then the cards with them (no placeholder art to draw first).
         val items = (0 until visibleCoversCount).map { uniqueAlbumList[cardIndex(it)] }.filter { it.file != null }
         var waiting = items.size
         if (waiting == 0) {
@@ -323,6 +345,57 @@ class CoverFlowController(
         if (slot + 1 < views.size) mainHandler.post { prepareCard(slot + 1) } else scratch = null
     }
 
+    // --- cover loading ---
+
+    /** Album keys whose cover load runs, with the start time: one load for each album, also for many requests. */
+    private val coverLoads = HashMap<String, Long>()
+
+    /**
+     * Loads the cover of album [index] into the memory cache in the background, when it is not there (one load for
+     * each album). When it comes, the cards that show that album get it.
+     */
+    private fun requestCover(index: Int) {
+        val item = uniqueAlbumList.getOrNull(index) ?: return
+        if (item.file == null) return
+        val key = AlbumCoverManager.getAlbumKey(item.file, item.album)
+        val manager = AlbumCoverManager.getInstance()
+        if (manager.getMemoryCover(key) != null || manager.hasNoArt(key)) return
+        val now = SystemClock.uptimeMillis()
+        val started = coverLoads[key]
+        // A load that did not come back in time (it failed) does not block a new one.
+        if (started != null && now - started < COVER_LOAD_TIMEOUT_MS) return
+        coverLoads[key] = now
+        manager.loadCoverAsync(item, object : AlbumCoverManager.CoverCallback {
+            override fun onCoverLoaded(albumKey: String, cover: Bitmap?, reflection: Bitmap?) {
+                coverLoads.remove(key)
+                showLoadedCover(key, cover)
+            }
+        })
+    }
+
+    /** The cards that show the album [key] (and still the placeholder) get its cover, or no reflection. */
+    private fun showLoadedCover(key: String, cover: Bitmap?) {
+        for (card in cfViews ?: return) {
+            val state = card?.tag as? CardState ?: continue
+            if (state.cover.tag != key) continue
+            if (cover != null) setBitmapIfChanged(state.cover, cover)
+            showReflection(state.reflection, cover)
+        }
+    }
+
+    /**
+     * Requests the covers [from] to [to] albums from album [centre], on both sides. The farthest first: the cover
+     * worker takes the newest request first, so the nearest come first.
+     */
+    private fun prefetchAround(centre: Int, to: Int, from: Int) {
+        val total = uniqueAlbumList.size
+        if (total == 0) return
+        for (d in to downTo from) {
+            requestCover(wrap(centre + d, total))
+            requestCover(wrap(centre - d, total))
+        }
+    }
+
     private fun initCoverFlowPositions() {
         val total = uniqueAlbumList.size
         if (total == 0) return
@@ -332,6 +405,9 @@ class CoverFlowController(
         motion.reset(currentCoverFlowIndex)
         cardsBase = currentCoverFlowIndex
         placedCentre = currentCoverFlowIndex
+        // The covers that the first steps show, either way. Before the cards: the cover worker takes the newest
+        // request first, so a card cover that is not in memory comes first.
+        prefetchAround(currentCoverFlowIndex, visibleCoversCount / 2 + PREFETCH_AHEAD, visibleCoversCount / 2 + 1)
         for (i in 0 until visibleCoversCount) {
             views[i]?.let { bindCover(it, cardIndex(i)) }
         }
@@ -400,19 +476,7 @@ class CoverFlowController(
         // Albums without art, and albums not yet loaded, show the placeholder (decoded one time, thumbnail size).
         setBitmapIfChanged(ivCover, manager.getPlaceholder(activity))
         showReflection(state.reflection, null)
-        // Known to have no art: nothing to load.
-        if (manager.hasNoArt(albumKey)) return
-
-        manager.loadCoverAsync(item, object : AlbumCoverManager.CoverCallback {
-            override fun onCoverLoaded(loadedKey: String, cover: Bitmap?, reflection: Bitmap?) {
-                if (albumKey == ivCover.tag) {
-                    if (cover != null) {
-                        ivCover.setImageBitmap(cover)
-                    }
-                    showReflection(state.reflection, cover)
-                }
-            }
-        })
+        requestCover(dataIndex)
     }
 
     /** Sets the album and artist texts of the album that the card shows. */
@@ -583,6 +647,8 @@ class CoverFlowController(
             // Only the target changes; the next frame moves the cards (also for many steps before it).
             motion.step(dir, eventTime)
             onTargetChanged()
+            // The cover that comes in at the outer slot PREFETCH_AHEAD steps later (the nearer ones came before).
+            requestCover(wrap(motion.target + dir * (visibleCoversCount / 2 + PREFETCH_AHEAD), uniqueAlbumList.size))
         }
 
         if (lag <= 40) {
@@ -608,6 +674,8 @@ class CoverFlowController(
         if (cfViews == null || uniqueAlbumList.isEmpty()) return
         motion.flyTo(target)
         onTargetChanged()
+        // The covers of the cards where the fly-by stops (the nearest to the centre first).
+        prefetchAround(target, visibleCoversCount / 2, 0)
     }
 
     /** The album index, the status title and the motion follow the new target. */
@@ -809,6 +877,16 @@ class CoverFlowController(
     companion object {
         // After a library load: the start-up work and the main menu first
         private const val PREPARE_DELAY_MS = 3000L
+
+        /**
+         * Covers loaded into the memory cache before they show: this many albums past the outer slot, in the scroll
+         * direction at each step, and on both sides at the entry. A miss shows the placeholder, then draws the card
+         * art again when the cover comes (two software draws and two texture uploads).
+         */
+        private const val PREFETCH_AHEAD = 6
+
+        /** A cover load that did not come back after this time does not block a new request for the album. */
+        private const val COVER_LOAD_TIMEOUT_MS = 5000L
 
         // Scale, angle and perspective of the side covers (see CoverFlowGeometry)
         private val sideTilt = CoverFlowGeometry.sideTilt()
