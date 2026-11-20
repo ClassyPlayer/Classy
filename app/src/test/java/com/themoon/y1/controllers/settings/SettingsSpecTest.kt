@@ -7,8 +7,8 @@ import java.io.File
 
 class SettingsSpecTest {
 
-    private fun source(name: String): String {
-        val dir = "src/main/java/com/themoon/y1/controllers/settings"
+    private fun source(name: String, pkg: String = "settings"): String {
+        val dir = "src/main/java/com/themoon/y1/controllers/$pkg"
         return listOf(File("$dir/$name"), File("app/$dir/$name")).first { it.exists() }.readText()
     }
 
@@ -24,6 +24,13 @@ class SettingsSpecTest {
             val group = m.groupValues[1]
             if (group.isNotEmpty()) out += group to ArrayList() else out.last().second += m.groupValues[2]
         }
+        // Settings → Books shows the rows of the reader (the same list as Reader Settings in a book)
+        out.firstOrNull { it.first == "Books" }?.let { books ->
+            val reader = source("ReaderSettings.kt", "books")
+            val from = reader.indexOf("fun rows(")
+            val to = reader.indexOf("\n    )\n", from)
+            for (m in re.findAll(reader.substring(from, to))) books.second += m.groupValues[2]
+        }
         return out
     }
 
@@ -35,6 +42,7 @@ class SettingsSpecTest {
                 "Playback" to listOf("Shuffle", "Repeat", "EQ", "Sound Check", "Mono Audio", "Volume Limit", "Playback Speed"),
                 "Display" to listOf("Brightness", "Backlight"),
                 "Now Playing" to listOf("Spectrum", "Total Time", "Lyrics", "Lyrics Keep Screen On", "Cover Tilt"),
+                "Books" to listOf("Page Colours", "Font Size", "Line Spacing", "Font", "Wheel", "Wheel Clicks per Page", "Keep Screen On"),
                 "Status Bar" to listOf("Clock", "Battery Icon", "Battery Percentage"),
                 "Appearance" to listOf("Theme", "Toggle Style", "List Edges", "Menu Cover Motion", "Fill Video Screen"),
                 "Menus" to listOf("Main Menu Items", "Music Menu Items", "Group Albums"),
@@ -55,10 +63,10 @@ class SettingsSpecTest {
     }
 
     @Test
-    fun theTopLevelHasAtMostThirteenShortGroupsAndEachRowIsInOneGroup() {
+    fun theTopLevelHasAtMostFourteenShortGroupsAndEachRowIsInOneGroup() {
         val groups = specGroups()
-        // 13 with Battery (2026-10-31): the top level as Settings of iOS and macOS
-        assertTrue(groups.size in 6..13)
+        // 13 with Battery (2026-10-31): the top level as Settings of iOS and macOS; 14 with Books (the ebook reader)
+        assertTrue(groups.size in 6..14)
         for ((title, rows) in groups) {
             assertTrue("$title: label too long", title.length <= 12)
             assertTrue("$title: ${rows.size} rows", rows.size in 1..10)

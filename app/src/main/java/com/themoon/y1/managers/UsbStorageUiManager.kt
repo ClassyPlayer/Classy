@@ -29,6 +29,8 @@ import com.themoon.y1.views.TablerIcons
 private const val CARD_BACK_MS = 20_000L
 /** The longest wait for the save of a game that ends for a share (the core can take seconds). */
 private const val GAME_SAVE_WAIT_MS = 10_000L
+/** The longest wait for a book that is opening (a large TXT builds its index first). */
+private const val BOOK_OPEN_WAIT_MS = 10_000L
 
 class UsbStorageUiManager(
     private val activity: Activity,
@@ -149,6 +151,11 @@ class UsbStorageUiManager(
             Notice.error(activity, localize("Wait for the game scan to finish, then try again."))
             return
         }
+        if (main?.isBookScanRunning() == true) {
+            // The book scan reads the EPUB files on the card
+            Notice.error(activity, localize("Wait for the book scan to finish, then try again."))
+            return
+        }
         if (UsbMassStorageController.hasShareableVolume(activity) == false) {
             // Nothing to share (no card): do not switch the USB function, so the computer keeps MTP.
             Notice.error(activity, localize("No microSD card."))
@@ -159,11 +166,15 @@ class UsbStorageUiManager(
         pauseAllPlaybackForUsb()
         // A game reads the card (its files, its music): it ends first, and the share waits for its save below
         main?.endGameForUsbShare()
+        // An open book keeps its EPUB file open on the card
+        main?.closeBookForUsbShare()
         // An open track file on the card makes MountService kill this app during the share.
         AudioPlayerManager.getInstance().releaseForUsbStorage(musicPlayed)
         getExternalSdMountMonitor()?.setSuspended(true)
         Thread({
-            val gameDone = GamePlayerController.awaitGameWork(GAME_SAVE_WAIT_MS)
+            // A book that is still opening closes its EPUB file when its open ends (closeBookForUsbShare)
+            val gameDone = GamePlayerController.awaitGameWork(GAME_SAVE_WAIT_MS) &&
+                com.themoon.y1.controllers.books.BookReaderController.awaitBookOpens(BOOK_OPEN_WAIT_MS)
             val ok = gameDone && run {
                 UsbMassStorageController.ensureMassStorageFunction(activity)
                 UsbMassStorageController.setEnabled(true)
@@ -242,8 +253,9 @@ class UsbStorageUiManager(
         getExternalSdMountMonitor()?.setSuspended(false)
         val main = activity as? MainActivity ?: return
         AudioPlayerManager.getInstance().reloadAfterUsbStorage(main, resume)
-        // The computer may have added or removed games
+        // The computer may have added or removed games and books
         main.forgetGames()
+        main.forgetBooks()
     }
 
     fun onUsbCableRemovedWhileShared() {

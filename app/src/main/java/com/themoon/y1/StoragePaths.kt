@@ -150,6 +150,12 @@ object StoragePaths {
     /** The Games folders (iPod Click Wheel games) on each storage. Not made when missing. */
     fun getGamesDirs(): List<File> = mediaDirs("Games")
 
+    /**
+     * The Books folders (ebooks: EPUB and TXT) on each storage, and the Ebook folder of the stock Innioasis firmware.
+     * Not made when missing.
+     */
+    fun getBooksDirs(): List<File> = mediaDirs("Books") + mediaDirs("Ebook")
+
     fun getVideosDirs(): List<File> {
         val list = ArrayList<File>()
         list.addAll(getMoviesDirs())
