@@ -275,6 +275,58 @@
         </com.themoon.y1.views.EdgeFadeScrollView>
     </LinearLayout>
 
+    <!-- Main menu → Photos: the albums (the art pane at the right), the thumbnail grid (PhotosController adds it) -->
+    <FrameLayout
+        android:id="@+id/layout_photos_mode"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#66000000"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:id="@+id/layout_photos_lists"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="horizontal">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:paddingTop="26dp">
+
+                <com.themoon.y1.views.EdgeFadeScrollView
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:fillViewport="true">
+
+                    <LinearLayout
+                        android:id="@+id/container_photo_items"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:clipChildren="false"
+                        android:clipToPadding="false" />
+                </com.themoon.y1.views.EdgeFadeScrollView>
+            </LinearLayout>
+
+            <FrameLayout
+                android:id="@+id/frame_photos_cover"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:visibility="gone">
+
+                <com.themoon.y1.views.CoverArtView
+                    android:id="@+id/iv_photos_cover"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:scaleType="centerCrop" />
+            </FrameLayout>
+        </LinearLayout>
+    </FrameLayout>
+
     <!-- Main menu → Books: the ebook lists (the art pane at the right) and the book menu -->
     <LinearLayout
         android:id="@+id/layout_books_mode"
@@ -629,4 +681,12 @@
             <LinearLayout android:id="@+id/container_game_menu" android:layout_width="200dp" android:layout_height="wrap_content" android:orientation="vertical" />
         </LinearLayout>
     </FrameLayout>
+
+    <!-- A photo full screen, over the status bar (PhotoViewerController adds the image views) -->
+    <FrameLayout
+        android:id="@+id/layout_photo_viewer_mode"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#FF000000"
+        android:visibility="gone" />
 </FrameLayout>

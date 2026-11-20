@@ -131,6 +131,8 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
         const val STATE_GAME_PLAYER = 19
         const val STATE_BOOKS = 20
         const val STATE_BOOK_READER = 21
+        const val STATE_PHOTOS = 22
+        const val STATE_PHOTO_VIEWER = 23
 
         const val BROWSER_ROOT = 0
         const val BROWSER_FOLDER = 1
@@ -266,6 +268,8 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     lateinit var layoutGamePlayerMode: View
     lateinit var layoutBooksMode: View
     lateinit var layoutBookReaderMode: View
+    lateinit var layoutPhotosMode: View
+    lateinit var layoutPhotoViewerMode: View
 
     lateinit var ivAlbumArt: ImageView
     var ivAlbumReflection: ImageView? = null
@@ -341,6 +345,23 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     fun endGameForUsbShare() {
         if (::gamePlayerController.isInitialized) gamePlayerController.endForUsbShare()
     }
+
+    lateinit var photosController: com.themoon.y1.controllers.photos.PhotosController
+    lateinit var photoViewerController: com.themoon.y1.controllers.photos.PhotoViewerController
+
+    /** The Photos scan reads the photo files on the card. */
+    fun isPhotoScanRunning(): Boolean = ::photosController.isInitialized && photosController.isScanning
+
+    /** The card was shared over USB: Photos scans the folders again. */
+    fun forgetPhotos() {
+        if (::photosController.isInitialized) photosController.forget()
+    }
+
+    /** Before the card is shared over USB: the photo on the screen closes (its file is on the card). */
+    fun closePhotoForUsbShare() {
+        if (::photoViewerController.isInitialized) photoViewerController.closeForUsbShare()
+    }
+
     lateinit var bluetoothController: BluetoothController
     lateinit var wifiController: WifiController
     lateinit var wifiKeyboardController: WifiKeyboardController
@@ -484,6 +505,8 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
             setListener(object : ExternalSdMountMonitor.Listener {
                 override fun onSecondaryStorageReady() {
                     StoragePaths.invalidate()
+                    // A photo scan without the card (it mounted after the share ended) missed its photos
+                    runOnUiThread { com.themoon.y1.photos.PhotoLibrary.onCardReady() }
                     runMigrationsAsync {
                         scanVideos()
                         val onLibraryReady = {
@@ -517,6 +540,8 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
         Thread({
             if (UsbMassStorageController.isEnabled()) {
                 externalSdMountMonitor?.setSuspended(true)
+                // The card is still shared (the app started again): no photo read until the share ends
+                com.themoon.y1.photos.PhotoDecoder.close()
                 runOnUiThread { showUsbStorageOverlay() }
             }
         }, "y1-ums-init-check").start()
@@ -584,6 +609,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
         super.onPause()
         if (::gamePlayerController.isInitialized) gamePlayerController.onActivityPause()
         if (::bookReaderController.isInitialized) bookReaderController.onActivityPause()
+        if (::photoViewerController.isInitialized) photoViewerController.onActivityPause()
         systemNotifications.show()
         AudioPlayerManager.getInstance().savePlaybackState(sync = false)
     }
@@ -660,6 +686,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
             STATE_JELLYFIN -> ScreenState.Jellyfin()
             STATE_GAMES -> ScreenState.Games
             STATE_BOOKS -> ScreenState.Books()
+            STATE_PHOTOS -> ScreenState.Photos()
             else -> ScreenState.MainMenu
         }
         changeScreen(screenState)
@@ -702,6 +729,8 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
             is ScreenState.GamePlayer -> STATE_GAME_PLAYER
             is ScreenState.Books -> STATE_BOOKS
             is ScreenState.BookReader -> STATE_BOOK_READER
+            is ScreenState.Photos -> STATE_PHOTOS
+            is ScreenState.PhotoViewer -> STATE_PHOTO_VIEWER
         }
     }
 
@@ -1257,6 +1286,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
             STATE_JELLYFIN -> t("Jellyfin")
             STATE_GAMES -> t("Games")
             STATE_BOOKS -> t("Books")
+            STATE_PHOTOS -> t("Photos")
             else -> t("Classy")
         }
     }
@@ -1281,6 +1311,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
             STATE_MENU -> true
             STATE_BROWSER -> ::browserController.isInitialized && browserController.isCoverPaneActive()
             STATE_VIDEOS -> ::videoBrowserController.isInitialized && videoBrowserController.isCoverPaneActive()
+            STATE_PHOTOS -> ::photosController.isInitialized && photosController.isPaneShown
             else -> false
         }
     }

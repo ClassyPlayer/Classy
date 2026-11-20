@@ -25,6 +25,8 @@ internal fun MainActivity.initViewBindings() {
     layoutGamePlayerMode = findViewById(R.id.layout_game_player_mode)
     layoutBooksMode = findViewById(R.id.layout_books_mode)
     layoutBookReaderMode = findViewById(R.id.layout_book_reader_mode)
+    layoutPhotosMode = findViewById(R.id.layout_photos_mode)
+    layoutPhotoViewerMode = findViewById(R.id.layout_photo_viewer_mode)
 
     val rootContent = findViewById<ViewGroup>(android.R.id.content)
     val d = resources.displayMetrics.density

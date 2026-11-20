@@ -44,7 +44,9 @@ class PrefsTest {
             "reader_wheel_clicks", "reader_keep_screen_on"
         )
         // Added after the model: Settings → Controls → Letter Jump and Letter Jump Sensitivity
-        val added = setOf("letter_jump", "letter_jump_sensitivity")
+        val added = setOf("letter_jump", "letter_jump_sensitivity",
+            // Settings → Photos (the slideshow)
+            "photos_slide_time", "photos_repeat", "photos_shuffle", "photos_transition")
         assertEquals(before + added, Prefs.RESETTABLE.map { it.key }.toSet())
     }
 

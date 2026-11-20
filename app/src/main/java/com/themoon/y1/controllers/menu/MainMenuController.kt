@@ -425,7 +425,28 @@ class MainMenuController(
                     canvas.addView(animContainer)
                     createdWidgetView = animContainer
                 }
+                com.themoon.y1.controllers.photos.PhotoPreviewView.TYPE -> {
+                    // Photos while the Photos row is selected (visible_on_focus). At the right edge it is an art
+                    // pane: the same place and size as the animated cover, which it covers. Else the theme's rect.
+                    val preview = com.themoon.y1.controllers.photos.PhotoPreviewView(activity)
+                    val dm = activity.resources.displayMetrics
+                    val isPane = el.width <= 0 || (el.x + el.width) * density >= dm.widthPixels - density
+                    if (isPane) {
+                        val leftPx = (el.x * density).toInt()
+                        val topPx = if (ClassyLayout.isActive) (el.y * density).toInt() else 0
+                        preview.layoutParams = FrameLayout.LayoutParams(dm.widthPixels - leftPx, dm.heightPixels - topPx).apply {
+                            leftMargin = leftPx
+                            topMargin = topPx
+                        }
+                    } else {
+                        preview.layoutParams = createDynamicLayoutParams(el, density)
+                    }
+                    if (widgetBg != null) preview.background = widgetBg
+                    canvas.addView(preview)
+                    createdWidgetView = preview
+                }
             }
+
 
             if (createdWidgetView != null) {
                 widgetViewRegistry[createdWidgetView] = el

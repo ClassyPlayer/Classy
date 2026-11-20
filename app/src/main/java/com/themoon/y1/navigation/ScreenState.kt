@@ -28,6 +28,14 @@ sealed interface ScreenState {
     data object Games : ScreenState
     /** A running game ([bundleDir]: its folder), full screen. */
     data class GamePlayer(val bundleDir: File) : ScreenState
+    /** Main menu → Photos: the Photos menu ([PhotosLevel.Root]), its lists, and the thumbnail grid of a set of photos. */
+    data class Photos(val level: PhotosLevel = PhotosLevel.Root) : ScreenState
+    /**
+     * Photo [index] of the set [set] ([com.themoon.y1.photos.PhotoIndex.select]) full screen; [slideshow] = it opens
+     * with the slideshow running, [shuffle] = a shuffled slideshow whatever Settings → Photos says (Shuffle Slideshow).
+     */
+    /** [path]: the photo chosen in the grid; the viewer opens it, not [index], when the set changed meanwhile. */
+    data class PhotoViewer(val set: String, val index: Int, val slideshow: Boolean = false, val shuffle: Boolean = false, val path: String? = null) : ScreenState
     /** Main menu → Books: the ebook library ([level]) and the menu of the open book. */
     data class Books(val level: BooksLevel = BooksLevel.Root) : ScreenState
     /** An ebook ([file]) on the reader page. */
@@ -66,6 +74,20 @@ sealed interface JellyfinLevel {
     data class Group(val libraryId: String, val group: Int) : JellyfinLevel
     /** A season, album or book ([item]: its place in [Group]): episodes, songs or chapters. */
     data class Items(val libraryId: String, val group: Int, val item: Int) : JellyfinLevel
+}
+
+/** The levels of Photos, as the Music lists: text lists down to the thumbnail grid of a set of photos. */
+sealed interface PhotosLevel {
+    /** All Photos, Recently Added, By Date, Folders, Shuffle Slideshow. */
+    data object Root : PhotosLevel
+    /** The thumbnail grid of the set [set] ([com.themoon.y1.photos.PhotoIndex.select]). */
+    data class Grid(val set: String) : PhotosLevel
+    /** By Date: the years. */
+    data object Years : PhotosLevel
+    /** By Date: the months of [year]. */
+    data class Months(val year: Int) : PhotosLevel
+    /** Folders: a folder ([dir]); null = the top (the Photos folder of each storage). */
+    data class Folder(val dir: File?) : PhotosLevel
 }
 
 /**

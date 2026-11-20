@@ -20,7 +20,7 @@ The album covers in the screenshots are from Creative Commons albums, for exampl
 
 - **The iPod interface**: Classic Light and Classic Dark (Auto changes at sunrise and sunset), menus that slide, Cover Flow, a letter jump in long lists, and Now Playing with synced and romanised lyrics.
 - **Library**: music on the internal storage and the microSD card, by artist, album, genre, composer, folder and playlist. Favorites, Recently Played, Top 25 Most Played and Last.fm scrobbles.
-- **More than music**: videos, audiobooks with bookmarks, an ebook reader (EPUB and TXT, with covers, chapters and bookmarks), podcasts, Music Quiz and iPod click wheel games.
+- **More than music**: videos, a photo viewer with slideshows, audiobooks with bookmarks, an ebook reader (EPUB and TXT, with covers, chapters and bookmarks), podcasts, Music Quiz and iPod click wheel games.
 - **Wireless**: Play On (Sonos, DLNA, Google Cast), Bluetooth headphones and car audio, Jellyfin sync, upload from a browser, and updates over Wi-Fi.
 - **FM radio** with saved stations, also with the screen off. **Battery** history of the last 24 hours and 10 days.
 

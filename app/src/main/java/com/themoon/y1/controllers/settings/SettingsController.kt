@@ -180,6 +180,8 @@ class SettingsController(
             toggle("Lyrics Keep Screen On", Prefs.LYRICS_KEEP_SCREEN_ON),
             toggle("Cover Tilt", Prefs.ALBUM_TILT) { applyAlbumTiltSetting() },
         )),
+        // The photo slideshow: the same rows as Photos → Slideshow Settings
+        SettingsGroup("Photos", com.themoon.y1.controllers.photos.PhotoSettings.rows(rows)),
         // The ebook reader: the same rows as Reader Settings in a book
         SettingsGroup("Books", com.themoon.y1.controllers.books.ReaderSettings.rows(rows, prefs)),
         SettingsGroup("Status Bar", listOf(
