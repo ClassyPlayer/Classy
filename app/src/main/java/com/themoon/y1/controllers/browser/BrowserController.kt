@@ -168,6 +168,10 @@ class BrowserController(
                     virtualQueryValue = ""
                     buildVirtualCategories("COMPOSER")
                 }
+                is BrowserMode.Moods -> {
+                    virtualQueryValue = ""
+                    buildVirtualCategories("MOOD")
+                }
                 is BrowserMode.Years -> {
                     virtualQueryValue = ""
                     buildVirtualCategories("YEAR")
@@ -223,6 +227,7 @@ class BrowserController(
             is BrowserMode.Folder -> buildFolderBrowserUI()
             is BrowserMode.VirtualSongs -> buildVirtualSongs()
             is BrowserMode.Favorites -> buildVirtualSongsForFavorites()
+            is BrowserMode.Moods -> buildVirtualCategories("MOOD")
             else -> {}
         }
     }
@@ -237,6 +242,7 @@ class BrowserController(
             is BrowserMode.GenreArtists -> buildVirtualCategories("GENRE_ARTIST")
             is BrowserMode.GenreAlbums -> buildVirtualCategories("GENRE_ALBUM")
             is BrowserMode.Composers -> buildVirtualCategories("COMPOSER")
+            is BrowserMode.Moods -> buildVirtualCategories("MOOD")
             is BrowserMode.Years -> buildVirtualCategories("YEAR")
             is BrowserMode.RecentlyAdded -> buildVirtualSongs()
             else -> onRefreshUI()
@@ -355,6 +361,7 @@ class BrowserController(
             type == "GENRE" -> localize("Genres")
             type == "YEAR" -> localize("Years")
             type == "COMPOSER" -> localize("Composers")
+            type == "MOOD" -> localize("Moods")
             type == "TRACK_ARTIST" -> localize("Artists")
             else -> if (type == "ARTIST") localize("Album Artists") else localize("Albums")
         }
@@ -391,6 +398,10 @@ class BrowserController(
             }
             if (type == "GENRE") {
                 uniqueCategories.addAll(song.getGenres())
+                continue
+            }
+            if (type == "MOOD") {
+                artistNames.addAll(song.getMoods()) // listed once ignoring case, like the artists (matchesMood ignores case)
                 continue
             }
             // "A;B" is listed as A and as B
@@ -507,6 +518,7 @@ class BrowserController(
                             (categoryArtistFilter.isEmpty() || song.matchesArtist(categoryArtistFilter, categoryArtistFilterIsTrackArtist))
                     }
                     virtualQueryType == "COMPOSER" && song.composer == virtualQueryValue -> isMatch = true
+                    virtualQueryType == "MOOD" && song.matchesMood(virtualQueryValue) -> isMatch = true
                     virtualQueryType == "COMPILATION_ALBUM" && song.isCompilation &&
                         song.album.trim().equals(virtualQueryValue.trim(), ignoreCase = true) -> isMatch = true
                     isSearchMatch -> isMatch = true
@@ -799,6 +811,7 @@ class BrowserController(
             "shuffle_songs" -> onShuffleSongsRequested()
             "genres" -> openList(BrowserMode.Genres)
             "composers" -> openList(BrowserMode.Composers)
+            "moods" -> openList(BrowserMode.Moods)
             "years" -> openList(BrowserMode.Years)
             "recently_added" -> openList(BrowserMode.RecentlyAdded)
             "favorites" -> openList(BrowserMode.Favorites)

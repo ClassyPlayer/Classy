@@ -844,5 +844,7 @@
   "September": "9월",
   "October": "10월",
   "November": "11월",
-  "December": "12월"
+  "December": "12월",
+  "Moods": "분위기",
+  "Unknown Mood": "알 수 없는 분위기"
 }

@@ -142,6 +142,7 @@ sealed interface BrowserMode {
     data class GenreArtists(val genre: String) : BrowserMode
     data class GenreAlbums(val genre: String, val artist: String? = null) : BrowserMode
     data object Composers : BrowserMode
+    data object Moods : BrowserMode
     data object Years : BrowserMode
     data object VirtualSongs : BrowserMode
     /**
