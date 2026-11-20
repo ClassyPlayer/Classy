@@ -42,7 +42,8 @@ class AlbumCoverManager private constructor() {
     private val memoryCache: LruCache<String, Bitmap>
     private val executor: ThreadPoolExecutor
     private val mainHandler: Handler = Handler(Looper.getMainLooper())
-    private val pendingKeys: MutableSet<String> = Collections.synchronizedSet(HashSet<String>())
+    /** The covers that load now, with the callbacks that wait for them: a second request does not decode again. */
+    private val loading = HashMap<String, MutableList<CoverCallback>>()
     private val isPregeneratingFlag: AtomicBoolean = AtomicBoolean(false)
 
     // Albums that have no art (also marked on disk), so that they are not searched again.
@@ -254,41 +255,59 @@ class AlbumCoverManager private constructor() {
             return
         }
 
-        pendingKeys.add(albumKey)
+        synchronized(loading) {
+            val waiting = loading[albumKey]
+            if (waiting != null) {
+                if (callback != null) waiting.add(callback)
+                return
+            }
+            loading[albumKey] = ArrayList<CoverCallback>(2).also { if (callback != null) it.add(callback) }
+        }
 
         executor.execute {
             var bmp: Bitmap? = null
-            val diskThumb = getDiskThumbFile(albumKey)
-
-            if (diskThumb.exists() && diskThumb.length() > 0) {
-                try {
-                    bmp = decodeDiskThumb(diskThumb)
-                } catch (t: Throwable) {
-                    bmp = null
+            try {
+                bmp = loadCover(song, albumKey)
+            } catch (t: Throwable) {
+                Log.w(TAG, "cover load failed: $albumKey", t)
+            } finally {
+                // Always: else the requests that wait for this key never get an answer
+                val callbacks = synchronized(loading) { loading.remove(albumKey) }
+                val finalBmp = bmp
+                if (!callbacks.isNullOrEmpty()) mainHandler.post {
+                    for (c in callbacks) c.onCoverLoaded(albumKey, finalBmp, null)
                 }
-            }
-
-            if (bmp == null) {
-                val marker = getNoArtMarkerFile(albumKey)
-                if (marker.exists()) {
-                    noArtKeys.add(albumKey)
-                } else {
-                    bmp = extractAndSaveThumbnail(song, diskThumb)
-                    if (bmp == null) markNoArt(albumKey, marker)
-                }
-            }
-
-            if (bmp != null) {
-                memoryCache.put(albumKey, bmp)
-            }
-
-            pendingKeys.remove(albumKey)
-
-            val finalBmp = bmp
-            mainHandler.post {
-                callback?.onCoverLoaded(albumKey, finalBmp, null)
             }
         }
+    }
+
+    /** The cover of [albumKey] (disk thumbnail, else made from the song), put in the memory cache; worker thread. */
+    private fun loadCover(song: SongItem, albumKey: String): Bitmap? {
+        var bmp: Bitmap? = null
+        val diskThumb = getDiskThumbFile(albumKey)
+
+        if (diskThumb.exists() && diskThumb.length() > 0) {
+            try {
+                bmp = decodeDiskThumb(diskThumb)
+            } catch (t: Throwable) {
+                bmp = null
+            }
+        }
+
+        if (bmp == null) {
+            val marker = getNoArtMarkerFile(albumKey)
+            if (marker.exists()) {
+                noArtKeys.add(albumKey)
+            } else {
+                bmp = extractAndSaveThumbnail(song, diskThumb)
+                if (bmp == null) markNoArt(albumKey, marker)
+            }
+        }
+
+        if (bmp != null) {
+            memoryCache.put(albumKey, bmp)
+        }
+        return bmp
     }
 
     private fun extractAndSaveThumbnail(item: SongItem?, targetThumbFile: File?): Bitmap? {
