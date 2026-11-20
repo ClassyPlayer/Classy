@@ -42,4 +42,15 @@ class BackPressTest {
         back.onPress(0)
         assertFalse(back.onRelease(canceled = true))
     }
+
+    @Test
+    fun aPressTheRouterGotIsArmedOneThatWentElsewhereIsNot() {
+        val back = BackPress()
+        assertFalse(back.isArmed) // woke the screen, USB screen or debounce: no onPress
+        back.onPress(0)
+        assertTrue(back.isArmed)
+        back.onPress(1)
+        back.onRelease(canceled = false)
+        assertFalse(back.isArmed)
+    }
 }
