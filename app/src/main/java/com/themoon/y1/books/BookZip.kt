@@ -1,5 +1,6 @@
 package com.themoon.y1.books
 
+import com.themoon.y1.core.useZip
 import java.io.File
 import java.net.URLDecoder
 import java.util.Locale
@@ -83,7 +84,7 @@ class ZipFileBook(private val zip: ZipFile) : BookZip {
         fun open(file: File): ZipFileBook = ZipFileBook(ZipFile(file))
 
         /** Opens [file], runs [block], and closes it. */
-        fun <R> read(file: File, block: (BookZip) -> R): R = ZipFile(file).use { block(ZipFileBook(it)) }
+        fun <R> read(file: File, block: (BookZip) -> R): R = ZipFile(file).useZip { block(ZipFileBook(it)) }
     }
 }
 
