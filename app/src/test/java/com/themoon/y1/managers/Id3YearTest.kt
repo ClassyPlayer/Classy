@@ -77,4 +77,38 @@ class Id3YearTest {
         val f = File.createTempFile("id3", ".mp3").apply { writeBytes(head + stored); deleteOnExit() }
         assertEquals("1999", Id3Year.read(f))
     }
+
+    private fun file(vararg bytes: ByteArray) = File.createTempFile("id3", ".mp3").apply { writeBytes(bytes.fold(ByteArray(0)) { a, b -> a + b }); deleteOnExit() }
+    private fun head(version: Int, size: Int, flags: Int = 0) = "ID3".toByteArray() + byteArrayOf(version.toByte(), 0, flags.toByte()) + syncsafe(size)
+
+    @Test fun fileShorterThanAHeaderGivesNull() {
+        assertNull(Id3Year.read(file("ID3".toByteArray())))
+        assertNull(Id3Year.read(file(ByteArray(0))))
+    }
+
+    @Test fun hugeTagOnATinyFileGivesNull() {
+        assertNull(Id3Year.read(file(head(4, 0x0FFFFFFF), ByteArray(20))))
+        assertNull(Id3Year.read(file(head(3, 3 * 1024 * 1024, 0x80), ByteArray(20)))) // unsynchronised, under the 4 MB cap
+        assertNull(Id3Year.read(file(head(4, 100, 0x40), ByteArray(2)))) // extended header cut short
+    }
+
+    @Test fun frameSizeFfFfFfFfGivesNull() {
+        val bad = "TDRC".toByteArray() + byteArrayOf(-1, -1, -1, -1, 0, 0) + ByteArray(20)
+        assertNull(Id3Year.read(file(head(4, 40), bad)))
+        assertNull(Id3Year.read(file(head(3, 40), bad)))
+    }
+
+    @Test fun fileTruncatedMidFrameGivesNull() {
+        val full = frame("TDRC", "2024-09-27", true)
+        assertNull(Id3Year.read(file(head(4, full.size), full.copyOf(full.size - 6))))
+    }
+
+    @Test fun truncationKeepsATyerYearFoundBefore() {
+        val tyer = frame("TYER", "1999", false)
+        val cut = frame("TIT2", "A long title", false).let { it.copyOf(it.size - 5) }
+        assertEquals("1999", Id3Year.read(file(head(3, tyer.size + 100), tyer, cut)))
+    }
+
+    @Test fun nonAsciiDigitsAreNotAYear() =
+        assertNull(Id3Year.read(mp3(4, frame("TDRC", "\uFF12\uFF10\uFF12\uFF14", true))))
 }
