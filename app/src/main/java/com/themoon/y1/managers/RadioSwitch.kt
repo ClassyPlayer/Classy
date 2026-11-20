@@ -48,3 +48,29 @@ object RadioSwitch {
         return Request.DONE
     }
 }
+
+/**
+ * What a radio was asked to become. The Power row shows it until the radio is there (or [LIFE_MS] pass), so a
+ * refresh when the other radio finishes, or a screen opened during the start, does not show the old state.
+ */
+class PendingRadio {
+    private var on: Boolean? = null
+    private var at = 0L
+
+    fun set(target: Boolean, nowMs: Long) { on = target; at = nowMs }
+
+    fun clear() { on = null }
+
+    /** What the row shows: the target while it is pending, else the real state [real]. */
+    fun shown(real: Boolean, nowMs: Long): Boolean = on?.takeIf { nowMs - at < LIFE_MS } ?: real
+
+    /** The radio is on or off now: a target it has reached is done (another state: the request is still under way). */
+    fun reached(real: Boolean) {
+        if (on == real) on = null
+    }
+
+    companion object {
+        const val LIFE_MS = 10_000L
+    }
+}
+
