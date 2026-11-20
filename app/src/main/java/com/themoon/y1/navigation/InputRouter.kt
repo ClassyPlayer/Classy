@@ -45,15 +45,19 @@ class InputRouter private constructor() {
     // Hold-to-seek state (uptime ms): +1 forward, -1 back, 0 when not seeking
     private var seekDirection = 0
     private var seekStartMs = 0L
+    /** The cap counts from here, on this device's clock: an event time can be forged. */
+    private var seekStartLocalMs = 0L
     private var lastSeekTickMs = 0L
     private var lastSkipRepeatMs = 0L
+    /** Screen off: Android sends one long-press and then the key-up, no repeats, so the key-up ends the seek. */
+    private var seekWaitsForKeyUp = false
     private val seekHandler = Handler(Looper.getMainLooper())
     private val seekTickRunnable = object : Runnable {
         override fun run() {
             if (seekDirection == 0) return
             val now = SystemClock.uptimeMillis()
-            if (now - lastSkipRepeatMs > SEEK_REPEAT_TIMEOUT_MS) {
-                // No key repeats any more, so the key-up went elsewhere
+            if (seekTimedOut(now, lastSkipRepeatMs, seekStartLocalMs, seekWaitsForKeyUp)) {
+                // No key repeats any more (or too long without the key-up), so the key-up went elsewhere
                 stopSeek()
                 return
             }
@@ -367,9 +371,32 @@ class InputRouter private constructor() {
         keyCode == KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE || keyCode == KeyEvent.KEYCODE_MEDIA_PLAY ||
             keyCode == KeyEvent.KEYCODE_MEDIA_PAUSE || keyCode == 85
 
-    private fun isSkipKey(keyCode: Int): Boolean {
+    internal fun isSkipKey(keyCode: Int): Boolean {
         return keyCode == KeyEvent.KEYCODE_MEDIA_NEXT || keyCode == 87 ||
                 keyCode == KeyEvent.KEYCODE_MEDIA_PREVIOUS || keyCode == 88
+    }
+
+    /** The skip key whose press the screen-off receiver passed on: its repeat and release are passed on too, others are ignored. */
+    @Volatile
+    private var screenOffSkipKey = 0
+
+    /**
+     * Screen off, from the media-button receiver. A second path exists next to [onKeyEvent]'s screen-off branch
+     * because that one only runs when the activity gets the key; a media button (car, Bluetooth, wired remote) with
+     * the screen off arrives as a broadcast. The broadcast has no key repeats, so the release ends a hold ([onSkipKeyDown] with waitForKeyUp). A press that began
+     * with the screen on already acted, and a repeat or release without a press seen here is ignored. The event time
+     * can be forged, so the seek runs on this device's clock.
+     */
+    fun onScreenOffSkipKey(event: KeyEvent) {
+        if (event.action == KeyEvent.ACTION_DOWN) {
+            if (event.repeatCount == 0) screenOffSkipKey = event.keyCode
+            if (screenOffSkipKey == event.keyCode) {
+                onSkipKeyDown(event.keyCode, event.repeatCount, SystemClock.uptimeMillis(), waitForKeyUp = true)
+            }
+        } else if (event.action == KeyEvent.ACTION_UP && screenOffSkipKey == event.keyCode) {
+            screenOffSkipKey = 0
+            onSkipKeyUp(event.keyCode, event.eventTime - event.downTime)
+        }
     }
 
     /**
@@ -377,7 +404,7 @@ class InputRouter private constructor() {
      * the longer the button is held (see [seekSpeed]); a short press changes the track on release
      * (see [onSkipKeyUp]). Returns the offset of the first seek tick in ms, or 0.
      */
-    internal fun onSkipKeyDown(keyCode: Int, repeatCount: Int, eventTimeMs: Long): Int {
+    internal fun onSkipKeyDown(keyCode: Int, repeatCount: Int, eventTimeMs: Long, waitForKeyUp: Boolean = false): Int {
         if (repeatCount == 0) {
             stopSeek()
             isSkipKeyHeld = false
@@ -389,7 +416,9 @@ class InputRouter private constructor() {
             return 0
         }
         seekDirection = if (keyCode == KeyEvent.KEYCODE_MEDIA_NEXT || keyCode == 87) 1 else -1
+        seekWaitsForKeyUp = waitForKeyUp
         seekStartMs = eventTimeMs
+        seekStartLocalMs = SystemClock.uptimeMillis()
         lastSeekTickMs = eventTimeMs - SEEK_TICK_MS
         // One click when the seek starts; a click on every tick would buzz
         MainActivity.instance?.clickFeedback()
@@ -458,6 +487,14 @@ class InputRouter private constructor() {
         private const val SEEK_MAX_SPEED = 120.0
         private const val SEEK_RAMP_MS = 7_000L
         private const val SEEK_REPEAT_TIMEOUT_MS = 1_000L
+        private const val SEEK_KEY_UP_CAP_MS = 300_000L
+
+        /**
+         * True when a seek must stop. Screen on: no key repeat for 1 s (the key-up was lost). Screen off, no repeats
+         * come: only a 5 min cap, in case the key-up never arrives.
+         */
+        internal fun seekTimedOut(nowMs: Long, lastRepeatMs: Long, seekStartMs: Long, waitForKeyUp: Boolean): Boolean =
+            if (waitForKeyUp) nowMs - seekStartMs > SEEK_KEY_UP_CAP_MS else nowMs - lastRepeatMs > SEEK_REPEAT_TIMEOUT_MS
 
         // Forward seeks stop this far before the end, so seeking alone never skips to the next track
         private const val SEEK_END_MARGIN_MS = 1_000
@@ -470,7 +507,8 @@ class InputRouter private constructor() {
 
         /** Seek step in ms for a tick [elapsedMs] after the last one, after seeking for [seekingMs]. */
         internal fun seekStepMs(seekingMs: Long, elapsedMs: Long): Int {
-            return Math.round(seekSpeed(seekingMs) * elapsedMs.coerceAtLeast(0L)).toInt()
+            // Capped at a few ticks: a stale time (a forged event) must not overflow the Int or give a negative step
+            return Math.round(seekSpeed(seekingMs) * elapsedMs.coerceIn(0L, SEEK_TICK_MS * 5)).toInt()
         }
 
         /** Forward seek offset of up to [stepMs], clamped to stop [SEEK_END_MARGIN_MS] before the end. */
