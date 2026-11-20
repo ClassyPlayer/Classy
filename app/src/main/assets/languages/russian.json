@@ -844,5 +844,7 @@
   "September": "Сентябрь",
   "October": "Октябрь",
   "November": "Ноябрь",
-  "December": "Декабрь"
+  "December": "Декабрь",
+  "Moods": "Настроения",
+  "Unknown Mood": "Неизвестное настроение"
 }

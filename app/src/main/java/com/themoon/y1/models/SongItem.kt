@@ -47,6 +47,22 @@ class SongItem {
     fun matchesArtist(target: String?, trackArtist: Boolean): Boolean =
         ArtistNames.contains(if (trackArtist) artist else albumArtist, target)
 
+    /** The MOOD tag (FLAC, Ogg, Opus), several moods split like the genres (see [GenreHelper.parseGenres]). Empty when the file has none. */
+    var mood: String = ""
+        set(value) = synchronized(this) {
+            field = value
+            cachedMoods = null
+        }
+
+    private var cachedMoods: List<String>? = null
+
+    /** The moods of the song; "Unknown Mood" when it has none, so the Mood list is never empty and shows the untagged songs. */
+    fun getMoods(): List<String> = synchronized(this) {
+        cachedMoods ?: (if (mood.isBlank()) listOf(UNKNOWN_MOOD) else GenreHelper.parseGenres(mood)).also { cachedMoods = it }
+    }
+
+    fun matchesMood(target: String?): Boolean = !target.isNullOrBlank() && getMoods().any { it.equals(target.trim(), ignoreCase = true) }
+
     /** The compilation flag of the tags (ID3 TCMP, MP4 cpil, Vorbis COMPILATION). The library cache keeps it. */
     var compilationTag: Boolean = false
 
@@ -121,6 +137,8 @@ class SongItem {
     }
 
     companion object {
+        const val UNKNOWN_MOOD = "Unknown Mood"
+
         internal fun safe(value: String?, fallback: String): String {
             return if (!value.isNullOrBlank()) value else fallback
         }
