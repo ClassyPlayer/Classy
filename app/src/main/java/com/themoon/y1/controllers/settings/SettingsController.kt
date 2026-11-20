@@ -529,6 +529,8 @@ class SettingsController(
             RadioSwitch.Request.DONE -> {
                 pending.set(target, SystemClock.uptimeMillis())
                 buildPowerUI()
+                // A request that never gets there: when it expires the row shows the real state again
+                containerSettingsItems.postDelayed({ if (actionPage == SettingsSubMode.Power) buildPowerUI() }, PendingRadio.LIFE_MS + 200)
             }
             RadioSwitch.Request.BUSY -> Notice.show(activity, localize("Please wait a moment..."))
             RadioSwitch.Request.FAILED -> {
