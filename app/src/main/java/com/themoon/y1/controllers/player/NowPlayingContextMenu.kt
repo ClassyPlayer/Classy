@@ -120,10 +120,11 @@ object NowPlayingContextMenu {
         val main = MainActivity.instance ?: return
         val list = main.currentPlaylist
         if (main.currentIndex == shown.index && list.size == shown.size && list.getOrNull(main.currentIndex) === shown.playing) return
-        if (ActionScreens.spec(shown.key) == null || NavigationManager.getInstance().currentState != ActionScreens.route(shown.key)) {
-            queue = null // closed
+        if (ActionScreens.spec(shown.key) == null) {
+            queue = null // forgotten
             return
         }
+        // Also while another screen covers the Queue: Back shows the retained spec again (replace redraws only a showing screen)
         queue = shownOf(main, shown.key)
         ActionScreens.replace(shown.key, queueSpec(main, main.currentIndex))
     }
