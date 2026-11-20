@@ -643,7 +643,14 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
 
     fun t(key: String): String = LanguageManager.getInstance(this).t(key)
 
+    private var lastClickMs = 0L
+    private var lastVibrateMs = 0L
+
     fun clickFeedback() {
+        // At most 50 clicks a second: a fast wheel can give steps less than 30 ms apart
+        val clickNow = android.os.SystemClock.uptimeMillis()
+        if (clickNow - lastClickMs < 20L) return
+        lastClickMs = clickNow
         val pm = getSystemService(Context.POWER_SERVICE) as? PowerManager
         val isScreenOn = if (Build.VERSION.SDK_INT >= 20) {
             pm?.isInteractive ?: true
@@ -653,7 +660,11 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
         if (!isScreenOffControlEnabled && (!isScreenOn || isScreenSleeping)) {
             return
         }
-        if (isVibrationEnabled) {
+        // No new vibration (the sound plays) while the last one has not ended: Strong is 40 ms
+        if (isVibrationEnabled &&
+            clickNow - lastVibrateMs >= com.themoon.y1.managers.ButtonVibration.lengthMs(vibrationStrengthLevel) + 10L
+        ) {
+            lastVibrateMs = clickNow
             com.themoon.y1.managers.ButtonVibration.vibrate(vibrator, vibrationStrengthLevel)
         }
         if (isSoundEffectEnabled) {
