@@ -31,6 +31,8 @@ object ActionScreens {
         val checked: Boolean? = null,
         val opensList: Boolean = false,
         val closes: Boolean = !opensList,
+        /** Tells the row from the others when a list is shown again (the selected row stays); null: the label. */
+        val key: String? = null,
         val run: () -> Unit
     )
 
@@ -147,8 +149,9 @@ object ActionScreens {
         spec.info.map { RowSpec(it, RowLook.INFO) } + spec.actions.map { action ->
             val onClick = { choose(action, close) }
             val checked = action.checked
-            if (checked == null) RowSpec(action.label, RowLook.VALUE, value = if (action.opensList) "〉" else "", onClick = onClick)
-            else RowSpec(action.label, RowLook.CHOICE, checked = checked, onClick = onClick)
+            val key = action.key ?: action.label
+            if (checked == null) RowSpec(action.label, RowLook.VALUE, value = if (action.opensList) "〉" else "", key = key, onClick = onClick)
+            else RowSpec(action.label, RowLook.CHOICE, checked = checked, key = key, onClick = onClick)
         },
         focus = if (spec.selectAction) Focus.FIRST else Focus.NONE
     )

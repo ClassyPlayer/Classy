@@ -64,14 +64,17 @@ object NowPlayingContextMenu {
     /** The Queue screen that is open (0: none), the row that it shows checked, and the translation of its title. */
     private var queueKey = 0
     private var queueChecked = -1
+    private var queueBuilt: List<File> = emptyList()
     private var queueLocalize: ((String) -> String)? = null
 
     private fun queueSpec(main: MainActivity, localize: (String) -> String): ActionScreens.Spec {
         val titles = HashMap<String, String>()
         for (s in MainActivity.customLibrary) titles[s.file.absolutePath] = s.title
         queueChecked = main.currentIndex
+        queueBuilt = ArrayList(main.currentPlaylist)
         val rows = main.currentPlaylist.mapIndexed { i, f ->
-            ActionScreens.Action(titles[f.absolutePath]?.takeIf { it.isNotEmpty() } ?: f.nameWithoutExtension, checked = i == main.currentIndex) {
+            // The key is the place in the queue: two tracks with one title stay apart when the list is shown again
+            ActionScreens.Action(titles[f.absolutePath]?.takeIf { it.isNotEmpty() } ?: f.nameWithoutExtension, checked = i == main.currentIndex, key = "queue$i") {
                 com.themoon.y1.managers.AudioPlayerManager.getInstance().jumpTo(i)
             }
         }
@@ -84,12 +87,13 @@ object NowPlayingContextMenu {
         queueKey = ActionScreens.open(queueSpec(main, localize))
     }
 
-    /** MainActivity.updatePlayerUI: moves the check mark of an open Queue screen to the track that plays now. */
+    /** MainActivity.updatePlayerUI: an open Queue screen follows the playing track (check mark) and a changed queue (rows). */
     fun refreshQueue() {
         val key = queueKey
         val main = main0()
         val localize = queueLocalize
-        if (key == 0 || main == null || localize == null || main.currentIndex == queueChecked) return
+        if (key == 0 || main == null || localize == null) return
+        if (main.currentIndex == queueChecked && main.currentPlaylist == queueBuilt) return // same queue, same track
         if (ActionScreens.spec(key) == null) { queueKey = 0; return }
         if (com.themoon.y1.navigation.NavigationManager.getInstance().currentState != ActionScreens.route(key)) return // not showing
         ActionScreens.replace(key, queueSpec(main, localize))
