@@ -49,8 +49,6 @@ class InputRouter private constructor() {
     private var seekStartMs = 0L
     private var lastSeekTickMs = 0L
     private var lastSkipRepeatMs = 0L
-    /** The Back press in progress woke the screen from the fake screen off. */
-    private var backWokeScreen = false
     private val seekHandler = Handler(Looper.getMainLooper())
     private val seekTickRunnable = object : Runnable {
         override fun run() {
@@ -194,8 +192,6 @@ class InputRouter private constructor() {
         // Wake from fake screen off
         if (isFakeScreenOff) {
             if (action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
-                // A Back that wakes the screen is no Back hold: its first key repeat must not open Now Playing
-                backWokeScreen = isBackKey(keyCode)
                 onWakeFromFakeScreenOff.run()
             }
             return true
@@ -267,13 +263,13 @@ class InputRouter private constructor() {
             if (!isBackSuppressed && now >= backDebounceUntil) backPress.onPress(event.repeatCount)
             // Held (the first key repeat): to Now Playing, when Settings > Controls > Hold Back for Now Playing is On
             val main = MainActivity.instance
-            if (event.repeatCount == 0) backWokeScreen = false
-            if (event.repeatCount == 1 && !backWokeScreen && main != null && main.currentScreenState != MainActivity.STATE_PLAYER &&
-                Prefs.BACK_HOLD_NOW_PLAYING.get(main.prefs)
-            ) {
+            val nav = NavigationManager.getInstance()
+            if (main != null && holdOpensNowPlaying(event.repeatCount, backPress.isArmed, Prefs.BACK_HOLD_NOW_PLAYING.get(main.prefs), nav.currentState ?: ScreenState.MainMenu)) {
                 suppressBackUntilRelease()
                 main.clickFeedback()
-                main.handleMainMenuAction("OPEN_PLAYER")
+                // Now Playing already under this screen (Now Playing > menu > hold Back): back to it, no second copy
+                if (nav.backStackHas { it == ScreenState.Player }) nav.popBackStackTo { it == ScreenState.Player }
+                else main.handleMainMenuAction("OPEN_PLAYER")
             }
             return true
         }
@@ -462,6 +458,15 @@ class InputRouter private constructor() {
     }
 
     companion object {
+        /**
+         * A hold of Back (its first key repeat) opens Now Playing: when the router got the press ([backArmed]: not a
+         * wake, the USB screen or a debounce), the setting is On, and the screen is not Now Playing itself or one
+         * that has its own exit and state (Music Quiz pauses the music for its round, FM Radio is the source).
+         */
+        internal fun holdOpensNowPlaying(repeatCount: Int, backArmed: Boolean, enabled: Boolean, state: ScreenState): Boolean =
+            repeatCount == 1 && backArmed && enabled && state != ScreenState.Player && state != ScreenState.MusicQuiz &&
+                state != ScreenState.FmRadio && state != ScreenState.FmRadioMenu && state != ScreenState.FmRadioSaved
+
         // Android's default long-press / key-repeat timeout
         private const val SKIP_KEY_HOLD_MS = 500L
 
