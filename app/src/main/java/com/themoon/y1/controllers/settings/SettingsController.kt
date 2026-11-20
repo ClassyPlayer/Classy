@@ -505,6 +505,11 @@ class SettingsController(
     /** The Power screen: Restart and Power Off. The centre button does the action at once; Back closes the screen. */
     private fun buildPowerUI() = buildPowerUI(RadioSwitch.wifiOn(activity), RadioSwitch.bluetoothOn())
 
+    /** A radio is on or off now (MainActivity: the Wi-Fi and Bluetooth state broadcasts): an open Power screen shows it. */
+    fun onRadioStateChanged() {
+        if (actionPage == SettingsSubMode.Power) buildPowerUI()
+    }
+
     /** A radio request that Android accepted shows the new state at once; otherwise the switch shows what the radio is. */
     private fun radioRequested(request: RadioSwitch.Request, showNew: () -> Unit) {
         when (request) {

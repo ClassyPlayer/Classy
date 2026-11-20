@@ -1389,6 +1389,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
                 BluetoothAdapter.ACTION_STATE_CHANGED -> {
                     val state = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.ERROR)
                     onStatusBarBluetoothAdapterState(state)
+                    if ((state == BluetoothAdapter.STATE_ON || state == BluetoothAdapter.STATE_OFF) && ::settingsController.isInitialized) settingsController.onRadioStateChanged()
                     if (state == BluetoothAdapter.STATE_ON) {
                         ivStatusBluetooth?.visibility = View.VISIBLE
                         updateStatusBarBluetooth()
@@ -1471,6 +1472,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
                 }
                 WifiManager.WIFI_STATE_CHANGED_ACTION -> {
                     val state = intent.getIntExtra(WifiManager.EXTRA_WIFI_STATE, WifiManager.WIFI_STATE_UNKNOWN)
+                    if ((state == WifiManager.WIFI_STATE_ENABLED || state == WifiManager.WIFI_STATE_DISABLED) && ::settingsController.isInitialized) settingsController.onRadioStateChanged()
                     if (state == WifiManager.WIFI_STATE_ENABLED) {
                         ivStatusWifi?.visibility = View.VISIBLE
                         updateStatusBarWifi(false)
