@@ -22,6 +22,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import com.themoon.y1.R
 import com.themoon.y1.ThemeManager
+import com.themoon.y1.managers.RadioSwitch
 import com.themoon.y1.managers.BluetoothDiscoverableLogic
 import com.themoon.y1.managers.AudioOutputLossManager
 import com.themoon.y1.managers.BluetoothDiscoverableManager
@@ -60,7 +61,6 @@ class BluetoothController(
 
     /** The paired devices that show their actions (Connect Audio, Forget Device). */
     private val expanded = HashSet<String>()
-    private var lastBtToggleTime: Long = 0
 
     // Target device tracking
     var targetDeviceForAudio: BluetoothDevice? = null
@@ -235,27 +235,20 @@ class BluetoothController(
 
     @SuppressLint("MissingPermission")
     private fun togglePower(ba: BluetoothAdapter?) {
-        val now = System.currentTimeMillis()
-        if (now - lastBtToggleTime < 1500) {
-            Notice.show(activity, localize("Please wait a moment..."))
-            return
-        }
-        lastBtToggleTime = now
         ba ?: return
-        screen.valueView(POWER_KEY)?.text = localize("Wait...")
-        if (ba.isEnabled) {
-            targetDeviceForAudio = null
-            ba.disable()
-        } else {
-            Thread {
-                try {
-                    Runtime.getRuntime().exec(arrayOf("su", "-c", "setprop ctl.start mtkbt")).waitFor()
-                    Thread.sleep(1500)
-                } catch (ignored: Exception) {}
-                activity.runOnUiThread {
-                    ba.enable()
-                }
-            }.start()
+        val turnOn = !ba.isEnabled
+        // enable() comes later: when it is refused, the row shows Off again
+        val request = RadioSwitch.setBluetooth({ activity.runOnUiThread(it) }, turnOn) {
+            screen.valueView(POWER_KEY)?.text = onOff(false, localize)
+            Notice.error(activity, localize("Failed"))
+        }
+        when (request) {
+            RadioSwitch.Request.BUSY -> Notice.show(activity, localize("Please wait a moment..."))
+            RadioSwitch.Request.FAILED -> Notice.error(activity, localize("Failed"))
+            RadioSwitch.Request.DONE -> {
+                if (!turnOn) targetDeviceForAudio = null
+                screen.valueView(POWER_KEY)?.text = localize("Wait...")
+            }
         }
     }
 

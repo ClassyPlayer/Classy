@@ -20,7 +20,8 @@ import com.themoon.y1.navigation.SettingsSubMode
 object ActionScreens {
 
     /**
-     * [checked] not null: a choice row, with the check mark when true (as the Language list).
+     * [checked] not null: a choice row, with the check mark when true (as the Language list), unless [value] is
+     * set: a [value] row is a value row whatever [checked] says.
      * [opensList]: the row opens a deeper list over this screen; it has a chevron, and the screen stays under the
      * list, so Back comes back to it.
      * [closes] false: the row does not close the screen before its action, because the action goes to another

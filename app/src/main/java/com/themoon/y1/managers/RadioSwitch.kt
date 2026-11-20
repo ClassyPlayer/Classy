@@ -4,8 +4,9 @@ import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
 import android.content.Context
 import android.net.wifi.WifiManager
+import android.util.Log
 
-/** Wi-Fi and Bluetooth on/off for the Power screen. The Bluetooth start is the one of BluetoothController. */
+/** Wi-Fi and Bluetooth on/off, for the Power screen and the Bluetooth screen. */
 object RadioSwitch {
     fun wifiOn(c: Context): Boolean = (c.applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager)?.isWifiEnabled == true
 
@@ -24,22 +25,34 @@ object RadioSwitch {
     @Volatile
     private var bluetoothStarting = false
 
-    /** [onFailed] runs on the UI thread when the later enable() call is refused. */
+    private const val TAG = "RadioSwitch"
+
+    /**
+     * Asks Bluetooth to be [on] (the state the row shows after the press), as [setWifi] does for Wi-Fi. The Bluetooth
+     * screen and the Power screen both call it, so there is one start sequence. [onFailed] runs on the UI thread when
+     * the later enable() call is refused.
+     */
     @SuppressLint("MissingPermission")
-    fun toggleBluetooth(runOnUi: (Runnable) -> Unit, onFailed: () -> Unit): Request {
+    fun setBluetooth(runOnUi: (Runnable) -> Unit, on: Boolean, onFailed: () -> Unit): Request {
         val ba = BluetoothAdapter.getDefaultAdapter() ?: return Request.FAILED
-        if (ba.isEnabled) return if (ba.disable()) Request.DONE else Request.FAILED
-        // While Bluetooth starts or stops isEnabled is false: a press then waits, it does not start it again
-        if (bluetoothStarting || ba.state == BluetoothAdapter.STATE_TURNING_ON || ba.state == BluetoothAdapter.STATE_TURNING_OFF) {
-            return Request.BUSY
+        val state = ba.state
+        // While Bluetooth starts or stops isEnabled is false: a press that asks for the other state waits
+        if (!on) {
+            if (ba.isEnabled) return if (ba.disable()) Request.DONE else Request.FAILED
+            return if (bluetoothStarting || state == BluetoothAdapter.STATE_TURNING_ON) Request.BUSY else Request.DONE
         }
+        if (ba.isEnabled) return Request.DONE
+        if (bluetoothStarting || state == BluetoothAdapter.STATE_TURNING_ON || state == BluetoothAdapter.STATE_TURNING_OFF) return Request.BUSY
         bluetoothStarting = true
         // The Y2 Bluetooth service must run first, else enable() does nothing
         Thread {
             try {
-                Runtime.getRuntime().exec(arrayOf("su", "-c", "setprop ctl.start mtkbt")).waitFor()
+                val code = Runtime.getRuntime().exec(arrayOf("su", "-c", "setprop ctl.start mtkbt")).waitFor()
+                if (code != 0) Log.w(TAG, "starting the Bluetooth service (su) exited with $code: enable() may do nothing")
                 Thread.sleep(1500)
-            } catch (_: Exception) {}
+            } catch (e: Exception) {
+                Log.w(TAG, "starting the Bluetooth service failed: enable() may do nothing", e)
+            }
             runOnUi(Runnable {
                 bluetoothStarting = false
                 if (!ba.enable()) onFailed()

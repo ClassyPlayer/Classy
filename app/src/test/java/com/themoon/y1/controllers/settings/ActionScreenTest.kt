@@ -133,4 +133,19 @@ class ActionScreenTest {
         assertEquals(listOf(RowLook.VALUE, RowLook.VALUE), rows.map { it.look })
         assertEquals(listOf("On", "Off"), rows.map { it.value })
     }
+
+    @Test
+    fun aRowWithAValueIsAValueRowAlsoWhenItHasACheckedState() {
+        val spec = ActionScreens.Spec(
+            "Power",
+            actions = listOf(
+                ActionScreens.Action("Wi-Fi", checked = true, value = "On") {},
+                ActionScreens.Action("Bluetooth", checked = false, value = "Off") {}
+            )
+        )
+        val rows = ActionScreens.list(spec) {}.rows
+        // The value wins over checked (see Action): value rows, with the values, and no tick column
+        assertEquals(listOf(RowLook.VALUE, RowLook.VALUE), rows.map { it.look })
+        assertEquals(listOf("On", "Off"), rows.map { it.value })
+    }
 }

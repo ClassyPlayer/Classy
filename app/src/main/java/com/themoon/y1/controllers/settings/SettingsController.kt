@@ -97,6 +97,9 @@ class SettingsController(
     private val isActionScreen: Boolean get() = actionPage != null
     /** The status bar title of the list that shows. */
     private var shownTitle: String? = null
+    /** What the Wi-Fi and Bluetooth rows of the Power screen were asked to be, until the radio gets there. */
+    private val pendingWifi = PendingRadio()
+    private val pendingBt = PendingRadio()
 
     // The values of the Date & Time rows (Year...Minute): read from the clock when Date & Time opens and after a change
     var dtYear: Int = 2026
@@ -281,7 +284,7 @@ class SettingsController(
                     localize("Reset")
                 ) { resetAllAppSettings() })
             },
-            // The Power screen (Restart, Power Off), as a long press of the Power button opens it
+            // The Power screen (Wi-Fi, Bluetooth, Brightness, Restart, Power Off), as a long press of the Power button opens it
             action("Power") { mainActivity?.showPowerMenu() },
         )),
     ) } }
@@ -504,14 +507,11 @@ class SettingsController(
         "1.0"
     }
 
-    /** The Power screen: Restart and Power Off. The centre button does the action at once; Back closes the screen. */
+    /** The Power screen: Wi-Fi, Bluetooth, Brightness, Restart and Power Off. A switch or action row does its action at once; Back closes the screen. */
     private fun buildPowerUI() {
         val now = SystemClock.uptimeMillis()
-        buildPowerUI(pendingWifi.shown(RadioSwitch.wifiOn(activity), now), pendingBt.shown(RadioSwitch.bluetoothOn(), now))
+        showPowerScreen(pendingWifi.shown(RadioSwitch.wifiOn(activity), now), pendingBt.shown(RadioSwitch.bluetoothOn(), now))
     }
-
-    private val pendingWifi = PendingRadio()
-    private val pendingBt = PendingRadio()
 
     /** A radio is on or off now (MainActivity: the Wi-Fi and Bluetooth state broadcasts): an open Power screen shows it. */
     fun onRadioStateChanged() {
@@ -542,7 +542,7 @@ class SettingsController(
     }
 
     /** Wi-Fi and Bluetooth come up a moment after the press, so the switch shows the new state at once. */
-    private fun buildPowerUI(wifi: Boolean, bt: Boolean) {
+    private fun showPowerScreen(wifi: Boolean, bt: Boolean) {
         val radios = listOf(
             ActionScreens.Action(localize("Wi-Fi"), closes = false, value = onOff(wifi, localize)) {
                 val target = !pendingWifi.shown(RadioSwitch.wifiOn(activity), SystemClock.uptimeMillis())
@@ -551,7 +551,7 @@ class SettingsController(
             ActionScreens.Action(localize("Bluetooth"), closes = false, value = onOff(bt, localize)) {
                 val target = !pendingBt.shown(RadioSwitch.bluetoothOn(), SystemClock.uptimeMillis())
                 // enable() comes later: when it is refused, the switch goes back to what the radio is
-                val request = RadioSwitch.toggleBluetooth({ activity.runOnUiThread(it) }) {
+                val request = RadioSwitch.setBluetooth({ activity.runOnUiThread(it) }, target) {
                     pendingBt.clear()
                     if (actionPage == SettingsSubMode.Power) buildPowerUI()
                     Notice.error(activity, localize("Failed"))

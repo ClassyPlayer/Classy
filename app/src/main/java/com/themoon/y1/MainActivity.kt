@@ -752,7 +752,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
 
     fun getActiveScreenController(): ScreenController? = NavigationManager.getInstance().activeController
 
-    /** The Power screen (Restart, Power Off). Back goes to the screen that was open before. */
+    /** The Power screen (Wi-Fi, Bluetooth, Brightness, Restart, Power Off). Back goes to the screen that was open before. */
     fun showPowerMenu() {
         wakeFromFakeScreenOff()
         changeScreen(ScreenState.Settings(SettingsSubMode.Power))
