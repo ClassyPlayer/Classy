@@ -9,6 +9,7 @@ import android.os.Looper
 import android.os.SystemClock
 import android.text.TextUtils
 import android.util.TypedValue
+import android.view.Choreographer
 import android.view.Gravity
 import android.view.KeyEvent
 import android.view.View
@@ -78,19 +79,17 @@ class CoverFlowController(
         override fun cancel(task: Runnable) { rootView.removeCallbacks(task) }
     }) { RowFocus.letterJumpSensitivity(activity) }
 
-    // Fly-by at the end of a letter jump (see CoverFlowFlyBy). Positions are album numbers that can be
-    // fractional, and can be outside 0 until total after wheel steps (the cards show them modulo total).
-    private var flying = false
-    private var flyStartPos = 0f
-    private var flyTarget = 0
-    private var flyStartTime = 0L
-    private var flyDurationMs = 0L
-    /** The position on the screen now. */
-    private var flyPos = 0f
-    /** The album of the centre card (views[centre]) during a fly-by; the other cards have the next albums. */
+    // The card motion of the wheel steps and of the fly-by after a letter jump (see CoverFlowMotion). Positions are
+    // album numbers that can be fractional, and can be outside 0 until total (the cards show them modulo total).
+    private val motion = CoverFlowMotion()
+    /** The album number of the centre card (views[centre]); the other cards have the next albums. */
     private var cardsBase = 0
-    private val flyFrame = Runnable { onFlyFrame() }
-    // Card position, angle, scale and alpha at each slot (-4..4), made at the start of a fly-by: no work for them in a frame.
+    /** The album number nearest to the centre at the last placement: when it changes, the drawing order changes. */
+    private var placedCentre = 0
+    /** True while [motionFrame] waits for the next frame. */
+    private var framePosted = false
+    private val motionFrame = Choreographer.FrameCallback { frameTimeNanos -> onMotionFrame(frameTimeNanos / 1_000_000L) }
+    // Card position, angle, scale and alpha at each slot (-4..4), made one time with the cards: no trigonometry in a frame.
     private val slotX = FloatArray(visibleCoversCount)
     private val slotRotY = FloatArray(visibleCoversCount)
     private val slotScale = FloatArray(visibleCoversCount)
@@ -147,17 +146,16 @@ class CoverFlowController(
 
     override fun onExit() {
         letterJump.reset()
-        stopFlyBy()
+        stopMotion()
         rootView.removeCallbacks(statusTitleTask)
         statusTitlePending = false
-        cancelAllAnimations()
         // Keep the layout and its cards for the next entry (no new views and bitmaps).
         containerBrowserItems.removeAllViews()
     }
 
     fun buildCoverFlowUI() {
         letterJump.reset()
-        stopFlyBy()
+        stopMotion()
         val statusBar = activity.findViewById<View>(R.id.layout_status_bar)
         statusBar?.setBackgroundColor(0x00000000)
 
@@ -310,7 +308,8 @@ class CoverFlowController(
         }
         val views = ensureCards()
         val card = views[slot] ?: return
-        bindCoverData(card, cardIndex(slot))
+        bindCover(card, cardIndex(slot))
+        (card.tag as? CardState)?.let { bindText(it) }
         card.measure(
             View.MeasureSpec.makeMeasureSpec(card.layoutParams.width, View.MeasureSpec.EXACTLY),
             View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
@@ -329,21 +328,16 @@ class CoverFlowController(
         if (total == 0) return
         val views = cfViews ?: return
 
-        val centerIdx = visibleCoversCount / 2
-
+        stopMotion()
+        motion.reset(currentCoverFlowIndex)
+        cardsBase = currentCoverFlowIndex
+        placedCentre = currentCoverFlowIndex
         for (i in 0 until visibleCoversCount) {
-            views[i]?.let { bindCoverData(it, cardIndex(i)) }
+            views[i]?.let { bindCover(it, cardIndex(i)) }
         }
-
-        for (i in 0 until visibleCoversCount) {
-            applyTransform(views[i], slotX[i], slotRotY[i], slotScale[i], slotAlpha[i])
-        }
-
-        arrangeZIndex()
-
-        for (i in 0 until visibleCoversCount) {
-            views[i]?.let { setCardTitleAlpha(it, i == centerIdx, 0) }
-        }
+        placeCards(motion.pos)
+        // The drawing order of the new positions.
+        coverFlowContainer?.invalidate()
 
         rootView.removeCallbacks(statusTitleTask)
         statusTitlePending = false
@@ -381,20 +375,15 @@ class CoverFlowController(
     }
 
     /**
-     * Shows album [dataIndex] on [card]. With [withText] false (fly-by frames: the texts are hidden), the texts
-     * stay as they are; the end of the fly-by binds all cards again.
+     * Shows the cover of album [dataIndex] on [card]: from the memory cache, else the placeholder until the cover
+     * loads. The texts stay as they are: [bindText] sets them when they show.
      */
-    private fun bindCoverData(card: View, dataIndex: Int, withText: Boolean = true) {
+    private fun bindCover(card: View, dataIndex: Int) {
         if (uniqueAlbumList.isEmpty() || dataIndex < 0 || dataIndex >= uniqueAlbumList.size) return
         val item = uniqueAlbumList[dataIndex]
         val state = card.tag as? CardState ?: return
+        state.album = dataIndex
         val ivCover = state.cover
-
-        if (withText) {
-            setTextIfChanged(state.title, item.album)
-            // The album artist, as on the iPod ("Various Artists" for a compilation), not the artist of the first track.
-            setTextIfChanged(state.artist, CoverFlowOrder.artistOf(item))
-        }
 
         val albumKey = AlbumCoverManager.getAlbumKey(item.file, item.album)
         ivCover.tag = albumKey
@@ -403,16 +392,12 @@ class CoverFlowController(
         val cachedBmp = manager.getMemoryCover(albumKey)
 
         if (cachedBmp != null) {
-            ivCover.animate().cancel()
-            ivCover.alpha = 1.0f
             setBitmapIfChanged(ivCover, cachedBmp)
             showReflection(state.reflection, cachedBmp)
             return
         }
 
         // Albums without art, and albums not yet loaded, show the placeholder (decoded one time, thumbnail size).
-        ivCover.animate().cancel()
-        ivCover.alpha = 1.0f
         setBitmapIfChanged(ivCover, manager.getPlaceholder(activity))
         showReflection(state.reflection, null)
         // Known to have no art: nothing to load.
@@ -428,6 +413,15 @@ class CoverFlowController(
                 }
             }
         })
+    }
+
+    /** Sets the album and artist texts of the album that the card shows. */
+    private fun bindText(state: CardState) {
+        val item = uniqueAlbumList.getOrNull(state.album) ?: return
+        state.textAlbum = state.album
+        setTextIfChanged(state.title, item.album)
+        // The album artist, as on the iPod ("Various Artists" for a compilation), not the artist of the first track.
+        setTextIfChanged(state.artist, CoverFlowOrder.artistOf(item))
     }
 
     /**
@@ -524,7 +518,7 @@ class CoverFlowController(
 
     /** One line of centred text, styled by [styleCardText]. */
     private fun createCardText(): TextView {
-        return TextView(activity).apply {
+        return CardText().apply {
             includeFontPadding = false
             gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
             isSingleLine = true
@@ -556,67 +550,6 @@ class CoverFlowController(
         }
     }
 
-    private fun setCardTitleAlpha(card: View, isCenter: Boolean, duration: Int) {
-        val state = card.tag as? CardState ?: return
-        // Only the old and the new centre card change; the others keep their text hidden without an animator.
-        if (CoverFlowSteps.textAnimation(state.textShown, isCenter, duration) == CoverFlowSteps.Change.NONE) return
-        state.textShown = isCenter
-        val targetAlpha = if (isCenter) 1.0f else 0.0f
-        for (tv in arrayOf(state.title, state.artist)) {
-            if (duration > 0) {
-                tv.animate().alpha(targetAlpha).setDuration(duration.toLong()).start()
-            } else {
-                tv.animate().cancel()
-                tv.alpha = targetAlpha
-            }
-        }
-    }
-
-    private fun applyTransform(v: View?, transX: Float, rotY: Float, scale: Float, alpha: Float) {
-        if (v == null) return
-        v.animate().cancel()
-        v.translationX = transX
-        v.rotationY = rotY
-        v.scaleX = scale
-        v.scaleY = scale
-        // A card at alpha 0 is not drawn. Not setVisibility: on Android 4.4 it lays out the full window.
-        v.alpha = alpha
-        (v.tag as? CardState)?.setTargets(transX, rotY, scale, alpha)
-    }
-
-    /**
-     * Animates only the values whose end value changes: a side card that goes to the next side slot only moves.
-     * A value with the same end value is already there, or its running animation goes there.
-     */
-    private fun animateTransform(v: View?, transX: Float, rotY: Float, scale: Float, alpha: Float, duration: Int) {
-        if (v == null) return
-        val state = v.tag as? CardState
-        when (CoverFlowSteps.cardAnimation(v.alpha, alpha, duration)) {
-            CoverFlowSteps.Change.NONE, CoverFlowSteps.Change.SET -> applyTransform(v, transX, rotY, scale, alpha)
-            CoverFlowSteps.Change.ANIMATE -> {
-                val a = v.animate()
-                if (state == null || state.targetX != transX) a.translationX(transX)
-                if (state == null || state.targetRotY != rotY) a.rotationY(rotY)
-                if (state == null || state.targetScale != scale) a.scaleX(scale).scaleY(scale)
-                if (state == null || state.targetAlpha != alpha) a.alpha(alpha)
-                a.setDuration(duration.toLong()).start()
-                state?.setTargets(transX, rotY, scale, alpha)
-            }
-        }
-    }
-
-    private fun arrangeZIndex() {
-        coverFlowContainer?.invalidate()
-    }
-
-    private fun cancelAllAnimations() {
-        cfViews?.forEach { card ->
-            card?.animate()?.cancel()
-            // The values stop between two slots: animate all of them at the next step.
-            (card?.tag as? CardState)?.setTargets(Float.NaN, Float.NaN, Float.NaN, Float.NaN)
-        }
-    }
-
     override fun onWheel(delta: Int, event: KeyEvent): Boolean {
         handleCoverFlowWheelInput(if (delta > 0) 22 else 21, event)
         return true
@@ -631,9 +564,9 @@ class CoverFlowController(
             coverFlowActiveDirection = dir
             coverFlowDirectionChangeTime = eventTime
         } else if (coverFlowActiveDirection != 0 && dir != coverFlowActiveDirection) {
+            // The motion turns at once (CoverFlowMotion: a step the other way starts a new run).
             coverFlowActiveDirection = dir
             coverFlowDirectionChangeTime = eventTime
-            cancelAllAnimations()
         } else if (coverFlowActiveDirection == 0) {
             coverFlowActiveDirection = dir
             coverFlowDirectionChangeTime = eventTime
@@ -644,23 +577,13 @@ class CoverFlowController(
         }
 
         val lag = now - eventTime
-        val diff = now - lastCoverFlowWheelTime
         lastCoverFlowWheelTime = now
         if (letterJump.onStep(dir, eventTime, currentCoverFlowIndex)) return
-        if (flying) {
-            // The step takes over from where the covers are now: the fly-by goes one album past its target.
-            flyTo(flyTarget + dir)
-            if (lag <= 40) clickFeedback()
-            return
+        if (cfViews != null && uniqueAlbumList.isNotEmpty()) {
+            // Only the target changes; the next frame moves the cards (also for many steps before it).
+            motion.step(dir, eventTime)
+            onTargetChanged()
         }
-
-        val duration: Int = when {
-            lag > 40 || diff < 40 -> 0
-            diff < 90 -> 45
-            else -> 160
-        }
-
-        scrollCoverFlow(dir > 0, duration)
 
         if (lag <= 40) {
             clickFeedback()
@@ -671,11 +594,9 @@ class CoverFlowController(
     private fun settleOnAlbum(index: Int) {
         val total = uniqueAlbumList.size
         if (index !in 0 until total) return
-        if (flying) {
-            // In the numbers of the running fly-by (its target can be outside 0 until total after wheel steps).
-            flyTo(index + flyTarget - wrap(flyTarget, total))
-        } else if (index != currentCoverFlowIndex) {
-            flyTo(index)
+        if (motion.flying || index != currentCoverFlowIndex) {
+            // In the numbers of the motion (its target can be outside 0 until total after wheel steps).
+            flyTo(index + motion.target - wrap(motion.target, total))
         }
     }
 
@@ -684,55 +605,54 @@ class CoverFlowController(
      * fly-by (the covers continue from where they are). The album count and select use [target] immediately.
      */
     private fun flyTo(target: Int) {
-        val total = uniqueAlbumList.size
-        val views = cfViews ?: return
-        val container = coverFlowContainer ?: return
-        if (total == 0) return
-        if (!flying) {
-            cancelAllAnimations()
-            cardsBase = currentCoverFlowIndex
-            flyPos = currentCoverFlowIndex.toFloat()
-            for (card in views) card?.let { setCardTitleAlpha(it, false, CoverFlowFlyBy.TEXT_FADE_MS) }
-            flying = true
-        }
-        flyStartPos = flyPos
-        flyTarget = target
-        flyStartTime = SystemClock.uptimeMillis()
-        flyDurationMs = CoverFlowFlyBy.durationMs(target - flyPos)
-        currentCoverFlowIndex = wrap(target, total)
-        container.removeCallbacks(flyFrame)
-        container.postOnAnimation(flyFrame)
+        if (cfViews == null || uniqueAlbumList.isEmpty()) return
+        motion.flyTo(target)
+        onTargetChanged()
     }
 
-    private fun onFlyFrame() {
-        if (!flying) return
-        val elapsed = SystemClock.uptimeMillis() - flyStartTime
-        val done = elapsed >= flyDurationMs
-        flyPos = if (done) flyTarget.toFloat()
-        else flyStartPos + CoverFlowFlyBy.offsetAt(elapsed, flyDurationMs, flyTarget - flyStartPos)
-        placeCards(flyPos)
-        if (!done) {
-            coverFlowContainer?.postOnAnimation(flyFrame)
+    /** The album index, the status title and the motion follow the new target. */
+    private fun onTargetChanged() {
+        currentCoverFlowIndex = wrap(motion.target, uniqueAlbumList.size)
+        showStatusTitleSoon()
+        if (!framePosted) {
+            framePosted = true
+            Choreographer.getInstance().postFrameCallback(motionFrame)
+        }
+    }
+
+    private fun onMotionFrame(frameTimeMs: Long) {
+        framePosted = false
+        val moving = motion.frame(frameTimeMs)
+        placeCards(motion.pos)
+        if (moving) {
+            framePosted = true
+            Choreographer.getInstance().postFrameCallback(motionFrame)
             return
         }
-        stopFlyBy()
-        // Exact positions, the album count, then the text of the centre album fades in.
-        initCoverFlowPositions()
-        cfViews?.get(visibleCoversCount / 2)?.let {
-            setCardTitleAlpha(it, false, 0)
-            setCardTitleAlpha(it, true, CoverFlowFlyBy.TEXT_FADE_MS)
+        // At rest: back to album numbers in 0 until total (the cards keep their albums).
+        val total = uniqueAlbumList.size
+        if (total == 0) return
+        val laps = motion.target - wrap(motion.target, total)
+        if (laps != 0) {
+            motion.shift(-laps)
+            cardsBase -= laps
+            placedCentre -= laps
         }
     }
 
-    private fun stopFlyBy() {
-        if (!flying) return
-        flying = false
-        coverFlowContainer?.removeCallbacks(flyFrame)
+    /** Stops the motion where it is; [initCoverFlowPositions] puts the cards at rest again. */
+    private fun stopMotion() {
+        if (framePosted) {
+            framePosted = false
+            Choreographer.getInstance().removeFrameCallback(motionFrame)
+        }
+        motion.reset(motion.target)
     }
 
     /**
      * Puts the cards at position [pos] (album number, can be fractional). The cards move in the views array as in
-     * a wheel step; only the cards that come in get a new album (from the cover cache, else the placeholder).
+     * a wheel step; only the cards that come in at the outer slot get a new album (from the cover cache, else the
+     * placeholder).
      */
     private fun placeCards(pos: Float) {
         val views = cfViews ?: return
@@ -742,7 +662,7 @@ class CoverFlowController(
         val base = Math.floor(pos.toDouble()).toInt()
         val shift = base - cardsBase
         if (shift >= visibleCoversCount || shift <= -visibleCoversCount) {
-            for (i in 0 until visibleCoversCount) views[i]?.let { bindCoverData(it, wrap(base + i - centerIdx, total), withText = false) }
+            for (i in 0 until visibleCoversCount) views[i]?.let { bindCover(it, wrap(base + i - centerIdx, total)) }
         } else if (shift > 0) {
             repeat(shift) {
                 val first = views[0]
@@ -750,7 +670,7 @@ class CoverFlowController(
                 views[visibleCoversCount - 1] = first
             }
             for (i in visibleCoversCount - shift until visibleCoversCount) {
-                views[i]?.let { bindCoverData(it, wrap(base + i - centerIdx, total), withText = false) }
+                views[i]?.let { bindCover(it, wrap(base + i - centerIdx, total)) }
             }
         } else if (shift < 0) {
             repeat(-shift) {
@@ -758,14 +678,25 @@ class CoverFlowController(
                 for (i in visibleCoversCount - 1 downTo 1) views[i] = views[i - 1]
                 views[0] = last
             }
-            for (i in 0 until -shift) views[i]?.let { bindCoverData(it, wrap(base + i - centerIdx, total), withText = false) }
+            for (i in 0 until -shift) views[i]?.let { bindCover(it, wrap(base + i - centerIdx, total)) }
         }
         cardsBase = base
+        // CoverFlowLayout draws the card nearest to the centre last (on top), in the order of its last draw: a new
+        // centre card must make it draw again (a card property change does not).
+        val centre = Math.round(pos)
+        if (centre != placedCentre) {
+            placedCentre = centre
+            coverFlowContainer?.invalidate()
+        }
         val frac = pos - base
         for (i in 0 until visibleCoversCount) views[i]?.let { placeCard(it, i - centerIdx - frac) }
     }
 
-    /** Puts [card] at [offset] albums from the centre: between two slots, the values are interpolated. */
+    /**
+     * Puts [card] at [offset] albums from the centre: between two slots, the values are interpolated. A card that
+     * stays hidden (alpha 0) is not changed: each View setter invalidates up to the window. The text shows near the
+     * centre ([CoverFlowMotion.textAlpha]); it is set when it starts to show.
+     */
     private fun placeCard(card: View, offset: Float) {
         val maxDist = visibleCoversCount / 2
         val o = offset.coerceIn(-maxDist.toFloat(), maxDist.toFloat())
@@ -773,14 +704,21 @@ class CoverFlowController(
         val t = o - k
         val a = k + maxDist
         val b = if (t > 0f) a + 1 else a
+        // A card at alpha 0 is not drawn. Not setVisibility: on Android 4.4 it lays out the full window.
+        val alpha = slotAlpha[a] + (slotAlpha[b] - slotAlpha[a]) * t
+        if (alpha <= 0f && card.alpha <= 0f) return
+        // The setters do nothing for an equal value: a side card that moves between side slots changes only x.
         card.translationX = slotX[a] + (slotX[b] - slotX[a]) * t
         card.rotationY = slotRotY[a] + (slotRotY[b] - slotRotY[a]) * t
         val scale = slotScale[a] + (slotScale[b] - slotScale[a]) * t
         card.scaleX = scale
         card.scaleY = scale
-        // A card at alpha 0 is not drawn.
-        card.alpha = slotAlpha[a] + (slotAlpha[b] - slotAlpha[a]) * t
-        (card.tag as? CardState)?.setTargets(Float.NaN, Float.NaN, Float.NaN, Float.NaN)
+        card.alpha = alpha
+        val state = card.tag as? CardState ?: return
+        val textAlpha = CoverFlowMotion.textAlpha(offset, motion.textLevel)
+        if (textAlpha > 0f && state.textAlbum != state.album) bindText(state)
+        state.title.alpha = textAlpha
+        state.artist.alpha = textAlpha
     }
 
     /** The card values at each slot: made one time with the cards, no trigonometry for each step. */
@@ -798,59 +736,6 @@ class CoverFlowController(
     }
 
     private fun wrap(index: Int, total: Int): Int = ((index % total) + total) % total
-
-    private fun scrollCoverFlow(isNext: Boolean, duration: Int) {
-        val total = uniqueAlbumList.size
-        if (total == 0) return
-        val views = cfViews ?: return
-
-        val centerIdx = visibleCoversCount / 2
-        // The outer slot on the right: the recycled card waits there (hidden), or on the left (mirrored).
-        val last = visibleCoversCount - 1
-        val offScreenX = slotX[last]
-        val offScreenRot = -slotRotY[last]
-        val offScreenScale = slotScale[last]
-
-        if (isNext) {
-            currentCoverFlowIndex = (currentCoverFlowIndex + 1) % total
-            val oldLeft = views[0]
-
-            for (i in 0 until visibleCoversCount - 1) {
-                views[i] = views[i + 1]
-            }
-            views[visibleCoversCount - 1] = oldLeft
-
-            val recycled = views[visibleCoversCount - 1]
-            if (recycled != null) {
-                bindCoverData(recycled, (currentCoverFlowIndex + centerIdx + total * 10) % total)
-                applyTransform(recycled, offScreenX, -offScreenRot, offScreenScale, 0f)
-            }
-        } else {
-            currentCoverFlowIndex = (currentCoverFlowIndex - 1 + total) % total
-            val oldRight = views[visibleCoversCount - 1]
-
-            for (i in visibleCoversCount - 1 downTo 1) {
-                views[i] = views[i - 1]
-            }
-            views[0] = oldRight
-
-            val recycled = views[0]
-            if (recycled != null) {
-                bindCoverData(recycled, (currentCoverFlowIndex - centerIdx + total * 10) % total)
-                applyTransform(recycled, -offScreenX, offScreenRot, offScreenScale, 0f)
-            }
-        }
-
-        arrangeZIndex()
-
-        for (i in 0 until visibleCoversCount) {
-            views[i]?.let { setCardTitleAlpha(it, i == centerIdx, duration) }
-            animateTransform(views[i], slotX[i], slotRotY[i], slotScale[i], slotAlpha[i], duration)
-        }
-
-        showStatusTitleSoon()
-    }
-
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         // Letter mode: a centre press only ends it; Back and Play/Pause end it, then work as usual.
         if (letterJump.onKey(event.keyCode, event.action == KeyEvent.ACTION_DOWN, event.repeatCount)) return true
@@ -885,25 +770,23 @@ class CoverFlowController(
         return false
     }
 
-    /** Views of a card, whether its text is shown, and the end values of its last move (kept in card.tag). */
+    /** Views of a card, the album that it shows, and the album of its texts (kept in card.tag). */
     private class CardState(
         val cover: SmoothEdgeImageView,
         val reflection: ReflectionView,
         val title: TextView,
         val artist: TextView
     ) {
-        var textShown = false
-        var targetX = Float.NaN
-        var targetRotY = Float.NaN
-        var targetScale = Float.NaN
-        var targetAlpha = Float.NaN
+        var album = -1
+        var textAlbum = -1
+    }
 
-        fun setTargets(x: Float, rotY: Float, scale: Float, alpha: Float) {
-            targetX = x
-            targetRotY = rotY
-            targetScale = scale
-            targetAlpha = alpha
-        }
+    /**
+     * A card text. Its alpha is a display-list property, as for other views: a TextView with no background otherwise
+     * draws the alpha itself, so each alpha change (each frame while it fades) records its text again.
+     */
+    private inner class CardText : TextView(activity) {
+        override fun onSetAlpha(alpha: Int): Boolean = false
     }
 
     /**
