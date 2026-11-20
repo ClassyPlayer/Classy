@@ -505,16 +505,31 @@ class SettingsController(
     /** The Power screen: Restart and Power Off. The centre button does the action at once; Back closes the screen. */
     private fun buildPowerUI() = buildPowerUI(RadioSwitch.wifiOn(activity), RadioSwitch.bluetoothOn())
 
+    /** A radio request that Android accepted shows the new state at once; otherwise the switch shows what the radio is. */
+    private fun radioRequested(request: RadioSwitch.Request, showNew: () -> Unit) {
+        when (request) {
+            RadioSwitch.Request.DONE -> showNew()
+            RadioSwitch.Request.BUSY -> Notice.show(activity, localize("Please wait a moment..."))
+            RadioSwitch.Request.FAILED -> {
+                buildPowerUI()
+                Notice.error(activity, localize("Failed"))
+            }
+        }
+    }
+
     /** Wi-Fi and Bluetooth come up a moment after the press, so the switch shows the new state at once. */
     private fun buildPowerUI(wifi: Boolean, bt: Boolean) {
         val radios = listOf(
             ActionScreens.Action(localize("Wi-Fi"), closes = false, value = onOff(wifi, localize)) {
-                RadioSwitch.toggleWifi(activity)
-                buildPowerUI(!wifi, bt)
+                radioRequested(RadioSwitch.toggleWifi(activity)) { buildPowerUI(!wifi, bt) }
             },
             ActionScreens.Action(localize("Bluetooth"), closes = false, value = onOff(bt, localize)) {
-                RadioSwitch.toggleBluetooth { activity.runOnUiThread(it) }
-                buildPowerUI(wifi, !bt)
+                // enable() comes later: when it is refused, the switch goes back to what the radio is
+                val request = RadioSwitch.toggleBluetooth({ activity.runOnUiThread(it) }) {
+                    if (actionPage == SettingsSubMode.Power) buildPowerUI()
+                    Notice.error(activity, localize("Failed"))
+                }
+                radioRequested(request) { buildPowerUI(wifi, !bt) }
             }
         )
         val brightness = ActionScreens.Action(localize("Brightness"), opensList = true) {

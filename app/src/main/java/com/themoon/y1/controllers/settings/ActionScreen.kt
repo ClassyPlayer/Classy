@@ -31,7 +31,7 @@ object ActionScreens {
         val checked: Boolean? = null,
         val opensList: Boolean = false,
         val closes: Boolean = !opensList,
-        /** Not null: a value row ([onOff] shows as the switch of the Settings rows). */
+        /** Not null: a value row ([onOff] shows as the switch of the Settings rows). It wins over [checked]: a row with both is a value row. */
         val value: String? = null,
         val run: () -> Unit
     )
