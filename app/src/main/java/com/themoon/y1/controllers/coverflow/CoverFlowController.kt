@@ -459,6 +459,8 @@ class CoverFlowController(
         val item = uniqueAlbumList[dataIndex]
         val state = card.tag as? CardState ?: return
         state.album = dataIndex
+        // The album at an index can change (library load): the texts are set again when the card shows them
+        state.textAlbum = -1
         val ivCover = state.cover
 
         val albumKey = AlbumCoverManager.getAlbumKey(item.file, item.album)
