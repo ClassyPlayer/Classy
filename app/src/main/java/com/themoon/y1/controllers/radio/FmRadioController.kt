@@ -28,6 +28,7 @@ import com.themoon.y1.managers.AudioPlayerManager
 import com.themoon.y1.managers.FmRadioManager
 import com.themoon.y1.navigation.NavigationManager
 import com.themoon.y1.navigation.ScreenState
+import com.themoon.y1.navigation.WheelKind
 import com.themoon.y1.views.Notice
 import java.util.Locale
 
@@ -566,6 +567,9 @@ class FmRadioController(
         if (!fmManager.isPowerUp) toggleRadioPower(feedback = false)
         (activity as? MainActivity)?.changeScreen(ScreenState.FmRadio)
     }
+
+    // The wheel moves the tuner frequency
+    override fun wheelKind(): WheelKind = if (page == Page.TUNER) WheelKind.VALUE else WheelKind.LIST
 
     override fun onWheel(delta: Int, event: KeyEvent): Boolean {
         if (page != Page.TUNER) return screen.wheel(delta)

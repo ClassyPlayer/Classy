@@ -27,6 +27,7 @@ import com.themoon.y1.controllers.player.LyricsScreenHold
 import com.themoon.y1.managers.LanguageManager
 import com.themoon.y1.navigation.NavigationManager
 import com.themoon.y1.navigation.ScreenState
+import com.themoon.y1.navigation.WheelKind
 import com.themoon.y1.views.ClassicMenuStyle
 import java.io.File
 
@@ -512,6 +513,9 @@ class BookReaderController(
     }
 
     // --- Keys ---
+
+    // The wheel moves the pages
+    override fun wheelKind(): WheelKind = WheelKind.VALUE
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         val code = event.keyCode

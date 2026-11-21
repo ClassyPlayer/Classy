@@ -199,6 +199,8 @@ object Prefs {
     val LETTER_JUMP = add(BoolPref("letter_jump", true, PrefGroup.CONTROLS, resettable = true))
     /** Letter Jump Sensitivity: the [LetterJump.Sensitivity] ordinal (0 = Low, 1 = Normal, 2 = High). */
     val LETTER_JUMP_SENSITIVITY = add(IntPref("letter_jump_sensitivity", LetterJump.Sensitivity.DEFAULT.ordinal, PrefGroup.CONTROLS, resettable = true))
+    /** Wheel Mode on the Y2 ([com.themoon.y1.navigation.PadWheel.MODE_LABELS]; 0 = Classic, the wheel's step keys). */
+    val WHEEL_MODE = add(IntPref("wheel_mode", com.themoon.y1.navigation.PadWheel.DEFAULT_MODE, PrefGroup.CONTROLS, resettable = true))
     val SCREEN_OFF_CONTROL = add(BoolPref("screen_off_control", false, PrefGroup.CONTROLS, resettable = true))
     val DOUBLE_CLICK_FAVORITE = add(BoolPref("double_click_favorite", true, PrefGroup.CONTROLS, resettable = true))
     val BACK_HOLD_NOW_PLAYING = add(BoolPref("back_hold_now_playing", true, PrefGroup.CONTROLS, resettable = true))
