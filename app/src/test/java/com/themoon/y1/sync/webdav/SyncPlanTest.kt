@@ -211,3 +211,21 @@ class SyncPlanTest {
         assertEquals(File(root, "Rock/Why_.flac"), plan.downloads.single().target)
     }
 }
+
+class PruneEmptyDirsTest {
+    @org.junit.Test fun removesEmptyParentsButNotTheRootOrAFolderWithFiles() {
+        val root = java.nio.file.Files.createTempDirectory("music").toFile()
+        val album = File(root, "Artist/Album/Disc 1").apply { mkdirs() }
+        File(root, "Artist/Other").mkdirs()
+        File(root, "Artist/Other/keep.mp3").writeText("x")
+        val gone = File(album, "a.mp3")
+        pruneEmptyDirs(gone, listOf(root))
+        org.junit.Assert.assertFalse(File(root, "Artist/Album").exists())
+        org.junit.Assert.assertTrue(File(root, "Artist").exists())
+        val only = File(root, "Solo/x.mp3").apply { parentFile.mkdirs() }
+        pruneEmptyDirs(only, listOf(root))
+        org.junit.Assert.assertFalse(File(root, "Solo").exists())
+        org.junit.Assert.assertTrue(root.exists())
+        root.deleteRecursively()
+    }
+}

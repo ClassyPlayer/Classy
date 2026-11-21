@@ -338,6 +338,7 @@ class WebDavSync private constructor(context: Context) {
             if (item == null) { gone++; continue }
             val f = item.localPath?.takeIf { it.isNotEmpty() }?.let { File(it) }
             if (f != null && f.exists() && (player.isFileCurrentlyPlaying(f) || !f.delete())) continue
+            if (f != null) pruneEmptyDirs(f, listOf(destRoot(true), destRoot(false)))
             ledger.removeItem(href)
             gone++
         }

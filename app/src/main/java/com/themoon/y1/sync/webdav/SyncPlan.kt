@@ -48,6 +48,12 @@ fun movedPath(localPath: String?, from: File, to: File, safeNames: Boolean = fal
 /** True when [href] is below the folder [parent] (a folder named like the start of another one is not). */
 fun isUnder(href: String, parent: String): Boolean = href.startsWith(parent.trimEnd('/') + "/")
 
+/** Deletes the empty folders above [file] (a deleted file), up to but not including a folder of [roots]. */
+fun pruneEmptyDirs(file: File, roots: Collection<File>) {
+    var dir = file.parentFile
+    while (dir != null && roots.none { it == dir } && dir.delete()) dir = dir.parentFile // delete() fails on a folder that has files
+}
+
 object SyncPlan {
 
     /**
