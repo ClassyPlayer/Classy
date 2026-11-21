@@ -172,7 +172,6 @@ object Prefs {
     /** The theme that the user selected; null before the first selection (then [CURRENT_THEME_NAME]). */
     val THEME_NAME = add(PrefKey("app_theme_name", PrefGroup.APPEARANCE))
     val CURRENT_THEME_NAME = add(StringPref("current_theme_name", "Classic Light", PrefGroup.APPEARANCE))
-    val THEME_INDEX = add(PrefKey("app_theme_index", PrefGroup.APPEARANCE))
     /** Reset does not remove it: [AutoThemeManager.reset] turns Auto off and selects the default theme. */
     val AUTO_THEME = add(BoolPref(AutoThemeManager.PREF_KEY, false, PrefGroup.APPEARANCE))
     val TOGGLE_STYLE = add(StringPref(ToggleStyle.PREF_KEY, ToggleStyle.TEXT, PrefGroup.APPEARANCE, resettable = true))
@@ -182,7 +181,6 @@ object Prefs {
 
     // --- Menus ---
     val MENU_ORDER = add(PrefKey(MenuOrder.KEY, PrefGroup.MENUS))
-    val MENU_ORDER_OF_THEME = add(PrefFamily(MenuOrder.THEME_KEY_PREFIX, PrefGroup.MENUS))
     /** Main Menu Items: "hide_btn_<button id>" = true hides the item. */
     val MAIN_MENU_HIDDEN = add(PrefFamily("hide_btn_", PrefGroup.MENUS))
     /** Music Menu Items: "hide_music_btn_<item id>" = true hides the item. */
@@ -239,7 +237,6 @@ object Prefs {
     val LASTFM_USERNAME = add(PrefKey("lastfm_username", PrefGroup.ACCOUNT, inBackup = false))
     val LASTFM_PASSWORD = add(PrefKey("lastfm_password", PrefGroup.ACCOUNT, inBackup = false))
     val LAST_LANG_VERSION = add(PrefKey("last_lang_version", PrefGroup.INSTALL, inBackup = false))
-    val LAST_THEME_VERSION = add(PrefKey("last_installed_theme_version", PrefGroup.INSTALL, inBackup = false))
     /**
      * Update Channel chosen in Settings ([UpdateChannel]); it holds only for the builds in [UPDATE_CHANNEL_BUILDS].
      * Not in the backup: a backup of another player must not move this one to another channel.
@@ -249,6 +246,11 @@ object Prefs {
     val UPDATE_CHANNEL_BUILDS = add(StringPref(UpdateChannel.PREF_BUILDS, "", PrefGroup.INSTALL, inBackup = false))
     /** An old key. No code reads it. */
     val REBOOT_TO_THEME = add(PrefKey("reboot_to_theme", PrefGroup.LEGACY, inBackup = false))
+    /** Old theme keys (before the two themes were in the code). No code reads them. */
+    val THEME_INDEX = add(PrefKey("app_theme_index", PrefGroup.LEGACY))
+    val LAST_THEME_VERSION = add(PrefKey("last_installed_theme_version", PrefGroup.LEGACY, inBackup = false))
+    /** The main menu order of each theme name, before [MENU_ORDER]. */
+    val MENU_ORDER_OF_THEME = add(PrefFamily("custom_menu_order_", PrefGroup.LEGACY))
 
     /** All keys, in the order above. */
     val ALL: List<PrefKey> get() = keys

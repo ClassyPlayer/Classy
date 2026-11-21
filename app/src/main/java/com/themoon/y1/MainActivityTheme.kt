@@ -30,10 +30,10 @@ object LiveTheme {
 
 /**
  * Makes [name] the current theme (and saves it) and applies it after the current event, so that a
- * click handler does not remove its own row. False if the theme is not installed.
+ * click handler does not remove its own row. False if there is no theme with this name.
  */
 fun MainActivity.changeTheme(name: String): Boolean {
-    if (ThemeManager.findThemeIndexByName(name) < 0) return false
+    if (ThemeManager.find(name) == null) return false
     ThemeManager.selectTheme(prefs, name)
     window.decorView.post {
         if (!isFinishing) applyThemeLive()

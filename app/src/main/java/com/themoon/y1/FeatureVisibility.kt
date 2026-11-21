@@ -19,12 +19,12 @@ object FeatureVisibility {
 
     private const val TAG = "FeatureVisibility"
 
-    /** True when every main menu button of the current theme that opens [action] is hidden. */
+    /** True when every main menu button that opens [action] is hidden. */
     fun isHidden(context: Context?, action: String): Boolean {
         if (context == null) return false
         return try {
             val prefs = context.getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
-            val ids = ThemeManager.getCurrentTheme().menuElements
+            val ids = ThemeManager.menuElements
                 .filter { it.type == "button" && it.action.equals(action, ignoreCase = true) }
                 .map { it.id }
             isHidden(ids) { prefs.getBoolean(Prefs.MAIN_MENU_HIDDEN.key(it), false) }

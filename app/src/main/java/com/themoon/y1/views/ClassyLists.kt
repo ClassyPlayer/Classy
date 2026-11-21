@@ -168,7 +168,7 @@ object ClassyLists {
     ) = ThemeManager.MenuElement(
         el.id, el.type, el.parentId, el.visibleOnFocus, x, y, width, height,
         el.textNormal, el.textFocused, textRight, el.textRightColor, el.textRightFocusedColor,
-        el.iconNormal, el.iconFocused, el.previewImage, el.action, el.gravity, el.radius, el.focusIndex,
+        el.action, el.gravity, el.radius, el.focusIndex,
         textSize, el.textSecondarySize, el.textPosition, el.textAlign, el.bgColor, el.padding,
         el.focusOffsetX, el.focusOffsetY, el.focusScale
     )

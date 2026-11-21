@@ -4,9 +4,7 @@ import com.themoon.y1.Prefs
 import com.themoon.y1.navigation.RowFocus
 import android.app.Activity
 import android.content.Context
-import android.graphics.Bitmap
 import android.graphics.Typeface
-import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.util.SparseIntArray
@@ -174,7 +172,7 @@ class MainMenuController(
         ivWidgetFocusImage = null
         ivAnimatedCover = null
 
-        val elements = ClassyLists.menuElements(ThemeManager.getCurrentTheme().menuElements, activity)
+        val elements = ClassyLists.menuElements(ThemeManager.menuElements, activity)
         val buttonElements = ArrayList<ThemeManager.MenuElement>()
         val widgetElements = ArrayList<ThemeManager.MenuElement>()
 
@@ -227,22 +225,6 @@ class MainMenuController(
                         background = widgetBg
                     }
 
-                    val imgName = if (!el.iconNormal.isNullOrEmpty()) el.iconNormal else el.textNormal
-                    if (!imgName.isNullOrEmpty() && imgName != "New Item") {
-                        val bmp = ThemeManager.getCustomIcon(imgName, activity, 0)
-                        if (bmp != null) {
-                            val maxTexSize = 2048
-                            if (bmp.width > maxTexSize || bmp.height > maxTexSize) {
-                                val ratio = Math.min(maxTexSize.toFloat() / bmp.width, maxTexSize.toFloat() / bmp.height)
-                                boxView.setImageBitmap(
-                                    Bitmap.createScaledBitmap(bmp, (bmp.width * ratio).toInt(), (bmp.height * ratio).toInt(), true)
-                                )
-                            } else {
-                                boxView.setImageBitmap(bmp)
-                            }
-                            boxView.scaleType = ImageView.ScaleType.CENTER_CROP
-                        }
-                    }
                     canvas.addView(boxView)
                     createdWidgetView = boxView
                 }
@@ -493,16 +475,6 @@ class MainMenuController(
             }
 
             val isIconOnly = el.textNormal.isNullOrBlank()
-            val calculatedIconSize = if (isIconOnly) {
-                val w = if (el.width > 0) el.width else 50
-                val h = if (el.height > 0) el.height else 50
-                val p = (el.padding * density).toInt()
-                val tempSize = (Math.min(w, h) * density).toInt() - (p * 2)
-                if (tempSize > 0) tempSize else (10 * density).toInt()
-            } else {
-                val h = if (el.height > 0) el.height else 50
-                (h * density * 0.5f).toInt()
-            }
 
             var textGravity = Gravity.LEFT or Gravity.CENTER_VERTICAL
             if (!el.textAlign.isNullOrEmpty()) {
@@ -592,21 +564,7 @@ class MainMenuController(
                     }
                 }
 
-                if (!el.iconNormal.isNullOrEmpty()) {
-                    val bmp = ThemeManager.getCustomIcon(el.iconNormal, activity, 0)
-                    if (bmp != null) {
-                        val scaledBmp = Bitmap.createScaledBitmap(bmp, calculatedIconSize, calculatedIconSize, true)
-                        val d = BitmapDrawable(activity.resources, scaledBmp).apply {
-                            setBounds(0, 0, calculatedIconSize, calculatedIconSize)
-                        }
-                        tvMain.setCompoundDrawables(d, null, null, null)
-                        tvMain.compoundDrawablePadding = if (isIconOnly) 0 else (10 * density).toInt()
-                    } else {
-                        tvMain.setCompoundDrawables(null, null, null, null)
-                    }
-                } else {
-                    tvMain.setCompoundDrawables(null, null, null, null)
-                }
+                tvMain.setCompoundDrawables(null, null, null, null)
 
                 tvMain.translationX = 0f
                 tvMain.translationY = 0f
@@ -638,18 +596,6 @@ class MainMenuController(
                             tvRight.setTextColor(ThemeManager.getListButtonFocusedTextColor())
                         }
                         tvMain.text = if (!el.textFocused.isNullOrEmpty()) localize(el.textFocused) else localize(el.textNormal ?: "")
-                    }
-
-                    val targetIcon = if (!el.iconFocused.isNullOrEmpty()) el.iconFocused else el.iconNormal
-                    if (!targetIcon.isNullOrEmpty()) {
-                        val bmpF = ThemeManager.getCustomIcon(targetIcon, activity, 0)
-                        if (bmpF != null) {
-                            val scaledBmpF = Bitmap.createScaledBitmap(bmpF, calculatedIconSize, calculatedIconSize, true)
-                            val d = BitmapDrawable(activity.resources, scaledBmpF).apply {
-                                setBounds(0, 0, calculatedIconSize, calculatedIconSize)
-                            }
-                            tvMain.setCompoundDrawables(d, null, null, null)
-                        }
                     }
 
                     onButtonFocusChanged(el)
