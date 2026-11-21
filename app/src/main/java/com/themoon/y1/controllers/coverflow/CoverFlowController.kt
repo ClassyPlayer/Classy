@@ -359,7 +359,13 @@ class CoverFlowController(
         if (item.file == null) return
         val key = AlbumCoverManager.getAlbumKey(item.file, item.album)
         val manager = AlbumCoverManager.getInstance()
-        if (manager.getMemoryCover(key) != null || manager.hasNoArt(key)) return
+        // In the cache already (for example from the warm-up load, whose callback does not update the cards): show it
+        val cached = manager.getMemoryCover(key)
+        if (cached != null) {
+            showLoadedCover(key, cached)
+            return
+        }
+        if (manager.hasNoArt(key)) return
         val now = SystemClock.uptimeMillis()
         val started = coverLoads[key]
         // A load that did not come back in time (it failed) does not block a new one.
