@@ -599,6 +599,13 @@ internal fun MainActivity.shuffleAllSongs() {
     changeScreen(MainActivity.STATE_PLAYER)
 }
 
+/** Now Playing: back to it when it is under this screen (no second copy in the back stack), else open it. */
+internal fun MainActivity.showNowPlaying() {
+    val nav = NavigationManager.getInstance()
+    if (nav.backStackHas { it == ScreenState.Player }) nav.popBackStackTo { it == ScreenState.Player }
+    else handleMainMenuAction("OPEN_PLAYER")
+}
+
 internal fun MainActivity.handleMainMenuAction(action: String) {
     when (action) {
         "OPEN_BROWSER", "MUSIC" -> {

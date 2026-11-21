@@ -234,6 +234,7 @@ class SettingsController(
                 { LetterJump.Sensitivity.of(it).ordinal }, enabled = { Prefs.LETTER_JUMP.get(prefs) }),
             toggle("Screen-Off Control", Prefs.SCREEN_OFF_CONTROL),
             toggle("Double-Click to Favorite", Prefs.DOUBLE_CLICK_FAVORITE),
+            toggle("Hold Back for Now Playing", Prefs.BACK_HOLD_NOW_PLAYING),
         )),
         SettingsGroup("Connectivity", listOf(
             action("Bluetooth") { onNavigateToScreen(MainActivity.STATE_BLUETOOTH) },
