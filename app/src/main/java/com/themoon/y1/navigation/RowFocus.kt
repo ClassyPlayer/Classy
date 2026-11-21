@@ -3,10 +3,14 @@ package com.themoon.y1.navigation
 import com.themoon.y1.AppPrefs
 import com.themoon.y1.Prefs
 import android.content.Context
+import android.os.Build
+import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.AbsListView
+import android.widget.AdapterView
 import android.widget.ListView
+import com.themoon.y1.views.EdgeFadeListView
 import com.themoon.y1.views.ListEdges
 
 /**
@@ -69,10 +73,41 @@ object RowFocus {
     }
 
     /**
+     * A step to the next row with the ListView's own D-pad step (ListView.arrowScroll): it moves the focus and the
+     * selection and scrolls the rows by a few pixels with no layout pass (a selection change by
+     * [ListView.setSelectionFromTop] lays out the list and the window again, ~15 ms on the Y2). It keeps the
+     * fading edge length clear above and below the row, as List Edges = Fade does. Only Android 4.4 (Y2): the Y1 keeps
+     * the path below. False when it cannot do the step (not the next row, the selection is not on the focused
+     * row): then the caller does it.
+     */
+    private fun arrowStep(list: EdgeFadeListView, position: Int): Boolean {
+        if (Build.VERSION.SDK_INT < 19) return false
+        val focus = list.findFocus() ?: return false
+        if (focus === list) return false
+        val current = list.getPositionForView(focus)
+        if (current == AdapterView.INVALID_POSITION || list.selectedItemPosition != current) return false
+        val key = when (position) {
+            current + 1 -> KeyEvent.KEYCODE_DPAD_DOWN
+            current - 1 -> KeyEvent.KEYCODE_DPAD_UP
+            else -> return false
+        }
+        list.inArrowStep = true
+        try {
+            // ListView.arrowScroll is not public: the D-pad key of the list runs it
+            list.onKeyDown(key, KeyEvent(KeyEvent.ACTION_DOWN, key))
+        } finally {
+            list.inArrowStep = false
+        }
+        val now = list.findFocus()?.takeIf { it !== list }?.let { list.getPositionForView(it) }
+        return now == position
+    }
+
+    /**
      * Selects row [position] of [list]. A row that is not on the screen comes into the list first. With
      * List Edges = Fade the row stays clear of the fades ([ListEdges.focusRow]).
      */
     fun showRow(list: AbsListView, position: Int) {
+        if (list is EdgeFadeListView && arrowStep(list, position)) return
         if (list is ListView && ListEdges.focusRow(list, position)) return
         val first = list.firstVisiblePosition
         val row = if (position in first..list.lastVisiblePosition) list.getChildAt(position - first) else null

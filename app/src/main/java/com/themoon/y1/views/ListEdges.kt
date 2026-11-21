@@ -368,9 +368,12 @@ open class EdgeFadeListView(context: Context) : ListView(context) {
         ListEdges.updateLength(this)
     }
 
+    /** True during a step by the ListView's own D-pad step (ListView.arrowScroll): it keeps the row clear of the fades and moves the selection itself. */
+    internal var inArrowStep = false
+
     override fun requestChildFocus(child: View?, focused: View?) {
         super.requestChildFocus(child, focused)
-        if (child != null) ListEdges.revealRow(this, child)
+        if (child != null && !inArrowStep) ListEdges.revealRow(this, child)
     }
 }
 
