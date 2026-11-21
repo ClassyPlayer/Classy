@@ -12,7 +12,7 @@ import android.widget.AbsListView
 import android.widget.LinearLayout
 import com.themoon.y1.MainActivity
 import com.themoon.y1.Prefs
-import com.themoon.y1.handleMainMenuAction
+import com.themoon.y1.showNowPlaying
 import com.themoon.y1.controllers.ScreenController
 import com.themoon.y1.controllers.player.PlayerController
 import com.themoon.y1.managers.AudioPlayerManager
@@ -267,9 +267,7 @@ class InputRouter private constructor() {
             if (main != null && holdOpensNowPlaying(event.repeatCount, backPress.isArmed, Prefs.BACK_HOLD_NOW_PLAYING.get(main.prefs), nav.currentState ?: ScreenState.MainMenu)) {
                 suppressBackUntilRelease()
                 main.clickFeedback()
-                // Now Playing already under this screen (Now Playing > menu > hold Back): back to it, no second copy
-                if (nav.backStackHas { it == ScreenState.Player }) nav.popBackStackTo { it == ScreenState.Player }
-                else main.handleMainMenuAction("OPEN_PLAYER")
+                main.showNowPlaying()
             }
             return true
         }
