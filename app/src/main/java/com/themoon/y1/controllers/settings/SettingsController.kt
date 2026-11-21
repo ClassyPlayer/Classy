@@ -4,7 +4,6 @@ import com.themoon.y1.lists.ListScreen
 import com.themoon.y1.navigation.RowFocus
 import android.app.Activity
 import android.content.Context
-import android.os.SystemClock
 import android.graphics.Typeface
 import android.provider.Settings
 import android.view.Gravity
@@ -34,7 +33,6 @@ import com.themoon.y1.managers.VolumeSteps
 import com.themoon.y1.managers.LanguageManager
 import com.themoon.y1.managers.LastFmScrobbler
 import com.themoon.y1.managers.PowerMenu
-import com.themoon.y1.managers.PendingRadio
 import com.themoon.y1.managers.RadioSwitch
 import com.themoon.y1.core.extensions.onOff
 import com.themoon.y1.managers.UpdateChannel
@@ -97,9 +95,6 @@ class SettingsController(
     private val isActionScreen: Boolean get() = actionPage != null
     /** The status bar title of the list that shows. */
     private var shownTitle: String? = null
-    /** What the Wi-Fi and Bluetooth rows of the Power screen were asked to be, until the radio gets there. */
-    private val pendingWifi = PendingRadio()
-    private val pendingBt = PendingRadio()
 
     // The values of the Date & Time rows (Year...Minute): read from the clock when Date & Time opens and after a change
     var dtYear: Int = 2026
@@ -507,60 +502,28 @@ class SettingsController(
         "1.0"
     }
 
-    /** The Power screen: Wi-Fi, Bluetooth, Brightness, Restart and Power Off. A switch or action row does its action at once; Back closes the screen. */
-    private fun buildPowerUI() {
-        val now = SystemClock.uptimeMillis()
-        showPowerScreen(pendingWifi.shown(RadioSwitch.wifiOn(activity), now), pendingBt.shown(RadioSwitch.bluetoothOn(), now))
-    }
-
-    /** A radio is on or off now (MainActivity: the Wi-Fi and Bluetooth state broadcasts): an open Power screen shows it. */
-    fun onRadioStateChanged() {
-        pendingWifi.reached(RadioSwitch.wifiOn(activity))
-        pendingBt.reached(RadioSwitch.bluetoothOn())
-        if (actionPage == SettingsSubMode.Power) buildPowerUI()
-    }
-
     /**
-     * A radio request that Android accepted shows its target at once ([pending]), until the radio gets there;
-     * otherwise the switch shows what the radio is.
+     * The Power screen: Wi-Fi, Bluetooth, Brightness, Restart and Power Off. A switch or action row does its action at
+     * once; Back closes the screen. A switch shows "Wait..." while its radio starts or stops, as in the Wi-Fi and
+     * Bluetooth screens.
      */
-    private fun radioRequested(request: RadioSwitch.Request, pending: PendingRadio, target: Boolean) {
-        when (request) {
-            RadioSwitch.Request.DONE -> {
-                pending.set(target, SystemClock.uptimeMillis())
-                buildPowerUI()
-                // A request that never gets there: when it expires the row shows the real state again
-                containerSettingsItems.postDelayed({ if (actionPage == SettingsSubMode.Power) buildPowerUI() }, PendingRadio.LIFE_MS + 200)
-            }
-            RadioSwitch.Request.BUSY -> Notice.show(activity, localize("Please wait a moment..."))
-            RadioSwitch.Request.FAILED -> {
-                pending.clear()
-                buildPowerUI()
-                Notice.error(activity, localize("Failed"))
-            }
-        }
-    }
-
-    /** Wi-Fi and Bluetooth come up a moment after the press, so the switch shows the new state at once. */
-    private fun showPowerScreen(wifi: Boolean, bt: Boolean) {
+    private fun buildPowerUI() {
         val radios = listOf(
-            ActionScreens.Action(localize("Wi-Fi"), closes = false, value = onOff(wifi, localize)) {
-                val target = !pendingWifi.shown(RadioSwitch.wifiOn(activity), SystemClock.uptimeMillis())
-                radioRequested(RadioSwitch.setWifi(activity, target), pendingWifi, target)
+            ActionScreens.Action(localize("Wi-Fi"), closes = false, value = radioValue(RadioSwitch.wifiState(activity))) {
+                val on = RadioSwitch.wifiState(activity)
+                radioRequested(if (on == null) RadioSwitch.Request.BUSY else RadioSwitch.setWifi(activity, !on))
             },
-            ActionScreens.Action(localize("Bluetooth"), closes = false, value = onOff(bt, localize)) {
-                val target = !pendingBt.shown(RadioSwitch.bluetoothOn(), SystemClock.uptimeMillis())
-                // enable() comes later: when it is refused, the switch goes back to what the radio is
-                val request = RadioSwitch.setBluetooth({ activity.runOnUiThread(it) }, target) {
-                    pendingBt.clear()
-                    if (actionPage == SettingsSubMode.Power) buildPowerUI()
+            ActionScreens.Action(localize("Bluetooth"), closes = false, value = radioValue(RadioSwitch.bluetoothState())) {
+                val on = RadioSwitch.bluetoothState()
+                // enable() comes later: when it is refused, the switch shows what the radio is
+                radioRequested(if (on == null) RadioSwitch.Request.BUSY else RadioSwitch.setBluetooth({ activity.runOnUiThread(it) }, !on) {
+                    onRadioStateChanged()
                     Notice.error(activity, localize("Failed"))
-                }
-                radioRequested(request, pendingBt, target)
+                })
             }
         )
         val brightness = ActionScreens.Action(localize("Brightness"), opensList = true) {
-            mainActivity?.changeScreen(MainActivity.STATE_BRIGHTNESS)
+            onNavigateToScreen(MainActivity.STATE_BRIGHTNESS)
         }
         val spec = ActionScreens.Spec(localize("Power"), actions = radios + brightness + PowerMenu.Action.values().map { action ->
             ActionScreens.Action(localize(action.label)) {
@@ -573,6 +536,21 @@ class SettingsController(
             }
         })
         buildActionUI(SettingsSubMode.Power, spec)
+    }
+
+    private fun radioValue(on: Boolean?): String = if (on == null) localize("Wait...") else onOff(on, localize)
+
+    /** A radio starts, stops or fails to (MainActivity: the Wi-Fi and Bluetooth state broadcasts): an open Power screen shows it. */
+    fun onRadioStateChanged() {
+        if (actionPage == SettingsSubMode.Power) buildPowerUI()
+    }
+
+    private fun radioRequested(request: RadioSwitch.Request) {
+        when (request) {
+            RadioSwitch.Request.DONE -> onRadioStateChanged()
+            RadioSwitch.Request.BUSY -> Notice.show(activity, localize("Please wait a moment..."))
+            RadioSwitch.Request.FAILED -> Notice.error(activity, localize("Failed"))
+        }
     }
 
     /**

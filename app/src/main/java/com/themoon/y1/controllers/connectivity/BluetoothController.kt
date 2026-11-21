@@ -22,10 +22,10 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import com.themoon.y1.R
 import com.themoon.y1.ThemeManager
-import com.themoon.y1.managers.RadioSwitch
 import com.themoon.y1.managers.BluetoothDiscoverableLogic
 import com.themoon.y1.managers.AudioOutputLossManager
 import com.themoon.y1.managers.BluetoothDiscoverableManager
+import com.themoon.y1.managers.RadioSwitch
 import com.themoon.y1.managers.BluetoothPairingAgent
 import com.themoon.y1.controllers.ScreenController
 import com.themoon.y1.core.extensions.onOff
@@ -196,9 +196,10 @@ class BluetoothController(
         val ba = BluetoothAdapter.getDefaultAdapter()
         val state = ba?.state
         val isOn = state == BluetoothAdapter.STATE_ON
-        val isChanging = state == BluetoothAdapter.STATE_TURNING_ON || state == BluetoothAdapter.STATE_TURNING_OFF
+        // "Wait..." also while the Y2 Bluetooth service starts (RadioSwitch), as on the Power screen
+        val shown = RadioSwitch.bluetoothState()
         val rows = ArrayList<RowSpec>()
-        rows += RowSpec(localize("Bluetooth Power"), RowLook.VALUE, value = if (isChanging) localize("Wait...") else onOff(isOn, localize),
+        rows += RowSpec(localize("Bluetooth Power"), RowLook.VALUE, value = if (shown == null) localize("Wait...") else onOff(isOn, localize),
             key = POWER_KEY, onClick = { togglePower(ba) })
         val scanRow = RowSpec(btnScanBt.text.toString(), RowLook.CUSTOM, view = btnScanBt, key = SCAN_KEY,
             onClick = { startBluetoothScan(userAction = true) })
