@@ -242,7 +242,8 @@ class WebDavUiController(
                 rows += info(WebDavSyncProvider.folderName(d.href), key = d.href)
                 continue
             }
-            val underTicked = ticked.any { isUnder(d.href, it) }
+            // A ticked folder is not under itself: its own Hold must untick it
+            val underTicked = ticked.any { it.trimEnd('/') != d.href.trimEnd('/') && isUnder(d.href, it) }
             rows += RowSpec(
                 WebDavSyncProvider.folderName(d.href),
                 RowLook.CHOICE,
