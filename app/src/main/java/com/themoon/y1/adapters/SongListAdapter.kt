@@ -327,7 +327,8 @@ class SongListAdapter(
         if (length == null) loadDuration(path, art) else stopWaiting(art)
 
         val covers = AlbumCoverManager.getInstance()
-        val cover = covers.getThumbnailDirect(AlbumCoverManager.getAlbumKey(song.file, song.album))
+        // Memory cache only: a disk thumbnail is read and decoded on the cover worker, not in the wheel step
+        val cover = covers.getMemoryCover(AlbumCoverManager.getAlbumKey(song.file, song.album))
         if (cover != null) {
             art.image.setImageBitmap(cover)
         } else {
@@ -338,6 +339,8 @@ class SongListAdapter(
                 }
             })
         }
+
+        prefetchCovers(position)
 
         art.view.setOnClickListener {
             main.virtualListSelectedIndex = position
@@ -356,6 +359,19 @@ class SongListAdapter(
             true
         }
         return art.view
+    }
+
+    /**
+     * Loads the covers of the song rows near [position] on the cover worker, so that a row that comes into the
+     * list has its cover at once (not the placeholder first).
+     */
+    private fun prefetchCovers(position: Int) {
+        val covers = AlbumCoverManager.getInstance()
+        for (p in position - PREFETCH_ROWS..position + PREFETCH_ROWS) {
+            if (p == position || p !in 0 until count) continue
+            val song = getItem(p) as? SongItem ?: continue
+            covers.loadCoverAsync(song, null)
+        }
     }
 
     private fun applyDefaultFocusListener(btn: View, position: Int, title: String, customColor: Int) {
@@ -408,6 +424,9 @@ class SongListAdapter(
     companion object {
         const val VIEW_TYPE_SHUFFLE: Int = 0
         const val VIEW_TYPE_SONG: Int = 1
+
+        /** Rows above and below a bound art row whose covers load ahead ([prefetchCovers]). */
+        private const val PREFETCH_ROWS = 3
 
         private var shuffleTileBitmap: Bitmap? = null
 
