@@ -56,7 +56,7 @@ class SettingsSpecTest {
                 "Menus" to listOf("Main Menu Items", "Music Menu Items", "Group Albums"),
                 "Controls" to listOf(
                     "Button Sound", "Click Volume", "Button Vibration", "Vibration Strength", "Wheel Loop Scroll",
-                    "Letter Jump", "Letter Jump Sensitivity", "Screen-Off Control", "Double-Click to Favorite"
+                    "Letter Jump", "Letter Jump Sensitivity", "Screen-Off Control", "Double-Click to Favorite", "Hold Back for Now Playing"
                 ),
                 "Connectivity" to listOf("Bluetooth", "Wi-Fi", "Web Server", "USB Drive", "Use as USB Drive"),
                 "Battery" to listOf("Battery"),

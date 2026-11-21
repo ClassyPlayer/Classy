@@ -238,4 +238,30 @@ class InputRouterTest {
         inputRouter.onKeyUp(KeyEvent.KEYCODE_BACK, upEvent, subController)
         assertFalse(inputRouter.isBackSuppressed)
     }
+
+    private val menu = ScreenState.MainMenu
+
+    @Test
+    fun testBackHold_shortPressStillGoesBackAndHoldOpensNowPlaying() {
+        // A short press: only repeat 0, so no hold, and the release goes back
+        assertFalse(InputRouter.holdOpensNowPlaying(0, backArmed = true, enabled = true, state = menu))
+        // The first key repeat of a hold opens Now Playing; later repeats do not open it again
+        assertTrue(InputRouter.holdOpensNowPlaying(1, backArmed = true, enabled = true, state = menu))
+        assertFalse(InputRouter.holdOpensNowPlaying(2, backArmed = true, enabled = true, state = menu))
+    }
+
+    @Test
+    fun testBackHold_settingOffBehavesAsBefore() =
+        assertFalse(InputRouter.holdOpensNowPlaying(1, backArmed = true, enabled = false, state = menu))
+
+    @Test
+    fun testBackHold_aBackThatWokeTheScreenOrWasNotArmedDoesNotOpenIt() =
+        assertFalse(InputRouter.holdOpensNowPlaying(1, backArmed = false, enabled = true, state = menu))
+
+    @Test
+    fun testBackHold_notOnNowPlayingMusicQuizOrFmRadio() {
+        for (s in listOf(ScreenState.Player, ScreenState.MusicQuiz, ScreenState.FmRadio, ScreenState.FmRadioMenu, ScreenState.FmRadioSaved)) {
+            assertFalse("$s", InputRouter.holdOpensNowPlaying(1, backArmed = true, enabled = true, state = s))
+        }
+    }
 }

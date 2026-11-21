@@ -11,6 +11,8 @@ import android.view.View
 import android.widget.AbsListView
 import android.widget.LinearLayout
 import com.themoon.y1.MainActivity
+import com.themoon.y1.Prefs
+import com.themoon.y1.showNowPlaying
 import com.themoon.y1.controllers.ScreenController
 import com.themoon.y1.controllers.player.PlayerController
 import com.themoon.y1.managers.AudioPlayerManager
@@ -259,6 +261,14 @@ class InputRouter private constructor() {
             // Back on release (onKeyUp), like the other buttons: a held press does nothing yet
             val now = System.currentTimeMillis()
             if (!isBackSuppressed && now >= backDebounceUntil) backPress.onPress(event.repeatCount)
+            // Held (the first key repeat): to Now Playing, when Settings > Controls > Hold Back for Now Playing is On
+            val main = MainActivity.instance
+            val nav = NavigationManager.getInstance()
+            if (main != null && holdOpensNowPlaying(event.repeatCount, backPress.isArmed, Prefs.BACK_HOLD_NOW_PLAYING.get(main.prefs), nav.currentState ?: ScreenState.MainMenu)) {
+                suppressBackUntilRelease()
+                main.clickFeedback()
+                main.showNowPlaying()
+            }
             return true
         }
         if (isPlayPauseKey(keyCode)) {
@@ -446,6 +456,15 @@ class InputRouter private constructor() {
     }
 
     companion object {
+        /**
+         * A hold of Back (its first key repeat) opens Now Playing: when the router got the press ([backArmed]: not a
+         * wake, the USB screen or a debounce), the setting is On, and the screen is not Now Playing itself or one
+         * that has its own exit and state (Music Quiz pauses the music for its round, FM Radio is the source).
+         */
+        internal fun holdOpensNowPlaying(repeatCount: Int, backArmed: Boolean, enabled: Boolean, state: ScreenState): Boolean =
+            repeatCount == 1 && backArmed && enabled && state != ScreenState.Player && state != ScreenState.MusicQuiz &&
+                state != ScreenState.FmRadio && state != ScreenState.FmRadioMenu && state != ScreenState.FmRadioSaved
+
         // Android's default long-press / key-repeat timeout
         private const val SKIP_KEY_HOLD_MS = 500L
 
