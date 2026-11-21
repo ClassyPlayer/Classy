@@ -23,4 +23,12 @@ class StaleProcessTest {
         val running = listOf(RunningProcess(100, 10012, "com.themoon.y1"))
         assertEquals(emptyList<Int>(), ClassyApplication.staleProcessIds(100, 10012, "com.themoon.y1", running))
     }
+
+    @Test
+    fun aNewStartAfterAnOldProcessIsStoppedComesAtMostOnceIn30Seconds() {
+        assertEquals(true, ClassyApplication.mayRestart(0L, 5_000L))          // never before
+        assertEquals(false, ClassyApplication.mayRestart(100_000L, 110_000L)) // 10 s ago
+        assertEquals(true, ClassyApplication.mayRestart(100_000L, 130_000L))  // 30 s ago
+        assertEquals(true, ClassyApplication.mayRestart(900_000L, 20_000L))   // before a reboot
+    }
 }
