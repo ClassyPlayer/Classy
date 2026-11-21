@@ -49,6 +49,7 @@ import com.themoon.y1.navigation.ScreenState
 import com.themoon.y1.navigation.SettingsSubMode
 import com.themoon.y1.sync.jellyfin.JellyfinSyncProvider
 import com.themoon.y1.views.ListEdges
+import com.themoon.y1.views.ListGlide
 import com.themoon.y1.views.ListItemViewFactory
 import com.themoon.y1.views.Notice
 import com.themoon.y1.views.TablerIcons
@@ -226,6 +227,8 @@ class SettingsController(
             cycle("Wheel Mode", Prefs.WHEEL_MODE, PadWheel.MODE_LABELS, { if (it in PadWheel.MODE_LABELS.indices) it else PadWheel.DEFAULT_MODE },
                 visible = { PadWheel.isSupported() }),
             toggle("Wheel Loop Scroll", Prefs.LOOP_SCROLL),
+            // A wheel step glides the highlight and the rows (ListGlide; not on the Y1: Android 4.2)
+            toggle("List Glide", Prefs.LIST_GLIDE, visible = { ListGlide.isSupported }),
             // The iPod letter jump: a fast wheel turn in an A–Z list or Cover Flow goes letter by letter (LetterJump)
             toggle("Letter Jump", Prefs.LETTER_JUMP),
             // How fast the turn must be (High: a slower turn starts it). Grey, and the wheel skips it, while Letter Jump is off

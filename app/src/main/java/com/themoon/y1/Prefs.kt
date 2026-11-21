@@ -193,6 +193,8 @@ object Prefs {
     val VIBRATE = add(BoolPref("vibrate", true, PrefGroup.CONTROLS))
     val VIBRATE_STRENGTH = add(IntPref(ButtonVibration.PREF, ButtonVibration.DEFAULT, PrefGroup.CONTROLS))
     val LOOP_SCROLL = add(BoolPref("loop_scroll_on", true, PrefGroup.CONTROLS, resettable = true))
+    /** List Glide: a wheel step glides the highlight and the rows ([com.themoon.y1.views.ListGlide]). */
+    val LIST_GLIDE = add(BoolPref("list_glide", true, PrefGroup.CONTROLS, resettable = true))
     /** The iPod letter jump in the A–Z lists and Cover Flow ([LetterJump]). */
     val LETTER_JUMP = add(BoolPref("letter_jump", true, PrefGroup.CONTROLS, resettable = true))
     /** Letter Jump Sensitivity: the [LetterJump.Sensitivity] ordinal (0 = Low, 1 = Normal, 2 = High). */

@@ -265,10 +265,16 @@ open class EdgeFadeScrollView @JvmOverloads constructor(
 
     override fun onDetachedFromWindow() {
         ListEdges.unregister(this)
+        glide.cancel()
         super.onDetachedFromWindow()
     }
 
     private val painter = EdgeFadePainter()
+
+    /** Settings → Controls → List Glide ([ListGlide]). */
+    internal val glide = RowGlide(this)
+
+    override fun dispatchDraw(canvas: Canvas) = glide.draw(canvas) { super.dispatchDraw(it) }
 
     private fun moreAbove(): Boolean = childCount > 0 && scrollY > 0
 
@@ -330,10 +336,16 @@ open class EdgeFadeListView(context: Context) : ListView(context) {
 
     override fun onDetachedFromWindow() {
         ListEdges.unregister(this)
+        glide.cancel()
         super.onDetachedFromWindow()
     }
 
     private val painter = EdgeFadePainter()
+
+    /** Settings → Controls → List Glide ([ListGlide]). */
+    internal val glide = RowGlide(this)
+
+    override fun dispatchDraw(canvas: Canvas) = glide.draw(canvas) { super.dispatchDraw(it) }
 
     private fun moreAbove(): Boolean =
         childCount > 0 && ListEdges.listHasMoreAbove(firstVisiblePosition, getChildAt(0).top, paddingTop)
