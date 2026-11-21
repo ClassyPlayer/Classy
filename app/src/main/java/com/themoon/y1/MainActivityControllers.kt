@@ -65,7 +65,7 @@ internal fun MainActivity.initControllers() {
         }
     }.apply {
         divider = ColorDrawable(0)
-        dividerHeight = if (ThemeManager.isClassicTheme()) 0 else (4 * resources.displayMetrics.density).toInt()
+        dividerHeight = 0
         selector = ColorDrawable(0)
         itemsCanFocus = true
         isSoundEffectsEnabled = false

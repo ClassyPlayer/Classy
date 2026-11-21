@@ -20,7 +20,7 @@ import java.util.concurrent.Executors
 /**
  * The theme widget `widget_photo_preview`: while the Photos row of the main menu is selected (`visible_on_focus`),
  * random photos in the art pane, one every [CHANGE_MS], with the same slow pan and zoom as the album art
- * ([CoverPane]). A theme places and sizes it; the Classic themes put it over the art pane.
+ * ([CoverPane]). The main menu (ThemeManager.menuElements) puts it over the art pane.
  *
  * It works only while it shows and the screen is on.
  */

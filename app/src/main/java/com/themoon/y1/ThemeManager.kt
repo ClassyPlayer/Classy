@@ -184,11 +184,7 @@ object ThemeManager {
 
     fun getCustomFontBold(): Typeface = fontBold ?: Typeface.DEFAULT_BOLD
 
-    fun isClassicTheme(): Boolean = true
-
     fun isClassicLightTheme(): Boolean = current === CLASSIC_LIGHT
-
-    fun getListTextSize(): Float = if (isClassicTheme()) 21f else 23f
 
     fun getTextColorPrimary(): Int = current.textPrimary
 
@@ -201,6 +197,4 @@ object ThemeManager {
     fun getListButtonFocusedBg(): Int = BUTTON_FOCUSED_BG
 
     fun getListButtonFocusedTextColor(): Int = BUTTON_FOCUSED_TEXT
-
-    fun getButtonRadius(): Int = 0
 }

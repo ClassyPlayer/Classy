@@ -24,7 +24,6 @@ import com.themoon.y1.navigation.ScreenState
 import com.themoon.y1.views.CircularBatteryView
 import com.themoon.y1.views.ClassicMenuStyle
 import com.themoon.y1.views.CustomAnalogClockView
-import com.themoon.y1.views.ClassyLayout
 import com.themoon.y1.views.ClassyLists
 import com.themoon.y1.views.WidgetBatteryBarView
 import java.util.Locale
@@ -380,8 +379,8 @@ class MainMenuController(
                     val animContainer = FrameLayout(activity)
                     val dm = activity.resources.displayMetrics
                     val leftPx = (el.x * density).toInt()
-                    // The Classy layout (Classic themes) puts the cover below the full-width status bar (ClassyLists.menuElements).
-                    val topPx = if (ClassyLayout.isActive) (el.y * density).toInt() else 0
+                    // The Classy layout puts the cover below the full-width status bar (ClassyLists.menuElements).
+                    val topPx = (el.y * density).toInt()
                     val contW = dm.widthPixels - leftPx
                     val contH = dm.heightPixels - topPx
 
@@ -415,7 +414,7 @@ class MainMenuController(
                     val isPane = el.width <= 0 || (el.x + el.width) * density >= dm.widthPixels - density
                     if (isPane) {
                         val leftPx = (el.x * density).toInt()
-                        val topPx = if (ClassyLayout.isActive) (el.y * density).toInt() else 0
+                        val topPx = (el.y * density).toInt()
                         preview.layoutParams = FrameLayout.LayoutParams(dm.widthPixels - leftPx, dm.heightPixels - topPx).apply {
                             leftMargin = leftPx
                             topMargin = topPx
@@ -575,11 +574,7 @@ class MainMenuController(
 
             btn.setOnFocusChangeListener { _, hasFocus ->
                 if (hasFocus) {
-                    btn.background = if (ThemeManager.isClassicTheme()) {
-                        createFocusedButtonBackground()
-                    } else {
-                        createDynamicButtonBackground(ThemeManager.getListButtonFocusedBg(), el.radius)
-                    }
+                    btn.background = createFocusedButtonBackground()
 
                     if (isIconOnly) {
                         tvMain.text = ""
@@ -734,8 +729,7 @@ class MainMenuController(
     private fun createDynamicButtonBackground(color: Int, elementRadius: Int): GradientDrawable {
         return GradientDrawable().apply {
             setColor(color)
-            val r = (if (elementRadius == -1) ThemeManager.getButtonRadius() else elementRadius) *
-                activity.resources.displayMetrics.density
+            val r = (if (elementRadius == -1) 0 else elementRadius) * activity.resources.displayMetrics.density
             cornerRadius = r
         }
     }
@@ -749,8 +743,7 @@ class MainMenuController(
         }
         return GradientDrawable().apply {
             setColor(color)
-            val r = (if (elementRadius == -1) ThemeManager.getButtonRadius() else elementRadius) *
-                activity.resources.displayMetrics.density
+            val r = (if (elementRadius == -1) 0 else elementRadius) * activity.resources.displayMetrics.density
             cornerRadius = r
         }
     }

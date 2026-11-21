@@ -24,12 +24,12 @@ import kotlin.math.ceil
 import kotlin.math.roundToInt
 
 /**
- * The Classy layout of the Classic themes (Classic Light and Classic Dark; Auto switches between them).
+ * The Classy layout of the app (both themes: Classic Light and Classic Dark; Auto switches between them).
  *
  * The status bar, the lists and Now Playing use the classic proportions from [ClassyMetrics]. The
  * status bar spans the full width on all screens, also over the split screens and Cover Flow. The static views
  * from activity_main.xml are changed at runtime. Each changed property is recorded the first time it changes,
- * so a theme change without a restart restores the original views first (the other themes keep their own layout).
+ * so a theme change without a restart restores the original views first and then applies the layout again.
  */
 object ClassyLayout {
     private const val TAG_PLAY_ICON = "classy_play_state"
@@ -43,12 +43,8 @@ object ClassyLayout {
     // SharedPreferences keeps listeners in a weak map, so this object holds the only strong reference.
     private val prefsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
         // The tilt (pivot, scaleX) is set in applyTheme, so set it again when the tilt changes
-        if (key == Prefs.ALBUM_TILT.key && isActive) MainActivity.instance?.applyTheme()
+        if (key == Prefs.ALBUM_TILT.key) MainActivity.instance?.applyTheme()
     }
-
-    /** True when a Classic theme is in use: only the Classic themes have the Classy layout. */
-    val isActive: Boolean
-        get() = ThemeManager.isClassicTheme()
 
     /** Applies (or, after a theme change, restores) the static views. Called at the end of applyTheme(). */
     fun apply(main: MainActivity) {
@@ -57,7 +53,7 @@ object ClassyLayout {
             listenedPrefs = main.prefs
         }
         val theme = ThemeManager.getCurrentTheme().name
-        if (applied && (!isActive || theme != appliedTheme)) {
+        if (applied && theme != appliedTheme) {
             // A theme change without a restart: restore the recorded values, then let
             // applyTheme() set the values of the current theme on the restored views (and call apply() again).
             restoreAll()
@@ -73,7 +69,6 @@ object ClassyLayout {
             }
             return
         }
-        if (!isActive) return
         val first = !applied
         applied = true
         appliedTheme = theme
@@ -192,7 +187,7 @@ object ClassyLayout {
      * the controllers also change it outside applyTheme(). Returns true when it changed the bar.
      */
     internal fun keepStatusBarFull(bar: View?): Boolean {
-        if (bar == null || !isActive) return false
+        if (bar == null) return false
         var changed = false
         val lp = bar.layoutParams
         if (lp != null && lp.width != ViewGroup.LayoutParams.MATCH_PARENT) {
@@ -298,7 +293,7 @@ object ClassyLayout {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
             override fun afterTextChanged(s: Editable?) {
-                if (applied && isActive) setStatusTextMargins(tv, afterBattery, gap)
+                if (applied) setStatusTextMargins(tv, afterBattery, gap)
             }
         }
         tv.addTextChangedListener(watcher)

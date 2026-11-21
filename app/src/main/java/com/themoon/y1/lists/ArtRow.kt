@@ -45,7 +45,7 @@ class ArtRow private constructor(context: Context, inListView: Boolean) {
     }
 
     val title = TextView(context).apply {
-        setTextSize(TypedValue.COMPLEX_UNIT_PX, ThemeManager.getListTextSize() * density)
+        setTextSize(TypedValue.COMPLEX_UNIT_PX, ListItemViewFactory.LIST_TEXT_SIZE * density)
         typeface = ThemeManager.getCustomFontBold()
         isSingleLine = true
         ellipsize = TextUtils.TruncateAt.MARQUEE

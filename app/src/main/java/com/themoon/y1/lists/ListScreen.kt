@@ -334,11 +334,10 @@ class ListScreen(
 
     private fun infoRow(text: String): TextView = TextView(context).apply {
         val d = resources.displayMetrics.density
-        val classic = ThemeManager.isClassicTheme()
-        val padX = ((if (classic) 8 else 12) * d).toInt()
+        val padX = (8 * d).toInt()
         this.text = text
         setTextColor(ThemeManager.getTextColorSecondary())
-        setTextSize(TypedValue.COMPLEX_UNIT_PX, (if (classic) 19f else 14f) * d)
+        setTextSize(TypedValue.COMPLEX_UNIT_PX, 19f * d)
         typeface = ThemeManager.getCustomFont()
         setPadding(padX, (6 * d).toInt(), padX, (6 * d).toInt())
         isFocusable = false

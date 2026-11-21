@@ -75,7 +75,6 @@ class PlayerController(
     private val ivAlbumReflection: ImageView? = rootView.findViewById(R.id.iv_album_reflection)
     private val frameAlbumArt: FrameLayout? = rootView.findViewById(R.id.frame_album_art)
     private val frameAlbumReflection: FrameLayout? = rootView.findViewById(R.id.frame_album_reflection)
-    private val ivPauseOverlay: ImageView? = rootView.findViewById(R.id.iv_pause_overlay)
     // A podcast stream that waits for data: the iPod spinner on a dark rounded square over the art. Spectrum and
     // Lyrics hide the art: then the same spinner shows on Now Playing, over the middle of the art column.
     private var placeWaitsForLayout = false
@@ -251,7 +250,7 @@ class PlayerController(
     }
 
     fun applyThemeColors() {
-        // Classic Light keeps the iPod colours; Classic Dark and the other themes use the theme colours
+        // Classic Light keeps the iPod colours; Classic Dark uses the theme colours
         val classic = ThemeManager.isClassicLightTheme()
         if (classic) {
             layoutPlayerMode.setBackgroundColor(0xFFFFFFFF.toInt())
@@ -311,18 +310,9 @@ class PlayerController(
         }
 
         val streamLoading = refreshStreamLoading()
-        if (streamLoading) {
-            ivAlbumArt.alpha = 1.0f
-            ivPauseOverlay?.visibility = View.GONE
-        } else if (am.isPlaying()) {
-            ivAlbumArt.alpha = 1.0f
-            ivPauseOverlay?.visibility = View.GONE
-            // The progress loop stops while paused, so restart it on resume or a delayed start
-            if (layoutPlayerMode.visibility == View.VISIBLE) startProgressUpdates()
-        } else {
-            ivAlbumArt.alpha = if (ThemeManager.isClassicTheme()) 1f else 0.4f
-            ivPauseOverlay?.visibility = if (ThemeManager.isClassicTheme()) View.GONE else View.VISIBLE
-        }
+        ivAlbumArt.alpha = 1.0f
+        // The progress loop stops while paused, so restart it on resume or a delayed start
+        if (!streamLoading && am.isPlaying() && layoutPlayerMode.visibility == View.VISIBLE) startProgressUpdates()
 
         if (ivAlbumReflection != null && ivAlbumArt.drawable != null) {
             ivAlbumReflection.setImageDrawable(ivAlbumArt.drawable)
@@ -715,7 +705,7 @@ class PlayerController(
         }
         // The colour that Now Playing really shows (applyThemeColors), also after a theme change without a restart
         val background = (layoutPlayerMode.background as? android.graphics.drawable.ColorDrawable)?.color
-            ?: if (ThemeManager.isClassicTheme()) 0xFFFFFFFF.toInt() else ThemeManager.getOverlayBackgroundColor()
+            ?: 0xFFFFFFFF.toInt()
         val accent = ThemeManager.getListButtonFocusedBg() or 0xFF000000.toInt()
         return SpectrumColors.spectrumColor(spectrumCoverColor, background, accent)
     }

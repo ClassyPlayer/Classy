@@ -49,7 +49,7 @@ object ClassyNowPlaying {
     // Repeat One and Repeat All have different icons. The mode is stored in AppPrefs; older
     // Now Playing code also writes it to y1_settings, so both are watched.
     private val repeatListener = SharedPreferences.OnSharedPreferenceChangeListener { prefs, key ->
-        if (key == Prefs.REPEAT_MODE.key && L.isActive) {
+        if (key == Prefs.REPEAT_MODE.key) {
             repeatIcon?.get()?.let {
                 setModeIcon(it, repeatGlyph(Prefs.REPEAT_MODE.get(prefs)), it.resources.displayMetrics.density)
             }
@@ -91,7 +91,7 @@ object ClassyNowPlaying {
             textColumn.viewTreeObserver.addOnGlobalLayoutListener(ViewTreeObserver.OnGlobalLayoutListener {
                 val column = ref.get() ?: return@OnGlobalLayoutListener
                 // The listener runs at each layout of the window; Now Playing needs it only while it shows
-                if (column.isShown && L.isActive) layoutText(column, column.resources.displayMetrics.density)
+                if (column.isShown) layoutText(column, column.resources.displayMetrics.density)
             })
         }
 
@@ -176,7 +176,7 @@ object ClassyNowPlaying {
         override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
         override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
         override fun afterTextChanged(s: Editable?) {
-            if (L.isActive) stripHollowStars(s)
+            stripHollowStars(s)
         }
     }
 
