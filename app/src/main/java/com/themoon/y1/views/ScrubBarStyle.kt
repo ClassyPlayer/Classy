@@ -15,17 +15,15 @@ import android.widget.SeekBar
  */
 internal object ScrubBarStyle {
 
-    /** How the view properties change. [ClassyLayout] records each change, so that a theme change can undo it. */
+    /** How the view properties change: [Direct], or the [ClassyLayout] helpers for Now Playing. */
     interface Edits {
         fun setHeight(v: View, height: Int)
         /** Sets the margins that are not null. */
         fun setMargins(v: View, left: Int, top: Int?, right: Int, bottom: Int?)
         fun setPadding(v: View, left: Int, top: Int, right: Int, bottom: Int)
-        /** Called before the thumb and the thumb offset change. */
-        fun beforeThumb(bar: SeekBar) {}
     }
 
-    /** Changes the views directly, for views that keep the style in all themes. */
+    /** Changes the views directly. */
     object Direct : Edits {
         override fun setHeight(v: View, height: Int) {
             val lp = v.layoutParams ?: return
@@ -62,7 +60,6 @@ internal object ScrubBarStyle {
         edits.setMargins(bar, left = -ox, top = if (marginsY) -oy else null, right = -ox, bottom = if (marginsY) -oy else null)
         edits.setPadding(bar, ox, oy, ox, oy)
 
-        edits.beforeThumb(bar)
         val thumb = bar.thumb as? ScrubDiamondDrawable
         if (thumb == null || thumb.diamondWidth != diamondWidth || thumb.diamondHeight != diamondHeight) {
             bar.thumb = ScrubDiamondDrawable(bar, diamondWidth, diamondHeight)
