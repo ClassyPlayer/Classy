@@ -42,7 +42,8 @@ class AlbumCoverManager private constructor() {
     private val memoryCache: LruCache<String, Bitmap>
     private val executor: ThreadPoolExecutor
     private val mainHandler: Handler = Handler(Looper.getMainLooper())
-    private val pendingKeys: MutableSet<String> = Collections.synchronizedSet(HashSet<String>())
+    /** The covers that load now, with the callbacks that wait for them: a second request does not decode again. */
+    private val loading = HashMap<String, MutableList<CoverCallback>>()
     private val isPregeneratingFlag: AtomicBoolean = AtomicBoolean(false)
 
     // Albums that have no art (also marked on disk), so that they are not searched again.
@@ -63,7 +64,9 @@ class AlbumCoverManager private constructor() {
 
     init {
         val maxMemory = (Runtime.getRuntime().maxMemory() / 1024).toInt()
-        val cacheSizeKb = Math.min(MEMORY_CACHE_MAX_KB, Math.max(2048, maxMemory / 8))
+        // Before Android 5 the thumbnails are purgeable (pixels in ashmem, not in the Java heap): a larger cache costs no heap.
+        val cacheSizeKb = if (android.os.Build.VERSION.SDK_INT < 21) PURGEABLE_CACHE_KB
+        else Math.min(MEMORY_CACHE_MAX_KB, Math.max(2048, maxMemory / 8))
 
         memoryCache = object : LruCache<String, Bitmap>(cacheSizeKb) {
             override fun sizeOf(key: String, bitmap: Bitmap?): Int {
@@ -207,10 +210,7 @@ class AlbumCoverManager private constructor() {
         val diskFile = getDiskThumbFile(albumKey)
         if (diskFile.exists() && diskFile.length() > 0) {
             try {
-                val opts = BitmapFactory.Options().apply {
-                    inPreferredConfig = Bitmap.Config.RGB_565
-                }
-                val bmp = BitmapFactory.decodeFile(diskFile.absolutePath, opts)
+                val bmp = decodeDiskThumb(diskFile)
                 if (bmp != null) {
                     memoryCache.put(albumKey, bmp)
                     return bmp
@@ -218,6 +218,29 @@ class AlbumCoverManager private constructor() {
             } catch (ignored: Throwable) {}
         }
         return null
+    }
+
+    /**
+     * Decodes a disk thumbnail (256 × 256 JPEG). Before Android 5 the bitmap is purgeable: its pixels are in ashmem,
+     * not in the Java heap. The Dalvik heap does not move objects, so after the library loads it has no free block of
+     * 128 KB (one cover) in one piece: each new cover in the heap was a full GC (~90 ms, measured on the Y2) that freed
+     * almost nothing, and Cover Flow froze while the cache filled. Only decodeByteArray and decodeFileDescriptor
+     * make a purgeable bitmap (decodeFile reads a stream). A purgeable bitmap decodes at its first use: [Bitmap.getPixel]
+     * decodes it now, on this thread, not at its first draw on the main thread.
+     */
+    @Suppress("DEPRECATION")
+    private fun decodeDiskThumb(file: File): Bitmap? {
+        val data = file.readBytes()
+        val opts = BitmapFactory.Options().apply {
+            inPreferredConfig = Bitmap.Config.RGB_565
+            if (android.os.Build.VERSION.SDK_INT < 21) {
+                inPurgeable = true
+                inInputShareable = false // a copy of the JPEG in native memory: the Java array can go
+            }
+        }
+        val bmp = BitmapFactory.decodeByteArray(data, 0, data.size, opts) ?: return null
+        bmp.getPixel(0, 0)
+        return bmp
     }
 
     fun loadCoverAsync(song: SongItem?, callback: CoverCallback?) {
@@ -234,44 +257,74 @@ class AlbumCoverManager private constructor() {
             return
         }
 
-        pendingKeys.add(albumKey)
+        synchronized(loading) {
+            val waiting = loading[albumKey]
+            if (waiting != null) {
+                if (callback != null) waiting.add(callback)
+                return
+            }
+            loading[albumKey] = ArrayList<CoverCallback>(2).also { if (callback != null) it.add(callback) }
+        }
 
         executor.execute {
             var bmp: Bitmap? = null
-            val diskThumb = getDiskThumbFile(albumKey)
-
-            if (diskThumb.exists() && diskThumb.length() > 0) {
-                try {
-                    val opts = BitmapFactory.Options().apply {
-                        inPreferredConfig = Bitmap.Config.RGB_565
-                    }
-                    bmp = BitmapFactory.decodeFile(diskThumb.absolutePath, opts)
-                } catch (t: Throwable) {
-                    bmp = null
+            try {
+                bmp = loadCover(song, albumKey)
+            } catch (t: Throwable) {
+                Log.w(TAG, "cover load failed: $albumKey", t)
+            } finally {
+                // Always: else the requests that wait for this key never get an answer
+                val callbacks = synchronized(loading) { loading.remove(albumKey) }
+                val finalBmp = bmp
+                if (!callbacks.isNullOrEmpty()) mainHandler.post {
+                    for (c in callbacks) c.onCoverLoaded(albumKey, finalBmp, null)
                 }
-            }
-
-            if (bmp == null) {
-                val marker = getNoArtMarkerFile(albumKey)
-                if (marker.exists()) {
-                    noArtKeys.add(albumKey)
-                } else {
-                    bmp = extractAndSaveThumbnail(song, diskThumb)
-                    if (bmp == null) markNoArt(albumKey, marker)
-                }
-            }
-
-            if (bmp != null) {
-                memoryCache.put(albumKey, bmp)
-            }
-
-            pendingKeys.remove(albumKey)
-
-            val finalBmp = bmp
-            mainHandler.post {
-                callback?.onCoverLoaded(albumKey, finalBmp, null)
             }
         }
+    }
+
+    /** The cover of [albumKey] (disk thumbnail, else made from the song), put in the memory cache; worker thread. */
+    private fun loadCover(song: SongItem, albumKey: String): Bitmap? {
+        var bmp: Bitmap? = null
+        val diskThumb = getDiskThumbFile(albumKey)
+
+        if (diskThumb.exists() && diskThumb.length() > 0) {
+            try {
+                bmp = decodeDiskThumb(diskThumb)
+            } catch (t: Throwable) {
+                bmp = null
+            }
+        }
+
+        if (bmp == null) {
+            val marker = getNoArtMarkerFile(albumKey)
+            if (marker.exists()) {
+                noArtKeys.add(albumKey)
+            } else {
+                val made = extractAndSaveThumbnail(song, diskThumb) ?: run {
+                    markNoArt(albumKey, marker)
+                    return null
+                }
+                if (android.os.Build.VERSION.SDK_INT >= 21) {
+                    bmp = made
+                } else {
+                    // A new thumbnail is in the Java heap: the 24 MB cache is only for purgeable bitmaps. Decode the
+                    // saved file again (purgeable); if that fails, show the new one without a place in the cache.
+                    bmp = try {
+                        decodeDiskThumb(diskThumb)
+                    } catch (t: Throwable) {
+                        null
+                    }
+                    if (bmp == null) return made
+                    made.recycle()
+                }
+            }
+        }
+
+        if (bmp != null) {
+            memoryCache.put(albumKey, bmp)
+        }
+        return bmp
     }
 
     private fun extractAndSaveThumbnail(item: SongItem?, targetThumbFile: File?): Bitmap? {
@@ -526,8 +579,10 @@ class AlbumCoverManager private constructor() {
         private const val TAG = "AlbumCoverManager"
         const val THUMB_SIZE: Int = 256
         private const val NO_ART_SUFFIX = ".noart"
-        // 12 MB: approx. 96 covers. A larger cache made more GCs while it filled.
+        // 12 MB: approx. 96 covers. A larger cache made more GCs while it filled (thumbnails in the Java heap).
         private const val MEMORY_CACHE_MAX_KB = 12288
+        // 24 MB: approx. 190 covers, for purgeable thumbnails (before Android 5), which are not in the Java heap.
+        private const val PURGEABLE_CACHE_KB = 24576
         // Signature of the album list at the last complete pre-generation (deleted with the disk cache).
         private const val PREGEN_SIGNATURE_FILE = "pregen-albums.sig"
 
