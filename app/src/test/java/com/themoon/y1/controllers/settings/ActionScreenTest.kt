@@ -122,4 +122,15 @@ class ActionScreenTest {
         // A message: info rows only
         assertTrue(ActionScreens.list(ActionScreens.Spec("Bluetooth Pairing", listOf("Code", "123456"))) {}.rows.all { it.look == RowLook.INFO })
     }
+
+    @Test
+    fun aRowWithAValueIsAValueRowAlsoWhenItIsChecked() {
+        val spec = ActionScreens.Spec("Power", actions = listOf(
+            ActionScreens.Action("Wi-Fi", checked = true, value = "On") {},
+            ActionScreens.Action("Bluetooth", checked = false, value = "Off") {}
+        ))
+        val rows = ActionScreens.list(spec) {}.rows
+        assertEquals(listOf(RowLook.VALUE, RowLook.VALUE), rows.map { it.look })
+        assertEquals(listOf("On", "Off"), rows.map { it.value })
+    }
 }
