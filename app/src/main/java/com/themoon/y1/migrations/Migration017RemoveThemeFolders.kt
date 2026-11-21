@@ -6,7 +6,8 @@ import java.io.File
 
 /**
  * Migration 017: the two themes are in the code now (ThemeManager), so the theme folders go once: the unpacked copies of
- * the old theme zips in the app folder (files/themes) and Y1_Themes on the storage. A missing folder is no problem.
+ * the old theme zips in the app folder (files/themes) and Y1_Themes on the storage. A missing folder is no problem; a folder
+ * that cannot be deleted makes the migration fail, so it runs again at the next start.
  */
 class Migration017RemoveThemeFolders : Migration {
 
@@ -25,7 +26,10 @@ class Migration017RemoveThemeFolders : Migration {
         context.context?.let { folders.add(File(it.filesDir, "themes")) }
         folders.add(File(StoragePaths.getPrimaryRoot(), STORAGE_FOLDER))
         for (folder in folders) {
-            if (delete(folder)) Log.i(TAG, "Deleted ${folder.absolutePath}")
+            if (!folder.exists()) continue
+            // A folder that stays: the migration fails, and the manager runs it again at the next start
+            if (!delete(folder)) throw java.io.IOException("Could not delete ${folder.absolutePath}")
+            Log.i(TAG, "Deleted ${folder.absolutePath}")
         }
     }
 
