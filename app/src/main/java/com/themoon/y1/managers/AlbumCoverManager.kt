@@ -301,8 +301,23 @@ class AlbumCoverManager private constructor() {
             if (marker.exists()) {
                 noArtKeys.add(albumKey)
             } else {
-                bmp = extractAndSaveThumbnail(song, diskThumb)
-                if (bmp == null) markNoArt(albumKey, marker)
+                val made = extractAndSaveThumbnail(song, diskThumb) ?: run {
+                    markNoArt(albumKey, marker)
+                    return null
+                }
+                if (android.os.Build.VERSION.SDK_INT >= 21) {
+                    bmp = made
+                } else {
+                    // A new thumbnail is in the Java heap: the 24 MB cache is only for purgeable bitmaps. Decode the
+                    // saved file again (purgeable); if that fails, show the new one without a place in the cache.
+                    bmp = try {
+                        decodeDiskThumb(diskThumb)
+                    } catch (t: Throwable) {
+                        null
+                    }
+                    if (bmp == null) return made
+                    made.recycle()
+                }
             }
         }
 
