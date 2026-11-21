@@ -506,7 +506,6 @@
                     <FrameLayout android:id="@+id/frame_album_art" android:layout_width="220dp" android:layout_height="220dp"
                         android:rotationY="18">
                         <com.themoon.y1.views.SmoothEdgeImageView android:id="@+id/iv_album_art" android:layout_width="match_parent" android:layout_height="match_parent" android:scaleType="centerCrop" android:src="@drawable/default_album" android:background="#DDDDDD" />
-                        <ImageView android:id="@+id/iv_pause_overlay" android:layout_width="56dp" android:layout_height="56dp" android:layout_gravity="center" android:src="@android:drawable/ic_media_pause" android:visibility="gone" />
                     </FrameLayout>
                     <!-- Album art floor reflection -->
                     <FrameLayout android:id="@+id/frame_album_reflection" android:layout_width="220dp" android:layout_height="32dp" android:layout_marginTop="1dp"

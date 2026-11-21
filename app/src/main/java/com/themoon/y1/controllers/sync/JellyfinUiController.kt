@@ -32,6 +32,7 @@ import com.themoon.y1.sync.jellyfin.JellyfinMediaItem
 import com.themoon.y1.sync.jellyfin.JellyfinSyncHierarchy
 import com.themoon.y1.sync.jellyfin.JellyfinSyncHierarchy.TriState
 import com.themoon.y1.sync.jellyfin.JellyfinSyncProvider
+import com.themoon.y1.views.ListItemViewFactory
 import com.themoon.y1.views.Notice
 import java.io.File
 import java.text.SimpleDateFormat
@@ -457,7 +458,7 @@ class JellyfinUiController(
         private val label = TextView(activity).apply {
             this.text = text
             setTextColor(ThemeManager.getTextColorSecondary())
-            setTextSize(TypedValue.COMPLEX_UNIT_PX, (ThemeManager.getListTextSize() - 1f) * d)
+            setTextSize(TypedValue.COMPLEX_UNIT_PX, (ListItemViewFactory.LIST_TEXT_SIZE - 1f) * d)
             typeface = ThemeManager.getCustomFont()
             gravity = Gravity.CENTER
             setPadding(0, 0, 0, (14 * d).toInt())

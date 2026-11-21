@@ -147,7 +147,7 @@ class SongListAdapter(
         val btn: View = if (!isSongRowValid || main == null) {
             main?.createListButtonWithIcon(iconCode, displayTitle, customColor)?.apply {
                 tag = "song_row"
-                val rowHeight = if (ThemeManager.isClassicTheme()) (ClassicMenuStyle.ROW_HEIGHT_DP * main.resources.displayMetrics.density).toInt() else AbsListView.LayoutParams.WRAP_CONTENT
+                val rowHeight = (ClassicMenuStyle.ROW_HEIGHT_DP * main.resources.displayMetrics.density).toInt()
                 layoutParams = AbsListView.LayoutParams(
                     AbsListView.LayoutParams.MATCH_PARENT,
                     rowHeight

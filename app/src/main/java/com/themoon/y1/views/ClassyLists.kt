@@ -18,7 +18,7 @@ import com.themoon.y1.ThemeManager
 import java.util.Collections
 import java.util.WeakHashMap
 
-/** List rows and the main menu in the Classy layout of the Classic themes (see [ClassyLayout]). */
+/** List rows and the main menu in the Classy layout (see [ClassyLayout]). */
 object ClassyLists {
     // Recycled list rows can come back with another height; this set tells which titles to put back.
     private val centred: MutableSet<TextView> = Collections.newSetFromMap(WeakHashMap())
@@ -39,10 +39,9 @@ object ClassyLists {
 
     /**
      * Called at the end of the ListItemViewFactory row builders. [row] can be the title itself (a Button).
-     * In a Classic theme the row gets the Classy row metrics and cap-centred text.
+     * The row gets the Classy row metrics and cap-centred text.
      */
     fun styleListRow(row: View, title: TextView, value: TextView?) {
-        if (!ClassyLayout.isActive) return
         val d = row.resources.displayMetrics.density
         val rowHeight = px(ClassyMetrics.ROW_HEIGHT, d)
         val textSize = ClassyMetrics.LIST_TEXT_SP * d
@@ -73,10 +72,9 @@ object ClassyLists {
     /**
      * Main menu elements with the Classy metrics: list pane 240 wide, 38 px rows with 23 sp text and a
      * drawn chevron, and the cover pane moved to the new pane edge and below the full-width status bar.
-     * The theme's own elements are not changed.
+     * The elements of [ThemeManager.menuElements] are not changed.
      */
     fun menuElements(elements: List<ThemeManager.MenuElement>, context: Context): List<ThemeManager.MenuElement> {
-        if (!ClassyLayout.isActive) return elements
         val list = elements.firstOrNull { it.type == "list_box" } ?: return elements
         val dm = context.resources.displayMetrics
         val screenWidth = (dm.widthPixels / dm.density).toInt()
@@ -100,9 +98,8 @@ object ClassyLists {
         }
     }
 
-    /** Main menu rows in a Classic theme: the Classy padding, cap-centred text and a drawn chevron in place of the "›" text. */
+    /** Main menu rows: the Classy padding, cap-centred text and a drawn chevron in place of the "›" text. */
     fun styleMainMenuButtons(buttons: List<LinearLayout>) {
-        if (!ClassyLayout.isActive) return
         for (btn in buttons) {
             val main = btn.getChildAt(0) as? TextView ?: continue
             val right = btn.getChildAt(1) as? TextView
@@ -168,7 +165,7 @@ object ClassyLists {
     ) = ThemeManager.MenuElement(
         el.id, el.type, el.parentId, el.visibleOnFocus, x, y, width, height,
         el.textNormal, el.textFocused, textRight, el.textRightColor, el.textRightFocusedColor,
-        el.iconNormal, el.iconFocused, el.previewImage, el.action, el.gravity, el.radius, el.focusIndex,
+        el.action, el.gravity, el.radius, el.focusIndex,
         textSize, el.textSecondarySize, el.textPosition, el.textAlign, el.bgColor, el.padding,
         el.focusOffsetX, el.focusOffsetY, el.focusScale
     )

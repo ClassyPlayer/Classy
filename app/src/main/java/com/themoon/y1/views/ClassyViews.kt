@@ -35,7 +35,7 @@ class ClassyPlayStateView(context: Context) : View(context) {
     /** Reads the player state again. MainActivity.updatePlayerUI calls it at each player change. */
     fun refresh() {
         val s = currentState()
-        val vis = if (s == STATE_NONE || !ClassyLayout.isActive) GONE else VISIBLE
+        val vis = if (s == STATE_NONE) GONE else VISIBLE
         if (visibility != vis) visibility = vis
         if (s != state) {
             state = s
@@ -94,7 +94,7 @@ class ClassyPlayStateView(context: Context) : View(context) {
 /**
  * The 1 px dark line at the bottom of the status bar. It hides itself when the status bar has a
  * transparent background (video player). Before each frame it also keeps the status bar at the full
- * width ([ClassyLayout.keepStatusBarFull]); it is in the status bar only in the Classic themes.
+ * width ([ClassyLayout.keepStatusBarFull]).
  */
 class ClassyStatusRuleView(context: Context) : View(context) {
     private val preDraw = ViewTreeObserver.OnPreDrawListener {
@@ -102,7 +102,7 @@ class ClassyStatusRuleView(context: Context) : View(context) {
         // A changed bar is drawn in the next frame, so this frame is skipped.
         if (ClassyLayout.keepStatusBarFull(bar)) return@OnPreDrawListener false
         val transparent = ClassyLayout.isTransparent(bar?.background)
-        val vis = if (transparent || !ClassyLayout.isActive) INVISIBLE else VISIBLE
+        val vis = if (transparent) INVISIBLE else VISIBLE
         if (visibility != vis) visibility = vis
         true
     }

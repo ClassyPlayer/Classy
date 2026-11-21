@@ -53,7 +53,6 @@ import com.themoon.y1.views.ListItemViewFactory
 import com.themoon.y1.views.Notice
 import com.themoon.y1.views.TablerIcons
 import com.themoon.y1.views.ToggleStyle
-import java.io.File
 import java.util.Calendar
 import java.util.Locale
 import java.util.TimeZone
@@ -594,16 +593,16 @@ class SettingsController(
 
     /** Auto, then the themes. A theme applies live: the list is made again in the new theme, with the same row. */
     private fun themeList(): ListSpec {
-        ThemeManager.loadThemesFromStorage(File(activity.filesDir, "themes"))
         val auto = AutoThemeManager.isEnabled(prefs)
-        val themes = rows.valueList(localize("Theme"), ThemeManager.availableThemes.mapIndexed { i, theme ->
-            SettingValue(localize(theme.name), ThemeManager.getCurrentThemeIndex() == i && !auto) {
-                AutoThemeManager.turnOff(activity, prefs)
-                mainActivity?.changeTheme(theme.name)
+        val current = ThemeManager.getCurrentTheme()
+        val values = listOf(SettingValue(localize("Auto"), auto) { mainActivity?.let { AutoThemeManager.select(it) } }) +
+            ThemeManager.themes.map { theme ->
+                SettingValue(localize(theme.name), theme === current && !auto) {
+                    AutoThemeManager.turnOff(activity, prefs)
+                    mainActivity?.changeTheme(theme.name)
+                }
             }
-        }, focus = Focus.FIRST)
-        val autoRow = AutoThemeManager.createSelectorRow(activity, prefs, createTablerListButton, clickFeedback, localize)
-        return ListSpec(themes.title, listOf(RowSpec(localize("Auto"), RowLook.CUSTOM, view = autoRow)) + themes.rows)
+        return rows.valueList(localize("Theme"), values, focus = Focus.FIRST)
     }
 
     /** Volume Limit: the loudest volume step (1..30, see VolumeSteps), or Off. */
@@ -885,7 +884,7 @@ class SettingsController(
 
     private fun mainMenuItemsSpec(): ListSpec {
         val buttons = ArrayList<ThemeManager.MenuElement>()
-        for (el in ThemeManager.getCurrentTheme().menuElements) {
+        for (el in ThemeManager.menuElements) {
             if (el.type == "button") buttons.add(el)
         }
         MenuOrder.sort(buttons, prefs)

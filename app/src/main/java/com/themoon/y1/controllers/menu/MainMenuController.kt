@@ -4,9 +4,7 @@ import com.themoon.y1.Prefs
 import com.themoon.y1.navigation.RowFocus
 import android.app.Activity
 import android.content.Context
-import android.graphics.Bitmap
 import android.graphics.Typeface
-import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.util.SparseIntArray
@@ -26,7 +24,6 @@ import com.themoon.y1.navigation.ScreenState
 import com.themoon.y1.views.CircularBatteryView
 import com.themoon.y1.views.ClassicMenuStyle
 import com.themoon.y1.views.CustomAnalogClockView
-import com.themoon.y1.views.ClassyLayout
 import com.themoon.y1.views.ClassyLists
 import com.themoon.y1.views.WidgetBatteryBarView
 import java.util.Locale
@@ -174,7 +171,7 @@ class MainMenuController(
         ivWidgetFocusImage = null
         ivAnimatedCover = null
 
-        val elements = ClassyLists.menuElements(ThemeManager.getCurrentTheme().menuElements, activity)
+        val elements = ClassyLists.menuElements(ThemeManager.menuElements, activity)
         val buttonElements = ArrayList<ThemeManager.MenuElement>()
         val widgetElements = ArrayList<ThemeManager.MenuElement>()
 
@@ -227,22 +224,6 @@ class MainMenuController(
                         background = widgetBg
                     }
 
-                    val imgName = if (!el.iconNormal.isNullOrEmpty()) el.iconNormal else el.textNormal
-                    if (!imgName.isNullOrEmpty() && imgName != "New Item") {
-                        val bmp = ThemeManager.getCustomIcon(imgName, activity, 0)
-                        if (bmp != null) {
-                            val maxTexSize = 2048
-                            if (bmp.width > maxTexSize || bmp.height > maxTexSize) {
-                                val ratio = Math.min(maxTexSize.toFloat() / bmp.width, maxTexSize.toFloat() / bmp.height)
-                                boxView.setImageBitmap(
-                                    Bitmap.createScaledBitmap(bmp, (bmp.width * ratio).toInt(), (bmp.height * ratio).toInt(), true)
-                                )
-                            } else {
-                                boxView.setImageBitmap(bmp)
-                            }
-                            boxView.scaleType = ImageView.ScaleType.CENTER_CROP
-                        }
-                    }
                     canvas.addView(boxView)
                     createdWidgetView = boxView
                 }
@@ -398,8 +379,8 @@ class MainMenuController(
                     val animContainer = FrameLayout(activity)
                     val dm = activity.resources.displayMetrics
                     val leftPx = (el.x * density).toInt()
-                    // The Classy layout (Classic themes) puts the cover below the full-width status bar (ClassyLists.menuElements).
-                    val topPx = if (ClassyLayout.isActive) (el.y * density).toInt() else 0
+                    // The Classy layout puts the cover below the full-width status bar (ClassyLists.menuElements).
+                    val topPx = (el.y * density).toInt()
                     val contW = dm.widthPixels - leftPx
                     val contH = dm.heightPixels - topPx
 
@@ -433,7 +414,7 @@ class MainMenuController(
                     val isPane = el.width <= 0 || (el.x + el.width) * density >= dm.widthPixels - density
                     if (isPane) {
                         val leftPx = (el.x * density).toInt()
-                        val topPx = if (ClassyLayout.isActive) (el.y * density).toInt() else 0
+                        val topPx = (el.y * density).toInt()
                         preview.layoutParams = FrameLayout.LayoutParams(dm.widthPixels - leftPx, dm.heightPixels - topPx).apply {
                             leftMargin = leftPx
                             topMargin = topPx
@@ -493,16 +474,6 @@ class MainMenuController(
             }
 
             val isIconOnly = el.textNormal.isNullOrBlank()
-            val calculatedIconSize = if (isIconOnly) {
-                val w = if (el.width > 0) el.width else 50
-                val h = if (el.height > 0) el.height else 50
-                val p = (el.padding * density).toInt()
-                val tempSize = (Math.min(w, h) * density).toInt() - (p * 2)
-                if (tempSize > 0) tempSize else (10 * density).toInt()
-            } else {
-                val h = if (el.height > 0) el.height else 50
-                (h * density * 0.5f).toInt()
-            }
 
             var textGravity = Gravity.LEFT or Gravity.CENTER_VERTICAL
             if (!el.textAlign.isNullOrEmpty()) {
@@ -592,21 +563,7 @@ class MainMenuController(
                     }
                 }
 
-                if (!el.iconNormal.isNullOrEmpty()) {
-                    val bmp = ThemeManager.getCustomIcon(el.iconNormal, activity, 0)
-                    if (bmp != null) {
-                        val scaledBmp = Bitmap.createScaledBitmap(bmp, calculatedIconSize, calculatedIconSize, true)
-                        val d = BitmapDrawable(activity.resources, scaledBmp).apply {
-                            setBounds(0, 0, calculatedIconSize, calculatedIconSize)
-                        }
-                        tvMain.setCompoundDrawables(d, null, null, null)
-                        tvMain.compoundDrawablePadding = if (isIconOnly) 0 else (10 * density).toInt()
-                    } else {
-                        tvMain.setCompoundDrawables(null, null, null, null)
-                    }
-                } else {
-                    tvMain.setCompoundDrawables(null, null, null, null)
-                }
+                tvMain.setCompoundDrawables(null, null, null, null)
 
                 tvMain.translationX = 0f
                 tvMain.translationY = 0f
@@ -617,11 +574,7 @@ class MainMenuController(
 
             btn.setOnFocusChangeListener { _, hasFocus ->
                 if (hasFocus) {
-                    btn.background = if (ThemeManager.isClassicTheme()) {
-                        createFocusedButtonBackground()
-                    } else {
-                        createDynamicButtonBackground(ThemeManager.getListButtonFocusedBg(), el.radius)
-                    }
+                    btn.background = createFocusedButtonBackground()
 
                     if (isIconOnly) {
                         tvMain.text = ""
@@ -638,18 +591,6 @@ class MainMenuController(
                             tvRight.setTextColor(ThemeManager.getListButtonFocusedTextColor())
                         }
                         tvMain.text = if (!el.textFocused.isNullOrEmpty()) localize(el.textFocused) else localize(el.textNormal ?: "")
-                    }
-
-                    val targetIcon = if (!el.iconFocused.isNullOrEmpty()) el.iconFocused else el.iconNormal
-                    if (!targetIcon.isNullOrEmpty()) {
-                        val bmpF = ThemeManager.getCustomIcon(targetIcon, activity, 0)
-                        if (bmpF != null) {
-                            val scaledBmpF = Bitmap.createScaledBitmap(bmpF, calculatedIconSize, calculatedIconSize, true)
-                            val d = BitmapDrawable(activity.resources, scaledBmpF).apply {
-                                setBounds(0, 0, calculatedIconSize, calculatedIconSize)
-                            }
-                            tvMain.setCompoundDrawables(d, null, null, null)
-                        }
                     }
 
                     onButtonFocusChanged(el)
@@ -788,8 +729,7 @@ class MainMenuController(
     private fun createDynamicButtonBackground(color: Int, elementRadius: Int): GradientDrawable {
         return GradientDrawable().apply {
             setColor(color)
-            val r = (if (elementRadius == -1) ThemeManager.getButtonRadius() else elementRadius) *
-                activity.resources.displayMetrics.density
+            val r = (if (elementRadius == -1) 0 else elementRadius) * activity.resources.displayMetrics.density
             cornerRadius = r
         }
     }
@@ -803,8 +743,7 @@ class MainMenuController(
         }
         return GradientDrawable().apply {
             setColor(color)
-            val r = (if (elementRadius == -1) ThemeManager.getButtonRadius() else elementRadius) *
-                activity.resources.displayMetrics.density
+            val r = (if (elementRadius == -1) 0 else elementRadius) * activity.resources.displayMetrics.density
             cornerRadius = r
         }
     }

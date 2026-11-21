@@ -13,7 +13,6 @@ import android.util.LruCache
 import com.themoon.y1.MainActivity
 import com.themoon.y1.R
 import com.themoon.y1.StoragePaths
-import com.themoon.y1.ThemeManager
 import com.themoon.y1.models.SongItem
 import com.themoon.y1.views.Notice
 import java.io.File
@@ -55,7 +54,6 @@ class AlbumCoverManager private constructor() {
 
     // Placeholder for albums without art, decoded one time for each theme.
     private var placeholder: Bitmap? = null
-    private var placeholderTheme: Any? = null
 
     interface CoverCallback {
         /** [reflection] is always null: Cover Flow draws the reflection from the cover. */
@@ -148,14 +146,17 @@ class AlbumCoverManager private constructor() {
     }
 
     /**
-     * Placeholder for albums without art: the theme icon, decoded one time for each theme, at the
+     * Placeholder for albums without art: R.drawable.default_album, decoded one time at the
      * thumbnail size, so that changing between it and a thumbnail does not need a new layout.
      * Call on the main thread.
      */
     fun getPlaceholder(context: Context): Bitmap? {
-        val theme = ThemeManager.getCurrentTheme()
-        placeholder?.let { if (placeholderTheme === theme) return it }
-        val src = ThemeManager.getCustomIcon("icon_default_album.png", context, R.drawable.default_album) ?: return null
+        placeholder?.let { return it }
+        val src = try {
+            BitmapFactory.decodeResource(context.resources, R.drawable.default_album)
+        } catch (_: Exception) {
+            null
+        } ?: return null
         val out = try {
             val config = if (src.hasAlpha()) Bitmap.Config.ARGB_8888 else Bitmap.Config.RGB_565
             Bitmap.createBitmap(THUMB_SIZE, THUMB_SIZE, config).also { dst ->
@@ -171,7 +172,6 @@ class AlbumCoverManager private constructor() {
             src
         }
         placeholder = out
-        placeholderTheme = theme
         return out
     }
 

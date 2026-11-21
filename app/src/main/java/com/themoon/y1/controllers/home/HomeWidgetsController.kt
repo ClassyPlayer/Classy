@@ -199,9 +199,7 @@ class HomeWidgetsController(
                 if (bmp != null) {
                     widgetAlbum.setImageBitmap(bmp)
                 } else {
-                    widgetAlbum.setImageBitmap(
-                        ThemeManager.getCustomIcon("icon_default_album.png", context, R.drawable.default_album)
-                    )
+                    widgetAlbum.setImageResource(R.drawable.default_album)
                 }
             }
         }
@@ -442,15 +440,7 @@ class HomeWidgetsController(
             }
         }
 
-        ivWidgetFocusImage?.let { iv ->
-            if (!hasLiveWidgetActivated && !focusedElement.previewImage.isNullOrEmpty()) {
-                iv.visibility = View.VISIBLE
-                val bmp = ThemeManager.getCustomIcon(focusedElement.previewImage, context, 0)
-                iv.setImageBitmap(bmp)
-            } else if (!hasLiveWidgetActivated) {
-                iv.setImageDrawable(null)
-            }
-        }
+        if (!hasLiveWidgetActivated) ivWidgetFocusImage?.setImageDrawable(null)
     }
 
     companion object {

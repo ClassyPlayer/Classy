@@ -2,7 +2,6 @@ package com.themoon.y1.views
 
 import com.themoon.y1.Prefs
 import android.content.SharedPreferences
-import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.ColorDrawable
@@ -24,12 +23,12 @@ import kotlin.math.ceil
 import kotlin.math.roundToInt
 
 /**
- * The Classy layout of the Classic themes (Classic Light and Classic Dark; Auto switches between them).
+ * The Classy layout of the app (both themes: Classic Light and Classic Dark; Auto switches between them).
  *
  * The status bar, the lists and Now Playing use the classic proportions from [ClassyMetrics]. The
  * status bar spans the full width on all screens, also over the split screens and Cover Flow. The static views
- * from activity_main.xml are changed at runtime. Each changed property is recorded the first time it changes,
- * so a theme change without a restart restores the original views first (the other themes keep their own layout).
+ * from activity_main.xml are changed at runtime. A theme change without a restart applies all parts again, with the
+ * colours of the new theme.
  */
 object ClassyLayout {
     private const val TAG_PLAY_ICON = "classy_play_state"
@@ -38,42 +37,25 @@ object ClassyLayout {
     private var listenedPrefs: SharedPreferences? = null
     private var applied = false
     private var appliedTheme: String? = null
-    private var reapplying = false
 
     // SharedPreferences keeps listeners in a weak map, so this object holds the only strong reference.
     private val prefsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
         // The tilt (pivot, scaleX) is set in applyTheme, so set it again when the tilt changes
-        if (key == Prefs.ALBUM_TILT.key && isActive) MainActivity.instance?.applyTheme()
+        if (key == Prefs.ALBUM_TILT.key) MainActivity.instance?.applyTheme()
     }
 
-    /** True when a Classic theme is in use: only the Classic themes have the Classy layout. */
-    val isActive: Boolean
-        get() = ThemeManager.isClassicTheme()
-
-    /** Applies (or, after a theme change, restores) the static views. Called at the end of applyTheme(). */
+    /** Applies the Classy layout to the static views. Called at the end of applyTheme(). */
     fun apply(main: MainActivity) {
         if (listenedPrefs !== main.prefs) {
             main.prefs.registerOnSharedPreferenceChangeListener(prefsListener)
             listenedPrefs = main.prefs
         }
         val theme = ThemeManager.getCurrentTheme().name
-        if (applied && (!isActive || theme != appliedTheme)) {
-            // A theme change without a restart: restore the recorded values, then let
-            // applyTheme() set the values of the current theme on the restored views (and call apply() again).
-            restoreAll()
+        if (applied && theme != appliedTheme) {
+            // A theme change without a restart: new status bar views and all parts again, as at the first apply
             removeAddedViews(main)
             applied = false
-            if (!reapplying) {
-                reapplying = true
-                try {
-                    main.applyTheme()
-                } finally {
-                    reapplying = false
-                }
-            }
-            return
         }
-        if (!isActive) return
         val first = !applied
         applied = true
         appliedTheme = theme
@@ -113,7 +95,7 @@ object ClassyLayout {
         setHeight(bar, px(ClassyMetrics.STATUS_BAR_HEIGHT, d))
         setPadding(bar, padLeft, 0, padRight, 0)
         // The 1 px line spans the full width, past the padding.
-        setClipToPadding(bar, false, true)
+        bar.clipToPadding = false
 
         // The capitals are centred on the centre line of the icons and the battery.
         val textBox = 2f * ClassyMetrics.statusCentreLine() * d
@@ -133,7 +115,6 @@ object ClassyLayout {
                     setWidth(child, px(ClassyMetrics.BATTERY_WIDTH, d))
                     setHeight(child, px(ClassyMetrics.BATTERY_HEIGHT, d))
                     setMargins(child, 0, 0, 0, px(ClassyMetrics.STATUS_BAR_RULE, d))
-                    record(child, "thinOutline") { (it as BatteryIconView).setThinOutline(false) }
                     child.setThinOutline(true)
                 }
                 // The clock or any text in the right group: the gaps are measured from the ink of the letters.
@@ -192,7 +173,7 @@ object ClassyLayout {
      * the controllers also change it outside applyTheme(). Returns true when it changed the bar.
      */
     internal fun keepStatusBarFull(bar: View?): Boolean {
-        if (bar == null || !isActive) return false
+        if (bar == null) return false
         var changed = false
         val lp = bar.layoutParams
         if (lp != null && lp.width != ViewGroup.LayoutParams.MATCH_PARENT) {
@@ -226,10 +207,6 @@ object ClassyLayout {
         // The browser list pane (MainActivityControllers moves the list into it).
         (main.findViewById<View>(R.id.container_browser_items)?.parent?.parent as? View)?.let { views.add(it) }
         for (v in views) {
-            // Restore to the status bar height of the default layout at that time.
-            record(v, "statusPadding") {
-                it.setPadding(it.paddingLeft, px(ClassicMenuStyle.STATUS_HEIGHT_DP, d), it.paddingRight, it.paddingBottom)
-            }
             v.setPadding(v.paddingLeft, px(ClassyMetrics.STATUS_BAR_HEIGHT, d), v.paddingRight, v.paddingBottom)
         }
         // The cover panes of the split screens start below the full-width status bar.
@@ -298,7 +275,7 @@ object ClassyLayout {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
             override fun afterTextChanged(s: Editable?) {
-                if (applied && isActive) setStatusTextMargins(tv, afterBattery, gap)
+                if (applied) setStatusTextMargins(tv, afterBattery, gap)
             }
         }
         tv.addTextChangedListener(watcher)
@@ -337,32 +314,10 @@ object ClassyLayout {
 
     internal fun px(dp: Int, density: Float): Int = (dp * density).roundToInt()
 
-    // Recorded property changes
-
-    private val restorers = WeakHashMap<View, LinkedHashMap<String, (View) -> Unit>>()
-
-    /** Records how to restore [key] of [v]; only the first record of each key is kept (the original value). */
-    internal fun record(v: View, key: String, restore: (View) -> Unit) {
-        val map = restorers.getOrPut(v) { LinkedHashMap() }
-        if (!map.containsKey(key)) map[key] = restore
-    }
-
-    private fun restoreAll() {
-        val entries = ArrayList(restorers.entries)
-        restorers.clear()
-        for ((view, map) in entries) {
-            for (restore in map.values) {
-                try {
-                    restore(view)
-                } catch (_: Exception) {}
-            }
-        }
-    }
+    // Property changes: only when the value is different (a change can ask for a new layout)
 
     internal fun setHeight(v: View, height: Int) {
         val lp = v.layoutParams ?: return
-        val old = lp.height
-        record(v, "height") { it.layoutParams?.let { p -> p.height = old; it.layoutParams = p } }
         if (lp.height != height) {
             lp.height = height
             v.layoutParams = lp
@@ -371,8 +326,6 @@ object ClassyLayout {
 
     internal fun setWidth(v: View, width: Int) {
         val lp = v.layoutParams ?: return
-        val old = lp.width
-        record(v, "width") { it.layoutParams?.let { p -> p.width = old; it.layoutParams = p } }
         if (lp.width != width) {
             lp.width = width
             v.layoutParams = lp
@@ -380,15 +333,11 @@ object ClassyLayout {
     }
 
     internal fun setMinWidth(tv: TextView, width: Int) {
-        val old = tv.minWidth
-        record(tv, "minWidth") { (it as TextView).minWidth = old }
         if (tv.minWidth != width) tv.minWidth = width
     }
 
     internal fun setWeight(v: View, weight: Float) {
         val lp = v.layoutParams as? LinearLayout.LayoutParams ?: return
-        val old = lp.weight
-        record(v, "weight") { (it.layoutParams as? LinearLayout.LayoutParams)?.let { p -> p.weight = old; it.layoutParams = p } }
         if (lp.weight != weight) {
             lp.weight = weight
             v.layoutParams = lp
@@ -398,15 +347,6 @@ object ClassyLayout {
     /** Sets the margins that are not null. Start and end follow left and right (the UI is left-to-right). */
     internal fun setMargins(v: View, left: Int? = null, top: Int? = null, right: Int? = null, bottom: Int? = null) {
         val lp = v.layoutParams as? ViewGroup.MarginLayoutParams ?: return
-        val old = intArrayOf(lp.leftMargin, lp.topMargin, lp.rightMargin, lp.bottomMargin, lp.marginStart, lp.marginEnd)
-        record(v, "margins") {
-            (it.layoutParams as? ViewGroup.MarginLayoutParams)?.let { p ->
-                p.setMargins(old[0], old[1], old[2], old[3])
-                p.marginStart = old[4]
-                p.marginEnd = old[5]
-                it.layoutParams = p
-            }
-        }
         var changed = false
         if (left != null && (lp.leftMargin != left || lp.marginStart != left)) {
             lp.leftMargin = left; lp.marginStart = left; changed = true
@@ -424,52 +364,28 @@ object ClassyLayout {
     }
 
     internal fun setPadding(v: View, left: Int, top: Int, right: Int, bottom: Int) {
-        val old = intArrayOf(v.paddingLeft, v.paddingTop, v.paddingRight, v.paddingBottom)
-        record(v, "padding") { it.setPadding(old[0], old[1], old[2], old[3]) }
         if (v.paddingLeft != left || v.paddingTop != top || v.paddingRight != right || v.paddingBottom != bottom) {
             v.setPadding(left, top, right, bottom)
         }
     }
 
-    /** ViewGroup has no clipToPadding getter on API 19, so the caller gives the default value to restore. */
-    internal fun setClipToPadding(v: ViewGroup, clip: Boolean, restoreTo: Boolean) {
-        record(v, "clipToPadding") { (it as ViewGroup).clipToPadding = restoreTo }
-        v.clipToPadding = clip
-    }
-
-    /** LinearLayout has no gravity getter on API 19, so the caller gives the value to restore. */
-    internal fun setLinearGravity(v: LinearLayout, gravity: Int, restoreTo: Int) {
-        record(v, "linearGravity") { (it as LinearLayout).gravity = restoreTo }
-        v.gravity = gravity
-    }
-
     internal fun setTextSizePx(tv: TextView, sizePx: Float) {
-        val old = tv.textSize
-        record(tv, "textSize") { (it as TextView).setTextSize(TypedValue.COMPLEX_UNIT_PX, old) }
         if (tv.textSize != sizePx) tv.setTextSize(TypedValue.COMPLEX_UNIT_PX, sizePx)
     }
 
     internal fun setTypeface(tv: TextView, typeface: Typeface) {
-        val old = tv.typeface
-        record(tv, "typeface") { (it as TextView).typeface = old }
         if (tv.typeface !== typeface) tv.typeface = typeface
     }
 
     internal fun setIncludeFontPadding(tv: TextView, include: Boolean) {
-        val old = tv.includeFontPadding
-        record(tv, "includeFontPadding") { (it as TextView).includeFontPadding = old }
         if (tv.includeFontPadding != include) tv.includeFontPadding = include
     }
 
     internal fun setTextGravity(tv: TextView, gravity: Int) {
-        val old = tv.gravity
-        record(tv, "gravity") { (it as TextView).gravity = old }
         if (tv.gravity != gravity) tv.gravity = gravity
     }
 
     internal fun setTextColor(tv: TextView, color: Int) {
-        val old: ColorStateList = tv.textColors
-        record(tv, "textColor") { (it as TextView).setTextColor(old) }
         if (tv.currentTextColor != color) tv.setTextColor(color)
     }
 }

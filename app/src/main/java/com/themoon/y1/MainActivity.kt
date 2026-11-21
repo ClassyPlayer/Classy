@@ -273,7 +273,6 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
 
     lateinit var ivAlbumArt: ImageView
     var ivAlbumReflection: ImageView? = null
-    lateinit var ivPauseOverlay: ImageView
     lateinit var tvPlayerTitle: TextView
     lateinit var tvPlayerArtist: TextView
     lateinit var tvPlayerAlbum: TextView
@@ -409,15 +408,9 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
         setContentView(R.layout.activity_main)
 
         AssetInstaller.installBundledLanguages(this, prefs)
-        AssetInstaller.installBundledThemes(this, prefs)
         LanguageManager.getInstance(this).loadAvailableLanguages()
 
-        val themeDir = File(filesDir, "themes")
-        ThemeManager.loadThemesFromStorage(themeDir)
-        val savedThemeName = prefs.getString(Prefs.THEME_NAME.key, null)
-            ?: Prefs.CURRENT_THEME_NAME.get(prefs)
-        val themeIdx = ThemeManager.findThemeIndexByName(savedThemeName)
-        if (themeIdx != -1) ThemeManager.setThemeIndex(themeIdx)
+        ThemeManager.init(this, prefs)
         com.themoon.y1.managers.AutoThemeManager.applyAtStart(prefs)
 
         loadPreferences()

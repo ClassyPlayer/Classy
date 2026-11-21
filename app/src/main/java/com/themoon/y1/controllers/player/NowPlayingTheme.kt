@@ -13,7 +13,7 @@ import com.themoon.y1.ThemeManager
 /**
  * Theme colours of the Now Playing parts that activity_main.xml gives fixed light-theme colours:
  * scrub times, volume icons, the bar track and the reflection fade. Classic Light keeps the iPod look;
- * Classic Dark and the other themes use the theme colours ([PlayerController.applyThemeColors]).
+ * Classic Dark uses the theme colours ([PlayerController.applyThemeColors]).
  */
 object NowPlayingTheme {
 

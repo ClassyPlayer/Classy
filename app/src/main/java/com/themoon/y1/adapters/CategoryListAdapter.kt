@@ -15,7 +15,6 @@ import android.widget.TextView
 import com.themoon.y1.MainActivity
 import com.themoon.y1.R
 import com.themoon.y1.StoragePaths
-import com.themoon.y1.ThemeManager
 import com.themoon.y1.controllers.browser.BrowserController
 import com.themoon.y1.lists.ArtRow
 import com.themoon.y1.lists.RowTexts
@@ -332,7 +331,7 @@ class CategoryListAdapter(
             row = ListItemViewFactory.createListButtonWithIcon(main, "", name).apply {
                 tag = SIMPLE_ROW
                 val d = main.resources.displayMetrics.density
-                val height = if (ThemeManager.isClassicTheme()) (ClassicMenuStyle.ROW_HEIGHT_DP * d).toInt() else AbsListView.LayoutParams.WRAP_CONTENT
+                val height = (ClassicMenuStyle.ROW_HEIGHT_DP * d).toInt()
                 layoutParams = AbsListView.LayoutParams(AbsListView.LayoutParams.MATCH_PARENT, height)
             }
         }
