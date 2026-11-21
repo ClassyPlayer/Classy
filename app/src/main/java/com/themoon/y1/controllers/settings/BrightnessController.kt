@@ -108,15 +108,11 @@ class BrightnessController(
     }
 
     companion object {
-        /** The lowest system level (0–255), shown as 0 %: a darker screen can look off. */
-        const val MIN_LEVEL = 10
-        private const val SPAN = 255 - MIN_LEVEL
+        fun percent(level: Int): Int = ((level * 100 + 127) / 255).coerceIn(0, 100)
 
-        fun percent(level: Int): Int = ((level - MIN_LEVEL) * 100 + SPAN / 2).floorDiv(SPAN).coerceIn(0, 100)
+        fun level(percent: Int): Int = ((percent * 255 + 50) / 100).coerceIn(0, 255)
 
-        fun level(percent: Int): Int = (MIN_LEVEL + (percent * SPAN + 50) / 100).coerceIn(MIN_LEVEL, 255)
-
-        /** The system level [steps] percent from [level], from [MIN_LEVEL] to 255. */
+        /** The system level [steps] percent from [level], from 0 to 255. */
         fun stepped(level: Int, steps: Int): Int = level(percent(level) + steps)
 
         /** The system level of the next multiple of 5 % from [level], in the direction of [direction]. */

@@ -1,6 +1,5 @@
 package com.themoon.y1.controllers.settings
 
-import com.themoon.y1.controllers.settings.BrightnessController.Companion.MIN_LEVEL
 import com.themoon.y1.controllers.settings.BrightnessController.Companion.fastStepped
 import com.themoon.y1.controllers.settings.BrightnessController.Companion.level
 import com.themoon.y1.controllers.settings.BrightnessController.Companion.percent
@@ -9,13 +8,11 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class BrightnessStepTest {
-    @Test fun theLowestLevelIsZeroPercentAndFullIsOneHundred() {
-        assertEquals(0, percent(MIN_LEVEL))
-        assertEquals(100, percent(255))
-        assertEquals(MIN_LEVEL, level(0))
-        assertEquals(255, level(100))
-        // A level below the lowest one (set by another app) shows as 0 %
+    @Test fun theFullRangeIsZeroToOneHundredPercent() {
         assertEquals(0, percent(0))
+        assertEquals(100, percent(255))
+        assertEquals(0, level(0))
+        assertEquals(255, level(100))
     }
 
     @Test fun eachPercentIsOneLevelAndBack() {
@@ -23,7 +20,7 @@ class BrightnessStepTest {
     }
 
     @Test fun eachStepChangesTheShownPercentByOne() {
-        for (l in MIN_LEVEL..255) {
+        for (l in 0..255) {
             if (percent(l) < 100) assertEquals(percent(l) + 1, percent(stepped(l, 1)))
             if (percent(l) > 0) assertEquals(percent(l) - 1, percent(stepped(l, -1)))
         }
@@ -31,10 +28,10 @@ class BrightnessStepTest {
 
     @Test fun theLevelStaysFromTheLowestLevelTo255() {
         assertEquals(255, stepped(255, 1))
-        assertEquals(MIN_LEVEL, stepped(MIN_LEVEL, -1))
+        assertEquals(0, stepped(0, -1))
         assertEquals(255, stepped(250, 5))
         assertEquals(255, fastStepped(255, 1))
-        assertEquals(MIN_LEVEL, fastStepped(MIN_LEVEL, -1))
+        assertEquals(0, fastStepped(0, -1))
     }
 
     @Test fun aFastStepGoesToTheNextMultipleOfFive() {
