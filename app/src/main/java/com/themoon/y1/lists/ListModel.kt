@@ -169,8 +169,9 @@ object ListModel {
     fun shownRows(spec: ListSpec): List<RowSpec> =
         if (spec.rows.isEmpty() && spec.empty != null && !spec.isLong) listOf(RowSpec(spec.empty, key = EMPTY_KEY)) else spec.rows
 
-    /** The text of each shown row for the letter jump: the label (none for the empty row). */
-    fun letterTexts(rows: List<RowSpec>): List<String?> = rows.map { if (it.key == EMPTY_KEY) null else it.label }
+    /** The text of each shown row for the letter jump: the label (none for the empty row and the info rows, like a hint). */
+    fun letterTexts(rows: List<RowSpec>): List<String?> =
+        rows.map { if (it.key == EMPTY_KEY || it.look == RowLook.INFO) null else it.label }
 
     const val EMPTY_KEY = "\u0000empty"
 }

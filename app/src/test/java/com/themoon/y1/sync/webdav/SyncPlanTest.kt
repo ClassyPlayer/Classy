@@ -1,0 +1,213 @@
+package com.themoon.y1.sync.webdav
+
+import com.themoon.y1.sync.SyncLedger
+import org.junit.Assert.*
+import org.junit.Test
+import java.io.File
+
+class SyncPlanTest {
+
+    private val root = File("/sd/Music/WebDAV")
+    private val base = "/music/"
+    private val rock = "/music/Rock/"
+    private val jazz = "/music/Jazz/"
+
+    private fun file(href: String, size: Long = 10, etag: String? = "\"e1\"", mod: String? = "Mon, 01 Jan 2026 00:00:00 GMT") =
+        DavEntry(href, false, size, etag, mod)
+
+    private fun led(href: String, folder: String, size: Long = 10, etag: String? = "\"e1\"", mod: String? = "Mon, 01 Jan 2026 00:00:00 GMT", orphaned: Boolean = false) =
+        SyncLedger.LedgerItem(href, folder, "music", localFileFor(href, base, root)!!.path, size, "${etag ?: ""}|${mod ?: ""}", orphaned)
+
+    private fun build(
+        remote: Map<String, List<DavEntry>>,
+        ledger: List<SyncLedger.LedgerItem> = emptyList(),
+        ticked: Set<String> = remote.keys,
+        exists: (File) -> Boolean = { true }
+    ) = SyncPlan.build(remote, ledger.associateBy { it.jellyfinId }, ticked, root, base, exists = exists)
+
+    @Test
+    fun tickedSubfolderKeepsItsFullPath() {
+        val live = "/music/Rock/Live/"
+        val p = build(mapOf(live to listOf(file("/music/Rock/Live/a.flac"))))
+        assertEquals(File(root, "Rock/Live/a.flac"), p.downloads.single().target)
+    }
+
+    @Test
+    fun movedPathKeepsTheTreeBelowTheRoot() {
+        val from = File("/storage/sdcard0/Music")
+        val to = File("/storage/sdcard1/Music")
+        assertEquals(File(to, "Rock/Live/a.flac"), movedPath("/storage/sdcard0/Music/Rock/Live/a.flac", from, to))
+        assertNull(movedPath("/storage/sdcard1/Music/Rock/a.flac", from, to)) // already there
+        assertNull(movedPath("/storage/sdcard0/Musical/a.flac", from, to)) // same prefix, other folder
+        assertNull(movedPath(null, from, to))
+    }
+
+    @Test
+    fun newFileDownloads() {
+        val p = build(mapOf(rock to listOf(file("/music/Rock/a.flac"))))
+        assertEquals(listOf("/music/Rock/a.flac"), p.downloads.map { it.entry.href })
+        assertEquals(File(root, "Rock/a.flac"), p.downloads[0].target)
+        assertEquals(rock, p.downloads[0].folderHref)
+    }
+
+    @Test
+    fun localMissingDownloads() {
+        val h = "/music/Rock/a.flac"
+        val p = build(mapOf(rock to listOf(file(h))), listOf(led(h, rock)), exists = { false })
+        assertEquals(1, p.downloads.size)
+    }
+
+    @Test
+    fun etagChangeDownloads() {
+        val h = "/music/Rock/a.flac"
+        val p = build(mapOf(rock to listOf(file(h, etag = "\"e2\""))), listOf(led(h, rock)))
+        assertEquals(1, p.downloads.size)
+    }
+
+    @Test
+    fun noEtagSizeOrMtimeChangeDownloads() {
+        val h = "/music/Rock/a.flac"
+        assertEquals(1, build(mapOf(rock to listOf(file(h, size = 11, etag = null))), listOf(led(h, rock, etag = null))).downloads.size)
+        assertEquals(1, build(mapOf(rock to listOf(file(h, etag = null, mod = "Tue, 02 Jan 2026 00:00:00 GMT"))), listOf(led(h, rock, etag = null))).downloads.size)
+    }
+
+    @Test
+    fun sameIsSkipped() {
+        val h = "/music/Rock/a.flac"
+        val p = build(mapOf(rock to listOf(file(h))), listOf(led(h, rock)))
+        assertTrue(p.downloads.isEmpty())
+        assertTrue(p.orphan.isEmpty())
+        assertTrue(p.unorphan.isEmpty())
+    }
+
+    @Test
+    fun goneFromServerIsOrphaned() {
+        val p = build(mapOf(rock to emptyList()), listOf(led("/music/Rock/old.flac", rock)))
+        assertEquals(listOf("/music/Rock/old.flac"), p.orphan)
+    }
+
+    @Test
+    fun untickedFolderItemsRemoved() {
+        val p = build(mapOf(rock to emptyList()), listOf(led("/music/Jazz/x.flac", jazz)), ticked = setOf(rock))
+        assertEquals(listOf("/music/Jazz/x.flac"), p.remove)
+        assertTrue(p.orphan.isEmpty())
+    }
+
+    @Test
+    fun nothingTickedRemovesEverything() {
+        val p = build(emptyMap(), listOf(led("/music/Rock/a.flac", rock), led("/music/Jazz/x.flac", jazz, orphaned = true)), ticked = emptySet())
+        assertEquals(setOf("/music/Rock/a.flac", "/music/Jazz/x.flac"), p.remove.toSet())
+        assertTrue(p.orphan.isEmpty())
+        assertTrue(p.downloads.isEmpty())
+    }
+
+    @Test
+    fun goneFromServerIsNeverRemoved() {
+        val p = build(mapOf(rock to emptyList()), listOf(led("/music/Rock/old.flac", rock)))
+        assertTrue(p.remove.isEmpty())
+    }
+
+    @Test
+    fun staleStoredFolderUsesPath() {
+        // Synced while Rock was ticked; now only Rock/Live is. A Live file deleted on the NAS is marked, not removed.
+        val live = "/music/Rock/Live/"
+        val p = build(mapOf(live to emptyList()), listOf(led("/music/Rock/Live/a.flac", rock), led("/music/Rock/b.flac", rock)), ticked = setOf(live))
+        assertEquals(listOf("/music/Rock/Live/a.flac"), p.orphan)
+        assertEquals(listOf("/music/Rock/b.flac"), p.remove)
+    }
+
+    @Test
+    fun siblingWithSamePrefixIsNotCovered() {
+        val p = build(mapOf(rock to emptyList()), listOf(led("/music/Rocksteady/x.flac", "/music/Rocksteady/")), ticked = setOf(rock))
+        assertEquals(listOf("/music/Rocksteady/x.flac"), p.remove)
+    }
+
+    @Test
+    fun unlistedTickedFolderIsNotOrphaned() {
+        // The Jazz listing failed or was skipped: never treat its files as deleted.
+        val p = build(mapOf(rock to emptyList()), listOf(led("/music/Jazz/x.flac", jazz)), ticked = setOf(rock, jazz))
+        assertTrue(p.orphan.isEmpty())
+        assertTrue(p.remove.isEmpty())
+    }
+
+    @Test
+    fun alreadyOrphanedIsNotRepeated() {
+        val p = build(mapOf(rock to emptyList()), listOf(led("/music/Rock/old.flac", rock, orphaned = true)))
+        assertTrue(p.orphan.isEmpty())
+    }
+
+    @Test
+    fun reappearedClearsOrphan() {
+        val h = "/music/Rock/a.flac"
+        val p = build(mapOf(rock to listOf(file(h))), listOf(led(h, rock, orphaned = true)))
+        assertEquals(listOf(h), p.unorphan)
+        assertTrue(p.downloads.isEmpty())
+    }
+
+    @Test
+    fun rejectsDotDotPaths() {
+        assertNull(localFileFor("/music/Rock/../../etc/x", base, root))
+        assertNull(localFileFor("/music/Rock/%2E%2E/x", base, root))
+        assertNull(localFileFor("/other/a.flac", base, root))
+        assertNull(localFileFor("/music/", base, root))
+        val p = build(mapOf(rock to listOf(file("/music/Rock/../../x.flac"))))
+        assertTrue(p.downloads.isEmpty())
+    }
+
+    @Test
+    fun decodesTargetNames() {
+        assertEquals(File(root, "Björk/01 Joga.flac"), localFileFor("/music/Bj%C3%B6rk/01%20Joga.flac", base, root))
+    }
+
+    @Test
+    fun bytesSumsDownloads() {
+        val p = build(mapOf(rock to listOf(file("/music/Rock/a.flac", size = 100), file("/music/Rock/b.flac", size = 23))))
+        assertEquals(123L, p.bytes)
+    }
+
+    @Test
+    fun isUnderNeedsAFolderBoundary() {
+        assertTrue(isUnder("/m/Rock/a.flac", "/m/Rock/"))
+        assertTrue(isUnder("/m/Rock/a.flac", "/m/Rock")) // a server that sends no trailing slash
+        assertFalse(isUnder("/m/Rock Pop/a.flac", "/m/Rock"))
+        assertFalse(isUnder("/m/Rock", "/m/Rock"))
+    }
+
+    @Test
+    fun fatSafeReplacesWhatFatDoesNotTake() {
+        assertEquals("Why_ Not_.flac", fatSafe("Why: Not?.flac"))
+        assertEquals("a_b_c_d_e_f_g_h", fatSafe("a<b>c\"d|e*f\\g\u0001h"))
+        assertEquals("Song", fatSafe("Song. ")) // no dot or space at the end
+        assertEquals("_", fatSafe("..."))
+        assertEquals("Björk - Jóga ♪.flac", fatSafe("Björk - Jóga ♪.flac")) // any other name is as it was
+    }
+
+    @Test
+    fun localFileForKeepsNamesUnlessTheDestinationIsFat() {
+        val root = File("/sd/Music")
+        assertEquals(File(root, "Rock/Why: Not?.flac"), localFileFor("/music/Rock/Why%3A%20Not%3F.flac", "/music/", root))
+        assertEquals(File(root, "Rock/Why_ Not_.flac"), localFileFor("/music/Rock/Why%3A%20Not%3F.flac", "/music/", root, safeNames = true))
+        // a folder name too
+        assertEquals(File(root, "AC_DC/x.flac"), localFileFor("/music/AC%3ADC/x.flac", "/music/", root, safeNames = true))
+        // the dot segments are still refused
+        assertNull(localFileFor("/music/%2E%2E/x.flac", "/music/", root, safeNames = true))
+    }
+
+    @Test
+    fun movedPathUsesTheFatNamesOnlyWhenAsked() {
+        val from = File("/internal/Music")
+        val to = File("/sd/Music")
+        assertEquals(File(to, "Rock/Why: Not.flac"), movedPath("/internal/Music/Rock/Why: Not.flac", from, to))
+        assertEquals(File(to, "Rock/Why_ Not.flac"), movedPath("/internal/Music/Rock/Why: Not.flac", from, to, safeNames = true))
+    }
+
+    @Test
+    fun theSafeNameIsTheOneThatIsLookedFor() {
+        val root = File("/sd/Music")
+        val e = DavEntry("/music/Rock/Why%3A.flac", false, 10, "\"e1\"", "m")
+        val plan = SyncPlan.build(
+            mapOf("/music/Rock/" to listOf(e)), emptyMap(), setOf("/music/Rock/"), root, "/music/", safeNames = true
+        ) { false }
+        assertEquals(File(root, "Rock/Why_.flac"), plan.downloads.single().target)
+    }
+}

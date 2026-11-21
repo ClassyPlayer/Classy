@@ -122,6 +122,7 @@ class ListModelTest {
         assertEquals(listOf("Albums", "Songs"), ListModel.letterTexts(rows))
         val empty = ListModel.shownRows(ListSpec("Artists", empty = "No Songs", letters = true))
         assertEquals(listOf<String?>(null), ListModel.letterTexts(empty))
+        assertEquals(listOf(null, "Albums"), ListModel.letterTexts(listOf(RowSpec("Center: open", RowLook.INFO), RowSpec("Albums"))))
     }
 
     @Test

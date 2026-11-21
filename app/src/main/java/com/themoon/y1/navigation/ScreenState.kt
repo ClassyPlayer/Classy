@@ -57,6 +57,18 @@ sealed interface ScreenState {
     data object FmRadioSaved : ScreenState
     /** Jellyfin sync: the settings ([JellyfinLevel.Root]) and the lists of a library. Each level is a back-stack entry. */
     data class Jellyfin(val level: JellyfinLevel = JellyfinLevel.Root) : ScreenState
+    /** WebDAV sync: the settings, the NAS folders to select, and the files deleted on the NAS. */
+    data class WebDav(val level: WebDavLevel = WebDavLevel.Root) : ScreenState
+}
+
+/** The levels of WebDAV sync; each is a back-stack entry. */
+sealed interface WebDavLevel {
+    /** Server, folders and sync settings. */
+    data object Root : WebDavLevel
+    /** The sub-folders of a NAS folder ([href] as the server sends it), to tick for sync. */
+    data class Folders(val href: String) : WebDavLevel
+    /** Synced files that are gone from the NAS; the user may delete them. */
+    data object Orphans : WebDavLevel
 }
 
 /**
