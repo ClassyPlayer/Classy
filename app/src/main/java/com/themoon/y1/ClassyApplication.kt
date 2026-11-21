@@ -76,7 +76,8 @@ class ClassyApplication : MultiDexApplication() {
         if (launch != null) {
             val flags = PendingIntent.FLAG_CANCEL_CURRENT or (if (Build.VERSION.SDK_INT >= 23) PendingIntent.FLAG_IMMUTABLE else 0)
             val alarms = getSystemService(Context.ALARM_SERVICE) as? AlarmManager
-            alarms?.set(AlarmManager.ELAPSED_REALTIME_WAKEUP, now + 500, PendingIntent.getActivity(this, 0, launch, flags))
+            // Read the clock again after the wait: the new start must come after this process ends
+            alarms?.set(AlarmManager.ELAPSED_REALTIME_WAKEUP, SystemClock.elapsedRealtime() + 500, PendingIntent.getActivity(this, 0, launch, flags))
         }
         Log.w(TAG, "Starting the app again, so that Android knows its process")
         Process.killProcess(Process.myPid())
