@@ -752,7 +752,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
 
     fun getActiveScreenController(): ScreenController? = NavigationManager.getInstance().activeController
 
-    /** The Power screen (Restart, Power Off). Back goes to the screen that was open before. */
+    /** The Power screen (Wi-Fi, Bluetooth, Brightness, Restart, Power Off). Back goes to the screen that was open before. */
     fun showPowerMenu() {
         wakeFromFakeScreenOff()
         changeScreen(ScreenState.Settings(SettingsSubMode.Power))
@@ -1389,6 +1389,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
                 BluetoothAdapter.ACTION_STATE_CHANGED -> {
                     val state = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.ERROR)
                     onStatusBarBluetoothAdapterState(state)
+                    if (::settingsController.isInitialized) settingsController.onRadioStateChanged()
                     if (state == BluetoothAdapter.STATE_ON) {
                         ivStatusBluetooth?.visibility = View.VISIBLE
                         updateStatusBarBluetooth()
@@ -1471,6 +1472,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
                 }
                 WifiManager.WIFI_STATE_CHANGED_ACTION -> {
                     val state = intent.getIntExtra(WifiManager.EXTRA_WIFI_STATE, WifiManager.WIFI_STATE_UNKNOWN)
+                    if (::settingsController.isInitialized) settingsController.onRadioStateChanged()
                     if (state == WifiManager.WIFI_STATE_ENABLED) {
                         ivStatusWifi?.visibility = View.VISIBLE
                         updateStatusBarWifi(false)
