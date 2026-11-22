@@ -760,7 +760,16 @@ class MainMenuController(
     override fun onWheel(delta: Int, event: KeyEvent): Boolean {
         val c = activity.currentFocus
         if (c != null) {
-            // The buttons can be anywhere on the theme canvas, so step in their list order
+            // All buttons are rows of one list box (the Classic themes): the step of all lists (RowFocus)
+            val rows = c.parent as? ViewGroup
+            if (rows != null && currentButtons.all { it.parent === rows }) {
+                RowFocus.step(rows, delta) ?: return false
+                lastMainMenuFocusIndex = currentButtons.indexOfFirst { it.hasFocus() }.coerceAtLeast(0)
+                isUiActive = true
+                clickFeedback()
+                return true
+            }
+            // Else the buttons can be anywhere on the theme canvas, so step in their list order
             val idx = RowFocus.next(currentButtons.size, currentButtons.indexOf(c), delta, RowFocus.isLoopOn(activity)) {
                 RowFocus.isSelectable(currentButtons[it])
             } ?: return false

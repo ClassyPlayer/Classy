@@ -16,6 +16,7 @@ import com.themoon.y1.navigation.LetterJump
 import com.themoon.y1.navigation.PadWheel
 import com.themoon.y1.navigation.WheelKind
 import com.themoon.y1.navigation.RowFocus
+import com.themoon.y1.views.ListGlide
 import com.themoon.y1.views.ListItemViewFactory
 
 /**
@@ -152,6 +153,7 @@ class ListScreen(
         val adapter = lv.adapter
         val i = RowFocus.next(lv.count, current, delta, RowFocus.isLoopOn(lv.context)) { adapter?.isEnabled(it) != false }
             ?: return null
+        ListGlide.beforeStep(lv, current, i)
         RowFocus.showRow(lv, i)
         longIndex = i
         return i

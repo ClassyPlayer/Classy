@@ -12,12 +12,13 @@ import android.widget.AdapterView
 import android.widget.ListView
 import com.themoon.y1.views.EdgeFadeListView
 import com.themoon.y1.views.ListEdges
+import com.themoon.y1.views.ListGlide
 
 /**
  * One wheel step in a list of rows, the same for all row lists: the next selectable row (visible and focusable,
  * so headers and info rows are skipped) in the wheel direction. At an end of the list the step goes round to the
  * other end when Settings → Controls → Wheel Loop Scroll is On, else it stays. With no selected row, the first
- * selectable row is selected.
+ * selectable row is selected. With Settings → Controls → List Glide On, a step glides ([ListGlide]).
  */
 object RowFocus {
 
@@ -55,6 +56,7 @@ object RowFocus {
     fun step(list: ViewGroup, delta: Int, loop: Boolean = isLoopOn(list.context)): Int? {
         val current = (0 until list.childCount).firstOrNull { list.getChildAt(it)?.hasFocus() == true } ?: -1
         val i = next(list.childCount, current, delta, loop) { isSelectable(list.getChildAt(it)) } ?: return null
+        ListGlide.beforeStep(list, current, i)
         list.getChildAt(i).requestFocus()
         return i
     }
@@ -68,6 +70,7 @@ object RowFocus {
         val current = if (focus == null || focus === list) -1 else list.getPositionForView(focus)
         val adapter = list.adapter
         val i = next(list.count, current, delta, loop) { adapter?.isEnabled(it) != false } ?: return null
+        ListGlide.beforeStep(list, current, i)
         showRow(list, i)
         return i
     }
