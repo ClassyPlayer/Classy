@@ -207,7 +207,10 @@ internal class RowGlide(private val host: ViewGroup) {
         if (!ListGlide.isOn(host.context) || !host.isShown || host.height == 0) return cancel()
         val rows = rows()
         val fromRow = rows.firstOrNull { it.index == from }
-        val toRow = rows.firstOrNull { it.index == to } ?: return cancel()
+        // A ListView row just past the list edge has no view yet (the rows above fill the list to the pixel): the rows
+        // still glide, and the highlight moves with its row (no picture of the new row before the step)
+        val toRow = rows.firstOrNull { it.index == to }
+        if (toRow == null && host !is ListView) return cancel()
         if (!active) {
             fromRow ?: return cancel()
             barTop = fromRow.top.toFloat()
@@ -215,12 +218,12 @@ internal class RowGlide(private val host: ViewGroup) {
             offset = 0f
             lastNs = System.nanoTime()
         }
-        if (abs(toRow.top - barTop) > ListGlide.MAX_BAR_JUMP_ROWS * toRow.view.height) return cancel()
+        if (toRow != null && abs(toRow.top - barTop) > ListGlide.MAX_BAR_JUMP_ROWS * toRow.view.height) return cancel()
         // The picture of the old target from its first frame with the focus is still correct (a marquee starts later)
         if (fromRow != null && !hasFreshText(from)) keepText(from, fromRow.view)
         focusedText.remove(to)?.let { ListGlide.Pool.give(it) }
         targetLook?.let { ListGlide.Pool.give(it) }
-        targetLook = ListGlide.Pool.picture(toRow.view, withBackground = true) ?: return cancel()
+        targetLook = if (toRow == null) null else ListGlide.Pool.picture(toRow.view, withBackground = true) ?: return cancel()
         keepEdge(rows, from, to, toRow)
         bar = null
         // Keep the first sample of a burst of steps before one frame: draw makes up for the whole move since it
@@ -237,11 +240,11 @@ internal class RowGlide(private val host: ViewGroup) {
     private fun hasFreshText(index: Int): Boolean =
         focusedText.containsKey(index) && System.nanoTime() - (focusedTextAt[index] ?: 0L) < ListGlide.TEXT_PICTURE_NS
 
-    private fun keepEdge(rows: List<Row>, from: Int, to: Int, toRow: Row) {
+    private fun keepEdge(rows: List<Row>, from: Int, to: Int, toRow: Row?) {
         edgeLook?.let { ListGlide.Pool.give(it) }
         edgeLook = null
         edgeIndex = -1
-        if (host !is ListView || rows.isEmpty()) return
+        if (host !is ListView || rows.isEmpty() || toRow == null) return
         val fade = host.verticalFadingEdgeLength // 0 with List Edges = Cut
         val edge = when {
             to > from && toRow.bottom > host.height - host.paddingBottom - fade -> rows.first()
