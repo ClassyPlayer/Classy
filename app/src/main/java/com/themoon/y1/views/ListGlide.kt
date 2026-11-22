@@ -138,6 +138,8 @@ object ListGlide {
             if (i < 0) return null
             val b = free.removeAt(i)
             if (b.width == w && b.height == h) return b
+            // Bitmap.reconfigure needs Android 4.4 (API 19); before it, pickPicture gives only a picture of the same size
+            if (Build.VERSION.SDK_INT < 19) return null
             return try {
                 b.reconfigure(w, h, Bitmap.Config.ARGB_8888)
                 b
@@ -221,8 +223,11 @@ internal class RowGlide(private val host: ViewGroup) {
         targetLook = ListGlide.Pool.picture(toRow.view, withBackground = true) ?: return cancel()
         keepEdge(rows, from, to, toRow)
         bar = null
-        beforeIndex = IntArray(rows.size) { rows[it].index }
-        beforeTop = IntArray(rows.size) { rows[it].top }
+        // Keep the first sample of a burst of steps before one frame: draw makes up for the whole move since it
+        if (!pending) {
+            beforeIndex = IntArray(rows.size) { rows[it].index }
+            beforeTop = IntArray(rows.size) { rows[it].top }
+        }
         target = to
         pending = true
         active = true
