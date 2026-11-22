@@ -2,6 +2,7 @@ package com.themoon.y1.lists
 
 import android.content.Context
 import android.graphics.Typeface
+import android.graphics.drawable.Drawable
 import android.text.TextUtils
 import android.util.TypedValue
 import android.view.Gravity
@@ -111,6 +112,8 @@ class ArtRow private constructor(context: Context, inListView: Boolean) {
         subtitle.visibility = if (line2.isEmpty()) View.GONE else View.VISIBLE
         trailing.text = right ?: ""
         trailing.visibility = if (right == null) View.GONE else View.VISIBLE
+        // The new text has a new layout: set the ellipsis for the focus now (no extra layout later)
+        subtitle.ellipsize = if (view.isFocused) TextUtils.TruncateAt.MARQUEE else TextUtils.TruncateAt.END
         showFocus(view.isFocused)
     }
 
@@ -119,21 +122,45 @@ class ArtRow private constructor(context: Context, inListView: Boolean) {
         trailing.text = right
     }
 
+    private var focusedBg: Drawable? = null
+    private var normalBg: Drawable? = null
+    private var normalBgColor = 0
+
+    /**
+     * The focus look. A wheel step changes it on two rows, so it requests no layout: the chevron is INVISIBLE (not
+     * GONE) on a row that can show it, and the second line changes its ellipsis only when it does not fit.
+     */
     private fun showFocus(focused: Boolean) {
         val context = view.context
-        view.background = if (focused) {
-            ListItemViewFactory.createFocusedButtonBackground(context)
-        } else {
-            ListItemViewFactory.createButtonBackground(context, ThemeManager.getListButtonNormalBg())
+        val normalColor = ThemeManager.getListButtonNormalBg()
+        if (normalBg == null || normalColor != normalBgColor) {
+            // The drawables of this row, made again only when the theme colour changes
+            normalBg = ListItemViewFactory.createButtonBackground(context, normalColor)
+            focusedBg = ListItemViewFactory.createFocusedButtonBackground(context)
+            normalBgColor = normalColor
         }
+        val bg = if (focused) focusedBg else normalBg
+        if (view.background !== bg) view.background = bg
         val focusedText = ThemeManager.getListButtonFocusedTextColor()
         title.setTextColor(if (focused) focusedText else ThemeManager.getTextColorPrimary())
         subtitle.setTextColor(if (focused) focusedText else ThemeManager.getTextColorSecondary())
         trailing.setTextColor(if (focused) focusedText else ThemeManager.getTextColorSecondary())
-        arrow.visibility = if (focused && trailing.visibility != View.VISIBLE) View.VISIBLE else View.GONE
+        arrow.visibility = when {
+            trailing.visibility == View.VISIBLE -> View.GONE
+            focused -> View.VISIBLE
+            else -> View.INVISIBLE
+        }
         title.isSelected = focused
-        subtitle.ellipsize = if (focused) TextUtils.TruncateAt.MARQUEE else TextUtils.TruncateAt.END
+        val ellipsize = if (focused) TextUtils.TruncateAt.MARQUEE else TextUtils.TruncateAt.END
+        if (subtitle.ellipsize != ellipsize && !subtitleFits()) subtitle.ellipsize = ellipsize
         subtitle.isSelected = focused
+    }
+
+    /** The second line shows in full (no "…", no scroll): its ellipsis mode changes nothing. */
+    private fun subtitleFits(): Boolean {
+        val layout = subtitle.layout ?: return false
+        val room = subtitle.width - subtitle.compoundPaddingLeft - subtitle.compoundPaddingRight
+        return room > 0 && layout.lineCount == 1 && layout.getEllipsisCount(0) == 0 && layout.getLineWidth(0) <= room
     }
 
     private fun dp(value: Int): Int = (value * density).toInt()
