@@ -2,31 +2,36 @@ package com.themoon.y1.qr
 
 import android.graphics.Bitmap
 import android.graphics.Color
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.EncodeHintType
+import com.google.zxing.WriterException
+import com.google.zxing.qrcode.QRCodeWriter
+import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
 
-/** Draws a [QrCode] for the screen, with the quiet zone that a phone camera needs. */
+/** Draws a QR code (zxing core) for the screen, with the quiet zone of 4 modules that a phone camera needs. */
 object QrBitmap {
 
-    /** Light modules around the code, as the standard tells. */
-    const val QUIET_ZONE = 4
-
-    /** The width and height in pixels of the bitmap of [code] at [moduleSize] pixels for each module. */
-    fun sizeFor(code: QrCode, moduleSize: Int): Int = (code.size + 2 * QUIET_ZONE) * moduleSize
-
     /**
-     * A square bitmap of [code], [moduleSize] pixels for each module, with the quiet zone. Of the two colours, the
-     * darker one is for the dark modules: a camera reads dark modules on a light background best.
+     * A square bitmap of the QR code of [text] (error correction M), at most [maxSize] pixels wide, with whole pixels
+     * for each module. Of the two colours, the darker one is for the dark modules: a camera reads dark modules on a
+     * light background best. Null when the text does not fit in a QR code.
      */
-    fun create(code: QrCode, moduleSize: Int, colorA: Int, colorB: Int): Bitmap {
+    fun create(text: String, maxSize: Int, colorA: Int, colorB: Int): Bitmap? {
+        val hints = mapOf(EncodeHintType.ERROR_CORRECTION to ErrorCorrectionLevel.M, EncodeHintType.MARGIN to 4)
+        val matrix = try {
+            QRCodeWriter().encode(text, BarcodeFormat.QR_CODE, 0, 0, hints) // One pixel for each module
+        } catch (_: WriterException) {
+            return null
+        }
         val aIsDarker = luminance(colorA) <= luminance(colorB)
         val dark = if (aIsDarker) colorA else colorB
         val light = if (aIsDarker) colorB else colorA
-        val side = sizeFor(code, moduleSize)
+        val modules = matrix.width
+        val scale = maxOf(2, maxSize / modules)
+        val side = modules * scale
         val pixels = IntArray(side * side)
         for (y in 0 until side) {
-            val moduleY = y / moduleSize - QUIET_ZONE
-            for (x in 0 until side) {
-                pixels[y * side + x] = if (code.isDark(x / moduleSize - QUIET_ZONE, moduleY)) dark else light
-            }
+            for (x in 0 until side) pixels[y * side + x] = if (matrix.get(x / scale, y / scale)) dark else light
         }
         return Bitmap.createBitmap(pixels, side, side, Bitmap.Config.ARGB_8888)
     }

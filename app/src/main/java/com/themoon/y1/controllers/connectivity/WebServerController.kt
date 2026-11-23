@@ -18,7 +18,6 @@ import com.themoon.y1.Y1WebServer
 import com.themoon.y1.controllers.ScreenController
 import com.themoon.y1.navigation.ScreenState
 import com.themoon.y1.qr.QrBitmap
-import com.themoon.y1.qr.QrCode
 import com.themoon.y1.views.Notice
 
 /**
@@ -163,20 +162,19 @@ class WebServerController(
     /** Shows the QR code of [url], or hides it for null. False when no code shows. */
     private fun showQr(url: String?): Boolean {
         val view = ivServerQr ?: return false
-        val code = url?.let { try { QrCode.encodeText(it) } catch (_: IllegalArgumentException) { null } }
-        if (code == null) {
+        val colorA = ThemeManager.getTextColorPrimary()
+        val colorB = ThemeManager.getOverlayBackgroundColor()
+        val key = "$url $colorA $colorB"
+        if (url != null && key != qrKey) {
+            val bitmap = QrBitmap.create(url, dp(QR_MAX_SIZE_DP), colorA, colorB)
+            view.setImageBitmap(bitmap)
+            qrKey = if (bitmap != null) key else null
+        }
+        if (url == null || qrKey == null) {
             view.visibility = View.GONE
             view.setImageDrawable(null)
             qrKey = null
             return false
-        }
-        val colorA = ThemeManager.getTextColorPrimary()
-        val colorB = ThemeManager.getOverlayBackgroundColor()
-        val key = "$url $colorA $colorB"
-        if (key != qrKey) {
-            val moduleSize = maxOf(2, dp(QR_MAX_SIZE_DP) / QrBitmap.sizeFor(code, 1))
-            view.setImageBitmap(QrBitmap.create(code, moduleSize, colorA, colorB))
-            qrKey = key
         }
         view.visibility = View.VISIBLE
         return true

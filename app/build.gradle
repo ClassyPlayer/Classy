@@ -108,6 +108,8 @@ dependencies {
     implementation 'androidx.multidex:multidex:2.0.1'
     // Books: HTML parser for the EPUB chapters (Apache-2.0, Java 1.4 bytecode: runs on API 17)
     implementation 'org.ccil.cowan.tagsoup:tagsoup:1.2.1'
+    // Web Server: the QR code of the address (Apache-2.0). 3.3.3 is the last version for Android 4.4: 3.4+ needs Java 8 APIs
+    implementation 'com.google.zxing:core:3.3.3'
     // Books: text encoding of .txt files (MPL-1.1). 2.0.x is the last line for API < 26; 2.0.5 uses no API 19+ calls
     implementation 'com.github.albfernandez:juniversalchardet:2.0.5'
     // KitKat MediaCodec has a pre-API 21 frame timing drift bug in ExoPlayer;
