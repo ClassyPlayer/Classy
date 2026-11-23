@@ -8,7 +8,7 @@ import com.themoon.y1.managers.LibrarySongs
 import com.themoon.y1.models.ArtistNames
 import com.themoon.y1.models.SongItem
 import com.themoon.y1.navigation.NavigationManager
-import com.themoon.y1.navigation.ScreenState
+import com.themoon.y1.showNowPlaying
 import java.io.File
 
 /**
@@ -122,11 +122,21 @@ object NowPlayingContextMenu {
 
     private fun queueSpec(main: MainActivity, window: IntRange): ActionScreens.Spec {
         val rows = queueRows(main.currentPlaylist, main.currentIndex, window, main::t, ::queueTitle, jump = { i ->
+            // The Queue cannot show again: no rows for it at the track change of the jump
+            val shown = queue
+            queue = null
             AudioPlayerManager.getInstance().jumpTo(i)
             // Straight back to Now Playing: its menu under this list was built for the song that played before
-            NavigationManager.getInstance().popBackStackTo { it == ScreenState.Player }
+            main.showNowPlaying()
+            shown?.let { ActionScreens.forget(it.key) }
         }, page = { queueMove(main, it) })
-        return ActionScreens.Spec(main.t("Queue"), actions = rows, focusChecked = true)
+        return ActionScreens.Spec(main.t("Queue"), actions = rows, onCancel = ::closeQueue, focusChecked = true)
+    }
+
+    /** Back closed the Queue: it cannot show again, so it does not follow the playing track any more. */
+    private fun closeQueue() {
+        queue?.let { ActionScreens.forget(it.key) }
+        queue = null
     }
 
     private fun queueTitle(f: File): String =
@@ -159,8 +169,11 @@ object NowPlayingContextMenu {
         val main = MainActivity.instance ?: return
         val list = main.currentPlaylist
         if (main.currentIndex == shown.index && list.size == shown.size && list.getOrNull(main.currentIndex) === shown.playing) return
-        if (ActionScreens.spec(shown.key) == null) {
-            queue = null // forgotten
+        // The Queue cannot show again (forgotten, or a key went to another screen): it stops here
+        val nav = NavigationManager.getInstance()
+        val route = ActionScreens.route(shown.key)
+        if (ActionScreens.spec(shown.key) == null || (nav.currentState != route && !nav.backStackHas { it == route })) {
+            closeQueue()
             return
         }
         val samePlace = shown.playing != null && list.getOrNull(shown.index) === shown.playing
