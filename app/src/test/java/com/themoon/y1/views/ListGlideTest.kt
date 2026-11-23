@@ -83,7 +83,7 @@ class ListGlideTest {
     fun arrowTop_keepsTheCentreInAnotherHeight() {
         // A centred arrow stays centred: (60 - 16) / 2
         assertEquals(22, ListGlide.arrowTop(12, 16, 40, 60))
-        // An arrow as high as the row (ChevronView): its centre is the centre of the highlight
+        // An arrow as high as the row: its centre is the centre of the highlight
         assertEquals(10, ListGlide.arrowTop(0, 40, 40, 60))
     }
 

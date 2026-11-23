@@ -80,7 +80,7 @@ class SettingRows(
         SettingRow(label) { RowSpec(localize(label), RowLook.VALUE, value = value(), onClick = open) }
 
     /**
-     * A row that opens a screen (the chevron) or does an action. [value]: a status on the right in place of the chevron.
+     * A row that opens a screen (the arrow) or does an action. [value]: a status on the right in place of the arrow.
      * [visible]: false hides the row.
      */
     fun action(
@@ -100,7 +100,7 @@ class SettingRows(
         }, focus = focus)
 
     companion object {
-        /** The value of a row that opens a screen: a chevron (ChevronView). */
+        /** The value of a row that opens a screen: the arrow on the selected row ([com.themoon.y1.views.ClassyLists.arrow]). */
         const val CHEVRON = "〉 "
     }
 }

@@ -68,8 +68,8 @@ object ListGlide {
     const val MAX_BAR_JUMP_ROWS = 2f
 
     /**
-     * The disclosure arrow of a row that shows now ([R.id.list_arrow]: [ChevronView] and the arrow of
-     * [ClassicMenuStyle.apply]), or null: a row with no arrow, or a row that shows it only with the focus.
+     * The disclosure arrow of a row that shows now ([R.id.list_arrow], [ClassyLists.arrow]), or null: a row with no
+     * arrow, or a row that shows it only with the focus.
      */
     fun arrowOf(row: View): View? =
         row.findViewById<View>(R.id.list_arrow)?.takeIf { it.visibility == View.VISIBLE && it.width > 0 && it.height > 0 }

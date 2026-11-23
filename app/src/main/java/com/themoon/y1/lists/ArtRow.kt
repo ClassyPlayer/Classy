@@ -14,6 +14,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import com.themoon.y1.ThemeManager
 import com.themoon.y1.views.ClassicMenuStyle
+import com.themoon.y1.views.ClassyLists
 import com.themoon.y1.views.ListItemViewFactory
 
 /**
@@ -78,15 +79,7 @@ class ArtRow private constructor(context: Context, inListView: Boolean) {
         ).apply { leftMargin = dp(8) }
     }
 
-    private val arrow = TextView(context).apply {
-        text = "〉"
-        setTextSize(TypedValue.COMPLEX_UNIT_PX, 18f * density)
-        visibility = View.GONE
-        layoutParams = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT
-        ).apply { leftMargin = dp(6) }
-        setTextColor(0xFFFFFFFF.toInt())
-    }
+    private val arrow = ClassyLists.arrow(context, leftMarginDp = 6)
 
     init {
         view.addView(image)
@@ -99,7 +92,7 @@ class ArtRow private constructor(context: Context, inListView: Boolean) {
         view.addView(text)
         view.addView(trailing)
         view.addView(arrow)
-        ClassicMenuStyle.apply(view, title, arrow, HEIGHT_DP)
+        ClassicMenuStyle.apply(view, title, HEIGHT_DP)
         view.tag = this
         view.setOnFocusChangeListener { _, hasFocus -> showFocus(hasFocus) }
         showFocus(false)

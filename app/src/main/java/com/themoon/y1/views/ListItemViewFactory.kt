@@ -20,6 +20,9 @@ object ListItemViewFactory {
     /** The text size of a list row in dp. The Classy row style ([ClassicMenuStyle], [ClassyLists]) can set its own size. */
     const val LIST_TEXT_SIZE = 21f
 
+    /** Space between the text (or the value) of a row and its arrow ([ClassyLists.arrow]). */
+    private const val ARROW_MARGIN_DP = 10
+
     @Suppress("UNUSED_PARAMETER")
     fun createButtonBackground(context: Context, color: Int): GradientDrawable =
         GradientDrawable().apply { setColor(color) }
@@ -84,23 +87,12 @@ object ListItemViewFactory {
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
         }
 
-        val tvArrow = TextView(context).apply {
-            text = "〉"
-            setTextSize(TypedValue.COMPLEX_UNIT_PX, 20f * d)
-            setTextColor(0xFFFFFFFF.toInt())
-            visibility = View.GONE
-            val arrowLp = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
-            ).apply {
-                leftMargin = (10 * d).toInt()
-            }
-            layoutParams = arrowLp
-        }
+        val tvArrow = ClassyLists.arrow(context, ARROW_MARGIN_DP)
 
         rowButton.addView(tvIcon)
         rowButton.addView(tvText)
         rowButton.addView(tvArrow)
-        ClassicMenuStyle.apply(rowButton, tvText, tvArrow, ClassicMenuStyle.ROW_HEIGHT_DP)
+        ClassicMenuStyle.apply(rowButton, tvText, ClassicMenuStyle.ROW_HEIGHT_DP)
 
         rowButton.setOnFocusChangeListener { _, hasFocus ->
             if (hasFocus) {
@@ -294,14 +286,17 @@ object ListItemViewFactory {
             includeFontPadding = false
         }
         row.addView(tvVal)
-        // A row that opens a deeper screen: a drawn chevron (ChevronView) in place of the small "〉" text.
-        val (valueText, hasChevron) = DisclosureChevron.split(displayVal)
-        if (hasChevron) {
+        // A row that opens a deeper screen: the arrow of the other lists in place of the "〉" text, only on the
+        // selected row. INVISIBLE on the other rows: the value keeps its place, and a wheel step requests no layout.
+        val (valueText, opens) = ClassyLists.splitArrow(displayVal)
+        val arrow = if (opens) ClassyLists.arrow(context, ARROW_MARGIN_DP) else null
+        if (arrow != null) {
             tvVal.text = valueText
-            row.addView(ChevronView(context, tvTitle))
+            row.addView(arrow)
         }
 
         fun updateBg(focused: Boolean) {
+            arrow?.visibility = if (focused) View.VISIBLE else View.INVISIBLE
             row.background = if (focused) {
                 tvTitle.setTextColor(ThemeManager.getListButtonFocusedTextColor())
                 tvVal.setTextColor(ThemeManager.getListButtonFocusedTextColor())
