@@ -65,7 +65,7 @@ internal fun MainActivity.initControllers() {
         }
     }.apply {
         divider = ColorDrawable(0)
-        dividerHeight = if (ThemeManager.isClassicTheme()) 0 else (4 * resources.displayMetrics.density).toInt()
+        dividerHeight = 0
         selector = ColorDrawable(0)
         itemsCanFocus = true
         isSoundEffectsEnabled = false
@@ -83,30 +83,21 @@ internal fun MainActivity.initControllers() {
         activity = this,
         rootView = layoutMainMenu as ViewGroup,
         clickFeedback = { clickFeedback() },
-        onActionTriggered = { action -> handleMainMenuAction(action) },
-        onButtonFocusChanged = { el ->
-            homeWidgetsController?.updateFocusPreview(el)
-        },
-        onLongPressScreenOff = View.OnLongClickListener {
-            turnOffScreen()
-            true
-        },
+        onAction = { action -> handleMainMenuAction(action) },
+        onHold = { turnOffScreen() },
         localize = { t(it) },
-        onDynamicUiBuilt = {
-            homeWidgetsController?.refreshWidgets()
-        }
+        onShowPane = { homeWidgetsController?.refreshWidgets() }
     )
 
     homeWidgetsController = HomeWidgetsController(
         context = this,
-        mainMenuProvider = { mainMenuController },
+        ivMainMenuCover = findViewById(R.id.iv_main_menu_cover),
         ivBrowserCover = findViewById(R.id.iv_browser_cover),
         frameBrowserCover = findViewById(R.id.frame_browser_cover),
         fetchRandomIdleCoverAsync = { fetchRandomIdleCoverAsync() },
         isAudiobookMode = {
             isAudiobookLibraryMode || (isBrowserControllerInitialized() && (browserController.isAudiobookLibraryMode || browserController.currentBrowserMode is BrowserMode.Audiobooks))
-        },
-        is24HourFormat = { is24HourFormat }
+        }
     )
 
     browserController = BrowserController(
@@ -295,10 +286,54 @@ internal fun MainActivity.initControllers() {
         localize = { t(it) }
     )
 
+    com.themoon.y1.photos.PhotoLibrary.init(this)
+    com.themoon.y1.photos.PhotoThumbs.init(this)
+    photosController = com.themoon.y1.controllers.photos.PhotosController(
+        activity = this,
+        rootView = layoutPhotosMode as ViewGroup,
+        changeScreen = { state -> changeScreen(state) },
+        clickFeedback = { clickFeedback() },
+        refreshTitle = { refreshStatusBarTitle() },
+        localize = { t(it) }
+    )
+
+    photoViewerController = com.themoon.y1.controllers.photos.PhotoViewerController(
+        activity = this,
+        rootView = layoutPhotoViewerMode as ViewGroup,
+        prefs = prefs,
+        onLeave = { set, index -> photosController.rememberPhoto(set, index) },
+        clickFeedback = { clickFeedback() },
+        localize = { t(it) }
+    )
+
     gamePlayerController = GamePlayerController(
         activity = this,
         rootView = layoutGamePlayerMode as ViewGroup,
         onExitRequested = { NavigationManager.getInstance().popBackStack() },
+        clickFeedback = { clickFeedback() },
+        localize = { t(it) }
+    )
+
+    bookReaderController = com.themoon.y1.controllers.books.BookReaderController(
+        activity = this,
+        rootView = layoutBookReaderMode as ViewGroup,
+        prefs = prefs,
+        onOpenMenu = { file -> changeScreen(ScreenState.Books(com.themoon.y1.navigation.BooksLevel.ReaderMenu(file))) },
+        onLeave = {
+            NavigationManager.getInstance().popBackStackTo {
+                !com.themoon.y1.controllers.books.BookReaderController.isReaderScreen(it)
+            }
+        },
+        clickFeedback = { clickFeedback() },
+        localize = { t(it) }
+    )
+
+    booksController = com.themoon.y1.controllers.books.BooksController(
+        activity = this,
+        rootView = layoutBooksMode as ViewGroup,
+        prefs = prefs,
+        reader = bookReaderController,
+        changeScreen = { state -> changeScreen(state) },
         clickFeedback = { clickFeedback() },
         localize = { t(it) }
     )
@@ -536,6 +571,10 @@ internal fun MainActivity.initControllers() {
         registerController(ScreenState.VideoPlayer::class.java, videoPlayerController)
         registerController(ScreenState.Games::class.java, gamesController)
         registerController(ScreenState.GamePlayer::class.java, gamePlayerController)
+        registerController(ScreenState.Books::class.java, booksController)
+        registerController(ScreenState.BookReader::class.java, bookReaderController)
+        registerController(ScreenState.Photos::class.java, photosController)
+        registerController(ScreenState.PhotoViewer::class.java, photoViewerController)
     }
 }
 
@@ -549,6 +588,13 @@ internal fun MainActivity.shuffleAllSongs() {
     Prefs.SHUFFLE.setAsync(prefs, true)
     AudioPlayerManager.getInstance().playTrackList(tracks, tracks.indices.random())
     changeScreen(MainActivity.STATE_PLAYER)
+}
+
+/** Now Playing: back to it when it is under this screen (no second copy in the back stack), else open it. */
+internal fun MainActivity.showNowPlaying() {
+    val nav = NavigationManager.getInstance()
+    if (nav.backStackHas { it == ScreenState.Player }) nav.popBackStackTo { it == ScreenState.Player }
+    else handleMainMenuAction("OPEN_PLAYER")
 }
 
 internal fun MainActivity.handleMainMenuAction(action: String) {
@@ -572,6 +618,12 @@ internal fun MainActivity.handleMainMenuAction(action: String) {
         }
         "OPEN_GAMES" -> {
             changeScreen(ScreenState.Games)
+        }
+        "OPEN_PHOTOS" -> {
+            changeScreen(ScreenState.Photos())
+        }
+        "OPEN_BOOKS" -> {
+            changeScreen(ScreenState.Books())
         }
         "OPEN_SETTINGS", "SETTINGS" -> {
             changeScreen(MainActivity.STATE_SETTINGS)

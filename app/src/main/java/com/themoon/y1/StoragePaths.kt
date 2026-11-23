@@ -150,6 +150,15 @@ object StoragePaths {
     /** The Games folders (iPod Click Wheel games) on each storage. Not made when missing. */
     fun getGamesDirs(): List<File> = mediaDirs("Games")
 
+    /** The Photos folders on each storage (a folder in it is an album). Not made when missing. */
+    fun getPhotosDirs(): List<File> = mediaDirs("Photos")
+
+    /**
+     * The Books folders (ebooks: EPUB and TXT) on each storage, and the Ebook folder of the stock Innioasis firmware.
+     * Not made when missing.
+     */
+    fun getBooksDirs(): List<File> = mediaDirs("Books") + mediaDirs("Ebook")
+
     fun getVideosDirs(): List<File> {
         val list = ArrayList<File>()
         list.addAll(getMoviesDirs())
@@ -175,8 +184,6 @@ object StoragePaths {
     fun getCoversDir(): File = ensureDir(File(getPrimaryRoot(), "Y1_Covers"))
 
     fun getThumbsCacheDir(): File = ensureDir(File(getPrimaryRoot(), ".y1_thumbs_cache"))
-
-    fun getThemesDir(): File = ensureDir(File(getPrimaryRoot(), "Y1_Themes"))
 
     fun getLanguagesDir(): File = ensureDir(File(getPrimaryRoot(), "Y1_Languages"))
 

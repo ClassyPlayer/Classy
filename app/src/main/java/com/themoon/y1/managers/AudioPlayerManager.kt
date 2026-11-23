@@ -1306,7 +1306,7 @@ class AudioPlayerManager private constructor() {
     fun extractOpusMetadata(file: File): Array<Any?> = extractOpusMetadata(file, true)
 
     fun extractOpusMetadata(file: File, includeArt: Boolean): Array<Any?> {
-        val tags = arrayOfNulls<Any>(12)
+        val tags = arrayOfNulls<Any>(13)
         try {
             val fis = FileInputStream(file)
             val bos = ByteArrayOutputStream()
@@ -1408,6 +1408,8 @@ class AudioPlayerManager private constructor() {
                         tags[9] = comment.substring(comment.indexOf("=") + 1)
                     } else if (upper.startsWith("COMPILATION=")) {
                         tags[10] = comment.substring(comment.indexOf("=") + 1)
+                    } else if (upper.startsWith("MOOD=") || upper.startsWith("AB:MOOD=")) {
+                        appendMood(tags, comment)
                     } else if (includeArt && upper.startsWith("METADATA_BLOCK_PICTURE=")) {
                         try {
                             val base64Data = comment.substring(23).replace("\\s".toRegex(), "")
@@ -1450,7 +1452,7 @@ class AudioPlayerManager private constructor() {
     fun extractOggVorbisMetadata(file: File): Array<Any?> = extractOggVorbisMetadata(file, true)
 
     fun extractOggVorbisMetadata(file: File, includeArt: Boolean): Array<Any?> {
-        val tags = arrayOfNulls<Any>(12)
+        val tags = arrayOfNulls<Any>(13)
         try {
             val fis = FileInputStream(file)
             val bos = ByteArrayOutputStream()
@@ -1567,6 +1569,8 @@ class AudioPlayerManager private constructor() {
                         tags[9] = comment.substring(comment.indexOf("=") + 1)
                     } else if (upper.startsWith("COMPILATION=")) {
                         tags[10] = comment.substring(comment.indexOf("=") + 1)
+                    } else if (upper.startsWith("MOOD=") || upper.startsWith("AB:MOOD=")) {
+                        appendMood(tags, comment)
                     } else if (includeArt && upper.startsWith("METADATA_BLOCK_PICTURE=")) {
                         try {
                             val base64Data = comment.substring(23).replace("\\s".toRegex(), "")
@@ -1614,7 +1618,7 @@ class AudioPlayerManager private constructor() {
     fun extractFlacMetadata(file: File): Array<Any?> = extractFlacMetadata(file, true)
 
     fun extractFlacMetadata(file: File, includeArt: Boolean): Array<Any?> {
-        val tags = arrayOfNulls<Any>(12)
+        val tags = arrayOfNulls<Any>(13)
         try {
             val raf = RandomAccessFile(file, "r")
             val header = ByteArray(4)
@@ -1689,6 +1693,8 @@ class AudioPlayerManager private constructor() {
                                 tags[9] = comment.substring(comment.indexOf("=") + 1)
                             } else if (upper.startsWith("COMPILATION=")) {
                                 tags[10] = comment.substring(comment.indexOf("=") + 1)
+                            } else if (upper.startsWith("MOOD=") || upper.startsWith("AB:MOOD=")) {
+                                appendMood(tags, comment)
                             }
                             i++
                         }
@@ -2210,4 +2216,16 @@ internal fun <T> shuffleWithFirst(list: MutableList<T>, first: T) {
     list.remove(first)
     Collections.shuffle(list)
     list.add(0, first)
+}
+
+/**
+ * Adds the value of the Vorbis comment [comment] ("MOOD=happy" or Picard's "AB:MOOD=Happy") to the moods in tags[12],
+ * several moods joined by "; ". AB:MOOD (AcousticBrainz) lists a negative for each mood it does not find ("Not happy"):
+ * those are left out, they would fill the Mood list with noise.
+ */
+internal fun appendMood(tags: Array<Any?>, comment: String) {
+    val eq = comment.indexOf("=")
+    val mood = comment.substring(eq + 1).trim()
+    if (mood.isEmpty() || (comment.startsWith("AB:", ignoreCase = true) && mood.startsWith("not ", ignoreCase = true))) return
+    tags[12] = ((tags[12] as? String)?.let { "$it; " } ?: "") + mood
 }

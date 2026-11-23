@@ -97,9 +97,7 @@ class VideoBrowserController(
     override fun onWheel(delta: Int, event: KeyEvent): Boolean = screen.wheel(delta, event.eventTime)
 
     fun buildCurrentModeUI() {
-        val classic = ThemeManager.isClassicTheme()
-
-        layoutVideos.setBackgroundColor(if (classic) ThemeManager.getOverlayBackgroundColor() else 0x66000000)
+        layoutVideos.setBackgroundColor(ThemeManager.getOverlayBackgroundColor())
 
         val params = layoutVideos.layoutParams as? FrameLayout.LayoutParams
         if (params != null && params.topMargin != 0) {

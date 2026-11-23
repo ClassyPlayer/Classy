@@ -15,7 +15,7 @@ import android.provider.Settings
 import android.util.Log
 
 /**
- * The Power screen (Restart, Power Off) in place of Android's power menu, and its two actions.
+ * The Power screen (Wi-Fi, Bluetooth, Brightness, Restart, Power Off) in place of Android's power menu, and its Restart and Power Off actions.
  *
  * Android 4.4 opens its power menu (GlobalActions) on a long press of the Power button. Just before, PhoneWindowManager
  * sends ACTION_CLOSE_SYSTEM_DIALOGS with the reason "globalactions". GlobalActions closes its menu when it gets the

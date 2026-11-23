@@ -90,6 +90,8 @@ android {
 dependencies {
     testImplementation libs.junit
     testImplementation 'org.json:json:20231013'
+    // Android's own XmlPullParser (KXml2), for the EPUB package tests on the JVM
+    testImplementation 'net.sf.kxml:kxml2:2.3.0'
     androidTestImplementation libs.ext.junit
     androidTestImplementation libs.espresso.core
     implementation libs.kotlinx.coroutines.core
@@ -104,6 +106,10 @@ dependencies {
     implementation 'com.squareup.okhttp3:okhttp:3.12.13'
     implementation 'org.conscrypt:conscrypt-android:2.5.2'
     implementation 'androidx.multidex:multidex:2.0.1'
+    // Books: HTML parser for the EPUB chapters (Apache-2.0, Java 1.4 bytecode: runs on API 17)
+    implementation 'org.ccil.cowan.tagsoup:tagsoup:1.2.1'
+    // Books: text encoding of .txt files (MPL-1.1). 2.0.x is the last line for API < 26; 2.0.5 uses no API 19+ calls
+    implementation 'com.github.albfernandez:juniversalchardet:2.0.5'
     // KitKat MediaCodec has a pre-API 21 frame timing drift bug in ExoPlayer;
     // LibVLC is used exclusively for video playback while ExoPlayer handles audio.
     implementation 'org.videolan.android:libvlc-all:3.3.14'

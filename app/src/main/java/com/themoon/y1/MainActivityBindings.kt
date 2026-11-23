@@ -23,6 +23,10 @@ internal fun MainActivity.initViewBindings() {
     layoutVideoPlayerMode = findViewById(R.id.layout_video_player_mode)
     layoutGamesMode = findViewById(R.id.layout_games_mode)
     layoutGamePlayerMode = findViewById(R.id.layout_game_player_mode)
+    layoutBooksMode = findViewById(R.id.layout_books_mode)
+    layoutBookReaderMode = findViewById(R.id.layout_book_reader_mode)
+    layoutPhotosMode = findViewById(R.id.layout_photos_mode)
+    layoutPhotoViewerMode = findViewById(R.id.layout_photo_viewer_mode)
 
     val rootContent = findViewById<ViewGroup>(android.R.id.content)
     val d = resources.displayMetrics.density
@@ -37,7 +41,6 @@ internal fun MainActivity.initViewBindings() {
 
     ivAlbumArt = findViewById(R.id.iv_album_art)
     ivAlbumReflection = findViewById(R.id.iv_album_reflection)
-    ivPauseOverlay = findViewById(R.id.iv_pause_overlay)
     tvPlayerTitle = findViewById(R.id.tv_player_title)
     tvPlayerArtist = findViewById(R.id.tv_player_artist)
     tvPlayerAlbum = findViewById(R.id.tv_player_album)

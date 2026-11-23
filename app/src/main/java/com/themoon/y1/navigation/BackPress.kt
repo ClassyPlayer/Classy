@@ -8,6 +8,9 @@ package com.themoon.y1.navigation
 internal class BackPress {
     private var armed = false
 
+    /** The router got this press: not a press that woke the screen, went to the USB screen or was debounced. */
+    val isArmed: Boolean get() = armed
+
     /** Every new press: forget a press whose release never came to the router. */
     fun reset() {
         armed = false

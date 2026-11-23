@@ -6,8 +6,8 @@ import com.themoon.y1.navigation.LetterJump
 /**
  * iPod speed scrolling in Cover Flow, with the letter mode of the lists ([LetterJump.Mode]). A fast wheel turn
  * starts it. Then each wheel step, slow or fast, moves through the artist letters of the albums, and the letter
- * box shows the letter. The covers do not move. Letter mode ends [LetterJump.IDLE_END_MS] after the last step,
- * or at a centre, Back or Play/Pause press ([onKey]): then the box fades and the covers scroll past fast to the
+ * box shows the letter. The covers do not move. Letter mode ends at [LetterJump.Mode.endMs] (an idle wheel, or the
+ * lift of the thumb on the Y2 pad wheel), or at a centre, Back or Play/Pause press ([onKey]): then the box fades and the covers scroll past fast to the
  * first album of that letter ([Ui.goTo]).
  */
 class CoverFlowLetterJump(
@@ -34,13 +34,17 @@ class CoverFlowLetterJump(
     private var letterShown = false
     private val idleTask = Runnable { settle() }
 
+    /** True while letter mode is on (the pad wheel then gives one letter for each value step). */
+    val isActive: Boolean get() = mode.isActive
+
     /**
-     * One wheel step ([dir] -1 or 1, at [timeMs]) with album [current] in the centre. Returns true when the step
-     * is used here (letter mode), false when Cover Flow steps one album.
+     * One wheel step ([dir] -1 or 1, at [timeMs]) with album [current] in the centre; [padSpeed] for a pad-wheel
+     * step ([LetterJump.Mode.onStep]). Returns true when the step is used here (letter mode), false when Cover Flow
+     * steps one album.
      */
-    fun onStep(dir: Int, timeMs: Long, current: Int): Boolean {
+    fun onStep(dir: Int, timeMs: Long, current: Int, padSpeed: Double? = null): Boolean {
         if (mode.isIdle(timeMs)) settle() // the idle timer did not run yet
-        when (mode.onStep(dir, timeMs, current) { letters()?.letters }) {
+        when (mode.onStep(dir, timeMs, current, padSpeed) { letters()?.letters }) {
             LetterJump.Step.ROW -> return false
             LetterJump.Step.LETTER -> ui.click()
             LetterJump.Step.STAY -> {}
@@ -49,9 +53,20 @@ class CoverFlowLetterJump(
             ui.showLetter(it)
             letterShown = true
         }
-        ui.cancel(idleTask)
-        ui.postDelayed(idleTask, LetterJump.IDLE_END_MS)
+        scheduleEnd(timeMs)
         return true
+    }
+
+    /** The pad wheel: the thumb touched or lifted at [timeMs] (letter mode ends soon after a lift). */
+    fun onTouch(isTouching: Boolean, timeMs: Long) {
+        if (!mode.isActive) return
+        mode.onTouch(isTouching, timeMs)
+        scheduleEnd(timeMs)
+    }
+
+    private fun scheduleEnd(nowMs: Long) {
+        ui.cancel(idleTask)
+        ui.postDelayed(idleTask, (mode.endMs() - nowMs).coerceAtLeast(0L))
     }
 
     /**

@@ -34,6 +34,9 @@ except ImportError:
     print("This script needs the 'mutagen' package: pip install mutagen", file=sys.stderr)
     sys.exit(1)
 
+# Same value as MediaLibraryManager.CACHE_VERSION in the app.
+CACHE_VERSION = 2
+
 # Keep this in sync with isAudioFile() in MainActivity.java
 AUDIO_EXTENSIONS = {".mp3", ".flac", ".wav", ".ogg", ".m4a", ".aac", ".ape", ".wma", ".opus", ".m4b"}
 
@@ -60,6 +63,13 @@ def all_tags(tags, *keys):
                 return "; ".join(parts)
             return str(val).strip()
     return ""
+
+
+def read_moods(tags):
+    """As the app reads them: every MOOD value, and the AB:MOOD values (Picard AcousticBrainz) except the "Not ..." ones."""
+    moods = [str(v).strip() for v in (tags.get("mood") or [])]
+    moods += [str(v).strip() for v in (tags.get("ab:mood") or []) if not str(v).strip().lower().startswith("not ")]
+    return "; ".join(m for m in moods if m)
 
 
 def extract_track_number(raw):
@@ -109,7 +119,7 @@ def scan_folder(local_root: Path, device_root: str):
             rel = local_path.relative_to(local_root)
             device_path = device_root.rstrip("/") + "/" + str(rel).replace(os.sep, "/")
 
-            title = artist = album = year = genre = album_artist = composer = ""
+            title = artist = album = year = genre = album_artist = composer = mood = ""
             track_num = 0
             compilation = False
             duration_ms = 0
@@ -127,6 +137,9 @@ def scan_folder(local_root: Path, device_root: str):
                     genre = all_tags(tags, "genre")
                     album_artist = all_tags(tags, "albumartist", "album artist")
                     composer = first_tag(tags, "composer")
+                    # As the app reads it: the MOOD tag of FLAC, Ogg and Opus files only
+                    if name.lower().endswith((".flac", ".ogg", ".opus")):
+                        mood = read_moods(tags)
                     track_num = extract_track_number(first_tag(tags, "tracknumber", "track"))
                     compilation = read_compilation(local_path, tags)
             except Exception as e:
@@ -160,6 +173,8 @@ def scan_folder(local_root: Path, device_root: str):
             # As the app writes it: only for compilation tracks; a missing field reads as false.
             if compilation:
                 entry["compilation"] = True
+            if mood:
+                entry["mood"] = mood
             entries.append(entry)
     return entries
 
@@ -194,7 +209,7 @@ def main():
 
     out_path = sdcard / ".y1_library_cache.json"
     with open(out_path, "w", encoding="utf-8") as f:
-        json.dump({"music": music_entries, "books": book_entries}, f, ensure_ascii=False)
+        json.dump({"v": CACHE_VERSION, "music": music_entries, "books": book_entries}, f, ensure_ascii=False)
 
     print(f"\nWrote {out_path}")
     print("Eject the card and put it back in the Y1 - the next library scan should skip tag extraction for everything in here.")

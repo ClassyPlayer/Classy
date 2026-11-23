@@ -70,7 +70,7 @@ class MediaLibraryCacheTest {
     fun parseLibraryCacheReadsDateModifiedAndFileSize() {
         val json = JSONObject(
             """
-            {"music":[
+            {"v":2,"music":[
               {"path":"/music/t1.mp3","title":"T1","artist":"A","album":"Alb","trackNum":1,"dateModified":1729000000000,"fileSize":98765},
               {"path":"/music/t2.mp3","title":"T2","artist":"A","album":"Alb","trackNum":2,"modified":1729111111000,"size":54321},
               {"path":"/music/t3.mp3","title":"T3","artist":"A","album":"Alb","trackNum":3}
@@ -93,6 +93,30 @@ class MediaLibraryCacheTest {
         val t3 = cache.music[2]
         assertEquals(0L, t3.dateModified)
         assertEquals(0L, t3.fileSize)
+    }
+
+    @Test
+    fun cacheFromBeforeMoodsReadsOnlyFlacOggOpusAgain() {
+        val json = JSONObject(
+            """{"music":[
+              {"path":"/music/t1.mp3","title":"T1","dateModified":1729000000000,"fileSize":9},
+              {"path":"/music/t2.FLAC","title":"T2","dateModified":1729000000000,"fileSize":9},
+              {"path":"/music/t3.opus","title":"T3","dateModified":1729000000000,"fileSize":9}
+            ],"books":[]}"""
+        )
+        val music = mlm.parseLibraryCache(json) { _, _ -> true }.music
+        assertEquals(1729000000000L, music[0].dateModified)
+        assertEquals(0L, music[1].dateModified) // 0 makes the next scan extract the tags again
+        assertEquals(0L, music[2].dateModified)
+    }
+
+    @Test
+    fun moodSurvivesTheCache() {
+        val song = SongItem(File("/music/m.flac"), "M", "A", "B").also { it.mood = "happy; sad" }
+        val w = java.io.StringWriter()
+        mlm.writeSongListJson(w, listOf(song))
+        val back = mlm.parseLibraryCache(JSONObject("""{"v":2,"music":[${w}],"books":[]}""")) { _, _ -> true }.music[0]
+        assertEquals("happy; sad", back.mood)
     }
 
     @Test

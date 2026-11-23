@@ -25,6 +25,7 @@ import com.themoon.y1.ThemeManager
 import com.themoon.y1.managers.BluetoothDiscoverableLogic
 import com.themoon.y1.managers.AudioOutputLossManager
 import com.themoon.y1.managers.BluetoothDiscoverableManager
+import com.themoon.y1.managers.RadioSwitch
 import com.themoon.y1.managers.BluetoothPairingAgent
 import com.themoon.y1.controllers.ScreenController
 import com.themoon.y1.core.extensions.onOff
@@ -60,7 +61,6 @@ class BluetoothController(
 
     /** The paired devices that show their actions (Connect Audio, Forget Device). */
     private val expanded = HashSet<String>()
-    private var lastBtToggleTime: Long = 0
 
     // Target device tracking
     var targetDeviceForAudio: BluetoothDevice? = null
@@ -196,9 +196,10 @@ class BluetoothController(
         val ba = BluetoothAdapter.getDefaultAdapter()
         val state = ba?.state
         val isOn = state == BluetoothAdapter.STATE_ON
-        val isChanging = state == BluetoothAdapter.STATE_TURNING_ON || state == BluetoothAdapter.STATE_TURNING_OFF
+        // "Wait..." also while the Y2 Bluetooth service starts (RadioSwitch), as on the Power screen
+        val shown = RadioSwitch.bluetoothState()
         val rows = ArrayList<RowSpec>()
-        rows += RowSpec(localize("Bluetooth Power"), RowLook.VALUE, value = if (isChanging) localize("Wait...") else onOff(isOn, localize),
+        rows += RowSpec(localize("Bluetooth Power"), RowLook.VALUE, value = if (shown == null) localize("Wait...") else onOff(isOn, localize),
             key = POWER_KEY, onClick = { togglePower(ba) })
         val scanRow = RowSpec(btnScanBt.text.toString(), RowLook.CUSTOM, view = btnScanBt, key = SCAN_KEY,
             onClick = { startBluetoothScan(userAction = true) })
@@ -235,27 +236,20 @@ class BluetoothController(
 
     @SuppressLint("MissingPermission")
     private fun togglePower(ba: BluetoothAdapter?) {
-        val now = System.currentTimeMillis()
-        if (now - lastBtToggleTime < 1500) {
-            Notice.show(activity, localize("Please wait a moment..."))
-            return
-        }
-        lastBtToggleTime = now
         ba ?: return
-        screen.valueView(POWER_KEY)?.text = localize("Wait...")
-        if (ba.isEnabled) {
-            targetDeviceForAudio = null
-            ba.disable()
-        } else {
-            Thread {
-                try {
-                    Runtime.getRuntime().exec(arrayOf("su", "-c", "setprop ctl.start mtkbt")).waitFor()
-                    Thread.sleep(1500)
-                } catch (ignored: Exception) {}
-                activity.runOnUiThread {
-                    ba.enable()
-                }
-            }.start()
+        val turnOn = !ba.isEnabled
+        // enable() comes later: when it is refused, the row shows Off again
+        val request = RadioSwitch.setBluetooth({ activity.runOnUiThread(it) }, turnOn) {
+            screen.valueView(POWER_KEY)?.text = onOff(false, localize)
+            Notice.error(activity, localize("Failed"))
+        }
+        when (request) {
+            RadioSwitch.Request.BUSY -> Notice.show(activity, localize("Please wait a moment..."))
+            RadioSwitch.Request.FAILED -> Notice.error(activity, localize("Failed"))
+            RadioSwitch.Request.DONE -> {
+                if (!turnOn) targetDeviceForAudio = null
+                screen.valueView(POWER_KEY)?.text = localize("Wait...")
+            }
         }
     }
 

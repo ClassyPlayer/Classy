@@ -133,6 +133,29 @@ object Prefs {
     // --- Display ---
     val BACKLIGHT_TIMER = add(IntPref(BacklightTimer.PREF_INDEX, BacklightTimer.DEFAULT_INDEX, PrefGroup.DISPLAY, resettable = true))
 
+    // --- Photos (the slideshow: Settings → Photos, and Photos → Slideshow Settings) ---
+    /** Index in [com.themoon.y1.controllers.photos.PhotoSettings.SLIDE_SECONDS] (the last = Manual). */
+    val PHOTOS_SLIDE_TIME = add(IntPref("photos_slide_time", 1, PrefGroup.DISPLAY, resettable = true))
+    val PHOTOS_REPEAT = add(BoolPref("photos_repeat", false, PrefGroup.DISPLAY, resettable = true))
+    val PHOTOS_SHUFFLE = add(BoolPref("photos_shuffle", false, PrefGroup.DISPLAY, resettable = true))
+    /** 0 = Off, 1 = Dissolve, 2 = Push, 3 = Random. */
+    val PHOTOS_TRANSITION = add(IntPref("photos_transition", 1, PrefGroup.DISPLAY, resettable = true))
+
+    // --- Books (the reader: Settings → Books, and Reader Settings in a book) ---
+    /** Page Colours: 0 = Follow System (the Classy theme), 1 = Light, 2 = Dark ([com.themoon.y1.controllers.books.ReaderSettings]). */
+    val READER_COLORS = add(IntPref("reader_colors", 0, PrefGroup.DISPLAY, resettable = true))
+    /** Index in ReaderSettings.FONT_SIZES. */
+    val READER_FONT_SIZE = add(IntPref("reader_font_size", 2, PrefGroup.DISPLAY, resettable = true))
+    /** Index in ReaderSettings.LINE_SPACINGS. */
+    val READER_LINE_SPACING = add(IntPref("reader_line_spacing", 1, PrefGroup.DISPLAY, resettable = true))
+    /** 0 = the theme font, 1 = Serif, 2 = Sans. */
+    val READER_FONT = add(IntPref("reader_font", 0, PrefGroup.DISPLAY, resettable = true))
+    /** 0 = the wheel turns pages, 1 = it moves the text a line. */
+    val READER_WHEEL_MODE = add(IntPref("reader_wheel_mode", 0, PrefGroup.DISPLAY, resettable = true))
+    /** Index in ReaderSettings.WHEEL_CLICKS: the wheel clicks of one page turn. */
+    val READER_WHEEL_CLICKS = add(IntPref("reader_wheel_clicks", 1, PrefGroup.DISPLAY, resettable = true))
+    val READER_KEEP_SCREEN_ON = add(BoolPref("reader_keep_screen_on", true, PrefGroup.DISPLAY, resettable = true))
+
     // --- Now Playing ---
     val SPECTRUM = add(BoolPref(NowPlayingSpectrum.PREF, false, PrefGroup.NOW_PLAYING, resettable = true))
     val TOTAL_TIME = add(BoolPref(NowPlayingTime.PREF_SHOW_TOTAL_TIME, false, PrefGroup.NOW_PLAYING, resettable = true))
@@ -149,7 +172,6 @@ object Prefs {
     /** The theme that the user selected; null before the first selection (then [CURRENT_THEME_NAME]). */
     val THEME_NAME = add(PrefKey("app_theme_name", PrefGroup.APPEARANCE))
     val CURRENT_THEME_NAME = add(StringPref("current_theme_name", "Classic Light", PrefGroup.APPEARANCE))
-    val THEME_INDEX = add(PrefKey("app_theme_index", PrefGroup.APPEARANCE))
     /** Reset does not remove it: [AutoThemeManager.reset] turns Auto off and selects the default theme. */
     val AUTO_THEME = add(BoolPref(AutoThemeManager.PREF_KEY, false, PrefGroup.APPEARANCE))
     val TOGGLE_STYLE = add(StringPref(ToggleStyle.PREF_KEY, ToggleStyle.TEXT, PrefGroup.APPEARANCE, resettable = true))
@@ -159,7 +181,6 @@ object Prefs {
 
     // --- Menus ---
     val MENU_ORDER = add(PrefKey(MenuOrder.KEY, PrefGroup.MENUS))
-    val MENU_ORDER_OF_THEME = add(PrefFamily(MenuOrder.THEME_KEY_PREFIX, PrefGroup.MENUS))
     /** Main Menu Items: "hide_btn_<button id>" = true hides the item. */
     val MAIN_MENU_HIDDEN = add(PrefFamily("hide_btn_", PrefGroup.MENUS))
     /** Music Menu Items: "hide_music_btn_<item id>" = true hides the item. */
@@ -172,12 +193,17 @@ object Prefs {
     val VIBRATE = add(BoolPref("vibrate", true, PrefGroup.CONTROLS))
     val VIBRATE_STRENGTH = add(IntPref(ButtonVibration.PREF, ButtonVibration.DEFAULT, PrefGroup.CONTROLS))
     val LOOP_SCROLL = add(BoolPref("loop_scroll_on", true, PrefGroup.CONTROLS, resettable = true))
+    /** List Glide: a wheel step glides the highlight and the rows ([com.themoon.y1.views.ListGlide]). */
+    val LIST_GLIDE = add(BoolPref("list_glide", true, PrefGroup.CONTROLS, resettable = true))
     /** The iPod letter jump in the A–Z lists and Cover Flow ([LetterJump]). */
     val LETTER_JUMP = add(BoolPref("letter_jump", true, PrefGroup.CONTROLS, resettable = true))
     /** Letter Jump Sensitivity: the [LetterJump.Sensitivity] ordinal (0 = Low, 1 = Normal, 2 = High). */
     val LETTER_JUMP_SENSITIVITY = add(IntPref("letter_jump_sensitivity", LetterJump.Sensitivity.DEFAULT.ordinal, PrefGroup.CONTROLS, resettable = true))
+    /** Wheel Mode on the Y2 ([com.themoon.y1.navigation.PadWheel.MODE_LABELS]; 0 = Classic, the wheel's step keys). */
+    val WHEEL_MODE = add(IntPref("wheel_mode", com.themoon.y1.navigation.PadWheel.DEFAULT_MODE, PrefGroup.CONTROLS, resettable = true))
     val SCREEN_OFF_CONTROL = add(BoolPref("screen_off_control", false, PrefGroup.CONTROLS, resettable = true))
     val DOUBLE_CLICK_FAVORITE = add(BoolPref("double_click_favorite", true, PrefGroup.CONTROLS, resettable = true))
+    val BACK_HOLD_NOW_PLAYING = add(BoolPref("back_hold_now_playing", true, PrefGroup.CONTROLS, resettable = true))
 
     // --- Connectivity ---
     /** USB Drive: Ask, Always or Never ([UsbDrive]). */
@@ -194,8 +220,16 @@ object Prefs {
     /** last_played_song_path, _song_index, _position, _duration, _is_audiobook, _audiobook_path, _video_path. */
     val LAST_PLAYED = add(PrefFamily("last_played_", PrefGroup.STATE, inBackup = false))
     val HAS_SAVED_PLAYBACK_STATE = add(PrefKey("has_saved_playback_state", PrefGroup.STATE, inBackup = false))
+    /** The photo viewer said once how to start a slideshow. */
+    val PHOTOS_HINT_SHOWN = add(BoolPref("photos_hint_shown", false, PrefGroup.STATE))
     val BOOK_POSITION = add(PrefFamily("book_pos_", PrefGroup.DATA))
     val BOOK_DURATION = add(PrefFamily("book_dur_", PrefGroup.DATA))
+    /** The reading place of an ebook: "ebook_pos_<path>" = "section:offset:permille" ([com.themoon.y1.books.SavedPosition]). */
+    val EBOOK_POSITION = add(PrefFamily("ebook_pos_", PrefGroup.DATA))
+    /** The bookmarks of an ebook: "ebook_marks_<path>" = a JSON list ([com.themoon.y1.books.Bookmark]). */
+    val EBOOK_MARKS = add(PrefFamily("ebook_marks_", PrefGroup.DATA))
+    /** The ebook that Books → Continue Reading opens. */
+    val LAST_BOOK = add(StringPref("last_read_book_path", "", PrefGroup.STATE, inBackup = false))
     val VIDEO_POSITION = add(PrefFamily("video_pos_", PrefGroup.DATA))
     val RATING = add(PrefFamily("rating_", PrefGroup.DATA))
     val META_TITLE = add(PrefFamily("meta_title_", PrefGroup.DATA))
@@ -205,7 +239,6 @@ object Prefs {
     val LASTFM_USERNAME = add(PrefKey("lastfm_username", PrefGroup.ACCOUNT, inBackup = false))
     val LASTFM_PASSWORD = add(PrefKey("lastfm_password", PrefGroup.ACCOUNT, inBackup = false))
     val LAST_LANG_VERSION = add(PrefKey("last_lang_version", PrefGroup.INSTALL, inBackup = false))
-    val LAST_THEME_VERSION = add(PrefKey("last_installed_theme_version", PrefGroup.INSTALL, inBackup = false))
     /**
      * Update Channel chosen in Settings ([UpdateChannel]); it holds only for the builds in [UPDATE_CHANNEL_BUILDS].
      * Not in the backup: a backup of another player must not move this one to another channel.
@@ -215,6 +248,11 @@ object Prefs {
     val UPDATE_CHANNEL_BUILDS = add(StringPref(UpdateChannel.PREF_BUILDS, "", PrefGroup.INSTALL, inBackup = false))
     /** An old key. No code reads it. */
     val REBOOT_TO_THEME = add(PrefKey("reboot_to_theme", PrefGroup.LEGACY, inBackup = false))
+    /** Old theme keys (before the two themes were in the code). No code reads them. */
+    val THEME_INDEX = add(PrefKey("app_theme_index", PrefGroup.LEGACY))
+    val LAST_THEME_VERSION = add(PrefKey("last_installed_theme_version", PrefGroup.LEGACY, inBackup = false))
+    /** The main menu order of each theme name, before [MENU_ORDER]. */
+    val MENU_ORDER_OF_THEME = add(PrefFamily("custom_menu_order_", PrefGroup.LEGACY))
 
     /** All keys, in the order above. */
     val ALL: List<PrefKey> get() = keys

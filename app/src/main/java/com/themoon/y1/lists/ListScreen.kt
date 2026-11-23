@@ -13,7 +13,10 @@ import android.widget.ScrollView
 import android.widget.TextView
 import com.themoon.y1.ThemeManager
 import com.themoon.y1.navigation.LetterJump
+import com.themoon.y1.navigation.PadWheel
+import com.themoon.y1.navigation.WheelKind
 import com.themoon.y1.navigation.RowFocus
+import com.themoon.y1.views.ListGlide
 import com.themoon.y1.views.ListItemViewFactory
 
 /**
@@ -34,7 +37,7 @@ class ListScreen(
     private val rows: LinearLayout,
     private val list: ListView? = null,
     private val clickFeedback: () -> Unit,
-    /** Told the text of each focused [RowLook.MENU] row. */
+    /** Told the key ([RowSpec.key]) of each focused [RowLook.MENU] row. */
     private val onRowFocus: ((String) -> Unit)? = null,
     /** Shows the letter of the letter jump ([ListSpec.letters]). */
     private val letterBox: LetterBox? = null
@@ -53,6 +56,9 @@ class ListScreen(
     // Letter Jump and its Sensitivity are read at each step: a change in Settings applies at once
     private val letterMode = LetterJump.Mode { RowFocus.letterJumpSensitivity(context) }
     private val letterIdle = Runnable { endLetters() }
+
+    /** [WheelKind.LETTERS] in letter mode, else [WheelKind.LIST]. */
+    val wheelKind: WheelKind get() = if (letterMode.isActive) WheelKind.LETTERS else WheelKind.LIST
     private var letters: List<String?>? = null
     private var lettersOf: ListSpec? = null
 
@@ -99,6 +105,11 @@ class ListScreen(
         rows.post { if ((view === rows || view.parent === rows) && !rows.hasFocus()) view.requestFocus() }
     }
 
+    /** Makes [key] the remembered row of the list [listId]: [Focus.LAST] opens it at this row. */
+    fun remember(listId: String, key: String) {
+        lastKeys[listId] = key
+    }
+
     /** Selects the row with [key] (for example the row that a screen opens at). False if there is no such row. */
     fun select(key: String): Boolean {
         val i = shown.indexOfFirst { it.key == key }
@@ -131,6 +142,7 @@ class ListScreen(
      */
     fun wheel(delta: Int, timeMs: Long = SystemClock.uptimeMillis()): Boolean {
         val s = spec ?: return false
+        if (letterMode.isIdle(timeMs)) endLetters() // the end timer did not run yet
         if (s.letters && letterStep(s, delta, timeMs)) return true
         val moved = if (s.isLong) list?.let { stepLong(s, it, delta) } else RowFocus.step(rows, delta)
         if (moved != null) clickFeedback()
@@ -146,6 +158,7 @@ class ListScreen(
         val adapter = lv.adapter
         val i = RowFocus.next(lv.count, current, delta, RowFocus.isLoopOn(lv.context)) { adapter?.isEnabled(it) != false }
             ?: return null
+        ListGlide.beforeStep(lv, current, i)
         RowFocus.showRow(lv, i)
         longIndex = i
         return i
@@ -195,11 +208,10 @@ class ListScreen(
      * returns true. Else false: the wheel steps one row.
      */
     private fun letterStep(s: ListSpec, delta: Int, timeMs: Long): Boolean {
-        if (letterMode.isIdle(timeMs)) endLetters() // the idle timer did not run yet
         // In letter mode the jump goes on from the letter row: its view (and the focus) can still be on the way
         val from = if (letterMode.isActive) letterMode.row else selectedIndex(s).takeIf { it >= 0 } ?: longIndex
         if (from < 0) return false
-        val step = letterMode.onStep(delta, timeMs, from) {
+        val step = letterMode.onStep(delta, timeMs, from, PadWheel.stepSpeed) {
             if (lettersOf !== s) {
                 letters = LetterJump.lettersFor(rowTexts(s))
                 lettersOf = s
@@ -218,9 +230,20 @@ class ListScreen(
             clickFeedback()
         }
         jumpLetter?.let { letterBox?.show(it) }
-        rows.removeCallbacks(letterIdle)
-        rows.postDelayed(letterIdle, LetterJump.IDLE_END_MS)
+        scheduleLetterEnd(timeMs)
         return true
+    }
+
+    /** The pad wheel: the thumb touched or lifted at [timeMs] ([com.themoon.y1.controllers.ScreenController.onWheelTouch]). */
+    fun wheelTouch(isTouching: Boolean, timeMs: Long) {
+        if (!letterMode.isActive) return
+        letterMode.onTouch(isTouching, timeMs)
+        scheduleLetterEnd(timeMs)
+    }
+
+    private fun scheduleLetterEnd(nowMs: Long) {
+        rows.removeCallbacks(letterIdle)
+        rows.postDelayed(letterIdle, (letterMode.endMs() - nowMs).coerceAtLeast(0L))
     }
 
     private fun rowTexts(s: ListSpec): List<String?> {
@@ -262,7 +285,8 @@ class ListScreen(
         val view = when (row.look) {
             RowLook.MENU -> {
                 val color = if (row.key == ListModel.EMPTY_KEY) ThemeManager.getTextColorSecondary() else row.color
-                ListItemViewFactory.createListButtonWithIcon(context, "", row.label, color, onRowFocus)
+                val focus = onRowFocus?.let { told -> { _: String -> told(row.key) } }
+                ListItemViewFactory.createListButtonWithIcon(context, "", row.label, color, focus)
             }
             RowLook.VALUE -> ListItemViewFactory.createSettingRow(context, row.label, row.value)
             RowLook.CHOICE ->
@@ -318,11 +342,10 @@ class ListScreen(
 
     private fun infoRow(text: String): TextView = TextView(context).apply {
         val d = resources.displayMetrics.density
-        val classic = ThemeManager.isClassicTheme()
-        val padX = ((if (classic) 8 else 12) * d).toInt()
+        val padX = (8 * d).toInt()
         this.text = text
         setTextColor(ThemeManager.getTextColorSecondary())
-        setTextSize(TypedValue.COMPLEX_UNIT_PX, (if (classic) 19f else 14f) * d)
+        setTextSize(TypedValue.COMPLEX_UNIT_PX, 19f * d)
         typeface = ThemeManager.getCustomFont()
         setPadding(padX, (6 * d).toInt(), padX, (6 * d).toInt())
         isFocusable = false

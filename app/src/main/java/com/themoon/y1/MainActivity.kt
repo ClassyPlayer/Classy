@@ -129,6 +129,10 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
         const val STATE_JELLYFIN = 17
         const val STATE_GAMES = 18
         const val STATE_GAME_PLAYER = 19
+        const val STATE_BOOKS = 20
+        const val STATE_BOOK_READER = 21
+        const val STATE_PHOTOS = 22
+        const val STATE_PHOTO_VIEWER = 23
 
         const val BROWSER_ROOT = 0
         const val BROWSER_FOLDER = 1
@@ -262,10 +266,13 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     lateinit var layoutVideoPlayerMode: View
     lateinit var layoutGamesMode: View
     lateinit var layoutGamePlayerMode: View
+    lateinit var layoutBooksMode: View
+    lateinit var layoutBookReaderMode: View
+    lateinit var layoutPhotosMode: View
+    lateinit var layoutPhotoViewerMode: View
 
     lateinit var ivAlbumArt: ImageView
     var ivAlbumReflection: ImageView? = null
-    lateinit var ivPauseOverlay: ImageView
     lateinit var tvPlayerTitle: TextView
     lateinit var tvPlayerArtist: TextView
     lateinit var tvPlayerAlbum: TextView
@@ -306,6 +313,24 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     lateinit var videoPlayerController: VideoPlayerController
     lateinit var gamesController: GamesController
     lateinit var gamePlayerController: GamePlayerController
+    lateinit var booksController: com.themoon.y1.controllers.books.BooksController
+    lateinit var bookReaderController: com.themoon.y1.controllers.books.BookReaderController
+
+    /** The Books list reads the books on the card. */
+    fun isBookScanRunning(): Boolean = ::booksController.isInitialized && booksController.isScanning
+
+    /** The card was shared over USB: the Books lists scan the folders again. */
+    fun forgetBooks() {
+        if (::booksController.isInitialized) booksController.forget()
+    }
+
+    /** Before the card is shared over USB: the open book closes (its file is on the card). */
+    fun closeBookForUsbShare() {
+        if (::bookReaderController.isInitialized) bookReaderController.closeForUsbShare()
+    }
+
+    /** The status bar title again (a screen whose title changed while it shows). */
+    fun refreshStatusBarTitle() = updateStatusBarTitle()
 
     /** The Games list unpacks or reads the game folders on the card. */
     fun isGameScanRunning(): Boolean = ::gamesController.isInitialized && gamesController.isScanning
@@ -319,6 +344,23 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     fun endGameForUsbShare() {
         if (::gamePlayerController.isInitialized) gamePlayerController.endForUsbShare()
     }
+
+    lateinit var photosController: com.themoon.y1.controllers.photos.PhotosController
+    lateinit var photoViewerController: com.themoon.y1.controllers.photos.PhotoViewerController
+
+    /** The Photos scan reads the photo files on the card. */
+    fun isPhotoScanRunning(): Boolean = ::photosController.isInitialized && photosController.isScanning
+
+    /** The card was shared over USB: Photos scans the folders again. */
+    fun forgetPhotos() {
+        if (::photosController.isInitialized) photosController.forget()
+    }
+
+    /** Before the card is shared over USB: the photo on the screen closes (its file is on the card). */
+    fun closePhotoForUsbShare() {
+        if (::photoViewerController.isInitialized) photoViewerController.closeForUsbShare()
+    }
+
     lateinit var bluetoothController: BluetoothController
     lateinit var wifiController: WifiController
     lateinit var wifiKeyboardController: WifiKeyboardController
@@ -359,20 +401,16 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
         vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
         // The app may have died during a game: the wheel then still reports pads, and no list would scroll
         com.themoon.y1.games.WheelSensor.resetTestMode()
+        // The Y2 wheel from its touch pads (Settings → Controls → Wheel Mode)
+        com.themoon.y1.navigation.PadWheel.attach(this)
 
         window.setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN)
         setContentView(R.layout.activity_main)
 
         AssetInstaller.installBundledLanguages(this, prefs)
-        AssetInstaller.installBundledThemes(this, prefs)
         LanguageManager.getInstance(this).loadAvailableLanguages()
 
-        val themeDir = File(filesDir, "themes")
-        ThemeManager.loadThemesFromStorage(themeDir)
-        val savedThemeName = prefs.getString(Prefs.THEME_NAME.key, null)
-            ?: Prefs.CURRENT_THEME_NAME.get(prefs)
-        val themeIdx = ThemeManager.findThemeIndexByName(savedThemeName)
-        if (themeIdx != -1) ThemeManager.setThemeIndex(themeIdx)
+        ThemeManager.init(this, prefs)
         com.themoon.y1.managers.AutoThemeManager.applyAtStart(prefs)
 
         loadPreferences()
@@ -462,6 +500,8 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
             setListener(object : ExternalSdMountMonitor.Listener {
                 override fun onSecondaryStorageReady() {
                     StoragePaths.invalidate()
+                    // A photo scan without the card (it mounted after the share ended) missed its photos
+                    runOnUiThread { com.themoon.y1.photos.PhotoLibrary.onCardReady() }
                     runMigrationsAsync {
                         scanVideos()
                         val onLibraryReady = {
@@ -495,6 +535,8 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
         Thread({
             if (UsbMassStorageController.isEnabled()) {
                 externalSdMountMonitor?.setSuspended(true)
+                // The card is still shared (the app started again): no photo read until the share ends
+                com.themoon.y1.photos.PhotoDecoder.close()
                 runOnUiThread { showUsbStorageOverlay() }
             }
         }, "y1-ums-init-check").start()
@@ -555,11 +597,14 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
         updateStatusBarClock()
         applyTheme()
         if (::gamePlayerController.isInitialized) gamePlayerController.onActivityResume()
+        if (::bookReaderController.isInitialized) bookReaderController.onActivityResume()
     }
 
     override fun onPause() {
         super.onPause()
         if (::gamePlayerController.isInitialized) gamePlayerController.onActivityPause()
+        if (::bookReaderController.isInitialized) bookReaderController.onActivityPause()
+        if (::photoViewerController.isInitialized) photoViewerController.onActivityPause()
         systemNotifications.show()
         AudioPlayerManager.getInstance().savePlaybackState(sync = false)
     }
@@ -593,7 +638,14 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
 
     fun t(key: String): String = LanguageManager.getInstance(this).t(key)
 
+    private var lastClickMs = 0L
+    private var lastVibrateMs = 0L
+
     fun clickFeedback() {
+        // At most 50 clicks a second: a fast wheel can give steps less than 30 ms apart
+        val clickNow = android.os.SystemClock.uptimeMillis()
+        if (clickNow - lastClickMs < 20L) return
+        lastClickMs = clickNow
         val pm = getSystemService(Context.POWER_SERVICE) as? PowerManager
         val isScreenOn = if (Build.VERSION.SDK_INT >= 20) {
             pm?.isInteractive ?: true
@@ -603,7 +655,11 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
         if (!isScreenOffControlEnabled && (!isScreenOn || isScreenSleeping)) {
             return
         }
-        if (isVibrationEnabled) {
+        // No new vibration (the sound plays) while the last one has not ended: Strong is 40 ms
+        if (isVibrationEnabled &&
+            clickNow - lastVibrateMs >= com.themoon.y1.managers.ButtonVibration.lengthMs(vibrationStrengthLevel) + 10L
+        ) {
+            lastVibrateMs = clickNow
             com.themoon.y1.managers.ButtonVibration.vibrate(vibrator, vibrationStrengthLevel)
         }
         if (isSoundEffectEnabled) {
@@ -635,6 +691,8 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
             STATE_FM_RADIO -> ScreenState.FmRadio
             STATE_JELLYFIN -> ScreenState.Jellyfin()
             STATE_GAMES -> ScreenState.Games
+            STATE_BOOKS -> ScreenState.Books()
+            STATE_PHOTOS -> ScreenState.Photos()
             else -> ScreenState.MainMenu
         }
         changeScreen(screenState)
@@ -675,6 +733,10 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
             is ScreenState.VideoPlayer -> STATE_VIDEO_PLAYER
             is ScreenState.Games -> STATE_GAMES
             is ScreenState.GamePlayer -> STATE_GAME_PLAYER
+            is ScreenState.Books -> STATE_BOOKS
+            is ScreenState.BookReader -> STATE_BOOK_READER
+            is ScreenState.Photos -> STATE_PHOTOS
+            is ScreenState.PhotoViewer -> STATE_PHOTO_VIEWER
         }
     }
 
@@ -685,6 +747,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
             else -> state
         }
         if (::browserController.isInitialized) browserController.endLetterJump()
+        if (::booksController.isInitialized) booksController.endLetterJump()
         tvFastScrollLetter?.animate()?.cancel()
         tvFastScrollLetter?.visibility = View.GONE
         syncCurrentScreenState(targetState)
@@ -695,13 +758,15 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
 
     fun getActiveScreenController(): ScreenController? = NavigationManager.getInstance().activeController
 
-    /** The Power screen (Restart, Power Off). Back goes to the screen that was open before. */
+    /** The Power screen (Wi-Fi, Bluetooth, Brightness, Restart, Power Off). Back goes to the screen that was open before. */
     fun showPowerMenu() {
         wakeFromFakeScreenOff()
         changeScreen(ScreenState.Settings(SettingsSubMode.Power))
     }
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        // The wheel's own step keys while the pad wheel reads the pads
+        if (com.themoon.y1.navigation.PadWheel.filterKey(event)) return true
         // A key during a menu slide ends the slide at once, then acts on the new screen as normal. Not the repeats of
         // a held key: a held centre opens a screen (Now Playing menu, Add to Playlist), and its repeats must not stop
         // the slide of that screen.
@@ -970,8 +1035,6 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
 
     fun refreshNowPlayingPreview() {
         homeWidgetsController?.let { hwc ->
-            hwc.currentTrackTitle = tvPlayerTitle?.text?.toString() ?: ""
-            hwc.currentTrackArtist = tvPlayerArtist?.text?.toString() ?: ""
             hwc.lastAlbumArtBytes = lastAlbumArtBytes
             if (isAudiobookLibraryMode && lastAlbumArtBytes != null) {
                 hwc.setAudiobookCoverBytes(lastAlbumArtBytes)
@@ -1228,6 +1291,8 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
             STATE_EQUALIZER -> t("Equalizer")
             STATE_JELLYFIN -> t("Jellyfin")
             STATE_GAMES -> t("Games")
+            STATE_BOOKS -> t("Books")
+            STATE_PHOTOS -> t("Photos")
             else -> t("Classy")
         }
     }
@@ -1244,7 +1309,6 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
 
     fun onClockSettingsChanged() {
         updateStatusBarClock()
-        homeWidgetsController?.refreshWidgets()
     }
 
     fun isPaneBasedScreen(): Boolean {
@@ -1252,6 +1316,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
             STATE_MENU -> true
             STATE_BROWSER -> ::browserController.isInitialized && browserController.isCoverPaneActive()
             STATE_VIDEOS -> ::videoBrowserController.isInitialized && videoBrowserController.isCoverPaneActive()
+            STATE_PHOTOS -> ::photosController.isInitialized && photosController.isPaneShown
             else -> false
         }
     }
@@ -1329,6 +1394,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
                 BluetoothAdapter.ACTION_STATE_CHANGED -> {
                     val state = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.ERROR)
                     onStatusBarBluetoothAdapterState(state)
+                    if (::settingsController.isInitialized) settingsController.onRadioStateChanged()
                     if (state == BluetoothAdapter.STATE_ON) {
                         ivStatusBluetooth?.visibility = View.VISIBLE
                         updateStatusBarBluetooth()
@@ -1411,6 +1477,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
                 }
                 WifiManager.WIFI_STATE_CHANGED_ACTION -> {
                     val state = intent.getIntExtra(WifiManager.EXTRA_WIFI_STATE, WifiManager.WIFI_STATE_UNKNOWN)
+                    if (::settingsController.isInitialized) settingsController.onRadioStateChanged()
                     if (state == WifiManager.WIFI_STATE_ENABLED) {
                         ivStatusWifi?.visibility = View.VISIBLE
                         updateStatusBarWifi(false)
@@ -1454,6 +1521,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
                 }
                 Intent.ACTION_SCREEN_ON -> {
                     isScreenSleeping = false
+                    com.themoon.y1.navigation.PadWheel.onScreenOn()
                     powerBacklightManager?.resetTimer()
                     updateScreenOffFeedback(true)
                     updateStatusBarClock()
@@ -1466,7 +1534,6 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
                 }
                 Intent.ACTION_TIME_TICK, Intent.ACTION_TIME_CHANGED, Intent.ACTION_TIMEZONE_CHANGED -> {
                     updateStatusBarClock()
-                    homeWidgetsController?.refreshWidgets()
                 }
                 Intent.ACTION_SHUTDOWN, "android.intent.action.QUICKBOOT_POWEROFF", "com.htc.intent.action.QUICKBOOT_POWEROFF" -> {
                     AudioPlayerManager.getInstance().savePlaybackState(sync = true)
@@ -1531,6 +1598,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     }
 
     override fun onDestroy() {
+        com.themoon.y1.navigation.PadWheel.detach(this)
         com.themoon.y1.battery.BatteryGuard.removeListener(batteryGuardListener)
         menuSlide?.let { NavigationManager.getInstance().removeDirectionListener(it) }
         // The overlays of this window: an object must not keep the closed activity

@@ -257,6 +257,53 @@ class LetterJumpTest {
     }
 
     @Test
+    fun padMode_startsFromTheWheelSpeed() {
+        val mode = LetterJump.Mode()
+        // Normal: 1.7 turns a second. Slower steps, even close together, move rows
+        assertEquals(LetterJump.Step.ROW, mode.onStep(1, 0, 1, 1.6, letters))
+        assertEquals(LetterJump.Step.ROW, mode.onStep(1, 10, 1, 1.6, letters))
+        // The other way does not count
+        assertEquals(LetterJump.Step.ROW, mode.onStep(1, 20, 1, -3.0, letters))
+        // One fast step is enough
+        assertEquals(LetterJump.Step.LETTER, mode.onStep(1, 30, 1, 1.7, letters))
+        assertEquals(3, mode.row)
+    }
+
+    @Test
+    fun padMode_letterJumpOffStepsRowByRow() {
+        val mode = LetterJump.Mode { null }
+        assertEquals(LetterJump.Step.ROW, mode.onStep(1, 0, 1, 5.0, letters))
+        assertFalse(mode.isActive)
+    }
+
+    @Test
+    fun padMode_endsSoonAfterTheLift() {
+        val mode = LetterJump.Mode()
+        mode.onStep(1, 1000, 1, 2.0, letters)
+        // The thumb stays: it ends only after TOUCH_IDLE_END_MS with no step
+        assertEquals(1000 + LetterJump.TOUCH_IDLE_END_MS, mode.endMs())
+        mode.onTouch(false, 1100)
+        assertEquals(1100 + LetterJump.LIFT_END_MS, mode.endMs())
+        assertFalse(mode.isIdle(1100 + LetterJump.LIFT_END_MS - 1))
+        assertTrue(mode.isIdle(1100 + LetterJump.LIFT_END_MS))
+        // A new touch before that goes on in letter mode
+        mode.onTouch(true, 1200)
+        assertEquals(1000 + LetterJump.TOUCH_IDLE_END_MS, mode.endMs())
+        assertEquals(LetterJump.Step.LETTER, mode.onStep(1, 1300, 3, 0.2, letters)) // slow: one more letter
+        assertEquals(1300 + LetterJump.TOUCH_IDLE_END_MS, mode.endMs())
+        assertEquals(5, mode.end())
+        assertEquals(Long.MAX_VALUE, mode.endMs())
+    }
+
+    @Test
+    fun padMode_aStepKeyEndsAfterTheIdleTime() {
+        val mode = LetterJump.Mode()
+        mode.onStep(1, 0, 1, 2.0, letters)
+        mode.onStep(1, 100, 3, letters) // a step key of the wheel (no pad speed)
+        assertEquals(100 + LetterJump.IDLE_END_MS, mode.endMs())
+    }
+
+    @Test
     fun mode_centrePressEndsItAndIsIgnored() {
         val mode = LetterJump.Mode()
         assertEquals(LetterJump.Press.PASS, mode.onKey(23, isDown = true, repeatCount = 0)) // not active: opens the row
