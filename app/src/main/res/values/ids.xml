@@ -9,4 +9,6 @@
 -->
 <resources>
     <item name="wifi_power_row" type="id" />
+    <!-- The disclosure arrow of a list row: List Glide moves one picture of it with the highlight (ListGlide.arrowOf). -->
+    <item name="list_arrow" type="id" />
 </resources>

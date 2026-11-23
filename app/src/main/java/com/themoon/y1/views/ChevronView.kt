@@ -9,6 +9,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.TextView
+import com.themoon.y1.R
 import com.themoon.y1.ThemeManager
 
 /**
@@ -33,6 +34,7 @@ class ChevronView(context: Context, private val title: TextView) : View(context)
     init {
         // The row has the focus: take its state, so the chevron draws again in the selected colour.
         isDuplicateParentStateEnabled = true
+        id = R.id.list_arrow
         layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT)
     }
 

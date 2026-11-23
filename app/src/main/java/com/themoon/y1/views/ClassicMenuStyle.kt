@@ -6,6 +6,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.TextView
+import com.themoon.y1.R
 import com.themoon.y1.ThemeManager
 
 /** Shared metrics of the Classy layout ([ClassyMetrics]), 480 x 360 reference. */
@@ -30,6 +31,7 @@ object ClassicMenuStyle {
         title.setTextSize(TypedValue.COMPLEX_UNIT_PX, 21 * density)
         title.typeface = ThemeManager.getCustomFontBold()
         if (arrow != null) {
+            arrow.id = R.id.list_arrow
             arrow.text = "›"
             arrow.includeFontPadding = false
             arrow.setTextSize(TypedValue.COMPLEX_UNIT_PX, 21 * density)
