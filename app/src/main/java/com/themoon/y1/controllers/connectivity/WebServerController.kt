@@ -9,19 +9,20 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.Button
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import com.themoon.y1.R
-import com.themoon.y1.StoragePaths
 import com.themoon.y1.ThemeManager
 import com.themoon.y1.Y1WebServer
 import com.themoon.y1.controllers.ScreenController
 import com.themoon.y1.navigation.ScreenState
+import com.themoon.y1.qr.QrBitmap
 import com.themoon.y1.views.Notice
 
 /**
  * Controller for the PC Upload HTTP Web Server screen:
- * Toggles HTTP server, shows local Wi-Fi IP address on port 8080,
+ * Toggles HTTP server, shows local Wi-Fi IP address on port 8080 as text and as a QR code for a phone camera,
  * manages WakeLocks and WifiLocks, and triggers library scan on server shutdown.
  */
 class WebServerController(
@@ -37,6 +38,8 @@ class WebServerController(
     private val tvServerStatus: TextView? = rootView.findViewById(R.id.tv_server_status)
     private val tvServerIp: TextView? = rootView.findViewById(R.id.tv_server_ip)
     private val btnServerToggle: Button? = rootView.findViewById(R.id.btn_server_toggle)
+    private val ivServerQr: ImageView? = rootView.findViewById(R.id.iv_server_qr)
+    private val tvServerHint: TextView? = rootView.findViewById(R.id.tv_server_hint)
 
     var isServerRunning = false
         private set
@@ -44,6 +47,9 @@ class WebServerController(
     private var webServer: Y1WebServer? = null
     private var serverWakeLock: PowerManager.WakeLock? = null
     private var serverWifiLock: WifiManager.WifiLock? = null
+
+    /** The address and colours of the QR code on the screen, so that [updateUI] draws it again only after a change. */
+    private var qrKey: String? = null
 
     init {
         // The focused button takes the centre press itself, so it must do the toggle
@@ -96,7 +102,7 @@ class WebServerController(
                 return
             }
 
-            webServer = Y1WebServer(activity.applicationContext, StoragePaths.getWebServerRoot())
+            webServer = Y1WebServer(activity.applicationContext)
             try {
                 webServer?.start()
                 isServerRunning = true
@@ -120,21 +126,65 @@ class WebServerController(
     }
 
     fun updateUI() {
+        var qrShown = false
         if (isServerRunning) {
             tvServerStatus?.text = localize("SERVER RUNNING")
             tvServerStatus?.setTextColor(ThemeManager.getTextColorPrimary())
             val ip = webServer?.getLocalIpAddress() ?: "127.0.0.1"
-            tvServerIp?.text = "http://$ip:8080"
+            val url = "http://$ip:8080"
+            tvServerIp?.text = url
             tvServerIp?.setTextColor(ThemeManager.getTextColorPrimary())
             btnServerToggle?.text = localize("STOP SERVER")
+            qrShown = showQr(if (isLanAddress(ip)) url else null)
         } else {
             tvServerStatus?.text = localize("SERVER STOPPED")
             tvServerStatus?.setTextColor(ThemeManager.getTextColorSecondary())
             tvServerIp?.text = "http://---.---.---.---:8080"
             tvServerIp?.setTextColor(ThemeManager.getTextColorSecondary())
             btnServerToggle?.text = localize("START SERVER")
+            showQr(null)
+        }
+        tvServerHint?.text = localize(
+            if (qrShown) "Scan the code with a phone, or open the address in a browser."
+            else "Open this address in a browser on your computer or phone."
+        )
+        tvServerHint?.setTextColor(ThemeManager.getTextColorSecondary())
+        // The button is narrower next to the QR code, so that both fit on the screen
+        btnServerToggle?.layoutParams?.let { params ->
+            val width = dp(if (qrShown) BUTTON_WIDTH_WITH_QR_DP else BUTTON_WIDTH_DP)
+            if (params.width != width) {
+                params.width = width
+                btnServerToggle.layoutParams = params
+            }
         }
     }
+
+    /** Shows the QR code of [url], or hides it for null. False when no code shows. */
+    private fun showQr(url: String?): Boolean {
+        val view = ivServerQr ?: return false
+        val colorA = ThemeManager.getTextColorPrimary()
+        val colorB = ThemeManager.getOverlayBackgroundColor()
+        val key = "$url $colorA $colorB"
+        if (url != null && key != qrKey) {
+            val bitmap = QrBitmap.create(url, dp(QR_MAX_SIZE_DP), colorA, colorB)
+            view.setImageBitmap(bitmap)
+            qrKey = if (bitmap != null) key else null
+        }
+        if (url == null || qrKey == null) {
+            view.visibility = View.GONE
+            view.setImageDrawable(null)
+            qrKey = null
+            return false
+        }
+        view.visibility = View.VISIBLE
+        return true
+    }
+
+    /** True for an IPv4 address that another device on the Wi-Fi can open (not 0.0.0.0 or 127.x.x.x). */
+    private fun isLanAddress(ip: String): Boolean =
+        ip.matches(Regex("\\d{1,3}(\\.\\d{1,3}){3}")) && ip != "0.0.0.0" && !ip.startsWith("127.")
+
+    private fun dp(value: Int): Int = (value * activity.resources.displayMetrics.density + 0.5f).toInt()
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
         if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER) {
@@ -152,5 +202,11 @@ class WebServerController(
             return true
         }
         return false
+    }
+
+    private companion object {
+        const val BUTTON_WIDTH_DP = 350
+        const val BUTTON_WIDTH_WITH_QR_DP = 240
+        const val QR_MAX_SIZE_DP = 170
     }
 }
