@@ -1035,8 +1035,6 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
 
     fun refreshNowPlayingPreview() {
         homeWidgetsController?.let { hwc ->
-            hwc.currentTrackTitle = tvPlayerTitle?.text?.toString() ?: ""
-            hwc.currentTrackArtist = tvPlayerArtist?.text?.toString() ?: ""
             hwc.lastAlbumArtBytes = lastAlbumArtBytes
             if (isAudiobookLibraryMode && lastAlbumArtBytes != null) {
                 hwc.setAudiobookCoverBytes(lastAlbumArtBytes)
@@ -1311,7 +1309,6 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
 
     fun onClockSettingsChanged() {
         updateStatusBarClock()
-        homeWidgetsController?.refreshWidgets()
     }
 
     fun isPaneBasedScreen(): Boolean {
@@ -1537,7 +1534,6 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
                 }
                 Intent.ACTION_TIME_TICK, Intent.ACTION_TIME_CHANGED, Intent.ACTION_TIMEZONE_CHANGED -> {
                     updateStatusBarClock()
-                    homeWidgetsController?.refreshWidgets()
                 }
                 Intent.ACTION_SHUTDOWN, "android.intent.action.QUICKBOOT_POWEROFF", "com.htc.intent.action.QUICKBOOT_POWEROFF" -> {
                     AudioPlayerManager.getInstance().savePlaybackState(sync = true)

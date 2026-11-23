@@ -21,11 +21,8 @@ import com.themoon.y1.R
 import com.themoon.y1.ThemeManager
 import com.themoon.y1.controllers.ScreenController
 import com.themoon.y1.navigation.ScreenState
-import com.themoon.y1.views.CircularBatteryView
 import com.themoon.y1.views.ClassicMenuStyle
-import com.themoon.y1.views.CustomAnalogClockView
 import com.themoon.y1.views.ClassyLists
-import com.themoon.y1.views.WidgetBatteryBarView
 import java.util.Locale
 import java.io.File
 import java.util.ArrayList
@@ -59,15 +56,6 @@ class MainMenuController(
     val widgetViewRegistry = HashMap<View, ThemeManager.MenuElement>()
 
     // References to dynamic widgets created during buildDynamicMainMenuUI
-    var tvWidgetClock: TextView? = null
-    var widgetBatteryView: WidgetBatteryBarView? = null
-    var layoutWidgetAlbumContainer: LinearLayout? = null
-    var ivWidgetAlbum: ImageView? = null
-    var tvWidgetAlbumTitle: TextView? = null
-    var tvWidgetAlbumArtist: TextView? = null
-    var customAnalogClockView: CustomAnalogClockView? = null
-    var customCircularBatteryView: CircularBatteryView? = null
-    var ivWidgetFocusImage: ImageView? = null
     var ivAnimatedCover: ImageView? = null
 
     // Exact scroll offset memory for pixel-perfect focus restoration
@@ -160,15 +148,6 @@ class MainMenuController(
             ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         )
 
-        tvWidgetClock = null
-        widgetBatteryView = null
-        layoutWidgetAlbumContainer = null
-        ivWidgetAlbum = null
-        tvWidgetAlbumTitle = null
-        tvWidgetAlbumArtist = null
-        customAnalogClockView = null
-        customCircularBatteryView = null
-        ivWidgetFocusImage = null
         ivAnimatedCover = null
 
         val elements = ClassyLists.menuElements(ThemeManager.menuElements, activity)
@@ -187,7 +166,7 @@ class MainMenuController(
 
         // 1. Build Widgets
         for (el in widgetElements) {
-            var widgetBg = createWidgetBackground(el.bgColor, el.radius)
+            val widgetBg = createWidgetBackground(el.bgColor, el.radius)
             val p = (el.padding * density).toInt()
             var createdWidgetView: View? = null
 
@@ -215,164 +194,6 @@ class MainMenuController(
                     canvas.addView(sv)
                     listContainers[el.id] = innerLayout
                     createdWidgetView = sv
-                }
-
-                "box" -> {
-                    val boxView = ImageView(activity).apply {
-                        layoutParams = createDynamicLayoutParams(el, density)
-                        if (widgetBg == null) widgetBg = createWidgetBackground("#00000000", el.radius)
-                        background = widgetBg
-                    }
-
-                    canvas.addView(boxView)
-                    createdWidgetView = boxView
-                }
-
-                "widget_clock" -> {
-                    val tvClock = TextView(activity).apply {
-                        gravity = Gravity.CENTER
-                        layoutParams = createDynamicLayoutParams(el, density)
-                        setTextColor(ThemeManager.getTextColorPrimary())
-                        typeface = ThemeManager.getCustomFontBold()
-                        val currentClockSize = if (el.textSize > 0) el.textSize.toFloat() else 48f
-                        setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, currentClockSize * density)
-                        if (widgetBg != null) background = widgetBg
-                        setPadding(p, p, p, p)
-                    }
-                    tvWidgetClock = tvClock
-                    canvas.addView(tvClock)
-                    createdWidgetView = tvClock
-                }
-
-                "widget_battery" -> {
-                    val batView = WidgetBatteryBarView(activity).apply {
-                        layoutParams = createDynamicLayoutParams(el, density)
-                        setPadding(p, p, p, p)
-                    }
-                    widgetBatteryView = batView
-                    canvas.addView(batView)
-                    createdWidgetView = batView
-                }
-
-                "widget_album" -> {
-                    val albumContainer = LinearLayout(activity)
-                    layoutWidgetAlbumContainer = albumContainer
-                    val isHorizontal = el.textPosition.equals("left", ignoreCase = true) ||
-                        el.textPosition.equals("right", ignoreCase = true)
-                    albumContainer.orientation = if (isHorizontal) LinearLayout.HORIZONTAL else LinearLayout.VERTICAL
-                    albumContainer.gravity = Gravity.CENTER
-                    albumContainer.layoutParams = createDynamicLayoutParams(el, density)
-                    if (widgetBg != null) albumContainer.background = widgetBg
-                    albumContainer.setPadding(p, p, p, p)
-
-                    val ivAlbum = ImageView(activity).apply {
-                        scaleType = ImageView.ScaleType.CENTER_CROP
-                    }
-                    ivWidgetAlbum = ivAlbum
-                    val pSubtract = el.padding * 2
-                    var imgSize = if (isHorizontal) ((el.height - pSubtract) * density).toInt()
-                    else ((el.height - pSubtract) * 0.65f * density).toInt()
-                    if (imgSize <= 0) imgSize = (110 * density).toInt()
-                    val imgLp = LinearLayout.LayoutParams(imgSize, imgSize)
-
-                    val textContainer = LinearLayout(activity).apply {
-                        orientation = LinearLayout.VERTICAL
-                    }
-                    val textGravity = if (el.textAlign.equals("left", ignoreCase = true)) Gravity.LEFT or Gravity.CENTER_VERTICAL
-                    else if (el.textAlign.equals("right", ignoreCase = true)) Gravity.RIGHT or Gravity.CENTER_VERTICAL
-                    else Gravity.CENTER
-                    textContainer.gravity = textGravity
-                    val textContainerLp = if (isHorizontal) LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.0f)
-                    else LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1.0f)
-
-                    val safeWidth = if (el.width > 0) (el.width * density).toInt() else (200 * density).toInt()
-                    var availableWidth = if (isHorizontal) safeWidth - imgSize - (15 * density).toInt() - (p * 2)
-                    else safeWidth - (p * 2)
-                    if (availableWidth <= 0) availableWidth = (150 * density).toInt()
-                    val textViewLp = LinearLayout.LayoutParams(availableWidth, ViewGroup.LayoutParams.WRAP_CONTENT)
-
-                    val tvTitle = TextView(activity).apply {
-                        layoutParams = textViewLp
-                        gravity = textGravity
-                        isSingleLine = true
-                        ellipsize = android.text.TextUtils.TruncateAt.END
-                        setTextColor(ThemeManager.getTextColorPrimary())
-                        typeface = ThemeManager.getCustomFontBold()
-                        textSize = if (el.textSize > 0) el.textSize.toFloat() else 16f
-                    }
-                    tvWidgetAlbumTitle = tvTitle
-                    textContainer.addView(tvTitle)
-
-                    val tvArtist = TextView(activity).apply {
-                        layoutParams = textViewLp
-                        gravity = textGravity
-                        isSingleLine = true
-                        ellipsize = android.text.TextUtils.TruncateAt.END
-                        setTextColor(ThemeManager.getTextColorSecondary())
-                        setTypeface(ThemeManager.getCustomFont(), Typeface.NORMAL)
-                        textSize = if (el.textSecondarySize > 0) el.textSecondarySize.toFloat() else 12f
-                    }
-                    tvWidgetAlbumArtist = tvArtist
-                    textContainer.addView(tvArtist)
-
-                    if (el.textPosition.equals("left", ignoreCase = true)) {
-                        imgLp.leftMargin = (15 * density).toInt()
-                        albumContainer.addView(textContainer, textContainerLp)
-                        albumContainer.addView(ivAlbum, imgLp)
-                    } else if (el.textPosition.equals("right", ignoreCase = true)) {
-                        textContainerLp.leftMargin = (15 * density).toInt()
-                        albumContainer.addView(ivAlbum, imgLp)
-                        albumContainer.addView(textContainer, textContainerLp)
-                    } else if (el.textPosition.equals("top", ignoreCase = true)) {
-                        textContainerLp.bottomMargin = (5 * density).toInt()
-                        albumContainer.addView(textContainer, textContainerLp)
-                        albumContainer.addView(ivAlbum, imgLp)
-                    } else {
-                        textContainerLp.topMargin = (5 * density).toInt()
-                        albumContainer.addView(ivAlbum, imgLp)
-                        albumContainer.addView(textContainer, textContainerLp)
-                    }
-
-                    canvas.addView(albumContainer)
-                    createdWidgetView = albumContainer
-                }
-
-                "widget_analog_clock" -> {
-                    val analogClock = CustomAnalogClockView(activity).apply {
-                        layoutParams = createDynamicLayoutParams(el, density)
-                        setPadding(p, p, p, p)
-                        if (!el.bgColor.isNullOrBlank()) {
-                            try {
-                                setClockBackgroundColor(android.graphics.Color.parseColor(el.bgColor.trim()))
-                            } catch (_: Exception) {}
-                        }
-                    }
-                    customAnalogClockView = analogClock
-                    canvas.addView(analogClock)
-                    createdWidgetView = analogClock
-                }
-
-                "widget_circular_battery" -> {
-                    val circularBat = CircularBatteryView(activity).apply {
-                        layoutParams = createDynamicLayoutParams(el, density)
-                        setPadding(p, p, p, p)
-                        if (el.textSize > 0) setCustomTextSize(el.textSize * density)
-                    }
-                    customCircularBatteryView = circularBat
-                    canvas.addView(circularBat)
-                    createdWidgetView = circularBat
-                }
-
-                "widget_focus_image" -> {
-                    val focusIv = ImageView(activity).apply {
-                        layoutParams = createDynamicLayoutParams(el, density)
-                        scaleType = ImageView.ScaleType.CENTER_CROP
-                        if (widgetBg != null) background = widgetBg
-                        setPadding(p, p, p, p)
-                    }
-                    ivWidgetFocusImage = focusIv
-                    canvas.addView(focusIv)
-                    createdWidgetView = focusIv
                 }
 
                 "widget_animated_cover" -> {
