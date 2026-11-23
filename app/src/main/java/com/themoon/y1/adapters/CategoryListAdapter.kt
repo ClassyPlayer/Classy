@@ -21,6 +21,7 @@ import com.themoon.y1.lists.ArtRow
 import com.themoon.y1.lists.RowTexts
 import com.themoon.y1.managers.AlbumCoverManager
 import com.themoon.y1.managers.AudioPlayerManager
+import com.themoon.y1.managers.LibrarySongs
 import com.themoon.y1.models.AlbumKey
 import com.themoon.y1.models.SongItem
 import com.themoon.y1.navigation.BrowserMode
@@ -325,7 +326,7 @@ class CategoryListAdapter(
     }
 
     private fun inTrackOrder(tracks: List<File>): ArrayList<File> = inTrackOrder(tracks, MainActivity.trackNumberMap) {
-        com.themoon.y1.managers.LibrarySongs.byPath(it.absolutePath)?.title ?: it.name
+        LibrarySongs.byPath(it.absolutePath)?.title ?: it.name
     }
 
     /**
