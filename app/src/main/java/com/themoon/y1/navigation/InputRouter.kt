@@ -47,8 +47,6 @@ class InputRouter private constructor() {
     // Hold-to-seek state (uptime ms): +1 forward, -1 back, 0 when not seeking
     private var seekDirection = 0
     private var seekStartMs = 0L
-    /** The cap counts from here, on this device's clock: an event time can be forged. */
-    private var seekStartLocalMs = 0L
     private var lastSeekTickMs = 0L
     private var lastSkipRepeatMs = 0L
     /** Screen off: Android sends one long-press and then the key-up, no repeats, so the key-up ends the seek. */
@@ -58,7 +56,7 @@ class InputRouter private constructor() {
         override fun run() {
             if (seekDirection == 0) return
             val now = SystemClock.uptimeMillis()
-            if (seekTimedOut(now, lastSkipRepeatMs, seekStartLocalMs, seekWaitsForKeyUp)) {
+            if (seekTimedOut(now, lastSkipRepeatMs, seekStartMs, seekWaitsForKeyUp)) {
                 // No key repeats any more (or too long without the key-up), so the key-up went elsewhere
                 stopSeek()
                 return
@@ -386,16 +384,19 @@ class InputRouter private constructor() {
                 keyCode == KeyEvent.KEYCODE_MEDIA_PREVIOUS || keyCode == 88
     }
 
-    /** The skip key whose press the screen-off receiver passed on: its repeat and release are passed on too, others are ignored. */
-    @Volatile
+    /**
+     * The skip key whose press the screen-off receiver passed on: its repeat and release are passed on too, others
+     * are ignored. Main thread only.
+     */
     private var screenOffSkipKey = 0
 
     /**
      * Screen off, from the media-button receiver. A second path exists next to [onKeyEvent]'s screen-off branch
      * because that one only runs when the activity gets the key; a media button (car, Bluetooth, wired remote) with
-     * the screen off arrives as a broadcast. The broadcast has no key repeats, so the release ends a hold ([onSkipKeyDown] with waitForKeyUp). A press that began
-     * with the screen on already acted, and a repeat or release without a press seen here is ignored. The event time
-     * can be forged, so the seek runs on this device's clock.
+     * the screen off arrives as a broadcast. The broadcast has no key repeats, so the release ends a hold
+     * ([onSkipKeyDown] with waitForKeyUp). A press that began with the screen on already acted, and a repeat or
+     * release without a press seen here is ignored. The event time can be forged, so the seek runs on this
+     * device's clock.
      */
     fun onScreenOffSkipKey(event: KeyEvent) {
         if (event.action == KeyEvent.ACTION_DOWN) {
@@ -404,7 +405,6 @@ class InputRouter private constructor() {
                 onSkipKeyDown(event.keyCode, event.repeatCount, SystemClock.uptimeMillis(), waitForKeyUp = true)
             }
         } else if (event.action == KeyEvent.ACTION_UP && screenOffSkipKey == event.keyCode) {
-            screenOffSkipKey = 0
             onSkipKeyUp(event.keyCode, event.eventTime - event.downTime)
         }
     }
@@ -428,7 +428,6 @@ class InputRouter private constructor() {
         seekDirection = if (keyCode == KeyEvent.KEYCODE_MEDIA_NEXT || keyCode == 87) 1 else -1
         seekWaitsForKeyUp = waitForKeyUp
         seekStartMs = eventTimeMs
-        seekStartLocalMs = SystemClock.uptimeMillis()
         lastSeekTickMs = eventTimeMs - SEEK_TICK_MS
         // One click when the seek starts; a click on every tick would buzz
         MainActivity.instance?.clickFeedback()
@@ -471,6 +470,8 @@ class InputRouter private constructor() {
      * as a hold even if a controller (e.g. FM radio station seek) consumed the key repeats. Returns true if it skipped.
      */
     internal fun onSkipKeyUp(keyCode: Int, heldMs: Long): Boolean {
+        // Also a release that came to the activity (the screen came on during the hold): a later press starts clean
+        screenOffSkipKey = 0
         stopSeek()
         if (isSkipKeyHeld || heldMs >= SKIP_KEY_HOLD_MS) {
             return false

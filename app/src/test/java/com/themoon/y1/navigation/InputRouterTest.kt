@@ -181,7 +181,7 @@ class InputRouterTest {
         // Screen on: repeats come all the time, so 1 s without one means the key-up was lost
         assertFalse(InputRouter.seekTimedOut(nowMs = 1_900L, lastRepeatMs = 1_000L, seekStartMs = 0L, waitForKeyUp = false))
         assertTrue(InputRouter.seekTimedOut(nowMs = 2_100L, lastRepeatMs = 1_000L, seekStartMs = 0L, waitForKeyUp = false))
-        // Screen off: Android sends one long-press and then the key-up, no repeats; only a 30 s cap
+        // Screen off: Android sends one long-press and then the key-up, no repeats; only a 5 min cap
         assertFalse(InputRouter.seekTimedOut(nowMs = 299_000L, lastRepeatMs = 500L, seekStartMs = 500L, waitForKeyUp = true))
         assertTrue(InputRouter.seekTimedOut(nowMs = 301_000L, lastRepeatMs = 500L, seekStartMs = 500L, waitForKeyUp = true))
     }
