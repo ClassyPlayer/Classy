@@ -177,6 +177,15 @@ class WebDavClientTest {
     }
 
     @Test
+    fun anAbsoluteHrefOfTheServerBecomesItsPath() {
+        val c = WebDavClient("https://nas.example:5006/dav/", "u", "p", null)
+        assertEquals("/dav/Rock/a%20b.flac", c.pathHref("https://nas.example:5006/dav/Rock/a%20b.flac"))
+        assertEquals("/dav/Rock/", c.pathHref("/dav/Rock/"))
+        assertRefused { c.pathHref("https://evil.example/dav/Rock/a.flac") }
+        assertRefused { c.pathHref("http://nas.example:5006/dav/a.flac") }
+    }
+
+    @Test
     fun theDefaultPortIsTheSameServer() {
         val c = WebDavClient("https://nas.example/dav/", "u", "p", null)
         assertEquals("https://NAS.example:443/dav/a", c.urlFor("https://NAS.example:443/dav/a"))

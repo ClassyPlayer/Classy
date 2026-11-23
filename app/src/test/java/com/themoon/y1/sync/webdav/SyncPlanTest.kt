@@ -103,6 +103,17 @@ class SyncPlanTest {
     }
 
     @Test
+    fun namesThatDifferOnlyInCaseShareAFatFile() {
+        val a = "/music/Rock/Track.flac"
+        val b = "/music/Rock/track.flac"
+        val p = SyncPlan.build(mapOf(rock to listOf(file(a), file(b))), emptyMap(), setOf(rock), root, base, safeNames = true) { true }
+        assertEquals(1, p.downloads.size)
+        // and on a file system that tells them apart, both are downloaded
+        val q = SyncPlan.build(mapOf(rock to listOf(file(a), file(b))), emptyMap(), setOf(rock), root, base, safeNames = false) { true }
+        assertEquals(2, q.downloads.size)
+    }
+
+    @Test
     fun aFileOfAnUntickedFolderThatAKeptFolderSharesIsNotRemoved() {
         val kept = "/music/A?/a.flac"
         val dropped = "/music/A:/a.flac"

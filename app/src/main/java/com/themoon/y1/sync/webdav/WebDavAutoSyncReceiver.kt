@@ -32,8 +32,8 @@ class WebDavAutoSyncReceiver : BroadcastReceiver() {
             override fun onDone(changed: Boolean) {
                 if (changed) app.sendBroadcast(Intent(WebDavSync.ACTION_SYNCED).setPackage(app.packageName))
             }
-            override fun onError(e: Throwable) {
-                if (sync.changedByRun) app.sendBroadcast(Intent(WebDavSync.ACTION_SYNCED).setPackage(app.packageName))
+            override fun onError(e: Throwable, changed: Boolean) {
+                if (changed) app.sendBroadcast(Intent(WebDavSync.ACTION_SYNCED).setPackage(app.packageName))
             }
         })
     }

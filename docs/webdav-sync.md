@@ -126,8 +126,8 @@ On a FAT card (the SD card), characters that FAT does not take (`< > : " | ? * \
   it was.
 - Auth is HTTP Basic, sent with every request. `urlFor(href)` refuses an absolute href that names another host, so
   the password is never sent to a server the user did not enter.
-- A redirect must stay on that server too (a network interceptor checks scheme, host and port at each hop), and a
-  relative href must be a path starting with `/`. An absolute href of this server is turned into its path when the listing
+- Redirects are not followed: a 3xx answer is an error (`HTTP 301`), so no request, and no password, goes to another
+  host. A relative href must be a path starting with `/`. An absolute href of this server is turned into its path when the listing
   is read, so the ledger key and the folder hrefs are always paths.
 - hrefs are compared percent-encoded; `decodeHref` decodes each segment as UTF-8 (`+` stays `+`).
 - Timeouts: 10 s connect, 30 s read.

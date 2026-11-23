@@ -28,8 +28,8 @@ internal fun replaceFile(part: File, target: File) {
     if (part.renameTo(target)) return
     if (!target.exists()) throw IOException("Cannot write ${target.name}")
     // A file system that cannot rename over a file (FAT): move the old file aside, and put it back if the new one fails
-    val old = File(target.path + ".old")
-    old.delete()
+    // A name that is free: a ".old" that is already there may be the old file of an earlier failed rollback
+    val old = generateSequence(0) { it + 1 }.map { File(target.path + if (it == 0) ".old" else ".old$it") }.first { !it.exists() }
     if (!target.renameTo(old)) throw IOException("Cannot replace ${target.name}")
     if (part.renameTo(target)) {
         old.delete()
@@ -141,13 +141,9 @@ class WebDavClient(
     private val http: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(10, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
-        // A redirect stays on the server that the user entered: the file it leads to is as trusted as the password it gets
-        .addNetworkInterceptor { chain ->
-            val u = chain.request().url()
-            val to = URI(u.scheme() + "://" + u.host() + ":" + u.port())
-            if (!sameServer(to, baseUri)) throw IOException("The server sent a link to another host")
-            chain.proceed(chain.request())
-        }
+        // No redirects: a server that answers one is an error (HTTP 301...), not a link to follow to another host
+        .followRedirects(false)
+        .followSslRedirects(false)
         .apply {
             if (trust != null) {
                 val ctx = SSLContext.getInstance("TLS")
@@ -177,7 +173,7 @@ class WebDavClient(
     }
 
     /** An absolute href of this server as its path (the ledger key and the folder hrefs are paths); another host is refused. */
-    private fun pathHref(href: String): String {
+    internal fun pathHref(href: String): String {
         if (!href.startsWith("http://") && !href.startsWith("https://")) return href
         urlFor(href)
         return URI(href).rawPath ?: "/"

@@ -209,15 +209,17 @@ class WebDavUiController(
     }
 
     /** The certificate to trust, or the one-line error of [e]. */
-    private fun showError(e: Throwable) {
-        if (!handleCert(e)) Notice.error(activity, errorText(e, localize))
+    private fun showError(e: Throwable, url: String = provider.url) {
+        if (!handleCert(e, url)) Notice.error(activity, errorText(e, localize))
     }
 
     /** Remembers a certificate to trust and shows it on the settings; true when [e] was that. */
-    private fun handleCert(e: Throwable): Boolean {
+    private fun handleCert(e: Throwable, url: String): Boolean {
         val cert = findCertNotTrusted(e) ?: return false
+        // The fingerprint is of the server that [url] named when the request began: a URL that changed meanwhile is another server
+        if (url != provider.url) return true
         pendingFingerprint = cert.fingerprint
-        pendingFor = provider.url
+        pendingFor = url
         Notice.error(activity, localize("Check the certificate fingerprint, then Trust Certificate."))
         refresh()
         return true
@@ -227,9 +229,10 @@ class WebDavUiController(
         if (!isNetworkConnected()) return onRequestWifi()
         val key = ActionScreens.open(ActionScreens.Spec(localize("Test Connection"), listOf(localize("Connecting..."))))
         val url = provider.url
+        val client = provider.client() // with the URL: both are of one configuration
         Thread {
             val error = try {
-                provider.client().let { it.list(it.rootHref) }
+                client.let { it.list(it.rootHref) }
                 null
             } catch (e: Exception) {
                 e
@@ -239,7 +242,7 @@ class WebDavUiController(
                 if (provider.url != url) return@runOnUiThread // the URL changed meanwhile: this answer is of another server
                 when {
                     error == null -> Notice.show(activity, localize("Connected"))
-                    else -> showError(error)
+                    else -> showError(error, url)
                 }
             }
         }.start()
@@ -279,11 +282,12 @@ class WebDavUiController(
     private fun loadFolder(href: String) {
         dropListingsOfOtherServer()
         val url = provider.url
+        val client = provider.client()
         val shown = folders[href] != null
         if (!shown) folders[href] = null
         Thread {
             val result = try {
-                Result.success(provider.client().list(href).sortedWith(compareBy({ !it.isDir }, { decodeHref(it.href).lowercase() })))
+                Result.success(client.list(href).sortedWith(compareBy({ !it.isDir }, { decodeHref(it.href).lowercase() })))
             } catch (e: Exception) {
                 Result.failure(e)
             }
@@ -292,11 +296,11 @@ class WebDavUiController(
                 result.onSuccess { folders[href] = it; refresh() }
                 result.onFailure { e ->
                     if (shown) { // a refresh: keep the last listing on screen
-                        showError(e)
+                        showError(e, url)
                         return@runOnUiThread
                     }
                     folders.remove(href)
-                    showError(e)
+                    showError(e, url)
                     // Only if the user is still on this folder: it has nothing to show
                     if (shownLevel == WebDavLevel.Folders(href)) NavigationManager.getInstance().popBackStack()
                 }
@@ -372,6 +376,7 @@ class WebDavUiController(
             listOf(localize(if (move) "Moving..." else "Syncing...")),
             onCancel = { sync.cancel() }
         ))
+        val syncUrl = provider.url // a certificate error is of this server, also if the URL is changed before it arrives
         var lastUpdate = 0L
         var lastDone = 0L
         var speed = 0.0
@@ -407,11 +412,11 @@ class WebDavUiController(
                 refresh()
             }
 
-            override fun onError(e: Throwable) {
+            override fun onError(e: Throwable, changed: Boolean) {
                 ActionScreens.close(key)
-                if (sync.changedByRun) onSyncFinished() // files were downloaded, deleted or moved before it stopped
+                if (changed) onSyncFinished() // files were downloaded, deleted or moved before it stopped
                 if (e is CancellationException) return
-                showError(e)
+                showError(e, syncUrl)
                 refresh()
             }
         }

@@ -31,7 +31,8 @@ class WebDavSync private constructor(context: Context) {
         /** The sync lists the NAS folder [folder]. */
         fun onListing(folder: String) {}
         fun onDone(changed: Boolean)
-        fun onError(e: Throwable)
+        /** [changed]: the run had downloaded, deleted or moved files before it stopped (the library needs a rescan). */
+        fun onError(e: Throwable, changed: Boolean)
     }
 
     private val ctx = context.applicationContext
@@ -64,10 +65,9 @@ class WebDavSync private constructor(context: Context) {
     @Volatile
     private var cancelled = false
 
-    /** True when the last run already downloaded, deleted or moved files, also if it then failed: the library needs a rescan. */
+    /** Set by the run on the sync thread: whether it changed files. A run that fails hands it to its own onError. */
     @Volatile
-    var changedByRun = false
-        private set
+    private var changedByRun = false
 
     /** Music on the storage the user picked (Save To), not the generic sync root. */
     fun destRoot(onSd: Boolean = WebDavSyncProvider.getInstance(ctx).onSdCard): File =
@@ -97,7 +97,8 @@ class WebDavSync private constructor(context: Context) {
                 main.post { listener.onDone(changed) }
             } catch (e: Throwable) {
                 Log.w(TAG, "Sync failed: ${e.message}")
-                main.post { listener.onError(e) }
+                val changed = changedByRun // read here: a next run can reset it before this callback runs
+                main.post { listener.onError(e, changed) }
             } finally {
                 isRunning = false
                 try { if (wifi?.isHeld == true) wifi.release() } catch (_: Exception) {}

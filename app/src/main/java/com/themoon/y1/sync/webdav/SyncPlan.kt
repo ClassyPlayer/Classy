@@ -80,11 +80,12 @@ object SyncPlan {
                 if (e.isDir) continue
                 val target = localFileFor(e.href, baseHref, destRoot, safeNames) ?: continue
                 seen.add(e.href)
-                targets.add(target.path)
+                val key = if (safeNames) target.path.lowercase() else target.path // FAT does not tell Track.flac from track.flac
+                targets.add(key)
                 val item = ledger[e.href]
                 // A recorded path that is not this target (the storage changed): the version is of another copy
                 if (item == null || item.localPath != target.path || !exists(target) || changed(e, item)) {
-                    if (planned.add(target.path)) downloads.add(Download(e, folder, target))
+                    if (planned.add(key)) downloads.add(Download(e, folder, target))
                 } else if (item.orphaned) {
                     unorphan.add(e.href)
                 }
@@ -95,7 +96,7 @@ object SyncPlan {
         fun covering(href: String) = ticked.firstOrNull { isUnder(href, it) }
         val gone = ledger.values.filter { it.jellyfinId !in seen }
         val orphan = gone.filter { !it.orphaned && covering(it.jellyfinId)?.let { f -> f in remote.keys } == true }.map { it.jellyfinId }
-        val remove = gone.filter { covering(it.jellyfinId) == null && it.localPath !in targets }.map { it.jellyfinId }
+        val remove = gone.filter { covering(it.jellyfinId) == null && (if (safeNames) it.localPath?.lowercase() else it.localPath) !in targets }.map { it.jellyfinId }
 
         return Plan(downloads, orphan, unorphan, remove, downloads.sumOf { maxOf(it.entry.size, 0L) })
     }
