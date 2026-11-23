@@ -331,12 +331,6 @@ internal fun MainActivity.applyThemeInternal() {
         updateStatusBarPlayOn()
 
         try {
-            (layoutSettingsMode as? android.view.ViewGroup)?.let { vg ->
-                (vg.getChildAt(0) as? android.widget.TextView)?.apply {
-                    text = t("Settings")
-                    setTextColor(primary)
-                }
-            }
             (layoutBluetoothMode as? android.view.ViewGroup)?.let { vg ->
                 (vg.getChildAt(0) as? android.widget.TextView)?.apply {
                     text = t("Bluetooth")

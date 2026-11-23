@@ -94,6 +94,7 @@ internal fun MainActivity.initControllers() {
         ivMainMenuCover = findViewById(R.id.iv_main_menu_cover),
         ivBrowserCover = findViewById(R.id.iv_browser_cover),
         frameBrowserCover = findViewById(R.id.frame_browser_cover),
+        ivSettingsCover = findViewById(R.id.iv_settings_cover),
         fetchRandomIdleCoverAsync = { fetchRandomIdleCoverAsync() },
         isAudiobookMode = {
             isAudiobookLibraryMode || (isBrowserControllerInitialized() && (browserController.isAudiobookLibraryMode || browserController.currentBrowserMode is BrowserMode.Audiobooks))
@@ -540,7 +541,8 @@ internal fun MainActivity.initControllers() {
             AudioPlayerManager.getInstance().setRepeatMode(mode)
             updatePlayerUI()
         },
-        localize = { t(it) }
+        localize = { t(it) },
+        onShowPane = { homeWidgetsController?.refreshWidgets() }
     )
 
     NavigationManager.getInstance().apply {

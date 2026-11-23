@@ -1323,6 +1323,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
             STATE_BROWSER -> ::browserController.isInitialized && browserController.isCoverPaneActive()
             STATE_VIDEOS -> ::videoBrowserController.isInitialized && videoBrowserController.isCoverPaneActive()
             STATE_PHOTOS -> ::photosController.isInitialized && photosController.isPaneShown
+            STATE_SETTINGS -> ::settingsController.isInitialized && settingsController.isPaneShown
             else -> false
         }
     }
