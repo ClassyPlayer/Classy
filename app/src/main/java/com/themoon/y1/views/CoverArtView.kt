@@ -6,6 +6,7 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
+import android.os.SystemClock
 import android.util.AttributeSet
 import android.view.Choreographer
 import android.view.View
@@ -34,6 +35,7 @@ class CoverArtView @JvmOverloads constructor(
     private var fadeStart = 0L
     private var fadePaint: Paint? = null
     private var frameQueued = false
+    private var frameDueMs = 0L // uptime of the queued frame
     private var frameCallback: Choreographer.FrameCallback? = null
 
     // The last frame of the motion (for the frame pacing): its time (-1 = none), pose and delay to the next frame.
@@ -219,13 +221,19 @@ class CoverArtView @JvmOverloads constructor(
         return paceDelay
     }
 
+    /** Queues the next frame in [delayMs]; a frame that is already queued for a later time (slow motion) comes sooner. */
     private fun queueFrame(delayMs: Long) {
-        if (frameQueued) return
+        val due = SystemClock.uptimeMillis() + delayMs
         val cb = frameCallback ?: Choreographer.FrameCallback {
             frameQueued = false
             if (isShown) invalidate()
         }.also { frameCallback = it }
+        if (frameQueued) {
+            if (due >= frameDueMs) return
+            Choreographer.getInstance().removeFrameCallback(cb) // for example new art: the fade starts now
+        }
         frameQueued = true
+        frameDueMs = due
         Choreographer.getInstance().postFrameCallbackDelayed(cb, delayMs)
     }
 
