@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.drawable.BitmapDrawable
+import android.graphics.drawable.Drawable
 import android.util.AttributeSet
 import android.view.Choreographer
 import android.view.View
@@ -15,7 +16,9 @@ import android.widget.ImageView
  * The art of a split-screen pane ([CoverPane]). It fills the pane and draws the art with CENTER_CROP, a zoom and
  * an offset from the motion that all panes share ([CoverPane.motion]), so the art does not jump when a menu opens
  * or closes. Each frame changes only the canvas transform of one bitmap draw (no new bitmap), and the next frame
- * comes only after a frame was drawn: a hidden pane or a screen that does not draw stops the motion. When the art
+ * comes only after a frame was drawn: a hidden pane or a screen that does not draw stops the motion. On the Y2
+ * each frame draws the full window again, so a frame comes only when the art has moved a part of a pixel
+ * ([CoverMotion.STEP_PX], [CoverMotion.frameDelay]), not at a fixed rate. When the art
  * is different from the art of the last frame (other menu, other song), the old art fades out over the new art
  * ([CoverPane.FADE_MS]; one more bitmap draw during the fade only). The menu shadow ([CoverPane.drawShadow]) is
  * drawn last, over the art.
@@ -33,6 +36,13 @@ class CoverArtView @JvmOverloads constructor(
     private var frameQueued = false
     private var frameCallback: Choreographer.FrameCallback? = null
 
+    // The last frame of the motion (for the frame pacing): its time (-1 = none), pose and delay to the next frame.
+    private var paceMs = -1L
+    private var paceX = 0f
+    private var paceY = 0f
+    private var paceZoom = 0f
+    private var paceDelay = CoverPane.FRAME_DELAY_MS
+
     /**
      * The art layer of a menu slide ([MenuSlide]): the pane starts [artLeft] px right of the left edge of this
      * view, and the art also fills the part on its left (under the list pane). No menu shadow. Not a pane of
@@ -46,6 +56,11 @@ class CoverArtView @JvmOverloads constructor(
 
     init {
         scaleType = ScaleType.CENTER_CROP
+    }
+
+    private companion object {
+        /** Draws closer than this are in the same display refresh: no speed from them. */
+        const val MIN_PACE_INTERVAL_MS = 8L
     }
 
     override fun onAttachedToWindow() {
@@ -158,7 +173,10 @@ class CoverArtView @JvmOverloads constructor(
                 fading = true
             }
         }
-        if (moving || fading) queueFrame()
+        if (moving || fading) {
+            queueFrame(if (moving && !fading && !slideLayer) paceNext(now, d, w, h, x, y, zoom) else CoverPane.FRAME_DELAY_MS)
+        }
+        if (!moving || fading || slideLayer) paceMs = -1L
         // Over the art and outside its motion: the shadow stays at the menu edge.
         if (!slideLayer) CoverPane.drawShadow(canvas, resources.displayMetrics.density, h)
     }
@@ -180,18 +198,40 @@ class CoverArtView @JvmOverloads constructor(
         canvas.translate(-w / 2f, -h / 2f)
     }
 
-    private fun queueFrame() {
+    /** The delay to the next frame of the motion, from the move of the art since the last frame. */
+    private fun paceNext(now: Long, d: Drawable, w: Int, h: Int, x: Float, y: Float, zoom: Float): Long {
+        val interval = now - paceMs
+        // Two draws in one display refresh (another change of the view): keep the delay.
+        if (paceMs >= 0L && interval < MIN_PACE_INTERVAL_MS) return paceDelay
+        paceDelay = if (paceMs < 0L) {
+            CoverPane.FRAME_DELAY_MS
+        } else {
+            val step = CoverMotion.stepPx(
+                d.intrinsicWidth.toFloat(), d.intrinsicHeight.toFloat(), w.toFloat(), h.toFloat(),
+                paceX, paceY, paceZoom, x, y, zoom
+            )
+            CoverMotion.frameDelay(step, interval)
+        }
+        paceMs = now
+        paceX = x
+        paceY = y
+        paceZoom = zoom
+        return paceDelay
+    }
+
+    private fun queueFrame(delayMs: Long) {
         if (frameQueued) return
         val cb = frameCallback ?: Choreographer.FrameCallback {
             frameQueued = false
             if (isShown) invalidate()
         }.also { frameCallback = it }
         frameQueued = true
-        Choreographer.getInstance().postFrameCallbackDelayed(cb, CoverPane.FRAME_DELAY_MS)
+        Choreographer.getInstance().postFrameCallbackDelayed(cb, delayMs)
     }
 
     private fun cancelFrame() {
         fadeFrom = null
+        paceMs = -1L
         CoverPane.motion.pause()
         val cb = frameCallback ?: return
         if (frameQueued) Choreographer.getInstance().removeFrameCallback(cb)

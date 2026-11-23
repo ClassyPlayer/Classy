@@ -38,9 +38,10 @@ object CoverPane {
     const val DEFAULT_ON = true
 
     /**
-     * Delay before the next frame: the frame then comes at about every third display refresh (~21 fps). The Y2
-     * draws the full screen for each frame (~8 ms on its CPU), so fewer frames save battery; the motion is slow
-     * (~5 px/s), so 21 fps is smooth.
+     * Delay before the next frame of a fade, of a slide layer, and of the first frame of the motion: the frame then
+     * comes at about every third display refresh (~21 fps). Other frames of the motion come when the art has moved
+     * a part of a pixel ([CoverMotion.frameDelay]): the Y2 draws the full window for each frame (~12 ms of CPU
+     * with SurfaceFlinger), so fewer frames save battery.
      */
     const val FRAME_DELAY_MS = 33L
 
