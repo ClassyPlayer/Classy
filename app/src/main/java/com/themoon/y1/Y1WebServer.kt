@@ -266,9 +266,10 @@ class Y1WebServer @JvmOverloads constructor(
                             "</div></div>" +
                             "<script>" +
                             "const nativeFetch = window.fetch.bind(window); window.fetch = (url, options) => nativeFetch(url, options).then(r => { if (!r.ok) { document.getElementById('status').textContent = 'Request failed (' + r.status + ')'; throw Error('Request failed'); } return r; });" +
-                            "let currentPath = '';" +
+                            "let currentPath = ''; let shownPath = '';" +
                             "function loadList() {" +
                             " fetch('/api/list?dir=' + encodeURIComponent(currentPath)).then(r=>{if(!r.ok) throw Error('Cannot load folder'); return r.json();}).then(data=>{" +
+                            " shownPath = currentPath;" +
                             " document.getElementById('currentPathText').textContent='/' + currentPath;" +
                             " document.getElementById('writeTools').style.display=currentPath?'':'none';" +
                             " document.getElementById('topHint').style.display=currentPath?'none':'';" +
@@ -290,7 +291,9 @@ class Y1WebServer @JvmOverloads constructor(
                             " if(!f.storage) {button(row,'Rename',e=>renameItem(e,f.name)); button(row,'Delete',e=>deleteItem(e,f.name));}" +
                             " list.appendChild(row);" +
                             " });" +
-                            " }).catch(e=>{document.getElementById('status').textContent=e.message;});" +
+                            " }).catch(e=>{document.getElementById('status').textContent=e.message;" +
+                            // A storage that cannot be opened (no card): back to the top level; else stay in the folder on the screen
+                            " if(currentPath && currentPath.indexOf('/')<0) {currentPath=''; loadList();} else currentPath=shownPath;});" +
                             "}" +
                             "function goInto(dirName) { currentPath = currentPath ? currentPath + '/' + dirName : dirName; loadList(); }" +
                             "function goUp() { let parts = currentPath.split('/'); parts.pop(); currentPath = parts.join('/'); loadList(); }" +
@@ -337,22 +340,23 @@ class Y1WebServer @JvmOverloads constructor(
                             "async function uploadAll(droppedFiles) { " +
                             "  var files = droppedFiles || document.getElementById('fInput').files; var st = document.getElementById('status'); " +
                             "  if(files.length === 0 || !currentPath) return;" +
+                            "  const dir = currentPath;" +
                             "  for(var i=0; i<files.length; i++) { " +
                             "    st.innerText = 'Uploading: ' + files[i].name + ' (' + (i+1) + '/' + files.length + ')'; " +
-                            "    await fetch('/api/upload?dir=' + encodeURIComponent(currentPath) + '&name=' + encodeURIComponent(files[i].name), {method:'POST', body:files[i]}); " +
+                            "    await fetch('/api/upload?dir=' + encodeURIComponent(dir) + '&name=' + encodeURIComponent(files[i].name), {method:'POST', body:files[i]}); " +
                             "  } " +
                             "  st.innerText = '✅ Upload Complete!'; document.getElementById('fInput').value=''; loadList();" +
                             "}" +
-                            "async function uploadFolderItems(fileList) { " +
+                            "async function uploadFolderItems(fileList, baseDir) { " +
                             "  var st = document.getElementById('status'); " +
                             "  for(var i=0; i<fileList.length; i++) { " +
                             "    let item = fileList[i]; " +
                             "    let displayPath = item.path ? item.path + item.file.name : item.file.name; " +
                             "    st.innerText = 'Uploading: ' + displayPath + ' (' + (i+1) + '/' + fileList.length + ')'; " +
-                            "    let targetDir = currentPath; " +
+                            "    let targetDir = baseDir; " +
                             "    if(item.path) { " +
                             "       let subDir = item.path.replace(/\\/$/, ''); " +
-                            "       targetDir = currentPath ? currentPath + '/' + subDir : subDir; " +
+                            "       targetDir = baseDir + '/' + subDir; " +
                             "    } " +
                             "    await fetch('/api/upload?dir=' + encodeURIComponent(targetDir) + '&name=' + encodeURIComponent(item.file.name), {method:'POST', body:item.file}); " +
                             "  } " +
@@ -364,6 +368,7 @@ class Y1WebServer @JvmOverloads constructor(
                             "dropZone.addEventListener('drop', function(e) { " +
                             "  e.preventDefault(); dropZone.classList.remove('dragover'); " +
                             "  if(!currentPath) { document.getElementById('status').innerText = 'Open a storage folder first.'; return; } " +
+                            "  const baseDir = currentPath; " +
                             "  let items = e.dataTransfer.items; " +
                             "  if(!items) { if(e.dataTransfer.files.length > 0) uploadAll(e.dataTransfer.files); return; } " +
                             "  document.getElementById('status').innerText = 'Scanning dropped items...'; " +
@@ -385,7 +390,7 @@ class Y1WebServer @JvmOverloads constructor(
                             "  } " +
                             "  function checkDone() { " +
                             "    if(pending === 0) { " +
-                            "      if(filesToUpload.length > 0) uploadFolderItems(filesToUpload); " +
+                            "      if(filesToUpload.length > 0) uploadFolderItems(filesToUpload, baseDir); " +
                             "      else document.getElementById('status').innerText = 'No files found.'; " +
                             "    } " +
                             "  } " +
