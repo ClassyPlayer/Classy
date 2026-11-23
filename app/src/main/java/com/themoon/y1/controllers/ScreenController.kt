@@ -4,6 +4,7 @@ import android.view.KeyEvent
 import android.view.ViewGroup
 import com.themoon.y1.navigation.RowKey
 import com.themoon.y1.navigation.ScreenState
+import com.themoon.y1.navigation.WheelKind
 import com.themoon.y1.views.ListRows
 
 /**
@@ -38,6 +39,15 @@ interface ScreenController {
 
     fun dispatchKeyEvent(event: KeyEvent): Boolean = false
     fun onWheel(delta: Int, event: KeyEvent): Boolean = false
+
+    /**
+     * What a wheel turn moves on this screen now: the Y2 pad wheel ([com.themoon.y1.navigation.PadWheel]) gives the
+     * Wheel Mode rate to a list, and 10 steps a turn to a value or letters. Asked before each pad-wheel step.
+     */
+    fun wheelKind(): WheelKind = WheelKind.LIST
+
+    /** The thumb touched ([isTouching]) or left the Y2 pad wheel at [timeMs] (uptime): letter mode ends after a lift. */
+    fun onWheelTouch(isTouching: Boolean, timeMs: Long) {}
     fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean = false
     fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean = false
     fun onKeyLongPress(keyCode: Int, event: KeyEvent): Boolean = false

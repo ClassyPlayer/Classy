@@ -49,7 +49,7 @@ object ClassyNowPlaying {
     // Repeat One and Repeat All have different icons. The mode is stored in AppPrefs; older
     // Now Playing code also writes it to y1_settings, so both are watched.
     private val repeatListener = SharedPreferences.OnSharedPreferenceChangeListener { prefs, key ->
-        if (key == Prefs.REPEAT_MODE.key && L.isActive) {
+        if (key == Prefs.REPEAT_MODE.key) {
             repeatIcon?.get()?.let {
                 setModeIcon(it, repeatGlyph(Prefs.REPEAT_MODE.get(prefs)), it.resources.displayMetrics.density)
             }
@@ -65,7 +65,7 @@ object ClassyNowPlaying {
         val textColumn = title.parent as? LinearLayout ?: return
 
         val side = px(M.ART_SIZE, d)
-        L.setLinearGravity(content, Gravity.TOP or Gravity.LEFT, Gravity.CENTER_VERTICAL)
+        content.gravity = Gravity.TOP or Gravity.LEFT
         L.setPadding(content, px(M.ART_LEFT, d), px(M.ART_TOP, d), px(M.TEXT_RIGHT_PADDING, d), 0)
         L.setMargins(artColumn, top = 0, right = px(M.TEXT_LEFT - M.ART_LEFT - M.ART_SIZE, d))
         L.setWidth(art, side)
@@ -91,7 +91,7 @@ object ClassyNowPlaying {
             textColumn.viewTreeObserver.addOnGlobalLayoutListener(ViewTreeObserver.OnGlobalLayoutListener {
                 val column = ref.get() ?: return@OnGlobalLayoutListener
                 // The listener runs at each layout of the window; Now Playing needs it only while it shows
-                if (column.isShown && L.isActive) layoutText(column, column.resources.displayMetrics.density)
+                if (column.isShown) layoutText(column, column.resources.displayMetrics.density)
             })
         }
 
@@ -109,7 +109,6 @@ object ClassyNowPlaying {
         val pivots = listOf(art to side / 2f, reflection to -(side / 2f))
         for ((v, pivotY) in pivots) {
             if (v == null) continue
-            recordTransform(v)
             if (tiltOn) {
                 v.pivotX = 0f
                 v.pivotY = pivotY
@@ -122,20 +121,6 @@ object ClassyNowPlaying {
                 v.pivotX = (v.layoutParams?.width ?: 0) / 2f
                 v.pivotY = (v.layoutParams?.height ?: 0) / 2f
             }
-        }
-    }
-
-    private fun recordTransform(v: View) {
-        val rotationY = v.rotationY
-        val scaleX = v.scaleX
-        val cameraDistance = v.cameraDistance
-        L.record(v, "transform") {
-            it.rotationY = rotationY
-            it.scaleX = scaleX
-            it.cameraDistance = cameraDistance
-            // Back to the default centre pivot of the restored size.
-            it.pivotX = (it.layoutParams?.width ?: it.width) / 2f
-            it.pivotY = (it.layoutParams?.height ?: it.height) / 2f
         }
     }
 
@@ -176,7 +161,7 @@ object ClassyNowPlaying {
         override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
         override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
         override fun afterTextChanged(s: Editable?) {
-            if (L.isActive) stripHollowStars(s)
+            stripHollowStars(s)
         }
     }
 
@@ -250,15 +235,6 @@ object ClassyNowPlaying {
     private val glyphCache = HashMap<Triple<Array<String>, Int, Int>, Bitmap>()
 
     private fun setModeIcon(iv: ImageView, glyph: Array<String>, d: Float) {
-        val oldDrawable = iv.drawable
-        val oldFilter = iv.colorFilter
-        val oldScale = iv.scaleType
-        L.record(iv, "image") {
-            (it as ImageView).setImageDrawable(oldDrawable)
-            it.colorFilter = oldFilter
-            it.scaleType = oldScale
-            it.setTag(R.id.iv_player_repeat_status, null)
-        }
         val key = Triple(glyph, px(M.MODE_ICON_HEIGHT, d), detailColor())
         // A new bitmap asks for a layout; only change it when it differs
         if (iv.getTag(R.id.iv_player_repeat_status) != key) {
@@ -328,11 +304,11 @@ object ClassyNowPlaying {
     private fun styleScrubBar(bar: SeekBar, d: Float) {
         val diamondWidth = px(M.SCRUB_DIAMOND_WIDTH, d)
         // Width by the layout weight: the negative margins add the outsets
-        ScrubBarStyle.apply(bar, px(M.PROGRESS_HEIGHT, d), diamondWidth, px(M.SCRUB_DIAMOND_HEIGHT, d), RecordedEdits)
+        ScrubBarStyle.apply(bar, px(M.PROGRESS_HEIGHT, d), diamondWidth, px(M.SCRUB_DIAMOND_HEIGHT, d), ClassyEdits)
     }
 
-    /** The scrub bar changes of the Classy layout, recorded so that another theme gets the original views back. */
-    private object RecordedEdits : ScrubBarStyle.Edits {
+    /** The scrub bar changes with the [ClassyLayout] helpers (they also set the start and end margins). */
+    private object ClassyEdits : ScrubBarStyle.Edits {
         override fun setHeight(v: View, height: Int) = L.setHeight(v, height)
 
         override fun setMargins(v: View, left: Int, top: Int?, right: Int, bottom: Int?) =
@@ -340,15 +316,6 @@ object ClassyNowPlaying {
 
         override fun setPadding(v: View, left: Int, top: Int, right: Int, bottom: Int) =
             L.setPadding(v, left, top, right, bottom)
-
-        override fun beforeThumb(bar: SeekBar) {
-            val oldThumb = bar.thumb
-            val oldOffset = bar.thumbOffset
-            L.record(bar, "thumb") {
-                (it as SeekBar).thumb = oldThumb
-                it.thumbOffset = oldOffset
-            }
-        }
     }
 
     private fun px(dp: Int, d: Float): Int = L.px(dp, d)

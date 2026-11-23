@@ -28,6 +28,18 @@ sealed interface ScreenState {
     data object Games : ScreenState
     /** A running game ([bundleDir]: its folder), full screen. */
     data class GamePlayer(val bundleDir: File) : ScreenState
+    /** Main menu → Photos: the Photos menu ([PhotosLevel.Root]), its lists, and the thumbnail grid of a set of photos. */
+    data class Photos(val level: PhotosLevel = PhotosLevel.Root) : ScreenState
+    /**
+     * Photo [index] of the set [set] ([com.themoon.y1.photos.PhotoIndex.select]) full screen; [slideshow] = it opens
+     * with the slideshow running, [shuffle] = a shuffled slideshow whatever Settings → Photos says (Shuffle Slideshow).
+     */
+    /** [path]: the photo chosen in the grid; the viewer opens it, not [index], when the set changed meanwhile. */
+    data class PhotoViewer(val set: String, val index: Int, val slideshow: Boolean = false, val shuffle: Boolean = false, val path: String? = null) : ScreenState
+    /** Main menu → Books: the ebook library ([level]) and the menu of the open book. */
+    data class Books(val level: BooksLevel = BooksLevel.Root) : ScreenState
+    /** An ebook ([file]) on the reader page. */
+    data class BookReader(val file: File) : ScreenState
     data object CoverFlow : ScreenState
     data object Playlists : ScreenState
     data class M3uPlaylistSongs(val m3uFile: File) : ScreenState
@@ -64,9 +76,57 @@ sealed interface JellyfinLevel {
     data class Items(val libraryId: String, val group: Int, val item: Int) : JellyfinLevel
 }
 
-/** A level of the folder browser: the file tree of Folders, or of the background picker of Settings. */
+/** The levels of Photos, as the Music lists: text lists down to the thumbnail grid of a set of photos. */
+sealed interface PhotosLevel {
+    /** All Photos, Recently Added, By Date, Folders, Shuffle Slideshow. */
+    data object Root : PhotosLevel
+    /** The thumbnail grid of the set [set] ([com.themoon.y1.photos.PhotoIndex.select]). */
+    data class Grid(val set: String) : PhotosLevel
+    /** By Date: the years. */
+    data object Years : PhotosLevel
+    /** By Date: the months of [year]. */
+    data class Months(val year: Int) : PhotosLevel
+    /** Folders: a folder ([dir]); null = the top (the Photos folder of each storage). */
+    data class Folder(val dir: File?) : PhotosLevel
+}
+
+/**
+ * The levels of Books. The library lists (Root to Folder), and the book menu of the open book ([isReaderMenu]:
+ * Back from its top goes to the page).
+ */
+sealed interface BooksLevel {
+    val isReaderMenu: Boolean get() = false
+
+    data object Root : BooksLevel
+    data object All : BooksLevel
+    data object Authors : BooksLevel
+    data class Author(val name: String) : BooksLevel
+    /** A folder of the file tree; [dir] null = the Books folders of all storages. */
+    data class Folder(val dir: File?) : BooksLevel
+
+    data class ReaderMenu(val file: File) : BooksLevel {
+        override val isReaderMenu: Boolean get() = true
+    }
+    data class Chapters(val file: File) : BooksLevel {
+        override val isReaderMenu: Boolean get() = true
+    }
+    data class GoTo(val file: File) : BooksLevel {
+        override val isReaderMenu: Boolean get() = true
+    }
+    data class Bookmarks(val file: File) : BooksLevel {
+        override val isReaderMenu: Boolean get() = true
+    }
+    data class Info(val file: File) : BooksLevel {
+        override val isReaderMenu: Boolean get() = true
+    }
+    data class ReaderSettings(val file: File) : BooksLevel {
+        override val isReaderMenu: Boolean get() = true
+    }
+}
+
+/** A level of the folder browser: the file tree of Folders, or of the background picker of Settings, or of Books. */
 val ScreenState.isFolderLevel: Boolean
-    get() = this is ScreenState.Browser && mode is BrowserMode.Folder
+    get() = (this is ScreenState.Browser && mode is BrowserMode.Folder) || (this is ScreenState.Books && level is BooksLevel.Folder)
 
 /**
  * Browser navigation modes for music library, file tree, playlists, and podcasts.
@@ -124,7 +184,7 @@ sealed interface SettingsSubMode {
     data class Jellyfin(val depth: Int = 0) : SettingsSubMode
     data object Radio : SettingsSubMode
     data object RadioSavedChannels : SettingsSubMode
-    /** Restart and Power Off (Settings → General → Power, or a long press of the Power button) */
+    /** Wi-Fi, Bluetooth, Brightness, Restart and Power Off (Settings → General → Power, or a long press of the Power button) */
     data object Power : SettingsSubMode
     /** A screen in place of an Android dialog (controllers/settings/ActionScreen.kt), by the key of its content */
     data class Action(val key: Int) : SettingsSubMode

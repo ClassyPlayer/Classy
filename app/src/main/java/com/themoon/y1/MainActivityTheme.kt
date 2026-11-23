@@ -4,7 +4,6 @@ import android.os.SystemClock
 import android.util.Log
 import android.view.View
 import android.view.ViewGroup
-import android.widget.ListView
 import android.widget.TextView
 import com.themoon.y1.navigation.NavigationManager
 import com.themoon.y1.views.QwertyKeyboardView
@@ -30,10 +29,10 @@ object LiveTheme {
 
 /**
  * Makes [name] the current theme (and saves it) and applies it after the current event, so that a
- * click handler does not remove its own row. False if the theme is not installed.
+ * click handler does not remove its own row. False if there is no theme with this name.
  */
 fun MainActivity.changeTheme(name: String): Boolean {
-    if (ThemeManager.findThemeIndexByName(name) < 0) return false
+    if (ThemeManager.find(name) == null) return false
     ThemeManager.selectTheme(prefs, name)
     window.decorView.post {
         if (!isFinishing) applyThemeLive()
@@ -44,11 +43,6 @@ fun MainActivity.changeTheme(name: String): Boolean {
 /** Applies the current theme to all views now (main thread). */
 fun MainActivity.applyThemeLive() {
     val t0 = SystemClock.uptimeMillis()
-    step("divider") {
-        // The song list (MainActivityControllers) has a gap between rows, except in the Classic themes
-        val gap = if (ThemeManager.isClassicTheme()) 0 else (4 * resources.displayMetrics.density).toInt()
-        forEachView(layoutBrowserMode) { if (it is ListView && it.dividerHeight != gap) it.dividerHeight = gap }
-    }
     step("keyboard font") { setKeyboardFont(layoutWifiKeyboard) }
     step("battery") { batteryIconView?.invalidate() }
     // Before applyTheme(), as at a screen change: Now Playing colours, then the layouts that applyTheme() runs

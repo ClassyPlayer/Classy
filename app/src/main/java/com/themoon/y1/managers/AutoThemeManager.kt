@@ -9,11 +9,9 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.SharedPreferences
 import android.os.Build
-import android.view.View
 import com.themoon.y1.MainActivity
 import com.themoon.y1.ThemeManager
 import com.themoon.y1.changeTheme
-import com.themoon.y1.views.TablerIcons
 import java.util.TimeZone
 
 /**
@@ -154,30 +152,12 @@ object AutoThemeManager {
         return localize("Auto") + " (" + mode + ")"
     }
 
-    /** The "Auto" row of the theme list. */
-    fun createSelectorRow(
-        activity: Activity,
-        prefs: SharedPreferences,
-        createTablerListButton: (Array<String>?, String, Int, Int) -> View,
-        clickFeedback: () -> Unit,
-        localize: (String) -> String
-    ): View {
-        val isSelected = isEnabled(prefs)
-        val row = createTablerListButton(
-            if (isSelected) TablerIcons.CHECK else null,
-            localize("Auto"),
-            ThemeManager.getTextColorPrimary(),
-            ThemeManager.getListButtonFocusedTextColor()
-        )
-        row.setOnClickListener {
-            clickFeedback()
-            val main = activity as? MainActivity ?: return@setOnClickListener
-            setEnabled(prefs, true)
-            // Also when the theme stays the same: the theme list is made again with the check on Auto
-            main.changeTheme(resolvedThemeName())
-            evaluate(main)
-        }
-        return row
+    /** Settings → Theme → Auto: Auto on, and the theme for the time now. */
+    fun select(main: MainActivity) {
+        setEnabled(main.prefs, true)
+        // Also when the theme stays the same: the theme list is made again with the check on Auto
+        main.changeTheme(resolvedThemeName())
+        evaluate(main)
     }
 
     /** A theme was chosen by hand: Auto off, no alarm. */

@@ -1,7 +1,6 @@
 package com.themoon.y1.controllers.connectivity
 
 import android.app.Activity
-import android.content.Context
 import android.net.wifi.ScanResult
 import android.net.wifi.WifiManager
 import android.view.KeyEvent
@@ -17,6 +16,7 @@ import com.themoon.y1.lists.ListScreen
 import com.themoon.y1.lists.ListSpec
 import com.themoon.y1.lists.RowLook
 import com.themoon.y1.lists.RowSpec
+import com.themoon.y1.managers.RadioSwitch
 import com.themoon.y1.navigation.ScreenState
 import com.themoon.y1.views.ListItemViewFactory
 import com.themoon.y1.views.Notice
@@ -95,18 +95,16 @@ class WifiController(
         screen.update(spec())
     }
 
-    private fun wifiManager(): WifiManager? =
-        activity.applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
+    private fun wifiManager(): WifiManager? = RadioSwitch.wifiManager(activity)
 
     /** Wi-Fi Power, the scan row, then the networks: the connected network first, each network once. */
     private fun spec(): ListSpec {
         val wm = wifiManager()
-        val state = wm?.wifiState
-        val isOn = state == WifiManager.WIFI_STATE_ENABLED
-        val isChanging = state == WifiManager.WIFI_STATE_ENABLING || state == WifiManager.WIFI_STATE_DISABLING
+        val shown = RadioSwitch.wifiState(activity)
+        val isOn = shown == true
         val rows = ArrayList<RowSpec>()
-        rows += RowSpec(localize("Wi-Fi Power"), RowLook.VALUE, value = if (isChanging) localize("Wait...") else onOff(isOn, localize),
-            id = WIFI_POWER_ROW_ID, key = POWER_KEY, onClick = { togglePower(wm) })
+        rows += RowSpec(localize("Wi-Fi Power"), RowLook.VALUE, value = if (shown == null) localize("Wait...") else onOff(isOn, localize),
+            id = WIFI_POWER_ROW_ID, key = POWER_KEY, onClick = { togglePower() })
         rows += RowSpec(btnScanWifi.text.toString(), RowLook.CUSTOM, view = btnScanWifi, key = SCAN_KEY, onClick = { startWifiScan() })
         if (!isOn) return ListSpec(localize("Wi-Fi"), rows)
         val connected = wm?.connectionInfo?.ssid?.replace("\"", "").orEmpty()
@@ -121,12 +119,16 @@ class WifiController(
         return ListSpec(localize("Wi-Fi"), rows)
     }
 
-    private fun togglePower(wm: WifiManager?) {
-        wm ?: return
-        val on = !wm.isWifiEnabled
-        Notice.show(activity, localize(if (on) "Turning Wi-Fi on…" else "Turning Wi-Fi off…"))
-        wm.isWifiEnabled = on
-        screen.valueView(POWER_KEY)?.text = localize("Wait...")
+    private fun togglePower() {
+        val on = RadioSwitch.wifiState(activity)?.not()
+        when (if (on == null) RadioSwitch.Request.BUSY else RadioSwitch.setWifi(activity, on)) {
+            RadioSwitch.Request.BUSY -> Notice.show(activity, localize("Please wait a moment..."))
+            RadioSwitch.Request.FAILED -> Notice.error(activity, localize("Failed"))
+            RadioSwitch.Request.DONE -> {
+                Notice.show(activity, localize(if (on == true) "Turning Wi-Fi on…" else "Turning Wi-Fi off…"))
+                screen.valueView(POWER_KEY)?.text = localize("Wait...")
+            }
+        }
     }
 
     // A network can have more than one access point (scan result): show the strongest signal.

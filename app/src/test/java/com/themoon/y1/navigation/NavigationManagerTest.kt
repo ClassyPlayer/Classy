@@ -8,6 +8,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
+import org.junit.Assert.assertFalse
 import org.junit.Test
 
 class NavigationManagerTest {
@@ -320,5 +321,15 @@ class NavigationManagerTest {
         assertTrue(navManager.popBackStack())
         assertEquals(fakeMainMenu, navManager.activeController)
         assertEquals(ScreenState.MainMenu, navManager.currentState)
+    }
+
+    @Test
+    fun testBackStackHasFindsAnEntryUnderTheCurrentScreen() {
+        navManager.navigateTo(ScreenState.MainMenu)
+        navManager.navigateTo(ScreenState.Playlists)
+        navManager.navigateTo(ScreenState.Browser(BrowserMode.Root))
+        assertTrue(navManager.backStackHas { it == ScreenState.Playlists })
+        assertFalse(navManager.backStackHas { it == ScreenState.Player })
+        assertFalse(navManager.backStackHas { it == ScreenState.Browser(BrowserMode.Root) }) // the current screen is not in the stack
     }
 }

@@ -13,12 +13,13 @@ object LetterJump {
 
     /**
      * Settings → Controls → Letter Jump Sensitivity: how fast a wheel turn must be to start letter mode. A step is
-     * fast when it and the [steps] - 1 steps before it turn the same way, each at most [gapMs] apart.
+     * fast when it and the [steps] - 1 steps before it turn the same way, each at most [gapMs] apart. With the Y2 pad
+     * wheel ([PadWheel]), a step is fast when the wheel turns at [padTurnsPerSecond] or more.
      */
-    enum class Sensitivity(val steps: Int, val gapMs: Long) {
-        LOW(6, 80L),
-        NORMAL(4, 100L),
-        HIGH(3, 120L);
+    enum class Sensitivity(val steps: Int, val gapMs: Long, val padTurnsPerSecond: Double) {
+        LOW(6, 80L, 2.2),
+        NORMAL(4, 100L, 1.7),
+        HIGH(3, 120L, 1.3);
 
         companion object {
             /** The labels of the Settings row, in the order of the pref values (the [ordinal]). */
@@ -38,6 +39,15 @@ object LetterJump {
      * leaves the wheel (each step is a key press and release at the same time), so a stop is the only sign.
      */
     const val IDLE_END_MS = 800L
+
+    /**
+     * The pad wheel ([PadWheel]) tells the lift of the thumb: then letter mode ends this long after the lift (a new
+     * touch in this time goes on in letter mode).
+     */
+    const val LIFT_END_MS = 250L
+
+    /** With the pad wheel, letter mode also ends after this time with no step while the thumb stays: then rows again. */
+    const val TOUCH_IDLE_END_MS = 600L
 
     private val HANGUL_INITIALS = "ㄱㄱㄴㄷㄷㄹㅁㅂㅂㅅㅅㅇㅈㅈㅊㅋㅌㅍㅎ"
 
@@ -165,13 +175,19 @@ object LetterJump {
      * Letter mode, as on the iPod. Fast steps start it ([WheelSpeed], with the [sensitivity] at each step: a
      * change applies at once; null = Letter Jump Off). Then each wheel step, slow or fast, moves one letter, and
      * the letter box stays. It ends [IDLE_END_MS] after the last step, or at a centre, Back or Play/Pause press.
-     * At the end, the screen goes to [row] (the end value of [end]).
-     * Pure state: the screen gives it the wheel steps and the keys, and runs the idle timer.
+     * With the pad wheel (a step with a pad speed), the speed starts it, and it ends [LIFT_END_MS] after the thumb
+     * lifts ([onTouch]) or [TOUCH_IDLE_END_MS] after the last step. At the end, the screen goes to [row] (the end
+     * value of [end]).
+     * Pure state: the screen gives it the wheel steps, the touches and the keys, and runs the timer to [endMs].
      */
     class Mode(private val sensitivity: () -> Sensitivity? = { Sensitivity.DEFAULT }) {
         private val speed = WheelSpeed()
         private var lastStepMs = 0L
         private var dropCentre = false
+        /** The last step came from the pad wheel: it ends from the touch, not from [IDLE_END_MS]. */
+        private var byPad = false
+        private var touching = false
+        private var liftMs = 0L
 
         var isActive = false
             private set
@@ -181,11 +197,12 @@ object LetterJump {
             private set
 
         /**
-         * One wheel step ([direction] -1 or 1, at [timeMs]) with the selection at row [current]. [letters] gives
-         * the letter of each row ([lettersFor]), null when the rows are not alphabetical.
+         * One wheel step ([direction] -1 or 1, at [timeMs]) with the selection at row [current]. [padSpeed]: the
+         * wheel speed (turns a second, clockwise positive) of a pad-wheel step, null for a step key of the wheel.
+         * [letters] gives the letter of each row ([lettersFor]), null when the rows are not alphabetical.
          */
-        fun onStep(direction: Int, timeMs: Long, current: Int, letters: () -> List<String?>?): Step {
-            if (!isActive && !speed.onStep(direction, timeMs, sensitivity())) return Step.ROW
+        fun onStep(direction: Int, timeMs: Long, current: Int, padSpeed: Double? = null, letters: () -> List<String?>?): Step {
+            if (!isActive && !isFast(direction, timeMs, padSpeed)) return Step.ROW
             val list = letters()
             val from = if (isActive) row else current
             if (list == null || from !in list.indices) {
@@ -194,6 +211,8 @@ object LetterJump {
             }
             isActive = true
             lastStepMs = timeMs
+            byPad = padSpeed != null
+            if (byPad) touching = true
             val next = LetterJump.target(list, from, direction)
             if (next < 0) {
                 row = from
@@ -203,8 +222,31 @@ object LetterJump {
             return Step.LETTER
         }
 
-        /** True when letter mode had no wheel step for [IDLE_END_MS] at [nowMs] (it must end now). */
-        fun isIdle(nowMs: Long): Boolean = isActive && nowMs - lastStepMs >= IDLE_END_MS
+        fun onStep(direction: Int, timeMs: Long, current: Int, letters: () -> List<String?>?): Step =
+            onStep(direction, timeMs, current, null, letters)
+
+        private fun isFast(direction: Int, timeMs: Long, padSpeed: Double?): Boolean {
+            val s = sensitivity()
+            if (padSpeed == null) return speed.onStep(direction, timeMs, s)
+            return s != null && padSpeed * Integer.signum(direction) >= s.padTurnsPerSecond
+        }
+
+        /** The pad wheel: the thumb touched ([isTouching]) or lifted at [timeMs]. */
+        fun onTouch(isTouching: Boolean, timeMs: Long) {
+            touching = isTouching
+            if (!isTouching) liftMs = timeMs
+        }
+
+        /** The time when letter mode ends if no step or touch comes before it; [Long.MAX_VALUE] when not active. */
+        fun endMs(): Long = when {
+            !isActive -> Long.MAX_VALUE
+            !byPad -> lastStepMs + IDLE_END_MS
+            touching -> lastStepMs + TOUCH_IDLE_END_MS
+            else -> minOf(lastStepMs + TOUCH_IDLE_END_MS, maxOf(liftMs, lastStepMs) + LIFT_END_MS)
+        }
+
+        /** True when letter mode must end at [nowMs] ([endMs]). */
+        fun isIdle(nowMs: Long): Boolean = nowMs >= endMs()
 
         /** A key event ([keyCode], down or up, [repeatCount]). The screen calls [end] for [Press.END] and [Press.END_AND_PASS]. */
         fun onKey(keyCode: Int, isDown: Boolean, repeatCount: Int): Press {
@@ -232,6 +274,7 @@ object LetterJump {
             val result = if (isActive) row else -1
             isActive = false
             row = -1
+            byPad = false
             speed.reset()
             return result
         }
