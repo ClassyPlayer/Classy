@@ -271,7 +271,7 @@ class CategoryListAdapter(
         } else {
             val albumFiles = albumFilesMap?.get(lookupKey) ?: albumFilesMap?.get(name)
             val sampleFile = if (!albumFiles.isNullOrEmpty()) albumFiles[0] else null
-            val albumKey = if (sampleFile != null) AlbumCoverManager.getAlbumKey(sampleFile, displayName) else displayName
+            val albumKey = if (sampleFile != null) AlbumCoverManager.getAlbumKey(sampleFile, name) else name // the year label is only the title: covers keep the key that the prefetch uses
 
             // Memory cache only: a disk thumbnail is read and decoded on the cover worker, not in the wheel step
             val directBmp = AlbumCoverManager.getInstance().getMemoryCover(albumKey)
@@ -282,7 +282,7 @@ class CategoryListAdapter(
             } else {
                 ivCover.setImageResource(if (isAudiobook) R.drawable.book else R.drawable.default_album)
                 ivCover.tag = lookupKey
-                loadAlbumArtAsync(lookupKey, displayName, sampleFile, ivCover)
+                loadAlbumArtAsync(lookupKey, name, sampleFile, ivCover)
             }
         }
 
