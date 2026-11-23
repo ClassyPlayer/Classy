@@ -83,30 +83,21 @@ internal fun MainActivity.initControllers() {
         activity = this,
         rootView = layoutMainMenu as ViewGroup,
         clickFeedback = { clickFeedback() },
-        onActionTriggered = { action -> handleMainMenuAction(action) },
-        onButtonFocusChanged = { el ->
-            homeWidgetsController?.updateFocusPreview(el)
-        },
-        onLongPressScreenOff = View.OnLongClickListener {
-            turnOffScreen()
-            true
-        },
+        onAction = { action -> handleMainMenuAction(action) },
+        onHold = { turnOffScreen() },
         localize = { t(it) },
-        onDynamicUiBuilt = {
-            homeWidgetsController?.refreshWidgets()
-        }
+        onShowPane = { homeWidgetsController?.refreshWidgets() }
     )
 
     homeWidgetsController = HomeWidgetsController(
         context = this,
-        mainMenuProvider = { mainMenuController },
+        ivMainMenuCover = findViewById(R.id.iv_main_menu_cover),
         ivBrowserCover = findViewById(R.id.iv_browser_cover),
         frameBrowserCover = findViewById(R.id.frame_browser_cover),
         fetchRandomIdleCoverAsync = { fetchRandomIdleCoverAsync() },
         isAudiobookMode = {
             isAudiobookLibraryMode || (isBrowserControllerInitialized() && (browserController.isAudiobookLibraryMode || browserController.currentBrowserMode is BrowserMode.Audiobooks))
-        },
-        is24HourFormat = { is24HourFormat }
+        }
     )
 
     browserController = BrowserController(

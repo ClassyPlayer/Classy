@@ -215,7 +215,7 @@ object ClassyLayout {
         }
     }
 
-    private val coverPaneIds = intArrayOf(R.id.frame_browser_cover, R.id.frame_video_cover)
+    private val coverPaneIds = intArrayOf(R.id.frame_main_menu_cover, R.id.frame_browser_cover, R.id.frame_video_cover)
 
     // Text helpers
 

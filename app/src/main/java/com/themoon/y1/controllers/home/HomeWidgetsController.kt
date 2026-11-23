@@ -2,74 +2,30 @@ package com.themoon.y1.controllers.home
 
 import android.app.Activity
 import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.graphics.Typeface
 import android.media.MediaMetadataRetriever
-import android.os.BatteryManager
-import android.text.SpannableString
-import android.text.Spanned
-import android.text.style.RelativeSizeSpan
-import android.text.style.StyleSpan
-import android.util.TypedValue
 import android.view.View
 import android.widget.ImageView
-import android.widget.TextView
 import com.themoon.y1.MainActivity
 import com.themoon.y1.R
 import com.themoon.y1.StoragePaths
-import com.themoon.y1.ThemeManager
-import com.themoon.y1.controllers.menu.MainMenuController
 import com.themoon.y1.managers.MediaLibraryManager
-import com.themoon.y1.views.CircularBatteryView
-import com.themoon.y1.views.CustomAnalogClockView
-import com.themoon.y1.views.WidgetBatteryBarView
 import java.io.File
 import java.io.FileInputStream
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 /**
- * Controller for home/main menu side pane widgets:
- * - Digital clock with date
- * - Widget battery bar
- * - Circular battery gauge
- * - Custom analog clock
- * - Now playing album art preview & dynamic focus images
+ * The art of the split screens: the cover pane of the main menu and of the Music and Audiobooks menus (the art of the
+ * song that plays, else a random cover, else the default art).
  */
 class HomeWidgetsController(
     private val context: Context,
-    private val mainMenuProvider: () -> MainMenuController?,
+    private val ivMainMenuCover: ImageView?,
     private val ivBrowserCover: ImageView?,
     private val frameBrowserCover: View?,
     private val fetchRandomIdleCoverAsync: () -> Unit,
-    private val isAudiobookMode: () -> Boolean = { false },
-    private val is24HourFormat: () -> Boolean = { true }
+    private val isAudiobookMode: () -> Boolean = { false }
 ) {
-
-    private val widgetViewRegistry: Map<View, ThemeManager.MenuElement>
-        get() = mainMenuProvider()?.widgetViewRegistry ?: emptyMap<View, ThemeManager.MenuElement>()
-    private val tvWidgetClock: TextView? get() = mainMenuProvider()?.tvWidgetClock
-    private val widgetBatteryView: WidgetBatteryBarView? get() = mainMenuProvider()?.widgetBatteryView
-    private val ivWidgetAlbum: ImageView? get() = mainMenuProvider()?.ivWidgetAlbum
-    private val tvWidgetAlbumTitle: TextView? get() = mainMenuProvider()?.tvWidgetAlbumTitle
-    private val tvWidgetAlbumArtist: TextView? get() = mainMenuProvider()?.tvWidgetAlbumArtist
-    private val ivAnimatedCover: ImageView? get() = mainMenuProvider()?.ivAnimatedCover
-    private val customAnalogClockView: CustomAnalogClockView? get() = mainMenuProvider()?.customAnalogClockView
-    private val customCircularBatteryView: CircularBatteryView? get() = mainMenuProvider()?.customCircularBatteryView
-    private val ivWidgetFocusImage: ImageView? get() = mainMenuProvider()?.ivWidgetFocusImage
-
-    var isWidgetClockOn = true
-    var isWidgetBatteryOn = true
-    var isWidgetAlbumOn = true
-    var isWidgetAnalogClockOn = false
-    var isWidgetCircularBatteryOn = false
-    var isWidgetFocusImageOn = false
-
-    var currentClockSize = 14
 
     var lastAlbumArtBytes: ByteArray? = null
         set(value) {
@@ -111,101 +67,10 @@ class HomeWidgetsController(
     }
 
     var idleRandomCoverBitmap: Bitmap? = null
-    var currentTrackTitle = ""
-    var currentTrackArtist = ""
 
     fun refreshWidgets() {
-        // 1. Digital Clock
-        val clockTv = tvWidgetClock
-        if (clockTv != null) {
-            val el = widgetViewRegistry[clockTv]
-            if (el?.visibleOnFocus.isNullOrBlank()) {
-                clockTv.visibility = if (isWidgetClockOn) View.VISIBLE else View.GONE
-            }
-
-            if (clockTv.visibility == View.VISIBLE) {
-                val d = context.resources.displayMetrics.density
-                clockTv.setTextSize(TypedValue.COMPLEX_UNIT_PX, (currentClockSize * 2.1f) * d)
-                clockTv.setLineSpacing(0f, 1.1f)
-
-                val now = Date()
-                val widgetTimeFormat = if (is24HourFormat()) "HH:mm" else "hh:mm"
-                val sdfTime = SimpleDateFormat(widgetTimeFormat, Locale.US)
-                val sdfDate = SimpleDateFormat("EEE, MMM dd", Locale.US)
-                val timeStr = sdfTime.format(now)
-                val dateStr = sdfDate.format(now)
-                val fullText = "$timeStr\n$dateStr"
-
-                val spannable = SpannableString(fullText).apply {
-                    setSpan(
-                        RelativeSizeSpan(0.47f),
-                        timeStr.length + 1,
-                        fullText.length,
-                        Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-                    )
-                    setSpan(
-                        StyleSpan(Typeface.NORMAL),
-                        timeStr.length + 1,
-                        fullText.length,
-                        Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-                    )
-                }
-                clockTv.text = spannable
-            }
-        }
-
-        // 2. Battery Bar
-        val batteryBar = widgetBatteryView
-        if (batteryBar != null) {
-            val el = widgetViewRegistry[batteryBar]
-            if (el?.visibleOnFocus.isNullOrBlank()) {
-                batteryBar.visibility = if (isWidgetBatteryOn) View.VISIBLE else View.GONE
-            }
-            if (batteryBar.visibility == View.VISIBLE) {
-                batteryBar.setColor(ThemeManager.getTextColorPrimary())
-                val batteryIntent = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
-                if (batteryIntent != null) {
-                    val level = batteryIntent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
-                    val scale = batteryIntent.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
-                    val status = batteryIntent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
-                    val isCharging = (status == BatteryManager.BATTERY_STATUS_CHARGING ||
-                            status == BatteryManager.BATTERY_STATUS_FULL)
-                    if (level != -1 && scale != -1) {
-                        batteryBar.setBatteryLevel(com.themoon.y1.battery.BatteryGuard.percent(batteryIntent), isCharging)
-                    }
-                }
-            }
-        }
-
-        // 3. Album Art Preview Widget
-        val widgetAlbum = ivWidgetAlbum
-        val titleView = tvWidgetAlbumTitle
-        val artistView = tvWidgetAlbumArtist
-        if (widgetAlbum != null && titleView != null && artistView != null) {
-            val parent = widgetAlbum.parent as? View
-            val el = widgetViewRegistry[parent]
-
-            if (el?.visibleOnFocus.isNullOrBlank()) {
-                parent?.visibility = if (isWidgetAlbumOn) View.VISIBLE else View.GONE
-            }
-
-            if (parent != null && parent.visibility == View.VISIBLE) {
-                titleView.text = currentTrackTitle
-                artistView.text = currentTrackArtist
-
-                val bmp = cachedAlbumArtBitmap ?: lastAlbumArtBytes?.takeIf { it.isNotEmpty() }?.let {
-                    try { decodeAlbumArtSmart(it) } catch (_: Exception) { null }
-                }
-                if (bmp != null) {
-                    widgetAlbum.setImageBitmap(bmp)
-                } else {
-                    widgetAlbum.setImageResource(R.drawable.default_album)
-                }
-            }
-        }
-
-        // 4. Drift animated cover
-        val animCover = ivAnimatedCover
+        // The main menu cover pane
+        val animCover = ivMainMenuCover
         if (animCover != null) {
             val bmp = cachedAlbumArtBitmap ?: lastAlbumArtBytes?.takeIf { it.isNotEmpty() }?.let {
                 try { decodeAlbumArtSmart(it) } catch (_: Exception) { null }
@@ -220,7 +85,7 @@ class HomeWidgetsController(
             }
         }
 
-        // 5. Music / Audiobooks menu split cover
+        // The Music / Audiobooks menu cover pane
         if (ivBrowserCover != null && frameBrowserCover != null && frameBrowserCover.visibility == View.VISIBLE) {
             if (isAudiobookMode()) {
                 val cached = cachedBookCoverBitmap
@@ -244,57 +109,6 @@ class HomeWidgetsController(
                     ivBrowserCover.setImageResource(R.drawable.default_album)
                     fetchRandomIdleCoverAsync()
                 }
-            }
-        }
-
-        // 6. Analog clock
-        val analogClock = customAnalogClockView
-        if (analogClock != null) {
-            val el = widgetViewRegistry[analogClock]
-            if (el?.visibleOnFocus.isNullOrBlank()) {
-                val parent = analogClock.parent as? View
-                if (parent != null && "analog_wrapper" == parent.tag) {
-                    parent.visibility = if (isWidgetAnalogClockOn) View.VISIBLE else View.GONE
-                } else {
-                    analogClock.visibility = if (isWidgetAnalogClockOn) View.VISIBLE else View.GONE
-                }
-            }
-        }
-
-        // 7. Circular battery
-        val circularBattery = customCircularBatteryView
-        if (circularBattery != null) {
-            val el = widgetViewRegistry[circularBattery]
-            if (el?.visibleOnFocus.isNullOrBlank()) {
-                val parent = circularBattery.parent as? View
-                if (parent != null && "circular_wrapper" == parent.tag) {
-                    parent.visibility = if (isWidgetCircularBatteryOn) View.VISIBLE else View.GONE
-                } else {
-                    circularBattery.visibility = if (isWidgetCircularBatteryOn) View.VISIBLE else View.GONE
-                }
-            }
-
-            if (circularBattery.visibility == View.VISIBLE) {
-                val batteryIntent = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
-                if (batteryIntent != null) {
-                    val level = batteryIntent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
-                    val scale = batteryIntent.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
-                    val status = batteryIntent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
-                    val isCharging = (status == BatteryManager.BATTERY_STATUS_CHARGING ||
-                            status == BatteryManager.BATTERY_STATUS_FULL)
-                    if (level != -1 && scale != -1) {
-                        circularBattery.setBatteryLevel(com.themoon.y1.battery.BatteryGuard.percent(batteryIntent), isCharging)
-                    }
-                }
-            }
-        }
-
-        // 8. Dynamic focus image
-        val focusImg = ivWidgetFocusImage
-        if (focusImg != null) {
-            val el = widgetViewRegistry[focusImg]
-            if (el?.visibleOnFocus != null && el.visibleOnFocus.isNotBlank()) {
-                focusImg.visibility = if (isWidgetFocusImageOn) View.VISIBLE else View.GONE
             }
         }
     }
@@ -415,32 +229,6 @@ class HomeWidgetsController(
         } catch (_: Exception) {
             null
         }
-    }
-
-    fun updateFocusPreview(focusedElement: ThemeManager.MenuElement) {
-        var hasLiveWidgetActivated = false
-        for ((widgetView, el) in widgetViewRegistry) {
-            if (focusedElement.id == el.visibleOnFocus) {
-                widgetView.visibility = View.VISIBLE
-                hasLiveWidgetActivated = true
-                if (el.type == "widget_album") {
-                    refreshWidgets()
-                }
-            } else if (el.visibleOnFocus.isNullOrBlank()) {
-                when (el.type) {
-                    "widget_clock" -> widgetView.visibility = if (isWidgetClockOn) View.VISIBLE else View.GONE
-                    "widget_battery" -> widgetView.visibility = if (isWidgetBatteryOn) View.VISIBLE else View.GONE
-                    "widget_album" -> widgetView.visibility = if (isWidgetAlbumOn) View.VISIBLE else View.GONE
-                    "widget_analog_clock" -> widgetView.visibility = if (isWidgetAnalogClockOn) View.VISIBLE else View.GONE
-                    "widget_circular_battery" -> widgetView.visibility = if (isWidgetCircularBatteryOn) View.VISIBLE else View.GONE
-                    "widget_focus_image" -> widgetView.visibility = if (isWidgetFocusImageOn) View.VISIBLE else View.GONE
-                }
-            } else {
-                widgetView.visibility = View.GONE
-            }
-        }
-
-        if (!hasLiveWidgetActivated) ivWidgetFocusImage?.setImageDrawable(null)
     }
 
     companion object {

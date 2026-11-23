@@ -1,6 +1,5 @@
 package com.themoon.y1.views
 
-import android.content.Context
 import android.graphics.Canvas
 import android.graphics.ColorFilter
 import android.graphics.Paint
@@ -18,7 +17,7 @@ import com.themoon.y1.ThemeManager
 import java.util.Collections
 import java.util.WeakHashMap
 
-/** List rows and the main menu in the Classy layout (see [ClassyLayout]). */
+/** List rows in the Classy layout (see [ClassyLayout]). */
 object ClassyLists {
     // Recycled list rows can come back with another height; this set tells which titles to put back.
     private val centred: MutableSet<TextView> = Collections.newSetFromMap(WeakHashMap())
@@ -69,49 +68,6 @@ object ClassyLists {
         }
     }
 
-    /**
-     * Main menu elements with the Classy metrics: list pane 240 wide, 38 px rows with 23 sp text and a
-     * drawn chevron, and the cover pane moved to the new pane edge and below the full-width status bar.
-     * The elements of [ThemeManager.menuElements] are not changed.
-     */
-    fun menuElements(elements: List<ThemeManager.MenuElement>, context: Context): List<ThemeManager.MenuElement> {
-        val list = elements.firstOrNull { it.type == "list_box" } ?: return elements
-        val dm = context.resources.displayMetrics
-        val screenWidth = (dm.widthPixels / dm.density).toInt()
-        val screenHeight = (dm.heightPixels / dm.density).toInt()
-        val oldRight = list.x + list.width
-        val newRight = list.x + ClassyMetrics.PANE_WIDTH
-        return elements.map { el ->
-            when {
-                el === list -> copy(el, width = ClassyMetrics.PANE_WIDTH,
-                    height = screenHeight - ClassyMetrics.STATUS_BAR_HEIGHT - list.y)
-                el.type == "button" && el.parentId == list.id -> copy(el, height = ClassyMetrics.ROW_HEIGHT,
-                    textSize = ClassyMetrics.LIST_TEXT_SP.toInt(), textRight = "")
-                el.type != "button" && el.x == oldRight -> {
-                    val top = if (isBottomAligned(el)) el.y else maxOf(el.y, ClassyMetrics.STATUS_BAR_HEIGHT)
-                    copy(el, x = newRight, y = top,
-                        width = if (el.width > 0) screenWidth - newRight else el.width,
-                        height = if (el.height > 0 && top != el.y) screenHeight - top else el.height)
-                }
-                else -> el
-            }
-        }
-    }
-
-    /** Main menu rows: the Classy padding, cap-centred text and a drawn chevron in place of the "›" text. */
-    fun styleMainMenuButtons(buttons: List<LinearLayout>) {
-        for (btn in buttons) {
-            val main = btn.getChildAt(0) as? TextView ?: continue
-            val right = btn.getChildAt(1) as? TextView
-            val d = btn.resources.displayMetrics.density
-            val height = btn.layoutParams?.height ?: continue
-            if (height <= 0 || btn.paddingTop != 0 || btn.paddingBottom != 0) continue
-            btn.setPadding(px(ClassyMetrics.ROW_PADDING_LEFT, d), 0, px(ClassyMetrics.ROW_PADDING_RIGHT, d), 0)
-            if (right != null) showChevron(right, d)
-            centreInRow(main, height.toFloat())
-        }
-    }
-
     private fun centreInRow(tv: TextView, rowHeight: Float) {
         centred.add(tv)
         tv.includeFontPadding = false
@@ -149,26 +105,6 @@ object ClassyLists {
     }
 
     private fun px(dp: Int, d: Float): Int = ClassyLayout.px(dp, d)
-
-    // MainMenuController measures y from the bottom for these elements.
-    private fun isBottomAligned(el: ThemeManager.MenuElement): Boolean =
-        el.gravity.lowercase(java.util.Locale.US).contains("bottom")
-
-    private fun copy(
-        el: ThemeManager.MenuElement,
-        x: Int = el.x,
-        y: Int = el.y,
-        width: Int = el.width,
-        height: Int = el.height,
-        textSize: Int = el.textSize,
-        textRight: String = el.textRight
-    ) = ThemeManager.MenuElement(
-        el.id, el.type, el.parentId, el.visibleOnFocus, x, y, width, height,
-        el.textNormal, el.textFocused, textRight, el.textRightColor, el.textRightFocusedColor,
-        el.action, el.gravity, el.radius, el.focusIndex,
-        textSize, el.textSecondarySize, el.textPosition, el.textAlign, el.bgColor, el.padding,
-        el.focusOffsetX, el.focusOffsetY, el.focusScale
-    )
 }
 
 /** The bold "›" chevron of the selected row, drawn to the bounds (10 x 16 px). */

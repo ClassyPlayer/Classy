@@ -8,40 +8,10 @@ import android.graphics.drawable.GradientDrawable
 
 /**
  * The two themes of the app: Classic Light and Classic Dark (Settings → Theme; Auto selects one of them, see
- * [com.themoon.y1.managers.AutoThemeManager]). Both use the NimbusSans fonts in assets/fonts and the same main menu
- * ([menuElements]). Only the colours of [ThemeData] are different.
+ * [com.themoon.y1.managers.AutoThemeManager]). Both use the NimbusSans fonts in assets/fonts. Only the colours of
+ * [ThemeData] are different.
  */
 object ThemeManager {
-
-    /** One element of the main menu (MainMenuController): the list box, a row of the list or a pane widget. */
-    class MenuElement(
-        val id: String,
-        val type: String,
-        val parentId: String = "",
-        val visibleOnFocus: String = "",
-        val x: Int = 0,
-        val y: Int = 0,
-        val width: Int = 200,
-        val height: Int = 50,
-        val textNormal: String = "",
-        val textFocused: String = "",
-        val textRight: String = "",
-        val textRightColor: String = "",
-        val textRightFocusedColor: String = "",
-        val action: String = "NONE",
-        val gravity: String = "top|left",
-        val radius: Int = -1,
-        val focusIndex: Int = -1,
-        val textSize: Int = -1,
-        val textSecondarySize: Int = -1,
-        val textPosition: String = "bottom",
-        val textAlign: String = "center",
-        val bgColor: String = "",
-        val padding: Int = 0,
-        val focusOffsetX: Int = 0,
-        val focusOffsetY: Int = 0,
-        val focusScale: Float = 1.0f
-    )
 
     class ThemeData(
         val name: String,
@@ -64,39 +34,6 @@ object ThemeManager {
     private const val BUTTON_NORMAL_BG = 0x00FFFFFF
     private const val BUTTON_FOCUSED_BG = 0xFF2588DC.toInt()
     private const val BUTTON_FOCUSED_TEXT = Color.WHITE
-
-    private fun row(id: String, label: String, action: String, index: Int) = MenuElement(
-        id, "button", parentId = LIST_BOX, width = -1, height = 33, textNormal = label, textRight = "›",
-        action = action, focusIndex = index, textSize = 21, textAlign = "left"
-    )
-
-    private const val LIST_BOX = "main_scroll_list"
-
-    /**
-     * The main menu: the list box, its rows in the default order (Settings → Main Menu Items can change the order and
-     * hide rows; they use the ids) and the art pane. ClassyLists.menuElements gives them the Classy metrics.
-     */
-    val menuElements: List<MenuElement> = listOf(
-        MenuElement(LIST_BOX, "list_box", width = 242, height = 325, focusIndex = 1),
-        row("btn_now", "Now Playing", "OPEN_PLAYER", 0),
-        row("btn_music", "Music", "OPEN_BROWSER", 1),
-        row("btn_videos", "Videos", "OPEN_VIDEOS", 2),
-        row("btn_photos", "Photos", "OPEN_PHOTOS", 3),
-        row("btn_musicquiz", "Music Quiz", "OPEN_MUSIC_QUIZ", 4),
-        row("btn_games", "Games", "OPEN_GAMES", 5),
-        row("btn_podcasts", "Podcasts", "OPEN_PODCASTS", 6),
-        row("btn_audiobooks", "Audiobooks", "OPEN_AUDIOBOOKS", 7),
-        row("btn_books", "Books", "OPEN_BOOKS", 8),
-        row("btn_radio", "FM Radio", "OPEN_RADIO", 9),
-        row("btn_bt", "Bluetooth", "OPEN_BLUETOOTH", 10),
-        row("btn_wifi", "Wi-Fi", "OPEN_WIFI", 11),
-        row("btn_play_on", "Play On", "OPEN_PLAY_ON", 12),
-        row("btn_set", "Settings", "OPEN_SETTINGS", 13),
-        row("btn_web", "Web Server", "OPEN_WEBSERVER", 14),
-        MenuElement("widget_cover", "widget_animated_cover", x = 242, width = 238, height = 325),
-        // While Photos is selected: random photos in the art pane (PhotoPreviewView)
-        MenuElement("widget_photos", "widget_photo_preview", visibleOnFocus = "btn_photos", x = 242, width = 238, height = 325)
-    )
 
     @Volatile
     private var current: ThemeData = CLASSIC_LIGHT

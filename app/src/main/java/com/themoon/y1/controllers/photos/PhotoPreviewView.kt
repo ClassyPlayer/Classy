@@ -18,9 +18,8 @@ import java.util.Random
 import java.util.concurrent.Executors
 
 /**
- * The theme widget `widget_photo_preview`: while the Photos row of the main menu is selected (`visible_on_focus`),
- * random photos in the art pane, one every [CHANGE_MS], with the same slow pan and zoom as the album art
- * ([CoverPane]). The main menu (ThemeManager.menuElements) puts it over the art pane.
+ * While the Photos row of the main menu is selected: random photos in the art pane, one every [CHANGE_MS], with the
+ * same slow pan and zoom as the album art ([CoverPane]). The main menu (MainMenuController) puts it over its cover.
  *
  * It works only while it shows and the screen is on.
  */
@@ -71,7 +70,7 @@ class PhotoPreviewView(context: Context) : FrameLayout(context) {
     private val hiddenPanes = ArrayList<View>()
 
     /**
-     * Hides the art panes that this view covers (the animated cover of the Classic themes). All art panes share one
+     * Hides the art panes that this view covers (the main menu cover). All art panes share one
      * motion ([CoverPane.motion]): two panes with different art on the screen would fade into each other at each frame.
      */
     private fun hidePanesBelow() {
@@ -175,7 +174,6 @@ class PhotoPreviewView(context: Context) : FrameLayout(context) {
     }
 
     companion object {
-        const val TYPE = "widget_photo_preview"
         private const val CHANGE_MS = 5_000L
         private const val RETRY_MS = 500L
         /** Larger than the pane: the pane zooms and moves the photo. */
@@ -184,7 +182,7 @@ class PhotoPreviewView(context: Context) : FrameLayout(context) {
 
         private val worker = Executors.newSingleThreadExecutor { r -> Thread(r, "PhotoPreview").apply { priority = Thread.NORM_PRIORITY - 1 } }
 
-        /** The last photo shown, for the next time the row is selected (the main menu is made again on a theme change). */
+        /** The last photo shown, for the next time the row is selected (the view stays, but the decode takes time). */
         private var lastBitmap: Bitmap? = null
 
         /** The card changed: the next preview picks from the new photos. */
