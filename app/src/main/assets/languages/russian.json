@@ -850,5 +850,7 @@
   "Unknown Mood": "Неизвестное настроение",
   "Queue": "Очередь",
   "Earlier Tracks": "Предыдущие треки",
-  "Later Tracks": "Следующие треки"
+  "Later Tracks": "Следующие треки",
+  "Open this address in a browser on your computer or phone.": "Откройте этот адрес в браузере на компьютере или телефоне.",
+  "Scan the code with a phone, or open the address in a browser.": "Отсканируйте код телефоном или откройте адрес в браузере."
 }
