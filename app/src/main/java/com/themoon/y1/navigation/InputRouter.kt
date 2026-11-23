@@ -63,18 +63,29 @@ class InputRouter private constructor() {
                 stopSeek()
                 return
             }
-            if (seekWaitsForKeyUp) {
-                // A lost key-up must not seek through the next tracks: stop at the end margin, the start or a new track
-                val player = AudioPlayerManager.getInstance()
-                if (screenOffSeekEnds(seekDirection, player.getCurrentPosition(), player.getDuration(),
-                        player.currentlyPlayingFilePath != seekTrackPath)) {
-                    stopSeek()
-                    return
-                }
+            if (screenOffSeekEnded()) {
+                stopSeek()
+                return
             }
             onSeekTick(now)
+            if (screenOffSeekEnded()) {
+                stopSeek()
+                return
+            }
             seekHandler.postDelayed(this, SEEK_TICK_MS)
         }
+    }
+
+    /**
+     * A lost key-up must not seek through the next tracks: a screen-off seek ends at the end margin, the start or a
+     * new track. Checked before and after each tick: after a tick the position is the seek target (clamped at 0), so
+     * a back seek stops at 0 also while the music plays on.
+     */
+    private fun screenOffSeekEnded(): Boolean {
+        if (!seekWaitsForKeyUp || seekDirection == 0) return false
+        val player = AudioPlayerManager.getInstance()
+        return screenOffSeekEnds(seekDirection, player.getCurrentPosition(), player.getDuration(),
+            player.currentlyPlayingFilePath != seekTrackPath)
     }
 
     fun suppressBackUntilRelease(debounceMs: Long = 350L) {
@@ -444,7 +455,7 @@ class InputRouter private constructor() {
         // One click when the seek starts; a click on every tick would buzz
         MainActivity.instance?.clickFeedback()
         val offsetMs = onSeekTick(eventTimeMs)
-        seekHandler.postDelayed(seekTickRunnable, SEEK_TICK_MS)
+        if (screenOffSeekEnded()) stopSeek() else seekHandler.postDelayed(seekTickRunnable, SEEK_TICK_MS)
         return offsetMs
     }
 
