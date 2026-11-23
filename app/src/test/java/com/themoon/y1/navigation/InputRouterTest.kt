@@ -187,6 +187,21 @@ class InputRouterTest {
     }
 
     @Test
+    fun testSkipKeys_screenOffSeekStopsAtTheTrackLimits() {
+        // Forward: stops at the end margin (1 s before the end), not before
+        assertFalse(InputRouter.screenOffSeekEnds(1, positionMs = 58_999, durationMs = 60_000, trackChanged = false))
+        assertTrue(InputRouter.screenOffSeekEnds(1, positionMs = 59_000, durationMs = 60_000, trackChanged = false))
+        // Forward with an unknown duration: only a new track stops it
+        assertFalse(InputRouter.screenOffSeekEnds(1, positionMs = 90_000, durationMs = 0, trackChanged = false))
+        // Back: stops at the start of the track
+        assertFalse(InputRouter.screenOffSeekEnds(-1, positionMs = 1, durationMs = 60_000, trackChanged = false))
+        assertTrue(InputRouter.screenOffSeekEnds(-1, positionMs = 0, durationMs = 60_000, trackChanged = false))
+        // A new track stops it in both directions
+        assertTrue(InputRouter.screenOffSeekEnds(1, positionMs = 5_000, durationMs = 60_000, trackChanged = true))
+        assertTrue(InputRouter.screenOffSeekEnds(-1, positionMs = 5_000, durationMs = 60_000, trackChanged = true))
+    }
+
+    @Test
     fun testSkipKeys_seekSpeedGrowsSmoothlyFrom4xTo120x() {
         assertEquals(4.0, InputRouter.seekSpeed(0L), 1e-9)
         assertEquals(4.0 * Math.sqrt(30.0), InputRouter.seekSpeed(3_500L), 1e-9)

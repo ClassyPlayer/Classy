@@ -51,6 +51,8 @@ class InputRouter private constructor() {
     private var lastSkipRepeatMs = 0L
     /** Screen off: Android sends one long-press and then the key-up, no repeats, so the key-up ends the seek. */
     private var seekWaitsForKeyUp = false
+    // The track when the seek started: a screen-off seek stops when it changes
+    private var seekTrackPath: String? = null
     private val seekHandler = Handler(Looper.getMainLooper())
     private val seekTickRunnable = object : Runnable {
         override fun run() {
@@ -60,6 +62,15 @@ class InputRouter private constructor() {
                 // No key repeats any more (or too long without the key-up), so the key-up went elsewhere
                 stopSeek()
                 return
+            }
+            if (seekWaitsForKeyUp) {
+                // A lost key-up must not seek through the next tracks: stop at the end margin, the start or a new track
+                val player = AudioPlayerManager.getInstance()
+                if (screenOffSeekEnds(seekDirection, player.getCurrentPosition(), player.getDuration(),
+                        player.currentlyPlayingFilePath != seekTrackPath)) {
+                    stopSeek()
+                    return
+                }
             }
             onSeekTick(now)
             seekHandler.postDelayed(this, SEEK_TICK_MS)
@@ -428,6 +439,7 @@ class InputRouter private constructor() {
         seekDirection = if (keyCode == KeyEvent.KEYCODE_MEDIA_NEXT || keyCode == 87) 1 else -1
         seekWaitsForKeyUp = waitForKeyUp
         seekStartMs = eventTimeMs
+        seekTrackPath = AudioPlayerManager.getInstance().currentlyPlayingFilePath
         lastSeekTickMs = eventTimeMs - SEEK_TICK_MS
         // One click when the seek starts; a click on every tick would buzz
         MainActivity.instance?.clickFeedback()
@@ -518,6 +530,16 @@ class InputRouter private constructor() {
 
         // Forward seeks stop this far before the end, so seeking alone never skips to the next track
         private const val SEEK_END_MARGIN_MS = 1_000
+
+        /**
+         * True when a screen-off seek must stop before its key-up: forward at the end margin, back at the start, or
+         * the track changed. Then a lost key-up changes one track at most. A forward seek with an unknown duration
+         * (0) stops only when the track changes.
+         */
+        internal fun screenOffSeekEnds(direction: Int, positionMs: Int, durationMs: Int, trackChanged: Boolean): Boolean {
+            if (trackChanged) return true
+            return if (direction > 0) durationMs > 0 && positionMs >= durationMs - SEEK_END_MARGIN_MS else positionMs <= 0
+        }
 
         /** Seek speed (x real time) after seeking for [seekingMs]. */
         internal fun seekSpeed(seekingMs: Long): Double {
