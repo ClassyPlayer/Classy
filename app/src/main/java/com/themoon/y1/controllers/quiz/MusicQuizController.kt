@@ -627,6 +627,14 @@ class MusicQuizController(
         val key = AlbumCoverManager.getAlbumKey(file, album)
         coverArtCache[key]?.let { return it }
 
+        // A cover in memory or a disk thumbnail is enough: no decode on the main thread for each candidate song
+        val manager = AlbumCoverManager.getInstance()
+        val thumb = manager.getDiskThumbFile(key)
+        if (manager.getMemoryCover(key) != null || (thumb.exists() && thumb.length() > 0)) {
+            coverArtCache[key] = true
+            return true
+        }
+
         val bmp = loadSongCoverBitmap(file, album)
         val hasArt = bmp != null
         coverArtCache[key] = hasArt

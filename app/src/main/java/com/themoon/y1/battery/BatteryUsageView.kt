@@ -205,10 +205,8 @@ class BatteryUsageView(
         val half = width / 2f
         val chosenLeft = if (tenDays) x0 + half else x0
         fill.style = Paint.Style.FILL
-        fill.shader = if (ThemeManager.isClassicTheme())
-            LinearGradient(0f, top.toFloat(), 0f, (top + h).toFloat(), intArrayOf(0xFF62B7F5.toInt(), 0xFF2588DC.toInt(), 0xFF0865C4.toInt()),
-                null, Shader.TileMode.CLAMP)
-        else null
+        fill.shader = LinearGradient(0f, top.toFloat(), 0f, (top + h).toFloat(),
+            intArrayOf(0xFF62B7F5.toInt(), 0xFF2588DC.toInt(), 0xFF0865C4.toInt()), null, Shader.TileMode.CLAMP)
         fill.color = ThemeManager.getListButtonFocusedBg()
         canvas.drawRect(chosenLeft, top.toFloat(), chosenLeft + half, (top + h).toFloat(), fill)
         fill.shader = null

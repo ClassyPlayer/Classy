@@ -3,9 +3,7 @@ package com.themoon.y1.cast
 import com.themoon.y1.MainActivity
 import com.themoon.y1.controllers.settings.ActionScreens
 import com.themoon.y1.controllers.settings.DateTimeSync
-import com.themoon.y1.handleMainMenuAction
-import com.themoon.y1.navigation.NavigationManager
-import com.themoon.y1.navigation.ScreenState
+import com.themoon.y1.showNowPlaying
 
 /**
  * Main menu → Play On: an iPod-style list of the speakers on the Wi-Fi. "This Y2" plays on the Y2 again. The row
@@ -41,22 +39,17 @@ object PlayOnMenu {
         val rows = ArrayList<ActionScreens.Action>()
         rows.add(ActionScreens.Action(main.t("This Y2"), checked = current == null, closes = !fromNowPlaying) {
             CastManager.stop()
-            showPlayer(main, fromNowPlaying)
+            main.showNowPlaying()
         })
         // The speaker that plays stays in the list, also when this search did not find it
         val list = if (current != null && devices.none { it.id == current.id }) listOf(current) + devices else devices
         for (d in list) {
             rows.add(ActionScreens.Action(d.rowLabel, checked = current?.id == d.id, closes = !fromNowPlaying) {
                 CastManager.start(d)
-                showPlayer(main, fromNowPlaying)
+                main.showNowPlaying()
             })
         }
         rows.add(ActionScreens.Action(main.t("Search Again")) { open(main, fromNowPlaying) })
         return ActionScreens.Spec(main.t("Play On"), info = listOfNotNull(info), actions = rows)
-    }
-
-    /** From the main menu: the list closed, Now Playing opens. From the Now Playing menu: Back over the list and the menu. */
-    private fun showPlayer(main: MainActivity, fromNowPlaying: Boolean) {
-        if (fromNowPlaying) NavigationManager.getInstance().popBackStackTo { it == ScreenState.Player } else main.handleMainMenuAction("OPEN_PLAYER")
     }
 }

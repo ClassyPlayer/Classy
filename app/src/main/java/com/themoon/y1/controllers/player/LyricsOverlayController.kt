@@ -224,8 +224,8 @@ class LyricsOverlayController(
 
     /** Same text colours as Now Playing; the line being sung uses the focus colour of list rows. */
     private fun applyThemeColors() {
-        // The iPod colours on the white Classic screen; the theme colours on a dark Now Playing screen
-        val classic = ThemeManager.isClassicTheme() && !isPlayerBackgroundDark()
+        // The iPod colours on the white Classic Light screen; the theme colours on a dark Now Playing screen
+        val classic = !isPlayerBackgroundDark()
         setColors(
             if (classic) 0xFF000000.toInt() else ThemeManager.getTextColorPrimary(),
             if (classic) 0xFF3C3C43.toInt() else ThemeManager.getTextColorSecondary(),

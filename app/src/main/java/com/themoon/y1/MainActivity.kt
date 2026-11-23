@@ -273,7 +273,6 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
 
     lateinit var ivAlbumArt: ImageView
     var ivAlbumReflection: ImageView? = null
-    lateinit var ivPauseOverlay: ImageView
     lateinit var tvPlayerTitle: TextView
     lateinit var tvPlayerArtist: TextView
     lateinit var tvPlayerAlbum: TextView
@@ -402,20 +401,16 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
         vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
         // The app may have died during a game: the wheel then still reports pads, and no list would scroll
         com.themoon.y1.games.WheelSensor.resetTestMode()
+        // The Y2 wheel from its touch pads (Settings → Controls → Wheel Mode)
+        com.themoon.y1.navigation.PadWheel.attach(this)
 
         window.setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN)
         setContentView(R.layout.activity_main)
 
         AssetInstaller.installBundledLanguages(this, prefs)
-        AssetInstaller.installBundledThemes(this, prefs)
         LanguageManager.getInstance(this).loadAvailableLanguages()
 
-        val themeDir = File(filesDir, "themes")
-        ThemeManager.loadThemesFromStorage(themeDir)
-        val savedThemeName = prefs.getString(Prefs.THEME_NAME.key, null)
-            ?: Prefs.CURRENT_THEME_NAME.get(prefs)
-        val themeIdx = ThemeManager.findThemeIndexByName(savedThemeName)
-        if (themeIdx != -1) ThemeManager.setThemeIndex(themeIdx)
+        ThemeManager.init(this, prefs)
         com.themoon.y1.managers.AutoThemeManager.applyAtStart(prefs)
 
         loadPreferences()
@@ -643,7 +638,14 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
 
     fun t(key: String): String = LanguageManager.getInstance(this).t(key)
 
+    private var lastClickMs = 0L
+    private var lastVibrateMs = 0L
+
     fun clickFeedback() {
+        // At most 50 clicks a second: a fast wheel can give steps less than 30 ms apart
+        val clickNow = android.os.SystemClock.uptimeMillis()
+        if (clickNow - lastClickMs < 20L) return
+        lastClickMs = clickNow
         val pm = getSystemService(Context.POWER_SERVICE) as? PowerManager
         val isScreenOn = if (Build.VERSION.SDK_INT >= 20) {
             pm?.isInteractive ?: true
@@ -653,7 +655,11 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
         if (!isScreenOffControlEnabled && (!isScreenOn || isScreenSleeping)) {
             return
         }
-        if (isVibrationEnabled) {
+        // No new vibration (the sound plays) while the last one has not ended: Strong is 40 ms
+        if (isVibrationEnabled &&
+            clickNow - lastVibrateMs >= com.themoon.y1.managers.ButtonVibration.lengthMs(vibrationStrengthLevel) + 10L
+        ) {
+            lastVibrateMs = clickNow
             com.themoon.y1.managers.ButtonVibration.vibrate(vibrator, vibrationStrengthLevel)
         }
         if (isSoundEffectEnabled) {
@@ -752,13 +758,15 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
 
     fun getActiveScreenController(): ScreenController? = NavigationManager.getInstance().activeController
 
-    /** The Power screen (Restart, Power Off). Back goes to the screen that was open before. */
+    /** The Power screen (Wi-Fi, Bluetooth, Brightness, Restart, Power Off). Back goes to the screen that was open before. */
     fun showPowerMenu() {
         wakeFromFakeScreenOff()
         changeScreen(ScreenState.Settings(SettingsSubMode.Power))
     }
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        // The wheel's own step keys while the pad wheel reads the pads
+        if (com.themoon.y1.navigation.PadWheel.filterKey(event)) return true
         // A key during a menu slide ends the slide at once, then acts on the new screen as normal. Not the repeats of
         // a held key: a held centre opens a screen (Now Playing menu, Add to Playlist), and its repeats must not stop
         // the slide of that screen.
@@ -1027,8 +1035,6 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
 
     fun refreshNowPlayingPreview() {
         homeWidgetsController?.let { hwc ->
-            hwc.currentTrackTitle = tvPlayerTitle?.text?.toString() ?: ""
-            hwc.currentTrackArtist = tvPlayerArtist?.text?.toString() ?: ""
             hwc.lastAlbumArtBytes = lastAlbumArtBytes
             if (isAudiobookLibraryMode && lastAlbumArtBytes != null) {
                 hwc.setAudiobookCoverBytes(lastAlbumArtBytes)
@@ -1303,7 +1309,6 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
 
     fun onClockSettingsChanged() {
         updateStatusBarClock()
-        homeWidgetsController?.refreshWidgets()
     }
 
     fun isPaneBasedScreen(): Boolean {
@@ -1389,6 +1394,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
                 BluetoothAdapter.ACTION_STATE_CHANGED -> {
                     val state = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.ERROR)
                     onStatusBarBluetoothAdapterState(state)
+                    if (::settingsController.isInitialized) settingsController.onRadioStateChanged()
                     if (state == BluetoothAdapter.STATE_ON) {
                         ivStatusBluetooth?.visibility = View.VISIBLE
                         updateStatusBarBluetooth()
@@ -1471,6 +1477,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
                 }
                 WifiManager.WIFI_STATE_CHANGED_ACTION -> {
                     val state = intent.getIntExtra(WifiManager.EXTRA_WIFI_STATE, WifiManager.WIFI_STATE_UNKNOWN)
+                    if (::settingsController.isInitialized) settingsController.onRadioStateChanged()
                     if (state == WifiManager.WIFI_STATE_ENABLED) {
                         ivStatusWifi?.visibility = View.VISIBLE
                         updateStatusBarWifi(false)
@@ -1514,6 +1521,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
                 }
                 Intent.ACTION_SCREEN_ON -> {
                     isScreenSleeping = false
+                    com.themoon.y1.navigation.PadWheel.onScreenOn()
                     powerBacklightManager?.resetTimer()
                     updateScreenOffFeedback(true)
                     updateStatusBarClock()
@@ -1526,7 +1534,6 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
                 }
                 Intent.ACTION_TIME_TICK, Intent.ACTION_TIME_CHANGED, Intent.ACTION_TIMEZONE_CHANGED -> {
                     updateStatusBarClock()
-                    homeWidgetsController?.refreshWidgets()
                 }
                 Intent.ACTION_SHUTDOWN, "android.intent.action.QUICKBOOT_POWEROFF", "com.htc.intent.action.QUICKBOOT_POWEROFF" -> {
                     AudioPlayerManager.getInstance().savePlaybackState(sync = true)
@@ -1591,6 +1598,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     }
 
     override fun onDestroy() {
+        com.themoon.y1.navigation.PadWheel.detach(this)
         com.themoon.y1.battery.BatteryGuard.removeListener(batteryGuardListener)
         menuSlide?.let { NavigationManager.getInstance().removeDirectionListener(it) }
         // The overlays of this window: an object must not keep the closed activity

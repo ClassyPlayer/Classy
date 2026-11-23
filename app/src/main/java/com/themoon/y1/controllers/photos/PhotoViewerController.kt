@@ -25,6 +25,7 @@ import com.themoon.y1.controllers.player.LyricsScreenHold
 import com.themoon.y1.navigation.NavigationManager
 import com.themoon.y1.navigation.RowFocus
 import com.themoon.y1.navigation.ScreenState
+import com.themoon.y1.navigation.WheelKind
 import com.themoon.y1.photos.PhotoDecoder
 import com.themoon.y1.photos.PhotoItem
 import com.themoon.y1.photos.PhotoLibrary
@@ -431,6 +432,9 @@ class PhotoViewerController(
         show(to, PhotoSettings.TRANSITION_OFF, if (delta > 0) 1 else -1)
         if (o != null && !paused) schedule()
     }
+
+    // The wheel moves one photo for each step
+    override fun wheelKind(): WheelKind = WheelKind.VALUE
 
     override fun onWheel(delta: Int, event: KeyEvent): Boolean {
         step(delta)

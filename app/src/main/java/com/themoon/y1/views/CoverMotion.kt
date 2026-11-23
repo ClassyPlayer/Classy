@@ -4,6 +4,7 @@ import java.util.Random
 import kotlin.math.abs
 import kotlin.math.hypot
 import kotlin.math.max
+import kotlin.math.sqrt
 
 /**
  * The slow pan and zoom of the split-screen art (the "Ken Burns" motion of the iPod Classic). No Android code, so
@@ -41,6 +42,21 @@ class CoverMotion(private val random: Random = Random()) {
         const val MAX_FRAME_GAP_MS = 250L
         const val NORMAL_FRAME_MS = 48L
 
+        /**
+         * Frame pacing: a frame comes when the art has moved about [STEP_PX] on the screen, not at a fixed rate.
+         * The art is drawn with filtering, so a step of less than a pixel shows as a smooth move. Where the path is
+         * slow, there are fewer frames (down to ~5 a second); where it is fast, the frames come as before (~21 a
+         * second, [MIN_FRAME_DELAY_MS]).
+         */
+        const val STEP_PX = 0.4f
+
+        /** Limits of the delay before the next frame (the frame then comes at the next display refresh). */
+        const val MIN_FRAME_DELAY_MS = 33L
+        const val MAX_FRAME_DELAY_MS = 180L
+
+        /** Mean time from the end of the delay to the frame (the wait for the next display refresh). */
+        const val FRAME_WAIT_MS = 14L
+
         /** True when the art moves: the setting is on, and the screen is on and not blanked (FakeScreenOff). */
         fun moves(enabled: Boolean, screenOn: Boolean, blanked: Boolean): Boolean = enabled && screenOn && !blanked
 
@@ -60,6 +76,47 @@ class CoverMotion(private val random: Random = Random()) {
         fun offset(part: Float, drawnSize: Float, viewSize: Float, zoom: Float): Float {
             val free = (drawnSize * zoom - viewSize) / 2f
             return if (free > 0f) part.coerceIn(-1f, 1f) * free else 0f
+        }
+
+        /**
+         * The largest move (px) of the art in a [viewW] × [viewH] pane from the pose ([x0], [y0], [zoom0]) to the
+         * pose ([x1], [y1], [zoom1]), for art of [contentW] × [contentH] (before CENTER_CROP). The art moves most
+         * at a corner of the pane, where the zoom change adds to the pan.
+         */
+        fun stepPx(
+            contentW: Float, contentH: Float, viewW: Float, viewH: Float,
+            x0: Float, y0: Float, zoom0: Float, x1: Float, y1: Float, zoom1: Float
+        ): Float {
+            if (viewW <= 0f || viewH <= 0f || zoom0 <= 0f) return 0f
+            val crop = cropScale(contentW, contentH, viewW, viewH)
+            val drawnW = if (contentW > 0f) contentW * crop else viewW
+            val drawnH = if (contentH > 0f) contentH * crop else viewH
+            val dx0 = offset(x0, drawnW, viewW, zoom0)
+            val dy0 = offset(y0, drawnH, viewH, zoom0)
+            val dx1 = offset(x1, drawnW, viewW, zoom1)
+            val dy1 = offset(y1, drawnH, viewH, zoom1)
+            // A point of the art at the screen point c (from the pane centre) moves to d1 + zoom1 / zoom0 · (c - d0).
+            val k = zoom1 / zoom0 - 1f
+            var largest = 0f
+            for (corner in 0..3) {
+                val cx = if (corner and 1 == 0) -viewW / 2f else viewW / 2f
+                val cy = if (corner < 2) -viewH / 2f else viewH / 2f
+                val mx = dx1 - dx0 + k * (cx - dx0)
+                val my = dy1 - dy0 + k * (cy - dy0)
+                largest = max(largest, sqrt(mx * mx + my * my))
+            }
+            return largest
+        }
+
+        /**
+         * Delay (ms) before the next frame, so that the art moves about [STEP_PX] in it. The last frame moved the art
+         * [stepPx] in [intervalMs]; the speed changes slowly (one key pose each [SEGMENT_MS]), so the next frame
+         * has about the same speed.
+         */
+        fun frameDelay(stepPx: Float, intervalMs: Long): Long {
+            if (intervalMs <= 0L || stepPx <= 0f) return MAX_FRAME_DELAY_MS
+            val ms = STEP_PX * intervalMs / stepPx - FRAME_WAIT_MS
+            return if (ms >= MAX_FRAME_DELAY_MS) MAX_FRAME_DELAY_MS else ms.toLong().coerceAtLeast(MIN_FRAME_DELAY_MS)
         }
     }
 

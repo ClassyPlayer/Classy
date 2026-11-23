@@ -4,7 +4,6 @@ import android.content.SharedPreferences
 import android.graphics.Typeface
 import com.themoon.y1.Prefs
 import com.themoon.y1.ThemeManager
-import com.themoon.y1.controllers.player.NowPlayingTheme
 import com.themoon.y1.controllers.settings.SettingRow
 import com.themoon.y1.controllers.settings.SettingRows
 
@@ -65,15 +64,13 @@ object ReaderSettings {
     fun keepScreenOn(prefs: SharedPreferences): Boolean = Prefs.READER_KEEP_SCREEN_ON.get(prefs)
 
     /** True for a dark page with the setting and the theme of now. */
-    fun isDarkPage(prefs: SharedPreferences): Boolean = ReaderColors.isDark(
-        Prefs.READER_COLORS.get(prefs), ThemeManager.isClassicTheme(), ThemeManager.isClassicLightTheme(),
-        ThemeManager.getOverlayBackgroundColor()
-    )
+    fun isDarkPage(prefs: SharedPreferences): Boolean =
+        ReaderColors.isDark(Prefs.READER_COLORS.get(prefs), ThemeManager.isClassicLightTheme())
 }
 
 /**
  * The page colours. "Follow System" follows the Classy theme (Android 4.4 has no dark mode): Classic Light gives a
- * light page, Classic Dark a dark one, and another theme a dark page when its background is dark.
+ * light page, Classic Dark a dark one.
  */
 object ReaderColors {
     const val LIGHT_BG = 0xFFFFFFFF.toInt()
@@ -84,9 +81,9 @@ object ReaderColors {
     const val DARK_TEXT = 0xFFD8D8D8.toInt()
     const val DARK_DIM = 0xFF7C7C80.toInt()
 
-    fun isDark(mode: Int, classic: Boolean, classicLight: Boolean, themeBackground: Int): Boolean = when (mode) {
+    fun isDark(mode: Int, classicLight: Boolean): Boolean = when (mode) {
         ReaderSettings.COLORS_LIGHT -> false
         ReaderSettings.COLORS_DARK -> true
-        else -> if (classic) !classicLight else NowPlayingTheme.isDark(themeBackground)
+        else -> !classicLight
     }
 }

@@ -220,6 +220,66 @@ class CoverMotionTest {
         assertEquals(last.toList(), again.toList())
     }
 
+    // Frame pacing
+
+    @Test
+    fun stepIsThePanAtTheCornersWithTheZoom() {
+        // Square art in the Y2 pane (240 × 331): drawn 331 × 331, free space (331 · zoom - 240) / 2 on x.
+        val zoom = 1.4f
+        val freeX = (331f * zoom - 240f) / 2f
+        val pan = CoverMotion.stepPx(500f, 500f, 240f, 331f, 0f, 0f, zoom, 0.1f, 0f, zoom)
+        assertEquals(0.1f * freeX, pan, 0.001f)
+        // A zoom change at the centre pose moves the corners most: by k · half the diagonal.
+        val k = 1.41f / 1.4f - 1f
+        val zoomStep = CoverMotion.stepPx(500f, 500f, 240f, 331f, 0f, 0f, 1.4f, 0f, 0f, 1.41f)
+        assertEquals(k * kotlin.math.hypot(120f, 165.5f), zoomStep, 0.001f)
+        assertEquals(0f, CoverMotion.stepPx(500f, 500f, 240f, 331f, 0.3f, -0.2f, 1.3f, 0.3f, -0.2f, 1.3f), 0f)
+    }
+
+    @Test
+    fun frameDelayFollowsTheSpeed() {
+        // 0.2 px in 50 ms (4 px/s): 0.4 px takes 100 ms, less the wait for the display refresh.
+        assertEquals(100L - CoverMotion.FRAME_WAIT_MS, CoverMotion.frameDelay(0.2f, 50L))
+        assertEquals(CoverMotion.MIN_FRAME_DELAY_MS, CoverMotion.frameDelay(5f, 50L))
+        assertEquals(CoverMotion.MAX_FRAME_DELAY_MS, CoverMotion.frameDelay(0.01f, 50L))
+        assertEquals(CoverMotion.MAX_FRAME_DELAY_MS, CoverMotion.frameDelay(0f, 50L))
+    }
+
+    @Test
+    fun pacedFramesAreFewerAndStepsStaySmall() {
+        // Ten minutes in the Y2 pane, as CoverArtView paces it: each frame comes at the next display refresh (16.7 ms)
+        // after its delay. No step is larger than the largest step of the old fixed frames (~21 fps, each 3 refreshes:
+        // ~0.45 px), and there are at most 60 % of the old frames.
+        val vsync = 1000.0 / 60.0
+        for (seed in 1L..3L) {
+            val motion = CoverMotion(Random(seed))
+            val p = FloatArray(3)
+            var t = 0.0
+            motion.frame(0L, p)
+            var last = p.copyOf()
+            var delay = CoverMotion.MIN_FRAME_DELAY_MS
+            var frames = 0
+            var largest = 0f
+            while (t < 600_000.0) {
+                val due = t + 3.0 + delay // the draw ends ~3 ms after the frame time
+                val next = kotlin.math.ceil(due / vsync) * vsync
+                val interval = (next - t).toLong()
+                t = next
+                motion.frame(t.toLong(), p)
+                val step = CoverMotion.stepPx(
+                    500f, 500f, 240f, 331f, last[0], last[1], CoverMotion.zoom(last[2]), p[0], p[1], CoverMotion.zoom(p[2])
+                )
+                largest = max(largest, step)
+                delay = CoverMotion.frameDelay(step, interval)
+                p.copyInto(last)
+                frames++
+            }
+            val fps = frames / 600.0
+            assertTrue("seed $seed: largest step $largest px", largest < 0.5f)
+            assertTrue("seed $seed: $fps frames a second", fps < 12.7)
+        }
+    }
+
     @Test
     fun movesOnlyWhenOnAndScreenShows() {
         assertTrue(CoverMotion.moves(enabled = true, screenOn = true, blanked = false))

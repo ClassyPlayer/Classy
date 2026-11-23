@@ -55,8 +55,8 @@ class SettingsSpecTest {
                 "Appearance" to listOf("Theme", "Toggle Style", "List Edges", "Menu Cover Motion", "Fill Video Screen"),
                 "Menus" to listOf("Main Menu Items", "Music Menu Items", "Group Albums"),
                 "Controls" to listOf(
-                    "Button Sound", "Click Volume", "Button Vibration", "Vibration Strength", "Wheel Loop Scroll",
-                    "Letter Jump", "Letter Jump Sensitivity", "Screen-Off Control", "Double-Click to Favorite"
+                    "Button Sound", "Click Volume", "Button Vibration", "Vibration Strength", "Wheel Mode", "Wheel Loop Scroll",
+                    "List Glide", "Letter Jump", "Letter Jump Sensitivity", "Screen-Off Control", "Double-Click to Favorite", "Hold Back for Now Playing"
                 ),
                 "Connectivity" to listOf("Bluetooth", "Wi-Fi", "Web Server", "USB Drive", "Use as USB Drive"),
                 "Battery" to listOf("Battery"),
@@ -78,7 +78,9 @@ class SettingsSpecTest {
         assertTrue(groups.size in 6..15)
         for ((title, rows) in groups) {
             assertTrue("$title: label too long", title.length <= 12)
-            assertTrue("$title: ${rows.size} rows", rows.size in 1..10)
+            // Controls: 12 with Wheel Mode and List Glide (Y2 only) and Hold Back for Now Playing; each switch keeps its setting row under it
+            val most = if (title == "Controls") 12 else 10
+            assertTrue("$title: ${rows.size} rows", rows.size in 1..most)
         }
         val all = groups.flatMap { it.second }
         assertEquals(all.size, all.toSet().size)
