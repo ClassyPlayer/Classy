@@ -292,7 +292,7 @@ private fun MainActivity.moveStatusTextLast() {
 internal fun MainActivity.applyThemeInternal() {
     try {
         val overlayColor = ThemeManager.getOverlayBackgroundColor()
-        layoutMainMenu.setBackgroundColor(0x00000000)
+        layoutMainMenu.setBackgroundColor(overlayColor)
         layoutBrowserMode.setBackgroundColor(overlayColor)
         layoutSettingsMode.setBackgroundColor(overlayColor)
         layoutBluetoothMode.setBackgroundColor(overlayColor)

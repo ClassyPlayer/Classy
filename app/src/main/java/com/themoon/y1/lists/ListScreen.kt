@@ -37,7 +37,7 @@ class ListScreen(
     private val rows: LinearLayout,
     private val list: ListView? = null,
     private val clickFeedback: () -> Unit,
-    /** Told the text of each focused [RowLook.MENU] row. */
+    /** Told the key ([RowSpec.key]) of each focused [RowLook.MENU] row. */
     private val onRowFocus: ((String) -> Unit)? = null,
     /** Shows the letter of the letter jump ([ListSpec.letters]). */
     private val letterBox: LetterBox? = null
@@ -280,7 +280,8 @@ class ListScreen(
         val view = when (row.look) {
             RowLook.MENU -> {
                 val color = if (row.key == ListModel.EMPTY_KEY) ThemeManager.getTextColorSecondary() else row.color
-                ListItemViewFactory.createListButtonWithIcon(context, "", row.label, color, onRowFocus)
+                val focus = onRowFocus?.let { told -> { _: String -> told(row.key) } }
+                ListItemViewFactory.createListButtonWithIcon(context, "", row.label, color, focus)
             }
             RowLook.VALUE -> ListItemViewFactory.createSettingRow(context, row.label, row.value)
             RowLook.CHOICE ->

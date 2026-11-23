@@ -2,6 +2,7 @@ package com.themoon.y1
 
 import android.content.Context
 import android.util.Log
+import com.themoon.y1.controllers.menu.MainMenuItems
 
 /**
  * A feature that the user hides in Settings -> Main Menu Items also stops its background work.
@@ -24,9 +25,7 @@ object FeatureVisibility {
         if (context == null) return false
         return try {
             val prefs = context.getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
-            val ids = ThemeManager.menuElements
-                .filter { it.type == "button" && it.action.equals(action, ignoreCase = true) }
-                .map { it.id }
+            val ids = MainMenuItems.ITEMS.filter { it.action.equals(action, ignoreCase = true) }.map { it.id }
             isHidden(ids) { prefs.getBoolean(Prefs.MAIN_MENU_HIDDEN.key(it), false) }
         } catch (e: Exception) {
             false

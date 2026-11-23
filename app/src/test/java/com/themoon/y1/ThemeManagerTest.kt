@@ -93,22 +93,4 @@ class ThemeManagerTest {
         assertEquals("Classic Light", ThemeManager.getCurrentTheme().name)
         assertNull(ThemeManager.find("iPod Classic"))
     }
-
-    @Test
-    fun theMainMenuHasTheRowsInTheDefaultOrder() {
-        val rows = ThemeManager.menuElements.filter { it.type == "button" }
-        assertEquals(
-            listOf("btn_now", "btn_music", "btn_videos", "btn_photos", "btn_musicquiz", "btn_games", "btn_podcasts",
-                "btn_audiobooks", "btn_books", "btn_radio", "btn_bt", "btn_wifi", "btn_play_on", "btn_set", "btn_web"),
-            rows.sortedBy { it.focusIndex }.map { it.id }
-        )
-        assertEquals((0 until 15).toList(), rows.map { it.focusIndex })
-        assertTrue(rows.all { it.parentId == "main_scroll_list" && it.action.startsWith("OPEN_") })
-        assertEquals("OPEN_PHOTOS", rows.first { it.id == "btn_photos" }.action)
-        assertEquals(
-            listOf("list_box", "widget_animated_cover", "widget_photo_preview"),
-            ThemeManager.menuElements.filter { it.type != "button" }.map { it.type }
-        )
-        assertEquals("btn_photos", ThemeManager.menuElements.first { it.type == "widget_photo_preview" }.visibleOnFocus)
-    }
 }

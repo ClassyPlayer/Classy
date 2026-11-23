@@ -23,6 +23,7 @@ import com.themoon.y1.FeatureVisibility
 import com.themoon.y1.ThemeManager
 import com.themoon.y1.controllers.ScreenController
 import com.themoon.y1.controllers.browser.MusicMenuItems
+import com.themoon.y1.controllers.menu.MainMenuItems
 import com.themoon.y1.controllers.menu.MenuOrder
 import com.themoon.y1.managers.AudioEffectManager
 import com.themoon.y1.managers.AudioPlayerManager
@@ -885,23 +886,15 @@ class SettingsController(
 
     // --- Main Menu Items and Music Menu Items ---
 
-    private fun mainMenuItemsSpec(): ListSpec {
-        val buttons = ArrayList<ThemeManager.MenuElement>()
-        for (el in ThemeManager.menuElements) {
-            if (el.type == "button") buttons.add(el)
+    private fun mainMenuItemsSpec(): ListSpec = ListSpec(localize("Main Menu Items"), MainMenuItems.ordered(prefs).map { item ->
+        val key = Prefs.MAIN_MENU_HIDDEN.key(item.id)
+        val row = visibilityRow(item.label, { prefs.getBoolean(key, false) }, reorderable = true) { hidden ->
+            prefs.edit().putBoolean(key, hidden).commit()
+            FeatureVisibility.onMenuButtonToggled(activity, item.action, hidden)
         }
-        MenuOrder.sort(buttons, prefs)
-        return ListSpec(localize("Main Menu Items"), buttons.map { el ->
-            val key = Prefs.MAIN_MENU_HIDDEN.key(el.id)
-            val name = if (!el.textNormal.isNullOrBlank()) el.textNormal else el.id
-            val row = visibilityRow(name, { prefs.getBoolean(key, false) }, reorderable = true) { hidden ->
-                prefs.edit().putBoolean(key, hidden).commit()
-                FeatureVisibility.onMenuButtonToggled(activity, el.action, hidden)
-            }
-            row.tag = el.id
-            RowSpec(name, RowLook.CUSTOM, view = row)
-        })
-    }
+        row.tag = item.id
+        RowSpec(item.label, RowLook.CUSTOM, view = row)
+    })
 
     private fun musicMenuItemsSpec(): ListSpec = ListSpec(localize("Music Menu Items"), MusicMenuItems.ITEMS.map { item ->
         val label = localize(item.label)

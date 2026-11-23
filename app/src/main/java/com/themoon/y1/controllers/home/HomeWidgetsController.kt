@@ -10,28 +10,22 @@ import android.widget.ImageView
 import com.themoon.y1.MainActivity
 import com.themoon.y1.R
 import com.themoon.y1.StoragePaths
-import com.themoon.y1.ThemeManager
-import com.themoon.y1.controllers.menu.MainMenuController
 import com.themoon.y1.managers.MediaLibraryManager
 import java.io.File
 import java.io.FileInputStream
 
 /**
  * The art of the split screens: the cover pane of the main menu and of the Music and Audiobooks menus (the art of the
- * song that plays, else a random cover, else the default art), and the main menu widget of the focused row (Photos).
+ * song that plays, else a random cover, else the default art).
  */
 class HomeWidgetsController(
     private val context: Context,
-    private val mainMenuProvider: () -> MainMenuController?,
+    private val ivMainMenuCover: ImageView?,
     private val ivBrowserCover: ImageView?,
     private val frameBrowserCover: View?,
     private val fetchRandomIdleCoverAsync: () -> Unit,
     private val isAudiobookMode: () -> Boolean = { false }
 ) {
-
-    private val widgetViewRegistry: Map<View, ThemeManager.MenuElement>
-        get() = mainMenuProvider()?.widgetViewRegistry ?: emptyMap<View, ThemeManager.MenuElement>()
-    private val ivAnimatedCover: ImageView? get() = mainMenuProvider()?.ivAnimatedCover
 
     var lastAlbumArtBytes: ByteArray? = null
         set(value) {
@@ -76,7 +70,7 @@ class HomeWidgetsController(
 
     fun refreshWidgets() {
         // The main menu cover pane
-        val animCover = ivAnimatedCover
+        val animCover = ivMainMenuCover
         if (animCover != null) {
             val bmp = cachedAlbumArtBitmap ?: lastAlbumArtBytes?.takeIf { it.isNotEmpty() }?.let {
                 try { decodeAlbumArtSmart(it) } catch (_: Exception) { null }
@@ -234,14 +228,6 @@ class HomeWidgetsController(
             } else null
         } catch (_: Exception) {
             null
-        }
-    }
-
-    /** Shows the pane widgets of the focused row ([ThemeManager.MenuElement.visibleOnFocus]) and hides the others. */
-    fun updateFocusPreview(focusedElement: ThemeManager.MenuElement) {
-        for ((widgetView, el) in widgetViewRegistry) {
-            if (el.visibleOnFocus.isBlank()) continue
-            widgetView.visibility = if (focusedElement.id == el.visibleOnFocus) View.VISIBLE else View.GONE
         }
     }
 

@@ -1,7 +1,6 @@
 package com.themoon.y1.controllers.menu
 
 import android.content.SharedPreferences
-import com.themoon.y1.ThemeManager
 
 /**
  * Settings → Main Menu Items order: the ids in one key, the same for both themes. Ids that the menu does not have are
@@ -16,7 +15,7 @@ object MenuOrder {
         prefs.edit().putString(KEY, order).commit()
     }
 
-    fun <T> sort(items: MutableList<T>, order: String, id: (T) -> String, themeIndex: (T) -> Int) {
+    fun <T> sort(items: MutableList<T>, order: String, id: (T) -> String, defaultIndex: (T) -> Int) {
         val ids = order.split(",").filter { it.isNotEmpty() }
         items.sortWith { e1, e2 ->
             val idx1 = ids.indexOf(id(e1))
@@ -24,10 +23,7 @@ object MenuOrder {
             if (idx1 != -1 && idx2 != -1) idx1 - idx2
             else if (idx1 != -1) -1
             else if (idx2 != -1) 1
-            else themeIndex(e1) - themeIndex(e2)
+            else defaultIndex(e1) - defaultIndex(e2)
         }
     }
-
-    fun sort(buttons: MutableList<ThemeManager.MenuElement>, prefs: SharedPreferences) =
-        sort(buttons, load(prefs), { it.id }, { it.focusIndex })
 }
