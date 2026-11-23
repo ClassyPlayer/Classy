@@ -49,6 +49,7 @@ open class MigrationManager {
         registerMigration(Migration016PhotosMenuItem())
         registerMigration(Migration017RemoveThemeFolders())
         registerMigration(Migration018MoodTags())
+        registerMigration(Migration019Mp3Years())
     }
 
     /**
