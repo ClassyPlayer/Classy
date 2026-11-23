@@ -50,6 +50,7 @@ import com.themoon.y1.controllers.connectivity.WifiKeyboardController
 import com.themoon.y1.controllers.coverflow.CoverFlowController
 import com.themoon.y1.controllers.home.HomeWidgetsController
 import com.themoon.y1.controllers.menu.MainMenuController
+import com.themoon.y1.controllers.player.NowPlayingContextMenu
 import com.themoon.y1.controllers.player.PlayerController
 import com.themoon.y1.controllers.playlists.PlaylistController
 import com.themoon.y1.controllers.podcasts.PodcastController
@@ -1016,6 +1017,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
             playerController.updatePlayerUI()
         }
         ClassyLayout.refreshPlayIcon(this)
+        NowPlayingContextMenu.refreshQueue()
         val am = AudioPlayerManager.getInstance()
         sendBluetoothMetaToCar()
         BluetoothAvrcpManager.getInstance(this).updatePlaybackState(am.isPlaying())

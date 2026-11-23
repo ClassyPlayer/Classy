@@ -847,5 +847,8 @@
   "December": "December",
   "Shuffle Play": "Shuffle Play",
   "Moods": "Moods",
-  "Unknown Mood": "Unknown Mood"
+  "Unknown Mood": "Unknown Mood",
+  "Queue": "Queue",
+  "Earlier Tracks": "Earlier Tracks",
+  "Later Tracks": "Later Tracks"
 }

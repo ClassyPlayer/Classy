@@ -847,5 +847,8 @@
   "December": "Декабрь",
   "Shuffle Play": "Перемешать",
   "Moods": "Настроения",
-  "Unknown Mood": "Неизвестное настроение"
+  "Unknown Mood": "Неизвестное настроение",
+  "Queue": "Очередь",
+  "Earlier Tracks": "Предыдущие треки",
+  "Later Tracks": "Следующие треки"
 }

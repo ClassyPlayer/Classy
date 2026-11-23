@@ -847,5 +847,8 @@
   "December": "Diciembre",
   "Shuffle Play": "Reproducir aleatorio",
   "Moods": "Estados de ánimo",
-  "Unknown Mood": "Estado de ánimo desconocido"
+  "Unknown Mood": "Estado de ánimo desconocido",
+  "Queue": "Cola",
+  "Earlier Tracks": "Pistas anteriores",
+  "Later Tracks": "Pistas siguientes"
 }

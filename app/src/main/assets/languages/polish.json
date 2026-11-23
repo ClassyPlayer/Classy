@@ -847,5 +847,8 @@
   "December": "Grudzień",
   "Shuffle Play": "Wymieszaj",
   "Moods": "Nastroje",
-  "Unknown Mood": "Nieznany nastrój"
+  "Unknown Mood": "Nieznany nastrój",
+  "Queue": "Kolejka",
+  "Earlier Tracks": "Wcześniejsze utwory",
+  "Later Tracks": "Późniejsze utwory"
 }

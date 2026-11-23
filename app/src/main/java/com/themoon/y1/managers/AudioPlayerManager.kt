@@ -93,6 +93,12 @@ class AudioPlayerManager private constructor() {
         }, "y1-cover-prefetch")
     }
     private val coverPrefetchHandler = Handler(Looper.getMainLooper())
+
+    /**
+     * The delayed skip after a track that cannot play. A new track (Next, Previous, a jump, a list row) cancels it: the
+     * skip belongs to the track that failed, not to the one the user chose.
+     */
+    private val errorSkipHandler = Handler(Looper.getMainLooper())
     @Volatile private var coverPrefetchRun = 0
 
     @Volatile var isPlayingActive: Boolean = false
@@ -651,6 +657,29 @@ class AudioPlayerManager private constructor() {
         main.updatePlayerUI()
     }
 
+    /** Plays queue entry [index] (the Queue list of the Now Playing menu), also when the player was paused. */
+    fun jumpTo(index: Int) {
+        saveAudiobookBookmarkIfNeeded()
+        val main = MainActivity.instance ?: return
+        if (!canJumpTo(index, main.currentPlaylist.size)) return
+        // The gapless path below does not prepare a track: cancel a pending error skip here too
+        errorSkipHandler.removeCallbacksAndMessages(null)
+        main.isPausedByHand = false
+        isPlayingActive = true
+        val exo = exoPlayer
+        if (isGaplessQueueActive && exo != null) {
+            exo.seekTo(index, 0)
+            // After an error the player is idle: load the queue again
+            if (exo.playbackState == Player.STATE_IDLE) exo.prepare()
+            exo.playWhenReady = true
+            startPeriodicPositionSaver()
+            return
+        }
+        main.currentIndex = index
+        prepareMusicTrack(index)
+        main.updatePlayerUI()
+    }
+
     fun prevTrack() {
         saveAudiobookBookmarkIfNeeded()
         val main = MainActivity.instance ?: return
@@ -685,6 +714,8 @@ class AudioPlayerManager private constructor() {
     }
 
     fun prepareMusicTrack(index: Int, initialSeekMs: Long = 0L, initialDurationMs: Long = 0L, fromStart: Boolean = false) {
+        // A skip that an earlier failed track scheduled must not skip this track; a failure of this track posts its own
+        errorSkipHandler.removeCallbacksAndMessages(null)
         val main = MainActivity.instance ?: return
         if (main.currentPlaylist.isEmpty()) return
 
@@ -713,7 +744,7 @@ class AudioPlayerManager private constructor() {
                 }
                 TrackErrorAction.NEXT -> {
                     Notice.error(main, "Corrupted file detected. Skipping...")
-                    Handler(Looper.getMainLooper()).postDelayed({ nextTrack(fromStart) }, 1500)
+                    errorSkipHandler.postDelayed({ nextTrack(fromStart) }, 1500)
                 }
             }
             return
@@ -942,7 +973,7 @@ class AudioPlayerManager private constructor() {
                     main.consecutiveErrorCount = 0
                     stopAtQueueEnd(main)
                 }
-                TrackErrorAction.NEXT -> Handler(Looper.getMainLooper()).postDelayed({ nextTrack(fromStart) }, 2000)
+                TrackErrorAction.NEXT -> errorSkipHandler.postDelayed({ nextTrack(fromStart) }, 2000)
             }
         }
     }
@@ -2199,6 +2230,9 @@ class AudioPlayerManager private constructor() {
             Array(extractors.size) { i ->
                 if (extractors[i] is com.google.android.exoplayer2.ext.flac.FlacExtractor) FlacExtractor() else extractors[i]
             }
+
+        /** [jumpTo] plays only an entry of the queue: [index] in 0 until [queueSize]. */
+        internal fun canJumpTo(index: Int, queueSize: Int): Boolean = index in 0 until queueSize
 
         /**
          * True when [errors] tracks after each other did not play and the queue has no more tracks to try ([queueSize]):

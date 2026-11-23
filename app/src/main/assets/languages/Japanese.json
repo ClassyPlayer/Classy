@@ -847,5 +847,8 @@
   "December": "12月",
   "Shuffle Play": "シャッフル再生",
   "Moods": "ムード",
-  "Unknown Mood": "不明なムード"
+  "Unknown Mood": "不明なムード",
+  "Queue": "キュー",
+  "Earlier Tracks": "前のトラック",
+  "Later Tracks": "次のトラック"
 }

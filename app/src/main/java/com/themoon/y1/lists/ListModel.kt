@@ -137,15 +137,19 @@ object ListModel {
     }
 
     /**
-     * The row to select after the rows changed: the row with the same key, else the row at the same place
-     * (the last row if the list is now shorter), else none (-1).
+     * The row to select after the rows changed: the row with the same key, else the [checked] row (index, -1 = none:
+     * a list that opens on its checked row), else the row at the same place (the last row if the list is now
+     * shorter), else none (-1).
      */
-    fun keptRow(keys: List<String>, oldKey: String?, oldIndex: Int, selectable: (Int) -> Boolean = { true }): Int {
+    fun keptRow(
+        keys: List<String>, oldKey: String?, oldIndex: Int, selectable: (Int) -> Boolean = { true }, checked: Int = -1
+    ): Int {
         if (keys.isEmpty() || oldIndex < 0) return -1
         if (oldKey != null) {
             val i = keys.indexOf(oldKey)
             if (i >= 0 && selectable(i)) return i
         }
+        if (checked in keys.indices && selectable(checked)) return checked
         // The row at the same place, else the next row that can be selected, else the one before it
         val place = oldIndex.coerceAtMost(keys.size - 1)
         return (place until keys.size).firstOrNull(selectable) ?: (place - 1 downTo 0).firstOrNull(selectable) ?: -1

@@ -847,5 +847,8 @@
   "December": "十二月",
   "Shuffle Play": "随机播放",
   "Moods": "心情",
-  "Unknown Mood": "未知心情"
+  "Unknown Mood": "未知心情",
+  "Queue": "队列",
+  "Earlier Tracks": "更早的曲目",
+  "Later Tracks": "更后的曲目"
 }
