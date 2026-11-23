@@ -70,7 +70,7 @@ class MediaLibraryCacheTest {
     fun parseLibraryCacheReadsDateModifiedAndFileSize() {
         val json = JSONObject(
             """
-            {"v":2,"music":[
+            {"v":3,"music":[
               {"path":"/music/t1.mp3","title":"T1","artist":"A","album":"Alb","trackNum":1,"dateModified":1729000000000,"fileSize":98765},
               {"path":"/music/t2.mp3","title":"T2","artist":"A","album":"Alb","trackNum":2,"modified":1729111111000,"size":54321},
               {"path":"/music/t3.mp3","title":"T3","artist":"A","album":"Alb","trackNum":3}
@@ -99,7 +99,7 @@ class MediaLibraryCacheTest {
     fun cacheFromBeforeMoodsReadsOnlyFlacOggOpusAgain() {
         val json = JSONObject(
             """{"music":[
-              {"path":"/music/t1.mp3","title":"T1","dateModified":1729000000000,"fileSize":9},
+              {"path":"/music/t1.mp3","title":"T1","year":"1999","dateModified":1729000000000,"fileSize":9},
               {"path":"/music/t2.FLAC","title":"T2","dateModified":1729000000000,"fileSize":9},
               {"path":"/music/t3.opus","title":"T3","dateModified":1729000000000,"fileSize":9}
             ],"books":[]}"""
@@ -108,6 +108,35 @@ class MediaLibraryCacheTest {
         assertEquals(1729000000000L, music[0].dateModified)
         assertEquals(0L, music[1].dateModified) // 0 makes the next scan extract the tags again
         assertEquals(0L, music[2].dateModified)
+    }
+
+    @Test
+    fun cacheFromBeforeMp3YearsReadsOnlyMp3sWithNoYearAgain() {
+        val json = JSONObject(
+            """{"v":2,"music":[
+              {"path":"/music/t1.mp3","title":"T1","year":"1999","dateModified":1729000000000,"fileSize":9},
+              {"path":"/music/t2.MP3","title":"T2","year":"Unknown Year","dateModified":1729000000000,"fileSize":9},
+              {"path":"/music/t3.mp3","title":"T3","dateModified":1729000000000,"fileSize":9},
+              {"path":"/music/t4.flac","title":"T4","dateModified":1729000000000,"fileSize":9}
+            ],"books":[]}"""
+        )
+        val music = mlm.parseLibraryCache(json) { _, _ -> true }.music
+        assertEquals(1729000000000L, music[0].dateModified)
+        assertEquals(0L, music[1].dateModified) // 0 makes the next scan extract the tags again
+        assertEquals(0L, music[2].dateModified)
+        assertEquals(1729000000000L, music[3].dateModified)
+    }
+
+    @Test
+    fun currentCacheVersionReadsNothingAgain() {
+        val json = JSONObject(
+            """{"v":${MediaLibraryManager.CACHE_VERSION},"music":[
+              {"path":"/music/t1.mp3","title":"T1","dateModified":1729000000000,"fileSize":9},
+              {"path":"/music/t2.flac","title":"T2","dateModified":1729000000000,"fileSize":9}
+            ],"books":[]}"""
+        )
+        val music = mlm.parseLibraryCache(json) { _, _ -> true }.music
+        assertEquals(listOf(1729000000000L, 1729000000000L), music.map { it.dateModified })
     }
 
     @Test

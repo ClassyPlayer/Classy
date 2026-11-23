@@ -705,6 +705,12 @@ class MediaLibraryManager private constructor() {
             (music + books).filter { val n = it.file.name.lowercase(); n.endsWith(".flac") || n.endsWith(".ogg") || n.endsWith(".opus") }
                 .forEach { it.dateModified = 0L }
         }
+        // A cache from before the MP3 year fallback (v3): the next scan reads the MP3 files with no year again, so
+        // that it can find their TYER/TDRC year. Migration 019 starts that scan.
+        if (root.optInt("v", 1) < 3) {
+            (music + books).filter { it.file.name.lowercase().endsWith(".mp3") && (it.year.isBlank() || it.year == "Unknown Year") }
+                .forEach { it.dateModified = 0L }
+        }
         return LibraryCache(music, books, trackNumbers)
     }
 
@@ -826,9 +832,9 @@ class MediaLibraryManager private constructor() {
          * Version of the library cache file (`"v"`). Increase it when the scan reads a new tag, and in
          * [parseLibraryCache] mark the cached files that have this tag as changed, so that the next scan reads them again.
          * Keep `tools/build_library_cache.py` at the same value.
-         * 1: no `"v"` key. 2: MOOD tags of FLAC, Ogg and Opus files.
+         * 1: no `"v"` key. 2: MOOD tags of FLAC, Ogg and Opus files. 3: year of MP3 files from ID3v2.3/2.4 (Id3Year).
          */
-        internal const val CACHE_VERSION = 2
+        internal const val CACHE_VERSION = 3
 
         /**
          * Hidden files and folders (name starts with "."): the scan skips them. They are not songs: macOS writes a
