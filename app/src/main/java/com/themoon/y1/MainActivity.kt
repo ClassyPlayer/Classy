@@ -1355,10 +1355,6 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
         ListItemViewFactory.setupAudiobookProgress(this, btn, pos, dur) { showFastScrollLetter(it) }
     }
 
-    fun applyProgressBackground(btn: View, currentMs: Int, totalMs: Int, isFocused: Boolean) {
-        ListItemViewFactory.applyProgressBackground(this, btn, currentMs, totalMs, isFocused)
-    }
-
     internal fun createListButton(text: String, icon: String, color: Int? = null): View =
         createListButtonWithIcon(icon, text, color ?: 0)
 

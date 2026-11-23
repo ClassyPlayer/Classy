@@ -93,8 +93,8 @@ object ClassyLists {
 
     /**
      * The disclosure arrow of a row that opens a list: the bold "›" ([ClassyChevronDrawable]) at the right of the
-     * row, [leftMarginDp] after the text. All lists use it; it shows only on the selected row, and the row sets its
-     * visibility. [R.id.list_arrow] marks it for List Glide ([ListGlide.arrowOf]). GONE at first.
+     * row, [leftMarginDp] after the text. All lists use it; it shows only on the selected row ([FocusLook.arrow]).
+     * [R.id.list_arrow] marks it for List Glide ([ListGlide.arrowOf]). GONE until the row has its look.
      */
     fun arrow(context: Context, leftMarginDp: Int): TextView = TextView(context).apply {
         val d = context.resources.displayMetrics.density
