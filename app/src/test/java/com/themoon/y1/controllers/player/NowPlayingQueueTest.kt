@@ -3,7 +3,9 @@ package com.themoon.y1.controllers.player
 import com.themoon.y1.controllers.settings.ActionScreens
 import com.themoon.y1.managers.AudioPlayerManager
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
 
@@ -86,10 +88,13 @@ class NowPlayingQueueTest {
         assertNotEquals(NowPlayingContextMenu.queueKey(5, File("/a.flac")), NowPlayingContextMenu.queueKey(5, File("/b.flac")))
 
     @Test
-    fun jumpToIgnoresAnIndexOutsideTheQueue() {
+    fun jumpToPlaysOnlyAnEntryOfTheQueue() {
+        assertTrue(AudioPlayerManager.canJumpTo(0, 5))
+        assertTrue(AudioPlayerManager.canJumpTo(4, 5))
+        assertFalse(AudioPlayerManager.canJumpTo(-1, 5))
+        assertFalse(AudioPlayerManager.canJumpTo(5, 5))
+        assertFalse(AudioPlayerManager.canJumpTo(0, 0))
         // No activity and so no queue here: nothing plays and nothing throws
-        val apm = AudioPlayerManager.getInstance()
-        apm.jumpTo(-1)
-        apm.jumpTo(7)
+        AudioPlayerManager.getInstance().jumpTo(0)
     }
 }

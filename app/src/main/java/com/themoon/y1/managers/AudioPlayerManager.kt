@@ -622,7 +622,7 @@ class AudioPlayerManager private constructor() {
     fun jumpTo(index: Int) {
         saveAudiobookBookmarkIfNeeded()
         val main = MainActivity.instance ?: return
-        if (index !in main.currentPlaylist.indices) return
+        if (!canJumpTo(index, main.currentPlaylist.size)) return
         main.isPausedByHand = false
         isPlayingActive = true
         val exo = exoPlayer
@@ -2187,6 +2187,9 @@ class AudioPlayerManager private constructor() {
             Array(extractors.size) { i ->
                 if (extractors[i] is com.google.android.exoplayer2.ext.flac.FlacExtractor) FlacExtractor() else extractors[i]
             }
+
+        /** [jumpTo] plays only an entry of the queue: [index] in 0 until [queueSize]. */
+        internal fun canJumpTo(index: Int, queueSize: Int): Boolean = index in 0 until queueSize
 
         /**
          * True when [errors] tracks after each other did not play and the queue has no more tracks to try ([queueSize]):

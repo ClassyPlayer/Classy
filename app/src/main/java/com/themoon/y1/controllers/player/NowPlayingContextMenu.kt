@@ -14,6 +14,7 @@ import java.io.File
 /**
  * The menu of a held centre button on Now Playing: an action screen (a list that slides in, Back comes back to
  * Now Playing). Replicates iPod Classic context actions:
+ * - Queue (the play queue around the playing track; a row plays its track; only for a queue of more than 1 track)
  * - Add/Remove from Favorites
  * - Add to On-The-Go playlist
  * - Add to Playlist
@@ -36,8 +37,9 @@ object NowPlayingContextMenu {
         localize: (String) -> String
     ) {
         val rows = ArrayList<ActionScreens.Action>()
-        MainActivity.instance?.let { m ->
-            if (m.currentPlaylist.size > 1) rows += ActionScreens.Action(localize("Queue"), opensList = true) { showQueue(m) }
+        val main = MainActivity.instance
+        if (main != null && main.currentPlaylist.size > 1) {
+            rows += ActionScreens.Action(localize("Queue"), opensList = true) { showQueue(main) }
         }
         rows += ActionScreens.Action(if (isFavorite) localize("Remove from Favorites") else localize("Add to Favorites")) {
             onToggleFavorite()
@@ -56,7 +58,6 @@ object NowPlayingContextMenu {
             }
         }
         // Play On: the speaker list of Main menu → Play On opens over this menu (Back comes back to it)
-        val main = MainActivity.instance
         if (main != null) {
             rows += ActionScreens.Action(PlayOnMenu.rowLabel(main), opensList = true) { PlayOnMenu.open(main, fromNowPlaying = true) }
         }
