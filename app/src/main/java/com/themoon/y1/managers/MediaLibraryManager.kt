@@ -310,7 +310,8 @@ class MediaLibraryManager private constructor() {
                     try { fis?.close() } catch (_: Throwable) {}
                     try { mmr?.release() } catch (_: Throwable) {}
                 }
-                // Android 4.4 gives no year for an ID3v2.4 tag (TDRC), so read it from the file. After the retriever is released, so nothing here costs the file its other tags
+                // Android 4.4 gives no year for an ID3v2.4 tag (TDRC), so read it from the file. After the retriever
+                // is released, so nothing here costs the file its other tags
                 if (y.isNullOrBlank() && lower.endsWith(".mp3")) y = Id3Year.read(f)
             }
 
