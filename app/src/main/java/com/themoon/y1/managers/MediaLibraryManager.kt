@@ -205,6 +205,7 @@ class MediaLibraryManager private constructor() {
         val albumArtist: String,
         val composer: String,
         val compilationTag: Boolean,
+        val mood: String,
         val trackNum: Int,
         val durationMs: Long = 0L
     )
@@ -221,6 +222,7 @@ class MediaLibraryManager private constructor() {
         var albumArtist: String? = null
         var composer: String? = null
         var compilation = false
+        var mood = ""
         var trackNum = 0
         var durationMs = 0L
 
@@ -249,6 +251,7 @@ class MediaLibraryManager private constructor() {
                 if (tags.size > 9 && tags[9] != null) cp = tags[9] as? String
                 if (tags.size > 10 && tags[10] != null) cpl = tags[10] as? String
                 if (tags.size > 11) durationMs = tags[11] as? Long ?: 0L
+                if (tags.size > 12 && tags[12] != null) mood = tags[12] as? String ?: ""
             } else if (lower.endsWith(".flac")) {
                 val tags = apm.extractFlacMetadata(f, false)
                 if (tags[0] != null) t = tags[0] as? String
@@ -261,6 +264,7 @@ class MediaLibraryManager private constructor() {
                 if (tags.size > 9 && tags[9] != null) cp = tags[9] as? String
                 if (tags.size > 10 && tags[10] != null) cpl = tags[10] as? String
                 if (tags.size > 11) durationMs = tags[11] as? Long ?: 0L
+                if (tags.size > 12 && tags[12] != null) mood = tags[12] as? String ?: ""
             } else if (lower.endsWith(".m4a") || lower.endsWith(".m4b")) {
                 val tags = apm.extractAlacMetadata(f, false)
                 if (tags[0] != null) t = tags[0] as? String
@@ -285,6 +289,7 @@ class MediaLibraryManager private constructor() {
                 if (tags.size > 9 && tags[9] != null) cp = tags[9] as? String
                 if (tags.size > 10 && tags[10] != null) cpl = tags[10] as? String
                 if (tags.size > 11) durationMs = tags[11] as? Long ?: 0L
+                if (tags.size > 12 && tags[12] != null) mood = tags[12] as? String ?: ""
             } else {
                 var mmr: android.media.MediaMetadataRetriever? = null
                 var fis: java.io.FileInputStream? = null
@@ -357,6 +362,7 @@ class MediaLibraryManager private constructor() {
             albumArtist = albumArtist ?: artist,
             composer = composer ?: "Unknown Composer",
             compilationTag = compilation,
+            mood = mood,
             trackNum = trackNum,
             durationMs = durationMs
         )
@@ -444,6 +450,7 @@ class MediaLibraryManager private constructor() {
                     existingItem.composer = meta.composer
                     existingItem.compilationTag = meta.compilationTag
                     existingItem.durationMs = meta.durationMs
+                    existingItem.mood = meta.mood
                     existingItem.dateModified = currentModified
                     existingItem.fileSize = currentSize
 
@@ -464,6 +471,7 @@ class MediaLibraryManager private constructor() {
                     val song = SongItem(f, meta.title, meta.artist, meta.album, meta.year, meta.genre, meta.albumArtist, meta.composer)
                     song.compilationTag = meta.compilationTag
                     song.durationMs = meta.durationMs
+                    song.mood = meta.mood
                     song.dateModified = currentModified
                     song.fileSize = currentSize
                     targetList.add(song)
@@ -566,7 +574,7 @@ class MediaLibraryManager private constructor() {
                 parent.mkdirs()
             }
             bw = BufferedWriter(FileWriter(tempFile), 32768)
-            bw.write("{\"music\":[")
+            bw.write("{\"v\":$CACHE_VERSION,\"music\":[")
             writeSongListJson(bw, musicLibrary)
             bw.write("],\"books\":[")
             writeSongListJson(bw, audiobookLibrary)
@@ -634,6 +642,10 @@ class MediaLibraryManager private constructor() {
                 }
                 // Only for compilation tracks: a missing field reads as false (also in caches from before).
                 if (song.compilationTag) w.write(",\"compilation\":true")
+                if (song.mood.isNotEmpty()) {
+                    w.write(",\"mood\":")
+                    w.write(JSONObject.quote(song.mood))
+                }
                 w.write("}")
             }
         }
@@ -682,6 +694,12 @@ class MediaLibraryManager private constructor() {
         val trackNumbers = HashMap<String, Int>()
         val music = jsonToSongList(root.optJSONArray("music"), trackNumbers, isAudiobook = false, isUsable = isUsable)
         val books = jsonToSongList(root.optJSONArray("books"), trackNumbers, isAudiobook = true, isUsable = isUsable)
+        // A cache from before the Mood tags (v2): the next scan reads the FLAC, Ogg and Opus files again (a modified
+        // time of 0 counts as changed). MP3 and M4A have no MOOD tag here. Migration 018 starts that scan.
+        if (root.optInt("v", 1) < 2) {
+            (music + books).filter { val n = it.file.name.lowercase(); n.endsWith(".flac") || n.endsWith(".ogg") || n.endsWith(".opus") }
+                .forEach { it.dateModified = 0L }
+        }
         return LibraryCache(music, books, trackNumbers)
     }
 
@@ -733,6 +751,7 @@ class MediaLibraryManager private constructor() {
                     o.optString("composer", "")
                 )
                 song.compilationTag = o.optBoolean("compilation", false)
+                song.mood = o.optString("mood", "")
                 song.dateModified = o.optLong("dateModified", o.optLong("modified", 0L))
                 song.fileSize = o.optLong("fileSize", o.optLong("size", 0L))
                 song.durationMs = o.optLong("durationMs", 0L)
@@ -798,6 +817,14 @@ class MediaLibraryManager private constructor() {
     }
 
     companion object {
+        /**
+         * Version of the library cache file (`"v"`). Increase it when the scan reads a new tag, and in
+         * [parseLibraryCache] mark the cached files that have this tag as changed, so that the next scan reads them again.
+         * Keep `tools/build_library_cache.py` at the same value.
+         * 1: no `"v"` key. 2: MOOD tags of FLAC, Ogg and Opus files.
+         */
+        internal const val CACHE_VERSION = 2
+
         /**
          * Hidden files and folders (name starts with "."): the scan skips them. They are not songs: macOS writes a
          * "._<name>" AppleDouble file (about 4 KB, no audio) beside each file that it copies to a FAT or exFAT card,

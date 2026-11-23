@@ -21,6 +21,7 @@ object MusicMenuItems {
         Item("shuffle_songs", "Shuffle Songs", "\uE043"),
         Item("genres", "Genres", "\uE030"),
         Item("composers", "Composers", "\uE7FD"),
+        Item("moods", "Moods", "\uE7F2"),
         Item("years", "Years", "\uE8B6"),
         Item("recently_added", "Recently Added", "\uE8B6"),
         Item("favorites", "My Favorites", "\uE8B6"),
