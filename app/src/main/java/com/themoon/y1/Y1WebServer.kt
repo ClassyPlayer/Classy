@@ -266,9 +266,12 @@ class Y1WebServer @JvmOverloads constructor(
                             "</div></div>" +
                             "<script>" +
                             "const nativeFetch = window.fetch.bind(window); window.fetch = (url, options) => nativeFetch(url, options).then(r => { if (!r.ok) { document.getElementById('status').textContent = 'Request failed (' + r.status + ')'; throw Error('Request failed'); } return r; });" +
-                            "let currentPath = ''; let shownPath = '';" +
+                            "let currentPath = ''; let shownPath = ''; let listRequest = 0;" +
+                            // Only the latest list request may change the page: an older answer that comes late is ignored
                             "function loadList() {" +
+                            " const request = ++listRequest;" +
                             " fetch('/api/list?dir=' + encodeURIComponent(currentPath)).then(r=>{if(!r.ok) throw Error('Cannot load folder'); return r.json();}).then(data=>{" +
+                            " if(request !== listRequest) return;" +
                             " shownPath = currentPath;" +
                             " document.getElementById('currentPathText').textContent='/' + currentPath;" +
                             " document.getElementById('writeTools').style.display=currentPath?'':'none';" +
@@ -291,7 +294,7 @@ class Y1WebServer @JvmOverloads constructor(
                             " if(!f.storage) {button(row,'Rename',e=>renameItem(e,f.name)); button(row,'Delete',e=>deleteItem(e,f.name));}" +
                             " list.appendChild(row);" +
                             " });" +
-                            " }).catch(e=>{document.getElementById('status').textContent=e.message;" +
+                            " }).catch(e=>{if(request !== listRequest) return; document.getElementById('status').textContent=e.message;" +
                             // A storage that cannot be opened (no card): back to the top level; else stay in the folder on the screen
                             " if(currentPath && currentPath.indexOf('/')<0) {currentPath=''; loadList();} else currentPath=shownPath;});" +
                             "}" +

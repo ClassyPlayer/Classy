@@ -12,8 +12,8 @@ import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
 object QrBitmap {
 
     /**
-     * A square bitmap of the QR code of [text] (error correction M), at most [maxSize] pixels wide, with whole pixels
-     * for each module. Of the two colours, the darker one is for the dark modules: a camera reads dark modules on a
+     * A square bitmap of the QR code of [text] (error correction M), about [maxSize] pixels wide, with whole pixels
+     * for each module (at least 2 px per module). Of the two colours, the darker one is for the dark modules: a camera reads dark modules on a
      * light background best. Null when the text does not fit in a QR code.
      */
     fun create(text: String, maxSize: Int, colorA: Int, colorB: Int): Bitmap? {
