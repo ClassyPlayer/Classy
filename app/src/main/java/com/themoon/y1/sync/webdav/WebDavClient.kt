@@ -22,12 +22,21 @@ class DavHttpException(val code: Int) : IOException("HTTP $code")
 
 /**
  * Moves [part] over [target]. One rename replaces the old file at once; a file system that cannot (FAT) gets the old
- * file deleted first. A failure leaves [part] where it is.
+ * file moved aside first, and back if the new one cannot be moved. A failure leaves [part] where it is.
  */
 internal fun replaceFile(part: File, target: File) {
     if (part.renameTo(target)) return
-    if (target.exists() && !target.delete()) throw IOException("Cannot replace ${target.name}")
-    if (!part.renameTo(target)) throw IOException("Cannot write ${target.name}")
+    if (!target.exists()) throw IOException("Cannot write ${target.name}")
+    // A file system that cannot rename over a file (FAT): move the old file aside, and put it back if the new one fails
+    val old = File(target.path + ".old")
+    old.delete()
+    if (!target.renameTo(old)) throw IOException("Cannot replace ${target.name}")
+    if (part.renameTo(target)) {
+        old.delete()
+        return
+    }
+    if (!old.renameTo(target)) throw IOException("Cannot write ${target.name}; the old file is ${old.name}")
+    throw IOException("Cannot write ${target.name}")
 }
 
 /** Same scheme, host (any case) and port; no port means the default of the scheme. */
@@ -132,6 +141,13 @@ class WebDavClient(
     private val http: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(10, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
+        // A redirect stays on the server that the user entered: the file it leads to is as trusted as the password it gets
+        .addNetworkInterceptor { chain ->
+            val u = chain.request().url()
+            val to = URI(u.scheme() + "://" + u.host() + ":" + u.port())
+            if (!sameServer(to, baseUri)) throw IOException("The server sent a link to another host")
+            chain.proceed(chain.request())
+        }
         .apply {
             if (trust != null) {
                 val ctx = SSLContext.getInstance("TLS")
@@ -150,10 +166,21 @@ class WebDavClient(
      * user entered (same scheme, host and port): a link to another host is refused, not followed.
      */
     fun urlFor(href: String): String {
-        if (!href.startsWith("http://") && !href.startsWith("https://")) return origin + href
+        // A path only: "@host/x" would make the origin's host the user name of another host
+        if (!href.startsWith("http://") && !href.startsWith("https://")) {
+            if (!href.startsWith("/")) throw IOException("Invalid link from the server")
+            return origin + href
+        }
         val u = try { URI(href) } catch (e: URISyntaxException) { throw IOException("Invalid link from the server", e) }
         if (!sameServer(u, baseUri)) throw IOException("The server sent a link to another host")
         return href
+    }
+
+    /** An absolute href of this server as its path (the ledger key and the folder hrefs are paths); another host is refused. */
+    private fun pathHref(href: String): String {
+        if (!href.startsWith("http://") && !href.startsWith("https://")) return href
+        urlFor(href)
+        return URI(href).rawPath ?: "/"
     }
 
     fun list(href: String): List<DavEntry> {
@@ -163,7 +190,7 @@ class WebDavClient(
         http.newCall(req).execute().use { resp ->
             if (resp.code() != 207 && !resp.isSuccessful) throw DavHttpException(resp.code())
             val stream = resp.body()?.byteStream() ?: throw IOException("Empty PROPFIND response")
-            return Propfind.parse(stream, href)
+            return Propfind.parse(stream, href).map { it.copy(href = pathHref(it.href)) }
         }
     }
 

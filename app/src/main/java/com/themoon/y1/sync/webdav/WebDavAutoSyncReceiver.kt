@@ -25,14 +25,16 @@ class WebDavAutoSyncReceiver : BroadcastReceiver() {
         val charging = (battery?.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0) ?: 0) != 0
         val sync = WebDavSync.getInstance(app)
         val now = System.currentTimeMillis()
-        if (!AutoSyncGate.shouldRun(true, provider.isConfigured(), wifi, charging, sync.isRunning, now, maxOf(provider.lastSync, provider.lastAutoAttempt))) return
+        if (!AutoSyncGate.shouldRun(true, provider.isConfigured(), wifi, charging, sync.isRunning, now, AutoSyncGate.lastCounted(now, provider.lastSync, provider.lastAutoAttempt))) return
         provider.lastAutoAttempt = now
         sync.start(object : WebDavSync.Listener {
             override fun onProgress(text: String, done: Long, total: Long) {}
             override fun onDone(changed: Boolean) {
                 if (changed) app.sendBroadcast(Intent(WebDavSync.ACTION_SYNCED).setPackage(app.packageName))
             }
-            override fun onError(e: Throwable) {}
+            override fun onError(e: Throwable) {
+                if (sync.changedByRun) app.sendBroadcast(Intent(WebDavSync.ACTION_SYNCED).setPackage(app.packageName))
+            }
         })
     }
 

@@ -41,4 +41,12 @@ class AutoSyncGateTest {
     fun aClockSetBackDoesNotBlockItForever() {
         assertTrue(run(last = now + 5 * hour))
     }
+
+    @Test
+    fun aTimeInTheFutureDoesNotCount() {
+        // The clock was set back: the stored time is ahead. The first try is allowed, then its own time throttles
+        assertEquals(0L, AutoSyncGate.lastCounted(now, now + hour, now + 2 * hour))
+        assertEquals(now - hour / 2, AutoSyncGate.lastCounted(now, now + hour, now - hour / 2))
+        assertEquals(now - hour, AutoSyncGate.lastCounted(now, now - hour, now - 2 * hour))
+    }
 }

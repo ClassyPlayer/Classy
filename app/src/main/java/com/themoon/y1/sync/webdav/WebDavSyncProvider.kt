@@ -71,7 +71,7 @@ class WebDavSyncProvider private constructor(context: Context) : MediaSyncProvid
                 password = c.password
                 null
             },
-            onFailure = { "${WebDavConfigFile.FILE_NAME}: invalid" }
+            onFailure = { "${WebDavConfigFile.FILE_NAME}: " + if (it is ConfigFileStays) "cannot delete it, delete it by hand" else "invalid" }
         )
     }
 

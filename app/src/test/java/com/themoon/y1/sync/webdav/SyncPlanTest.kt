@@ -87,6 +87,32 @@ class SyncPlanTest {
     }
 
     @Test
+    fun aLedgerCopyAtAnotherPathDoesNotSkipTheDownload() {
+        // The files were synced to the other storage: the version recorded is not of the copy at this target
+        val h = "/music/Rock/a.flac"
+        val other = led(h, rock).also { it.localPath = "/internal/Music/WebDAV/Rock/a.flac" }
+        assertEquals(1, build(mapOf(rock to listOf(file(h))), listOf(other)).downloads.size)
+    }
+
+    @Test
+    fun twoNamesThatShareAFatFileAreDownloadedOnce() {
+        val a = "/music/A:/a.flac"
+        val b = "/music/A?/a.flac"
+        val p = SyncPlan.build(mapOf("/music/A:/" to listOf(file(a)), "/music/A?/" to listOf(file(b))), emptyMap(), setOf("/music/A:/", "/music/A?/"), root, base, safeNames = true) { true }
+        assertEquals(1, p.downloads.size)
+    }
+
+    @Test
+    fun aFileOfAnUntickedFolderThatAKeptFolderSharesIsNotRemoved() {
+        val kept = "/music/A?/a.flac"
+        val dropped = "/music/A:/a.flac"
+        val shared = localFileFor(kept, base, root, safeNames = true)!!.path
+        val item = SyncLedger.LedgerItem(dropped, "/music/A:/", "music", shared, 10, "\"e1\"|Mon, 01 Jan 2026 00:00:00 GMT", false)
+        val p = SyncPlan.build(mapOf("/music/A?/" to listOf(file(kept))), mapOf(dropped to item), setOf("/music/A?/"), root, base, safeNames = true) { true }
+        assertTrue(p.remove.isEmpty())
+    }
+
+    @Test
     fun untickedFolderItemsRemoved() {
         val p = build(mapOf(rock to emptyList()), listOf(led("/music/Jazz/x.flac", jazz)), ticked = setOf(rock))
         assertEquals(listOf("/music/Jazz/x.flac"), p.remove)

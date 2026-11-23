@@ -126,6 +126,9 @@ On a FAT card (the SD card), characters that FAT does not take (`< > : " | ? * \
   it was.
 - Auth is HTTP Basic, sent with every request. `urlFor(href)` refuses an absolute href that names another host, so
   the password is never sent to a server the user did not enter.
+- A redirect must stay on that server too (a network interceptor checks scheme, host and port at each hop), and a
+  relative href must be a path starting with `/`. An absolute href of this server is turned into its path when the listing
+  is read, so the ledger key and the folder hrefs are always paths.
 - hrefs are compared percent-encoded; `decodeHref` decodes each segment as UTF-8 (`+` stays `+`).
 - Timeouts: 10 s connect, 30 s read.
 
@@ -138,14 +141,17 @@ fingerprint and shows it, and Trust Certificate saves it as the pin. Importing a
 ### A sync (`WebDavSync.run`)
 
 1. Read the ticked folders and load the ledger.
-2. For each ticked folder, `walk` it (all files below, breadth first). A 404 is an empty list (the folder was
-   removed on the server); another error stops the sync. A folder that did not list is **not** in `remote`, so its ledger
+2. For each ticked folder, `walk` it (all files below, breadth first). A 404 on the ticked folder itself is an empty list (the folder was
+   removed on the server); a 404 on a sub-folder skips only that sub-folder; another error stops the sync. A folder that did not list is **not** in `remote`, so its ledger
    items are left alone: a failed listing never means deleted.
 3. `SyncPlan.build(remote, ledger, ticked, dest, baseHref, safeNames, exists)` returns a `Plan`:
-   - **downloads**: a file that is not in the ledger, whose local file is gone, or whose `etag|lastModified` changed.
+   - **downloads**: a file that is not in the ledger, whose ledger path is not this target (the storage changed), whose
+     local file is gone, or whose `etag|lastModified` changed. A target is planned once: two names that share a FAT file
+     are not written at the same time.
    - **unorphan**: a file that is back on the server.
    - **orphan**: a ledger item that is gone from the server but whose folder is ticked and was listed.
-   - **remove**: a ledger item that no ticked folder covers any more (the user unticked it).
+   - **remove**: a ledger item that no ticked folder covers any more (the user unticked it), unless the local file is
+     also the target of a file of a ticked folder (FAT names that became one).
    - Coverage is by **path** (`isUnder`), not by `libraryId`: the stored folder goes stale when you tick a parent or
      a sub-folder instead.
 4. Check free space for `plan.bytes` (`NotEnoughSpace`).
@@ -155,6 +161,9 @@ fingerprint and shows it, and Trust Certificate saves it as the pin. Importing a
    files and in a `finally`, so finished files stay tracked after an error.
 7. Update `lastSync`. If anything was downloaded or deleted, `onDone(changed = true)` makes the UI send
    `RESCAN_LIBRARY`.
+
+If a sync fails or is cancelled after it downloaded or deleted files, the UI still asks for a library rescan
+(`WebDavSync.changedByRun`).
 
 `deleteTracked` skips a file that is playing (`AudioPlayerManager.isFileCurrentlyPlaying`) or that cannot be deleted:
 it stays in the ledger and goes in the next sync. After a delete it calls `pruneEmptyDirs`, which removes the empty
@@ -174,16 +183,18 @@ differ only in those characters end up as one file.
 ### Moving between storages
 
 `startMove` runs `move`: for each ledger item whose path is under the other storage's `Music`, copy to `*.part`, check
-the length, replace the target, then delete the source. If the delete fails, the new copy is removed and the item stays
+the length, replace the target, then delete the source. A record whose source is missing (the SD card is out) is moved
+only if a complete file of the recorded size is already at the target; else it stays as it was. If the delete fails, the new copy is removed and the item stays
 where it was, so a move never leaves a file in two places, and a failure or cancel never loses one. The ledger is updated
-for each file. A file that is playing waits.
+for each file. A file that is playing waits. The ledger is saved when the move ends, also after an error or a cancel.
 
 ### Auto Sync
 
 `AutoSyncGate.shouldRun(enabled, configured, wifi, charging, running, now, lastSync)` is a pure function: on, set up,
 Wi-Fi, charging, not running, and at least an hour since the last sync or attempt (`MIN_INTERVAL_MS`; a clock set back
 also passes). `lastAutoAttempt` is saved also when the sync fails, so a server that is down is not tried at every
-broadcast.
+broadcast. A stored time that is after now (the clock was set back) does not count (`lastCounted`): the first try is
+allowed and its own time throttles the next.
 
 `WebDavAutoSyncReceiver` is registered in code by `ClassyApplication.onCreate`, for `CONNECTIVITY_ACTION` and
 `ACTION_POWER_CONNECTED`. It is **not in the manifest**: on the Y2 (Android 4.4) a manifest receiver for a connectivity

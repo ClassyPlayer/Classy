@@ -171,6 +171,9 @@ class WebDavClientTest {
         assertRefused { c.urlFor("http://nas.example:5006/dav/a.flac") }
         assertRefused { c.urlFor("https://nas.example:5007/dav/a.flac") }
         assertRefused { c.urlFor("https://nas.example:5006@evil.example/a.flac") }
+        // Not a path: the origin plus "@evil.example/a" would name another host
+        assertRefused { c.urlFor("@evil.example/a.flac") }
+        assertRefused { c.urlFor("a.flac") }
     }
 
     @Test

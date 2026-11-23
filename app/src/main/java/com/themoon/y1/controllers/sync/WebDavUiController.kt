@@ -58,14 +58,28 @@ class WebDavUiController(
     /** Server fingerprint waiting for the user's Trust (the certificate is not pinned, or it changed). */
     private var pendingFingerprint: String? = null
 
+    /** The Server URL that [pendingFingerprint] was read from: it is shown and trusted only while that is still the URL. */
+    private var pendingFor = ""
+
     /** Sub-folders per folder href, loaded on demand; null value while loading. */
     private val folders = HashMap<String, List<DavEntry>?>()
+
+    /** The Server URL of [folders]: a listing is of the server that gave it, so another URL starts with an empty cache. */
+    private var foldersFor = ""
+
+    private fun dropListingsOfOtherServer() {
+        if (foldersFor != provider.url) {
+            folders.clear()
+            foldersFor = provider.url
+        }
+    }
 
     override fun onEnter(state: ScreenState) {
         val level = (state as? ScreenState.WebDav)?.level ?: WebDavLevel.Root
         if (level == WebDavLevel.Root) {
             provider.importConfigIfPresent()?.let { Notice.error(activity, it) }
         }
+        dropListingsOfOtherServer()
         screen.show(spec(level))
         // Show the last listing at once (Back keeps its row), then list again so NAS changes show up
         if (level is WebDavLevel.Folders && folders[level.href] != null) loadFolder(level.href)
@@ -127,7 +141,7 @@ class WebDavUiController(
             onOpenKeyboard(KeyboardTarget.WebDavPassword(p.user))
         }
         rows += action(localize("Test Connection")) { testConnection() }
-        pendingFingerprint?.let { fp ->
+        pendingFingerprint?.takeIf { pendingFor == p.url }?.let { fp ->
             rows += header("━ " + localize("Certificate") + " ━")
             // 32 hex pairs: four lines of eight, so it fits the screen
             fp.split(":").chunked(8).forEachIndexed { i, part -> rows += info(part.joinToString(":"), key = "\u0000fp $i") }
@@ -203,6 +217,7 @@ class WebDavUiController(
     private fun handleCert(e: Throwable): Boolean {
         val cert = findCertNotTrusted(e) ?: return false
         pendingFingerprint = cert.fingerprint
+        pendingFor = provider.url
         Notice.error(activity, localize("Check the certificate fingerprint, then Trust Certificate."))
         refresh()
         return true
@@ -211,6 +226,7 @@ class WebDavUiController(
     private fun testConnection() {
         if (!isNetworkConnected()) return onRequestWifi()
         val key = ActionScreens.open(ActionScreens.Spec(localize("Test Connection"), listOf(localize("Connecting..."))))
+        val url = provider.url
         Thread {
             val error = try {
                 provider.client().let { it.list(it.rootHref) }
@@ -220,6 +236,7 @@ class WebDavUiController(
             }
             activity.runOnUiThread {
                 ActionScreens.close(key)
+                if (provider.url != url) return@runOnUiThread // the URL changed meanwhile: this answer is of another server
                 when {
                     error == null -> Notice.show(activity, localize("Connected"))
                     else -> showError(error)
@@ -231,6 +248,7 @@ class WebDavUiController(
     // ---- NAS folders ----
 
     private fun foldersSpec(href: String): ListSpec {
+        dropListingsOfOtherServer()
         val title = WebDavSyncProvider.folderName(href).ifEmpty { localize("Folders") }
         if (!folders.containsKey(href)) loadFolder(href)
         val subs = folders[href] ?: return ListSpec(title, listOf(info(localize("Loading..."))))
@@ -259,6 +277,8 @@ class WebDavUiController(
     }
 
     private fun loadFolder(href: String) {
+        dropListingsOfOtherServer()
+        val url = provider.url
         val shown = folders[href] != null
         if (!shown) folders[href] = null
         Thread {
@@ -268,6 +288,7 @@ class WebDavUiController(
                 Result.failure(e)
             }
             activity.runOnUiThread {
+                if (provider.url != url) return@runOnUiThread // another server now: this listing is not for it
                 result.onSuccess { folders[href] = it; refresh() }
                 result.onFailure { e ->
                     if (shown) { // a refresh: keep the last listing on screen
@@ -354,10 +375,10 @@ class WebDavUiController(
         var lastUpdate = 0L
         var lastDone = 0L
         var speed = 0.0
-        val files = LinkedHashMap<String, Int>() // downloading now: name -> percent (-1 = size unknown)
+        val files = LinkedHashMap<String, Int>() // downloading now: local path -> percent (-1 = size unknown); two albums can have a file of one name
         val listener = object : WebDavSync.Listener {
-            override fun onFile(name: String, done: Long, size: Long) {
-                if (done < 0) files.remove(name) else files[name] = if (size > 0) (done * 100 / size).toInt() else -1
+            override fun onFile(path: String, done: Long, size: Long) {
+                if (done < 0) files.remove(path) else files[path] = if (size > 0) (done * 100 / size).toInt() else -1
             }
 
             override fun onListing(folder: String) {
@@ -376,7 +397,7 @@ class WebDavUiController(
                 lastDone = done
                 val pct = if (total > 0) "${done * 100 / total} %" else ""
                 val rate = if (total > 0 && speed >= 1024) " · " + (if (speed >= 1048576) String.format(java.util.Locale.US, "%.1f MB/s", speed / 1048576) else "${(speed / 1024).toInt()} KB/s") else ""
-                ActionScreens.update(key, listOf(text, pct + rate) + files.map { (n, p) -> if (p < 0) n else "$n\u0001$p" })
+                ActionScreens.update(key, listOf(text, pct + rate) + files.map { (path, p) -> File(path).name.let { n -> if (p < 0) n else "$n\u0001$p" } })
             }
 
             override fun onDone(changed: Boolean) {
@@ -388,6 +409,7 @@ class WebDavUiController(
 
             override fun onError(e: Throwable) {
                 ActionScreens.close(key)
+                if (sync.changedByRun) onSyncFinished() // files were downloaded, deleted or moved before it stopped
                 if (e is CancellationException) return
                 showError(e)
                 refresh()

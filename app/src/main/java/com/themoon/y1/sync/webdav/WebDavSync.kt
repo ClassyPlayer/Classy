@@ -26,8 +26,8 @@ class WebDavSync private constructor(context: Context) {
 
     interface Listener {
         fun onProgress(text: String, done: Long, total: Long)
-        /** One file's progress ([done] of [size] bytes); done < 0 means the file is finished. */
-        fun onFile(name: String, done: Long, size: Long) {}
+        /** One file's progress ([done] of [size] bytes); done < 0 means the file is finished. [path] is its local path: the one id of a download. */
+        fun onFile(path: String, done: Long, size: Long) {}
         /** The sync lists the NAS folder [folder]. */
         fun onListing(folder: String) {}
         fun onDone(changed: Boolean)
@@ -64,6 +64,11 @@ class WebDavSync private constructor(context: Context) {
     @Volatile
     private var cancelled = false
 
+    /** True when the last run already downloaded, deleted or moved files, also if it then failed: the library needs a rescan. */
+    @Volatile
+    var changedByRun = false
+        private set
+
     /** Music on the storage the user picked (Save To), not the generic sync root. */
     fun destRoot(onSd: Boolean = WebDavSyncProvider.getInstance(ctx).onSdCard): File =
         File(if (onSd) StoragePaths.SECONDARY_PATH else StoragePaths.PRIMARY_PATH, "Music")
@@ -79,6 +84,7 @@ class WebDavSync private constructor(context: Context) {
         if (isRunning) return false
         isRunning = true
         cancelled = false
+        changedByRun = false
         executor.execute {
             val wake = (ctx.getSystemService(Context.POWER_SERVICE) as? PowerManager)
                 ?.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Classy:WebDavSync")
@@ -131,7 +137,7 @@ class WebDavSync private constructor(context: Context) {
             remote[folder] = try {
                 walk(client, folder)
             } catch (e: DavHttpException) {
-                if (e.code == 404) emptyList() else throw e // folder removed on the NAS: its files become orphans
+                if (e.code == 404) emptyList() else throw e // the ticked folder itself is gone: its files become orphans
             }
         }
 
@@ -152,7 +158,7 @@ class WebDavSync private constructor(context: Context) {
         // The user unticked these folders: delete what this sync put there (a playing file waits for the next sync)
         checkCancel()
         if (ticked.isNotEmpty() || removeAllUnticked) {
-            if (deleteTracked(plan.remove) > 0) changed = true
+            if (deleteTracked(plan.remove) > 0) { changed = true; changedByRun = true }
         }
 
         val player = AudioPlayerManager.getInstance()
@@ -176,9 +182,9 @@ class WebDavSync private constructor(context: Context) {
                         if (now - lastPost < PROGRESS_POST_MS && n != d.entry.size) return@download
                         lastPost = now
                         val label = "${finished.get() + 1}/${plan.downloads.size}"
-                        main.post { l.onFile(d.target.name, n, d.entry.size); l.onProgress(label, all, plan.bytes) }
+                        main.post { l.onFile(d.target.path, n, d.entry.size); l.onProgress(label, all, plan.bytes) }
                     }
-                    main.post { l.onFile(d.target.name, -1, 0) }
+                    main.post { l.onFile(d.target.path, -1, 0) }
                     synchronized(ledger) {
                         ledger.putItem(SyncLedger.LedgerItem(d.entry.href, d.folderHref, "music", d.target.path, d.target.length(), versionOf(d.entry), false))
                         if (finished.incrementAndGet() % 20 == 0) saveLedger() // keep progress if the device dies mid-sync
@@ -194,6 +200,7 @@ class WebDavSync private constructor(context: Context) {
         } finally {
             if (!pool.isTerminated) pool.shutdownNow()
             synchronized(ledger) { saveLedger() } // also after an error: the finished files stay tracked
+            if (finished.get() > 0) changedByRun = true
         }
         failure.get()?.let { throw it }
         if (finished.get() > 0) changed = true
@@ -222,7 +229,13 @@ class WebDavSync private constructor(context: Context) {
             val href = queue.removeFirst()
             if (!visited.add(href.trimEnd('/'))) continue
             if (visited.size > MAX_FOLDERS) throw IOException("Too many folders (a loop on the server?)")
-            for (e in client.list(href)) {
+            val list = try {
+                client.list(href)
+            } catch (e: DavHttpException) {
+                if (e.code == 404 && href != folder) continue // a sub-folder that went: only its own files are gone
+                throw e
+            }
+            for (e in list) {
                 if (e.isDir) queue.add(e.href) else files.add(e)
             }
         }
@@ -258,25 +271,31 @@ class WebDavSync private constructor(context: Context) {
         val player = AudioPlayerManager.getInstance()
         var done = 0L
         var moved = 0
-        for ((i, item) in items.withIndex()) {
-            checkCancel()
-            val src = File(item.localPath!!)
-            val dst = movedPath(item.localPath, from, to, onSd)!!
-            if (src.exists()) {
-                if (player.isFileCurrentlyPlaying(src)) continue
-                progress(l, "${i + 1}/${items.size} ${src.name}", done, total)
-                copyChecked(src, dst)
-                done += src.length()
-                if (!src.delete()) { dst.delete(); continue } // keep one copy, tracked where it is
+        try {
+            for ((i, item) in items.withIndex()) {
+                checkCancel()
+                val src = File(item.localPath!!)
+                val dst = movedPath(item.localPath, from, to, onSd)!!
+                if (src.exists()) {
+                    if (player.isFileCurrentlyPlaying(src)) continue
+                    progress(l, "${i + 1}/${items.size} ${src.name}", done, total)
+                    copyChecked(src, dst)
+                    done += src.length()
+                    if (!src.delete()) { dst.delete(); continue } // keep one copy, tracked where it is
+                } else if (!dst.exists() || dst.length() != item.fileSize) {
+                    continue // the source is not there (an SD card that is out) and nothing complete is at the target: keep the record
+                }
+                moved++
+                synchronized(ledger) {
+                    item.localPath = dst.path
+                    ledger.putItem(item)
+                    if (moved % 20 == 0) saveLedger() // keep progress if the device dies mid-move
+                }
             }
-            moved++
-            synchronized(ledger) {
-                item.localPath = dst.path
-                ledger.putItem(item)
-                if (moved % 20 == 0) saveLedger() // keep progress if the device dies mid-move
-            }
+        } finally {
+            synchronized(ledger) { saveLedger() } // also after an error or a cancel: the moved files stay tracked where they are
+            if (moved > 0) changedByRun = true
         }
-        synchronized(ledger) { saveLedger() }
         return moved > 0
     }
 

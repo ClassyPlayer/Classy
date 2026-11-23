@@ -2,6 +2,10 @@ package com.themoon.y1.sync.webdav
 
 import org.json.JSONObject
 import java.io.File
+import java.io.IOException
+
+/** The config file was valid but could not be deleted: it was not imported, so the password does not stay on the card. */
+class ConfigFileStays : IOException("Cannot delete the config file")
 
 data class WebDavConfig(val url: String, val user: String, val password: String)
 
@@ -17,5 +21,9 @@ object WebDavConfigFile {
         require(url.startsWith("https://") || url.startsWith("http://")) { "url must start with http:// or https://" }
         require(user.isNotEmpty() && password.isNotEmpty()) { "user and password are required" }
         WebDavConfig(url, user, password)
-    }.onSuccess { file.delete() }
+    }.mapCatching { c ->
+        // The password must not stay on the card: a file that cannot be deleted is not imported, and the user is told
+        if (!file.delete() && file.exists()) throw ConfigFileStays()
+        c
+    }
 }
