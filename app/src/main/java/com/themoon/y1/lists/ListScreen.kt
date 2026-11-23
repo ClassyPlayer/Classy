@@ -125,7 +125,8 @@ class ListScreen(
         val scrollY = (scroll as? ScrollView)?.scrollY ?: 0
         build(spec)
         if (spec.isLong) return
-        val i = ListModel.keptRow(shown.map { it.key }, oldKey, focused, ::selectable)
+        val checked = if (spec.focus == Focus.CHECKED) shown.indexOfFirst { it.checked } else -1
+        val i = ListModel.keptRow(shown.map { it.key }, oldKey, focused, ::selectable, checked)
         if (i >= 0) {
             rows.getChildAt(i).requestFocus()
         } else if (listFocused) {

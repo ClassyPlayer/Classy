@@ -72,49 +72,88 @@ object NowPlayingContextMenu {
         return start until minOf(size, start + rows)
     }
 
-    /** The open Queue screen, and the queue it was built from: another playing track, size or track at that place rebuilds it. */
-    private class Shown(val key: Int, val index: Int, val size: Int, val playing: File?)
+    /** "Later Tracks": the [rows] entries right after [window] (fewer at the end of the queue). No entry shows again. */
+    internal fun laterPage(window: IntRange, size: Int, rows: Int = QUEUE_WINDOW): IntRange =
+        (window.last + 1) until minOf(size, window.last + 1 + rows)
+
+    /** "Earlier Tracks": the [rows] entries right before [window] (fewer at the start of the queue). */
+    internal fun earlierPage(window: IntRange, rows: Int = QUEUE_WINDOW): IntRange =
+        maxOf(0, window.first - rows) until window.first
+
+    /**
+     * The key of the row of queue entry [index]: its place and its file. Two tracks with one title stay apart, and
+     * after the queue changed, a key does not find another track at the same place.
+     */
+    internal fun queueKey(index: Int, file: File): String = "queue$index:${file.path}"
+
+    /**
+     * The rows of the Queue for the entries [window] of [queue] ([playing] has the check mark): a row plays its entry
+     * ([jump]). The Earlier/Later rows open the page before/after ([page]); each has the key of the entry that it
+     * then selects (the entry next to this page), so the user reads the queue in sequence.
+     */
+    internal fun queueRows(
+        queue: List<File>, playing: Int, window: IntRange, t: (String) -> String, title: (File) -> String,
+        jump: (Int) -> Unit, page: (IntRange) -> Unit
+    ): List<ActionScreens.Action> {
+        val rows = ArrayList<ActionScreens.Action>()
+        if (window.first > 0) {
+            val key = queueKey(window.first - 1, queue[window.first - 1])
+            rows += ActionScreens.Action(t("Earlier Tracks"), key = key, closes = false) { page(earlierPage(window)) }
+        }
+        for (i in window) {
+            rows += ActionScreens.Action(title(queue[i]), checked = i == playing, closes = false, key = queueKey(i, queue[i])) {
+                jump(i)
+            }
+        }
+        if (window.last < queue.size - 1) {
+            val key = queueKey(window.last + 1, queue[window.last + 1])
+            rows += ActionScreens.Action(t("Later Tracks"), key = key, closes = false) { page(laterPage(window, queue.size)) }
+        }
+        return rows
+    }
+
+    /**
+     * The open Queue screen, the entries it shows, and the queue it was built from: another playing track, size or
+     * track at that place builds the rows again.
+     */
+    private class Shown(val key: Int, val window: IntRange, val index: Int, val size: Int, val playing: File?)
 
     private var queue: Shown? = null
 
-    /** Rows for the entries around [center]; "Earlier/Later Tracks" rows move the window by one page. */
-    private fun queueSpec(main: MainActivity, center: Int): ActionScreens.Spec {
-        val list = main.currentPlaylist
-        val window = queueWindow(list.size, center)
-        val rows = ArrayList<ActionScreens.Action>()
-        if (window.first > 0) rows += ActionScreens.Action(main.t("Earlier Tracks"), key = "queueEarlier", closes = false) {
-            queueMove(main, window.first - QUEUE_WINDOW / 2)
-        }
-        for (i in window) {
-            val f = list[i]
-            val title = LibrarySongs.songByPath(f.absolutePath)?.title?.takeIf { it.isNotEmpty() } ?: f.nameWithoutExtension
-            // The key is the place in the queue: two tracks with one title stay apart when the list is shown again
-            rows += ActionScreens.Action(title, checked = i == main.currentIndex, closes = false, key = "queue$i") {
-                AudioPlayerManager.getInstance().jumpTo(i)
-                // Straight back to Now Playing: its menu under this list was built for the song that played before
-                NavigationManager.getInstance().popBackStackTo { it == ScreenState.Player }
-            }
-        }
-        if (window.last < list.size - 1) rows += ActionScreens.Action(main.t("Later Tracks"), key = "queueLater", closes = false) {
-            queueMove(main, window.last + QUEUE_WINDOW / 2)
-        }
+    private fun queueSpec(main: MainActivity, window: IntRange): ActionScreens.Spec {
+        val rows = queueRows(main.currentPlaylist, main.currentIndex, window, main::t, ::queueTitle, jump = { i ->
+            AudioPlayerManager.getInstance().jumpTo(i)
+            // Straight back to Now Playing: its menu under this list was built for the song that played before
+            NavigationManager.getInstance().popBackStackTo { it == ScreenState.Player }
+        }, page = { queueMove(main, it) })
         return ActionScreens.Spec(main.t("Queue"), actions = rows, focusChecked = true)
     }
 
-    private fun shownOf(main: MainActivity, key: Int) =
-        Shown(key, main.currentIndex, main.currentPlaylist.size, main.currentPlaylist.getOrNull(main.currentIndex))
+    private fun queueTitle(f: File): String =
+        LibrarySongs.songByPath(f.absolutePath)?.title?.takeIf { it.isNotEmpty() } ?: f.nameWithoutExtension
 
-    private fun queueMove(main: MainActivity, center: Int) {
+    private fun shownOf(main: MainActivity, key: Int, window: IntRange) =
+        Shown(key, window, main.currentIndex, main.currentPlaylist.size, main.currentPlaylist.getOrNull(main.currentIndex))
+
+    /** Shows the page [window] in the open Queue. */
+    private fun queueMove(main: MainActivity, window: IntRange) {
         val shown = queue ?: return
-        ActionScreens.replace(shown.key, queueSpec(main, center))
+        queue = shownOf(main, shown.key, window)
+        ActionScreens.replace(shown.key, queueSpec(main, window))
     }
 
     /** The playing queue around the playing track, which is selected; a row plays that track. */
     private fun showQueue(main: MainActivity) {
-        queue = shownOf(main, ActionScreens.open(queueSpec(main, main.currentIndex)))
+        val window = queueWindow(main.currentPlaylist.size, main.currentIndex)
+        queue = shownOf(main, ActionScreens.open(queueSpec(main, window)), window)
     }
 
-    /** MainActivity.updatePlayerUI: an open Queue screen follows the playing track (check mark) and a changed queue (rows). */
+    /**
+     * MainActivity.updatePlayerUI: an open Queue screen follows the playing track (check mark) and a changed queue
+     * (rows). When the track that played is still at its place (the next track plays, or tracks were added), the
+     * page stays: the rows keep their keys and the selected track stays selected. Else the page shows the playing
+     * track again.
+     */
     fun refreshQueue() {
         val shown = queue ?: return
         val main = MainActivity.instance ?: return
@@ -124,8 +163,10 @@ object NowPlayingContextMenu {
             queue = null // forgotten
             return
         }
+        val samePlace = shown.playing != null && list.getOrNull(shown.index) === shown.playing
+        val window = if (samePlace && shown.window.last < list.size) shown.window else queueWindow(list.size, main.currentIndex)
         // Also while another screen covers the Queue: Back shows the retained spec again (replace redraws only a showing screen)
-        queue = shownOf(main, shown.key)
-        ActionScreens.replace(shown.key, queueSpec(main, main.currentIndex))
+        queue = shownOf(main, shown.key, window)
+        ActionScreens.replace(shown.key, queueSpec(main, window))
     }
 }

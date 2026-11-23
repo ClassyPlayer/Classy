@@ -57,6 +57,16 @@ class ListModelTest {
     }
 
     @Test
+    fun aListThatOpensOnItsCheckedRowSelectsItWhenTheSelectedRowIsGone() {
+        // The selected track is not in the new rows: the playing (checked) track, not the row at the same place
+        assertEquals(3, ListModel.keptRow(listOf("Earlier", "a", "b", "c"), "x", 1, checked = 3))
+        // The selected row is still there: it stays selected
+        assertEquals(1, ListModel.keptRow(listOf("Earlier", "a", "b", "c"), "a", 2, checked = 3))
+        // A checked row that cannot be selected does not count
+        assertEquals(1, ListModel.keptRow(listOf("Earlier", "a", "b", "c"), "x", 1, { it != 3 }, checked = 3))
+    }
+
+    @Test
     fun anEmptyListShowsOneEmptyRow() {
         val rows = ListModel.shownRows(ListSpec("Songs", empty = "No Songs"))
         assertEquals(1, rows.size)
