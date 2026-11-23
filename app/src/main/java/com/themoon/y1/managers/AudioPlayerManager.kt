@@ -453,10 +453,6 @@ class AudioPlayerManager private constructor() {
         if (index > 0) exo.removeMediaItems(0, index)
     }
 
-    /** Nothing to add to: no queue, or only a podcast stream (its queue is one file that is not on the card). */
-    internal fun queueIsEmpty(queue: List<File>, index: Int): Boolean =
-        queue.isEmpty() || index !in queue.indices || queue.singleOrNull()?.absolutePath?.startsWith("/PODCAST_STREAM") == true
-
     internal fun shouldUseGaplessQueue(list: List<File>): Boolean {
         val main = MainActivity.instance
         if (main?.isAudiobookLibraryMode == true) return false
@@ -2203,6 +2199,10 @@ class AudioPlayerManager private constructor() {
          * then the player stops, in place of a skip to the next track.
          */
         internal fun stopsAfterErrors(errors: Int, queueSize: Int): Boolean = errors >= queueSize
+
+        /** Nothing to add to: no queue, or only a podcast stream (its queue is one file that is not on the card). */
+        internal fun queueIsEmpty(queue: List<File>, index: Int): Boolean =
+            queue.isEmpty() || index !in queue.indices || queue.singleOrNull()?.absolutePath?.startsWith("/PODCAST_STREAM") == true
 
         /** What the player does after an error of the track at [index]: see [afterTrackError]. */
         internal enum class TrackErrorAction { NEXT, STOP_AT_END, STOP_ALL_FAILED }
