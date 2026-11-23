@@ -53,11 +53,12 @@ class FocusLook private constructor(private val row: View) : View.OnFocusChangeL
         return this
     }
 
-    /** Removes all parts (a recycled row that gets another look). */
+    /** Removes all parts (a recycled row that gets another look). The arrow stays hidden, with its room. */
     fun reset(): FocusLook {
         texts.clear()
         normals.clear()
         extras.clear()
+        arrow?.visibility = View.INVISIBLE
         arrow = null
         marquee = null
         progress = null
