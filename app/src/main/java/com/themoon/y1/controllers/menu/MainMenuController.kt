@@ -11,6 +11,7 @@ import android.widget.LinearLayout
 import com.themoon.y1.R
 import com.themoon.y1.controllers.ScreenController
 import com.themoon.y1.controllers.photos.PhotoPreviewView
+import com.themoon.y1.lists.Focus
 import com.themoon.y1.lists.ListScreen
 import com.themoon.y1.lists.ListSpec
 import com.themoon.y1.lists.Pane
@@ -55,17 +56,19 @@ class MainMenuController(
 
     private fun spec(): ListSpec = ListSpec(null, MainMenuItems.shown(prefs).map { item ->
         RowSpec(localize(item.label), key = item.id, onClick = { onAction(item.action) }, onHold = onHold)
-    }, id = "main menu", pane = pane)
+    }, focus = Focus.LAST, id = LIST_ID, pane = pane)
 
     override fun onEnter(state: ScreenState) {
-        val spec = spec()
-        // Before show: its first row is a focus change too
-        val last = spec.rows.indexOfFirst { it.key == lastKey }
-        screen.show(spec)
-        if (last > 0) screen.select(last)
+        // The menu opens at the row that was selected last (no focus on the first row before it)
+        lastKey?.let { screen.remember(LIST_ID, it) }
+        screen.show(spec())
     }
 
-    override fun onExit() = screen.clear()
+    override fun onExit() {
+        screen.clear()
+        // Shown again when its row gets the focus
+        photos.visibility = View.GONE
+    }
 
     override fun onRefreshUI() = screen.update(spec())
 
@@ -73,4 +76,8 @@ class MainMenuController(
 
     // Back on the main menu stays here (the router gives the click)
     override fun onBackPressed(): Boolean = true
+
+    private companion object {
+        const val LIST_ID = "main menu"
+    }
 }

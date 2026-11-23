@@ -105,6 +105,11 @@ class ListScreen(
         rows.post { if ((view === rows || view.parent === rows) && !rows.hasFocus()) view.requestFocus() }
     }
 
+    /** Makes [key] the remembered row of the list [listId]: [Focus.LAST] opens it at this row. */
+    fun remember(listId: String, key: String) {
+        lastKeys[listId] = key
+    }
+
     /** Selects the row with [key] (for example the row that a screen opens at). False if there is no such row. */
     fun select(key: String): Boolean {
         val i = shown.indexOfFirst { it.key == key }
