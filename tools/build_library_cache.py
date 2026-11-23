@@ -34,6 +34,9 @@ except ImportError:
     print("This script needs the 'mutagen' package: pip install mutagen", file=sys.stderr)
     sys.exit(1)
 
+# Same value as MediaLibraryManager.CACHE_VERSION in the app.
+CACHE_VERSION = 2
+
 # Keep this in sync with isAudioFile() in MainActivity.java
 AUDIO_EXTENSIONS = {".mp3", ".flac", ".wav", ".ogg", ".m4a", ".aac", ".ape", ".wma", ".opus", ".m4b"}
 
@@ -206,7 +209,7 @@ def main():
 
     out_path = sdcard / ".y1_library_cache.json"
     with open(out_path, "w", encoding="utf-8") as f:
-        json.dump({"v": 2, "music": music_entries, "books": book_entries}, f, ensure_ascii=False)
+        json.dump({"v": CACHE_VERSION, "music": music_entries, "books": book_entries}, f, ensure_ascii=False)
 
     print(f"\nWrote {out_path}")
     print("Eject the card and put it back in the Y1 - the next library scan should skip tag extraction for everything in here.")

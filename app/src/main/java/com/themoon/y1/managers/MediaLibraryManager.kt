@@ -574,7 +574,7 @@ class MediaLibraryManager private constructor() {
                 parent.mkdirs()
             }
             bw = BufferedWriter(FileWriter(tempFile), 32768)
-            bw.write("{\"v\":2,\"music\":[")
+            bw.write("{\"v\":$CACHE_VERSION,\"music\":[")
             writeSongListJson(bw, musicLibrary)
             bw.write("],\"books\":[")
             writeSongListJson(bw, audiobookLibrary)
@@ -817,6 +817,14 @@ class MediaLibraryManager private constructor() {
     }
 
     companion object {
+        /**
+         * Version of the library cache file (`"v"`). Increase it when the scan reads a new tag, and in
+         * [parseLibraryCache] mark the cached files that have this tag as changed, so that the next scan reads them again.
+         * Keep `tools/build_library_cache.py` at the same value.
+         * 1: no `"v"` key. 2: MOOD tags of FLAC, Ogg and Opus files.
+         */
+        internal const val CACHE_VERSION = 2
+
         /**
          * Hidden files and folders (name starts with "."): the scan skips them. They are not songs: macOS writes a
          * "._<name>" AppleDouble file (about 4 KB, no audio) beside each file that it copies to a FAT or exFAT card,
