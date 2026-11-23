@@ -13,7 +13,6 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import com.themoon.y1.R
-import com.themoon.y1.StoragePaths
 import com.themoon.y1.ThemeManager
 import com.themoon.y1.Y1WebServer
 import com.themoon.y1.controllers.ScreenController
@@ -104,7 +103,7 @@ class WebServerController(
                 return
             }
 
-            webServer = Y1WebServer(activity.applicationContext, StoragePaths.getWebServerRoot())
+            webServer = Y1WebServer(activity.applicationContext)
             try {
                 webServer?.start()
                 isServerRunning = true
