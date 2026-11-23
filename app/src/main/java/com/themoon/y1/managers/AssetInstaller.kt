@@ -9,8 +9,8 @@ object AssetInstaller {
 
     fun installBundledLanguages(context: Context, prefs: SharedPreferences) {
         val lastInstalledVersion = prefs.getInt("last_lang_version", 0)
-        // 1013: the Books strings; 1014: the Photos strings; 1015: Hold Back for Now Playing
-        val currentPackVersion = 1015
+        // 1013: the Books strings; 1014: the Photos strings; 1015: Hold Back for Now Playing; 1016: the WebDAV Sync strings
+        val currentPackVersion = 1016
         if (lastInstalledVersion >= currentPackVersion) return
 
         val langFolder = File(context.filesDir, "languages")
