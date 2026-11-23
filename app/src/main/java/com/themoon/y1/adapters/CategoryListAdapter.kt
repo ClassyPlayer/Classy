@@ -15,7 +15,6 @@ import android.widget.TextView
 import com.themoon.y1.MainActivity
 import com.themoon.y1.R
 import com.themoon.y1.StoragePaths
-import com.themoon.y1.ThemeManager
 import com.themoon.y1.controllers.browser.BrowserController
 import com.themoon.y1.controllers.settings.ActionScreens
 import com.themoon.y1.lists.ArtRow
@@ -267,7 +266,8 @@ class CategoryListAdapter(
             val sampleFile = if (!albumFiles.isNullOrEmpty()) albumFiles[0] else null
             val albumKey = if (sampleFile != null) AlbumCoverManager.getAlbumKey(sampleFile, displayName) else displayName
 
-            val directBmp = AlbumCoverManager.getInstance().getThumbnailDirect(albumKey)
+            // Memory cache only: a disk thumbnail is read and decoded on the cover worker, not in the wheel step
+            val directBmp = AlbumCoverManager.getInstance().getMemoryCover(albumKey)
             if (directBmp != null) {
                 val directDrawable = BitmapDrawable(row.resources, directBmp)
                 coverCache?.put(lookupKey, directDrawable)
@@ -278,6 +278,8 @@ class CategoryListAdapter(
                 loadAlbumArtAsync(lookupKey, displayName, sampleFile, ivCover)
             }
         }
+
+        prefetchCovers(position)
 
         row.setOnClickListener {
             val bc = main.browserController
@@ -326,6 +328,28 @@ class CategoryListAdapter(
         com.themoon.y1.managers.LibrarySongs.byPath(it.absolutePath)?.title ?: it.name
     }
 
+    /**
+     * Loads the covers of the rows near [position] on the cover worker, so that a row that comes into the list
+     * has its cover at once (not the placeholder first).
+     */
+    private fun prefetchCovers(position: Int) {
+        val files = albumFilesMap ?: return
+        for (p in position - PREFETCH_ROWS..position + PREFETCH_ROWS) {
+            if (p == position || p !in items.indices) continue
+            val name = items[p]
+            if (name == BrowserController.ALL_SONGS_SENTINEL) continue
+            val key = albumArtists?.getOrNull(p)?.let { AlbumKey.of(name, it) } ?: name
+            if (coverCache?.get(key) != null) continue
+            val sample = (files[key] ?: files[name])?.firstOrNull() ?: continue
+            AlbumCoverManager.getInstance().loadCoverAsync(SongItem(sample, "", "", name), object : AlbumCoverManager.CoverCallback {
+                override fun onCoverLoaded(albumKey: String, cover: Bitmap?, reflection: Bitmap?) {
+                    val res = MainActivity.instance?.resources ?: return
+                    if (cover != null && coverCache?.get(key) == null) coverCache?.put(key, BitmapDrawable(res, cover))
+                }
+            })
+        }
+    }
+
     private fun loadAlbumArtAsync(cacheKey: String, name: String, sampleFile: File?, targetView: ImageView) {
         if (sampleFile == null) return
         val stubItem = SongItem(sampleFile, "", "", name)
@@ -354,7 +378,7 @@ class CategoryListAdapter(
             row = ListItemViewFactory.createListButtonWithIcon(main, "", name).apply {
                 tag = SIMPLE_ROW
                 val d = main.resources.displayMetrics.density
-                val height = if (ThemeManager.isClassicTheme()) (ClassicMenuStyle.ROW_HEIGHT_DP * d).toInt() else AbsListView.LayoutParams.WRAP_CONTENT
+                val height = (ClassicMenuStyle.ROW_HEIGHT_DP * d).toInt()
                 layoutParams = AbsListView.LayoutParams(AbsListView.LayoutParams.MATCH_PARENT, height)
             }
         }
@@ -384,6 +408,9 @@ class CategoryListAdapter(
     companion object {
         private const val SIMPLE_ROW = "simple_row"
         private var coverCache: LruCache<String, Drawable>? = null
+
+        /** Rows above and below a bound row whose covers load ahead ([prefetchCovers]). */
+        private const val PREFETCH_ROWS = 3
     }
 }
 

@@ -32,6 +32,7 @@ import com.themoon.y1.navigation.InputRouter
 import com.themoon.y1.navigation.NavigationManager
 import com.themoon.y1.navigation.RowKey
 import com.themoon.y1.navigation.ScreenState
+import com.themoon.y1.navigation.WheelKind
 import com.themoon.y1.navigation.isFolderLevel
 import com.themoon.y1.views.ListItemViewFactory
 import com.themoon.y1.views.Notice
@@ -838,6 +839,10 @@ class BrowserController(
     override fun dispatchKeyEvent(event: KeyEvent): Boolean = screen.key(event)
 
     override fun onWheel(delta: Int, event: KeyEvent): Boolean = screen.wheel(delta, event.eventTime)
+
+    override fun wheelKind(): WheelKind = screen.wheelKind
+
+    override fun onWheelTouch(isTouching: Boolean, timeMs: Long) = screen.wheelTouch(isTouching, timeMs)
 
     /** Back held in Folders (the first key repeat): out of all folder levels at once. The release does nothing. */
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {

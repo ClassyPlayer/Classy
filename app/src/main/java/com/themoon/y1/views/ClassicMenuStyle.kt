@@ -8,19 +8,12 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import com.themoon.y1.ThemeManager
 
-/**
- * Shared metrics matching the approved Classic main menu (480 x 360 reference). The Classic themes use the
- * Classy layout ([ClassyMetrics]); the second values are for the other themes (theme store).
- */
+/** Shared metrics of the Classy layout ([ClassyMetrics]), 480 x 360 reference. */
 object ClassicMenuStyle {
-    val ROW_HEIGHT_DP: Int
-        get() = if (ClassyLayout.isActive) ClassyMetrics.ROW_HEIGHT else 33
-    val STATUS_HEIGHT_DP: Int
-        get() = if (ClassyLayout.isActive) ClassyMetrics.STATUS_BAR_HEIGHT else 26
-    val PANE_WIDTH_DP: Int
-        get() = if (ClassyLayout.isActive) ClassyMetrics.PANE_WIDTH else 242
+    const val ROW_HEIGHT_DP: Int = ClassyMetrics.ROW_HEIGHT
+    const val STATUS_HEIGHT_DP: Int = ClassyMetrics.STATUS_BAR_HEIGHT
+    const val PANE_WIDTH_DP: Int = ClassyMetrics.PANE_WIDTH
     fun apply(row: LinearLayout, title: TextView, arrow: TextView?, heightDp: Int) {
-        if (!ThemeManager.isClassicTheme()) return
         val density = row.resources.displayMetrics.density
         row.gravity = Gravity.CENTER_VERTICAL
         row.setPadding((8 * density).toInt(), 0, (8 * density).toInt(), 0)

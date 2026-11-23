@@ -20,6 +20,7 @@ import com.themoon.y1.core.TimeFormat
 import com.themoon.y1.managers.VideoPlayerManager
 import com.themoon.y1.managers.VirtualVolumeManager
 import com.themoon.y1.navigation.ScreenState
+import com.themoon.y1.navigation.WheelKind
 import com.themoon.y1.views.ScrubBarGeometry
 import com.themoon.y1.views.ScrubBarStyle
 import java.io.File
@@ -207,6 +208,8 @@ class VideoPlayerController(
         updateProgressUI()
         showOverlay()
     }
+
+    override fun wheelKind(): WheelKind = WheelKind.VALUE
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         val keyCode = event.keyCode
