@@ -16,15 +16,18 @@ import com.themoon.y1.MainActivity
 import com.themoon.y1.R
 import com.themoon.y1.StoragePaths
 import com.themoon.y1.controllers.browser.BrowserController
+import com.themoon.y1.controllers.settings.ActionScreens
 import com.themoon.y1.lists.ArtRow
 import com.themoon.y1.lists.RowTexts
 import com.themoon.y1.managers.AlbumCoverManager
 import com.themoon.y1.managers.AudioPlayerManager
+import com.themoon.y1.managers.LibrarySongs
 import com.themoon.y1.models.AlbumKey
 import com.themoon.y1.models.SongItem
 import com.themoon.y1.navigation.BrowserMode
 import com.themoon.y1.views.ClassicMenuStyle
 import com.themoon.y1.views.ListItemViewFactory
+import com.themoon.y1.views.Notice
 import java.io.File
 import java.io.FileInputStream
 import java.util.Collections
@@ -295,15 +298,35 @@ class CategoryListAdapter(
             main.isLongPressConsumed = true
             val tracks = albumFilesMap?.get(lookupKey) ?: albumFilesMap?.get(name)
             if (!tracks.isNullOrEmpty()) {
-                val shuffled = ArrayList(tracks)
-                Collections.shuffle(shuffled)
-                AudioPlayerManager.getInstance().playTrackList(shuffled, 0)
-                main.changeScreen(MainActivity.STATE_PLAYER)
+                ActionScreens.open(ActionScreens.Spec(
+                    displayName,
+                    actions = listOf(
+                        ActionScreens.Action(main.t("Shuffle Play")) {
+                            val shuffled = ArrayList(tracks)
+                            Collections.shuffle(shuffled)
+                            AudioPlayerManager.getInstance().playTrackList(shuffled, 0)
+                            main.changeScreen(MainActivity.STATE_PLAYER)
+                        },
+                        ActionScreens.Action(main.t("Add to Queue")) {
+                            // With nothing playing, the album just starts: no "Added" notice
+                            if (!AudioPlayerManager.getInstance().enqueue(inTrackOrder(tracks))) {
+                                Notice.show(main, main.t("Added to Queue"))
+                            }
+                        },
+                        ActionScreens.Action(main.t("Add to Playlist"), opensList = true) {
+                            main.showAddToPlaylistDialog(inTrackOrder(tracks))
+                        }
+                    )
+                ))
             }
             true
         }
 
         return row
+    }
+
+    private fun inTrackOrder(tracks: List<File>): ArrayList<File> = inTrackOrder(tracks, MainActivity.trackNumberMap) {
+        LibrarySongs.byPath(it.absolutePath)?.title ?: it.name
     }
 
     /**
@@ -391,3 +414,10 @@ class CategoryListAdapter(
         private const val PREFETCH_ROWS = 3
     }
 }
+
+/** An album in track order, as opening it lists it: by track number, tracks with the same number (or none) by title. */
+internal fun inTrackOrder(tracks: List<File>, trackNumbers: Map<String, Int>, titleOf: (File) -> String): ArrayList<File> =
+    ArrayList(tracks.sortedWith(
+        compareBy<File> { trackNumbers[it.absolutePath] ?: 0 }
+            .thenComparator { a, b -> titleOf(a).compareTo(titleOf(b), ignoreCase = true) }
+    ))
