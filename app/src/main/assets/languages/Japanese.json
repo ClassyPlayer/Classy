@@ -886,5 +886,6 @@
   "Last sync failed": "前回の同期に失敗しました",
   "Cannot save the sync record": "同期記録を保存できません",
   "This Folder": "このフォルダ",
-  "Sync cancelled": "同期をキャンセルしました"
+  "Sync cancelled": "同期をキャンセルしました",
+  "Sort by Year": "年で並べ替え"
 }

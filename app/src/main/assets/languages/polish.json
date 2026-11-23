@@ -886,5 +886,6 @@
   "Last sync failed": "Ostatnia synchronizacja nie powiodła się",
   "Cannot save the sync record": "Nie można zapisać rejestru synchronizacji",
   "This Folder": "Ten folder",
-  "Sync cancelled": "Synchronizacja anulowana"
+  "Sync cancelled": "Synchronizacja anulowana",
+  "Sort by Year": "Sortuj według roku"
 }

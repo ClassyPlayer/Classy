@@ -886,5 +886,6 @@
   "Last sync failed": "Последняя синхронизация не удалась",
   "Cannot save the sync record": "Не удаётся сохранить журнал синхронизации",
   "This Folder": "Эта папка",
-  "Sync cancelled": "Синхронизация отменена"
+  "Sync cancelled": "Синхронизация отменена",
+  "Sort by Year": "Сортировка по году"
 }
