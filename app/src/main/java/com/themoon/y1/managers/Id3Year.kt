@@ -99,7 +99,8 @@ object Id3Year {
                     if (if (v4) fmt and 0x40 != 0 else fmt and 0x20 != 0) skip += 1 // group identifier
                     if (v4 && fmt and 0x01 != 0) skip += 4 // data length indicator
                     var body = if (packed || skip >= size) continue else data.copyOfRange(skip, size)
-                    if (v4 && fmt and 0x02 != 0) body = deUnsync(body)
+                    // v2.4 unsynchronisation: the frame flag, or the tag flag (some taggers set only the tag flag)
+                    if (v4 && (fmt and 0x02 != 0 || tagFlags and 0x80 != 0)) body = deUnsync(body)
                     if (body.size < 2) continue
                     val charset = when (body[0].toInt()) {
                         1 -> Charsets.UTF_16
@@ -107,7 +108,8 @@ object Id3Year {
                         3 -> Charsets.UTF_8
                         else -> Charsets.ISO_8859_1
                     }
-                    val year = String(body, 1, body.size - 1, charset).trim { it <= ' ' || it == '\u0000' }.take(4)
+                    // The trim also removes a UTF-8 BOM (UTF-16 decoding removes its own BOM)
+                    val year = String(body, 1, body.size - 1, charset).trim { it <= ' ' || it == '\uFEFF' }.take(4)
                     if (year.length == 4 && year.all { it in '0'..'9' }) {
                         if (id == "TDRC") return year
                         best = year

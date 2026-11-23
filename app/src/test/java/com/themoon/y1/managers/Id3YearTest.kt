@@ -63,6 +63,17 @@ class Id3YearTest {
         assertEquals("2024", Id3Year.read(tag(4, 0, ByteArray(0), rawFrame("TDRC", byteArrayOf(0, 2), body))))
     }
 
+    @Test fun v24TagUnsynchronisationWithoutFrameFlagIsRestored() {
+        // Only the tag flag (0x80) is set, not the frame flag: the UTF-16 BOM FF FE is stored as FF 00 FE
+        val body = byteArrayOf(1, 0xFF.toByte(), 0, 0xFE.toByte()) + "2024".toByteArray(Charsets.UTF_16LE)
+        assertEquals("2024", Id3Year.read(tag(4, 0x80, ByteArray(0), rawFrame("TDRC", byteArrayOf(0, 0), body))))
+    }
+
+    @Test fun utf8ByteOrderMarkIsRemoved() {
+        val body = byteArrayOf(3, 0xEF.toByte(), 0xBB.toByte(), 0xBF.toByte()) + "2024-09-27".toByteArray()
+        assertEquals("2024", Id3Year.read(tag(4, 0, ByteArray(0), rawFrame("TDRC", byteArrayOf(0, 0), body))))
+    }
+
     @Test fun compressedFrameIsSkipped() =
         assertNull(Id3Year.read(tag(3, 0, ByteArray(0), "TYER".toByteArray() + byteArrayOf(0, 0, 0, 5, 0, 0x80.toByte()) + byteArrayOf(0, 0, 0, 0, 1))))
 
