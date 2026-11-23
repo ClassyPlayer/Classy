@@ -5,13 +5,13 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-class Migration017MoodTagsTest {
+class Migration018MoodTagsTest {
 
     @Test
     fun migrationAsksForOneMediaRescan() {
         val prefs = MoveMisplacedPrefsTest.FakePrefs()
         val manager = MigrationManager(null, prefs)
-        manager.registerMigration(Migration017MoodTags())
+        manager.registerMigration(Migration018MoodTags())
         assertFalse(manager.isPendingMediaRescan())
 
         assertEquals(1, manager.applyPendingMigrations())

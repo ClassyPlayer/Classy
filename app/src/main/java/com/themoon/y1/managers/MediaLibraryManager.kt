@@ -695,7 +695,7 @@ class MediaLibraryManager private constructor() {
         val music = jsonToSongList(root.optJSONArray("music"), trackNumbers, isAudiobook = false, isUsable = isUsable)
         val books = jsonToSongList(root.optJSONArray("books"), trackNumbers, isAudiobook = true, isUsable = isUsable)
         // A cache from before the Mood tags (v2): the next scan reads the FLAC, Ogg and Opus files again (a modified
-        // time of 0 counts as changed). MP3 and M4A have no MOOD tag here. Migration 017 starts that scan.
+        // time of 0 counts as changed). MP3 and M4A have no MOOD tag here. Migration 018 starts that scan.
         if (root.optInt("v", 1) < 2) {
             (music + books).filter { val n = it.file.name.lowercase(); n.endsWith(".flac") || n.endsWith(".ogg") || n.endsWith(".opus") }
                 .forEach { it.dateModified = 0L }
