@@ -239,7 +239,9 @@ class PlaylistController(
         ))
     }
 
-    fun showAddToPlaylistDialog(songFile: File) {
+    fun showAddToPlaylistDialog(songFile: File) = showAddToPlaylistDialog(listOf(songFile))
+
+    fun showAddToPlaylistDialog(songFiles: List<File>) {
         val playlistDir = StoragePaths.getPlaylistsDir()
         if (!playlistDir.exists()) {
             playlistDir.mkdirs()
@@ -260,7 +262,7 @@ class PlaylistController(
         // A list of targets: On-The-Go, a new playlist, then each playlist. Back cancels.
         val targets = ArrayList<ActionScreens.Action>()
         targets += ActionScreens.Action(localize("On-The-Go")) {
-            addSongToOnTheGo(songFile)
+            addSongsToOnTheGo(songFiles)
         }
         targets += ActionScreens.Action(localize("Create New Playlist")) {
             var count = 1
@@ -270,7 +272,7 @@ class PlaylistController(
                 count++
             } while (newPlaylistFile.exists())
 
-            if (writeSongToM3uFile(newPlaylistFile, songFile, false)) {
+            if (writeSongsToM3uFile(newPlaylistFile, songFiles, false)) {
                 Notice.show(
                     activity,
                     localize("Created Playlist ") + (count - 1) + " " + localize("successfully!")
@@ -282,7 +284,7 @@ class PlaylistController(
         for ((i, targetM3u) in allFiles.withIndex()) {
             if (targetM3u == onTheGoFile) continue
             targets += ActionScreens.Action(labels[i]) {
-                if (writeSongToM3uFile(targetM3u, songFile, true)) {
+                if (writeSongsToM3uFile(targetM3u, songFiles, true)) {
                     Notice.show(activity, localize("Added to playlist successfully!"))
                 } else {
                     Notice.error(activity, localize("Failed to save."))
@@ -292,7 +294,10 @@ class PlaylistController(
         ActionScreens.open(ActionScreens.Spec(localize("Add to Playlist"), actions = targets))
     }
 
-    fun addSongToOnTheGo(songFile: File) {
+    fun addSongToOnTheGo(songFile: File) = addSongsToOnTheGo(listOf(songFile))
+
+    /** One write and one notice for all [songFiles]. */
+    fun addSongsToOnTheGo(songFiles: List<File>) {
         val playlistDir = StoragePaths.getPlaylistsDir()
         if (!playlistDir.exists()) {
             playlistDir.mkdirs()
@@ -305,7 +310,7 @@ class PlaylistController(
                 bw.close()
             } catch (ignored: Exception) {}
         }
-        if (writeSongToM3uFile(onTheGoFile, songFile, true)) {
+        if (writeSongsToM3uFile(onTheGoFile, songFiles, true)) {
             Notice.show(activity, localize("Added to On-The-Go."))
         } else {
             Notice.error(activity, localize("Failed to save."))
@@ -313,7 +318,14 @@ class PlaylistController(
     }
 
     /** Writes [songFile] to [m3uFile] (a new file when not [append]). False when it could not be written. */
-    fun writeSongToM3uFile(m3uFile: File, songFile: File, append: Boolean): Boolean {
+    fun writeSongToM3uFile(m3uFile: File, songFile: File, append: Boolean): Boolean =
+        writeSongsToM3uFile(m3uFile, listOf(songFile), append)
+
+    /**
+     * Writes all [songFiles] to [m3uFile] (a new file when not [append]) in one open and one flush. False when it could
+     * not be written; a failed write can still leave the lines before it in the file.
+     */
+    fun writeSongsToM3uFile(m3uFile: File, songFiles: List<File>, append: Boolean): Boolean {
         return try {
             // A playlist made on a computer may not end with a line break: the new path goes on a line of its own
             val newLineFirst = append && PlaylistPaths.endsWithoutLineBreak(m3uFile)
@@ -321,7 +333,7 @@ class PlaylistController(
             bw.use {
                 if (!append) it.write("#EXTM3U\n")
                 if (newLineFirst) it.write("\n")
-                it.write(songFile.absolutePath + "\n")
+                for (f in songFiles) it.write(f.absolutePath + "\n")
             }
             true
         } catch (e: Exception) {

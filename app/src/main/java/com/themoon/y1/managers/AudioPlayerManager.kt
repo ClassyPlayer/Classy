@@ -420,6 +420,39 @@ class AudioPlayerManager private constructor() {
         exo.prepare()
     }
 
+    /**
+     * Adds [files] to the end of the playing queue; with nothing playing (or only a podcast stream, which is a queue
+     * of its own), starts them. Returns true when it started them.
+     */
+    fun enqueue(files: List<File>): Boolean {
+        val main = MainActivity.instance ?: return false
+        if (files.isEmpty()) return false
+        if (queueIsEmpty(main.currentPlaylist, main.currentIndex)) {
+            playTrackList(files, 0)
+            return true
+        }
+        main.originalPlaylist.addAll(files)
+        main.currentPlaylist.addAll(files)
+        if (isGaplessQueueActive && shouldUseGaplessQueue(main.currentPlaylist)) {
+            exoPlayer?.addMediaItems(files.map { MediaItem.fromUri(Uri.fromFile(it)) })
+        } else {
+            // The longer queue is not for gapless play (an audiobook, too many tracks): from now on ExoPlayer
+            // holds the playing track only, and Repeat All is ours
+            if (isGaplessQueueActive) leaveGaplessQueue(main.currentIndex)
+            setRepeatMode(Prefs.REPEAT_MODE.get(main.prefs))
+        }
+        main.updatePlayerUI() // the "3 of 10" of Now Playing
+        return false
+    }
+
+    /** ExoPlayer keeps only the playing track [index]: the position and the pause state do not change. */
+    private fun leaveGaplessQueue(index: Int) {
+        val exo = exoPlayer ?: return
+        isGaplessQueueActive = false
+        if (index < exo.mediaItemCount - 1) exo.removeMediaItems(index + 1, exo.mediaItemCount)
+        if (index > 0) exo.removeMediaItems(0, index)
+    }
+
     internal fun shouldUseGaplessQueue(list: List<File>): Boolean {
         val main = MainActivity.instance
         if (main?.isAudiobookLibraryMode == true) return false
@@ -2172,6 +2205,10 @@ class AudioPlayerManager private constructor() {
          * then the player stops, in place of a skip to the next track.
          */
         internal fun stopsAfterErrors(errors: Int, queueSize: Int): Boolean = errors >= queueSize
+
+        /** Nothing to add to: no queue, or only a podcast stream (its queue is one file that is not on the card). */
+        internal fun queueIsEmpty(queue: List<File>, index: Int): Boolean =
+            queue.isEmpty() || index !in queue.indices || queue.singleOrNull()?.absolutePath?.startsWith("/PODCAST_STREAM") == true
 
         /** What the player does after an error of the track at [index]: see [afterTrackError]. */
         internal enum class TrackErrorAction { NEXT, STOP_AT_END, STOP_ALL_FAILED }

@@ -1160,6 +1160,10 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
         playlistController.showAddToPlaylistDialog(songFile)
     }
 
+    fun showAddToPlaylistDialog(songFiles: List<File>) {
+        playlistController.showAddToPlaylistDialog(songFiles)
+    }
+
     fun showRemoveFromPlaylistDialog(songFile: File) {
         playlistController.showRemoveFromPlaylistDialog(songFile)
     }
