@@ -55,6 +55,12 @@ class InputRouterTest {
     }
 
     @Test
+    fun seekStepMs_staleTimeStaysSmallAndPositive() {
+        assertEquals(InputRouter.seekStepMs(0L, 500L), InputRouter.seekStepMs(0L, Long.MAX_VALUE / 4))
+        assertEquals(0, InputRouter.seekStepMs(0L, -5L))
+    }
+
+    @Test
     fun testOnKeyRelease_backKeyConsumedByActiveController() {
         navManager.navigateTo(ScreenState.CoverFlow)
         subController.handleBackResult = true
@@ -168,6 +174,31 @@ class InputRouterTest {
         assertFalse(inputRouter.isSkipKeyHeld)
         assertFalse("A long press must not skip the track on release",
             inputRouter.onSkipKeyUp(KeyEvent.KEYCODE_MEDIA_NEXT, 1500L))
+    }
+
+    @Test
+    fun testSkipKeys_seekTimeout() {
+        // Screen on: repeats come all the time, so 1 s without one means the key-up was lost
+        assertFalse(InputRouter.seekTimedOut(nowMs = 1_900L, lastRepeatMs = 1_000L, seekStartMs = 0L, waitForKeyUp = false))
+        assertTrue(InputRouter.seekTimedOut(nowMs = 2_100L, lastRepeatMs = 1_000L, seekStartMs = 0L, waitForKeyUp = false))
+        // Screen off: Android sends one long-press and then the key-up, no repeats; only a 5 min cap
+        assertFalse(InputRouter.seekTimedOut(nowMs = 299_000L, lastRepeatMs = 500L, seekStartMs = 500L, waitForKeyUp = true))
+        assertTrue(InputRouter.seekTimedOut(nowMs = 301_000L, lastRepeatMs = 500L, seekStartMs = 500L, waitForKeyUp = true))
+    }
+
+    @Test
+    fun testSkipKeys_screenOffSeekStopsAtTheTrackLimits() {
+        // Forward: stops at the end margin (1 s before the end), not before
+        assertFalse(InputRouter.screenOffSeekEnds(1, positionMs = 58_999, durationMs = 60_000, trackChanged = false))
+        assertTrue(InputRouter.screenOffSeekEnds(1, positionMs = 59_000, durationMs = 60_000, trackChanged = false))
+        // Forward with an unknown duration: only a new track stops it
+        assertFalse(InputRouter.screenOffSeekEnds(1, positionMs = 90_000, durationMs = 0, trackChanged = false))
+        // Back: stops at the start of the track
+        assertFalse(InputRouter.screenOffSeekEnds(-1, positionMs = 1, durationMs = 60_000, trackChanged = false))
+        assertTrue(InputRouter.screenOffSeekEnds(-1, positionMs = 0, durationMs = 60_000, trackChanged = false))
+        // A new track stops it in both directions
+        assertTrue(InputRouter.screenOffSeekEnds(1, positionMs = 5_000, durationMs = 60_000, trackChanged = true))
+        assertTrue(InputRouter.screenOffSeekEnds(-1, positionMs = 5_000, durationMs = 60_000, trackChanged = true))
     }
 
     @Test

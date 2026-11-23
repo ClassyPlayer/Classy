@@ -1631,7 +1631,8 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     class MediaBtnReceiver : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             val event = intent.getParcelableExtra<KeyEvent>(Intent.EXTRA_KEY_EVENT) ?: return
-            if (event.action != KeyEvent.ACTION_DOWN || event.repeatCount != 0) return
+            val router = com.themoon.y1.navigation.InputRouter.getInstance()
+            val isSkip = router.isSkipKey(event.keyCode)
 
             val pm = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
             val isScreenOn = if (Build.VERSION.SDK_INT >= 20) {
@@ -1646,12 +1647,20 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
                 // Media keys from a remote (car, Bluetooth headphones, wired headset) always act
                 val keys = com.themoon.y1.navigation.RemoteMediaKeys
                 val device = keys.deviceName(event)
-                android.util.Log.w("MediaButton", KeyEvent.keyCodeToString(event.keyCode) + " from " + (device ?: "unknown device") +
-                    " with the screen off: " + keys.screenOffDecision(event.keyCode, device, isScreenOffCtrl))
+                if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
+                    android.util.Log.w("MediaButton", KeyEvent.keyCodeToString(event.keyCode) + " from " + (device ?: "unknown device") +
+                        " with the screen off: " + keys.screenOffDecision(event.keyCode, device, isScreenOffCtrl))
+                }
                 if (!keys.actsWithScreenOff(event.keyCode, device, isScreenOffCtrl)) {
                     return
                 }
+                // The radio keeps its own Next/Previous (skip on the press), below
+                if (isSkip && !com.themoon.y1.managers.AudioSources.app.radioHasButtons) {
+                    router.onScreenOffSkipKey(event)
+                    return
+                }
             }
+            if (event.action != KeyEvent.ACTION_DOWN || event.repeatCount != 0) return
 
             val am = AudioPlayerManager.getInstance()
             when (event.keyCode) {

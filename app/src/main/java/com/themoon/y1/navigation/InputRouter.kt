@@ -49,19 +49,43 @@ class InputRouter private constructor() {
     private var seekStartMs = 0L
     private var lastSeekTickMs = 0L
     private var lastSkipRepeatMs = 0L
+    /** Screen off: Android sends one long-press and then the key-up, no repeats, so the key-up ends the seek. */
+    private var seekWaitsForKeyUp = false
+    // The track when the seek started: a screen-off seek stops when it changes
+    private var seekTrackPath: String? = null
     private val seekHandler = Handler(Looper.getMainLooper())
     private val seekTickRunnable = object : Runnable {
         override fun run() {
             if (seekDirection == 0) return
             val now = SystemClock.uptimeMillis()
-            if (now - lastSkipRepeatMs > SEEK_REPEAT_TIMEOUT_MS) {
-                // No key repeats any more, so the key-up went elsewhere
+            if (seekTimedOut(now, lastSkipRepeatMs, seekStartMs, seekWaitsForKeyUp)) {
+                // No key repeats any more (or too long without the key-up), so the key-up went elsewhere
+                stopSeek()
+                return
+            }
+            if (screenOffSeekEnded()) {
                 stopSeek()
                 return
             }
             onSeekTick(now)
+            if (screenOffSeekEnded()) {
+                stopSeek()
+                return
+            }
             seekHandler.postDelayed(this, SEEK_TICK_MS)
         }
+    }
+
+    /**
+     * A lost key-up must not seek through the next tracks: a screen-off seek ends at the end margin, the start or a
+     * new track. Checked before and after each tick: after a tick the position is the seek target (clamped at 0), so
+     * a back seek stops at 0 also while the music plays on.
+     */
+    private fun screenOffSeekEnded(): Boolean {
+        if (!seekWaitsForKeyUp || seekDirection == 0) return false
+        val player = AudioPlayerManager.getInstance()
+        return screenOffSeekEnds(seekDirection, player.getCurrentPosition(), player.getDuration(),
+            player.currentlyPlayingFilePath != seekTrackPath)
     }
 
     fun suppressBackUntilRelease(debounceMs: Long = 350L) {
@@ -377,9 +401,34 @@ class InputRouter private constructor() {
         keyCode == KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE || keyCode == KeyEvent.KEYCODE_MEDIA_PLAY ||
             keyCode == KeyEvent.KEYCODE_MEDIA_PAUSE || keyCode == 85
 
-    private fun isSkipKey(keyCode: Int): Boolean {
+    internal fun isSkipKey(keyCode: Int): Boolean {
         return keyCode == KeyEvent.KEYCODE_MEDIA_NEXT || keyCode == 87 ||
                 keyCode == KeyEvent.KEYCODE_MEDIA_PREVIOUS || keyCode == 88
+    }
+
+    /**
+     * The skip key whose press the screen-off receiver passed on: its repeat and release are passed on too, others
+     * are ignored. Main thread only.
+     */
+    private var screenOffSkipKey = 0
+
+    /**
+     * Screen off, from the media-button receiver. A second path exists next to [onKeyEvent]'s screen-off branch
+     * because that one only runs when the activity gets the key; a media button (car, Bluetooth, wired remote) with
+     * the screen off arrives as a broadcast. The broadcast has no key repeats, so the release ends a hold
+     * ([onSkipKeyDown] with waitForKeyUp). A press that began with the screen on already acted, and a repeat or
+     * release without a press seen here is ignored. The event time can be forged, so the seek runs on this
+     * device's clock.
+     */
+    fun onScreenOffSkipKey(event: KeyEvent) {
+        if (event.action == KeyEvent.ACTION_DOWN) {
+            if (event.repeatCount == 0) screenOffSkipKey = event.keyCode
+            if (screenOffSkipKey == event.keyCode) {
+                onSkipKeyDown(event.keyCode, event.repeatCount, SystemClock.uptimeMillis(), waitForKeyUp = true)
+            }
+        } else if (event.action == KeyEvent.ACTION_UP && screenOffSkipKey == event.keyCode) {
+            onSkipKeyUp(event.keyCode, event.eventTime - event.downTime)
+        }
     }
 
     /**
@@ -387,7 +436,7 @@ class InputRouter private constructor() {
      * the longer the button is held (see [seekSpeed]); a short press changes the track on release
      * (see [onSkipKeyUp]). Returns the offset of the first seek tick in ms, or 0.
      */
-    internal fun onSkipKeyDown(keyCode: Int, repeatCount: Int, eventTimeMs: Long): Int {
+    internal fun onSkipKeyDown(keyCode: Int, repeatCount: Int, eventTimeMs: Long, waitForKeyUp: Boolean = false): Int {
         if (repeatCount == 0) {
             stopSeek()
             isSkipKeyHeld = false
@@ -399,12 +448,14 @@ class InputRouter private constructor() {
             return 0
         }
         seekDirection = if (keyCode == KeyEvent.KEYCODE_MEDIA_NEXT || keyCode == 87) 1 else -1
+        seekWaitsForKeyUp = waitForKeyUp
         seekStartMs = eventTimeMs
+        seekTrackPath = AudioPlayerManager.getInstance().currentlyPlayingFilePath
         lastSeekTickMs = eventTimeMs - SEEK_TICK_MS
         // One click when the seek starts; a click on every tick would buzz
         MainActivity.instance?.clickFeedback()
         val offsetMs = onSeekTick(eventTimeMs)
-        seekHandler.postDelayed(seekTickRunnable, SEEK_TICK_MS)
+        if (screenOffSeekEnded()) stopSeek() else seekHandler.postDelayed(seekTickRunnable, SEEK_TICK_MS)
         return offsetMs
     }
 
@@ -442,6 +493,8 @@ class InputRouter private constructor() {
      * as a hold even if a controller (e.g. FM radio station seek) consumed the key repeats. Returns true if it skipped.
      */
     internal fun onSkipKeyUp(keyCode: Int, heldMs: Long): Boolean {
+        // Also a release that came to the activity (the screen came on during the hold): a later press starts clean
+        screenOffSkipKey = 0
         stopSeek()
         if (isSkipKeyHeld || heldMs >= SKIP_KEY_HOLD_MS) {
             return false
@@ -477,9 +530,27 @@ class InputRouter private constructor() {
         private const val SEEK_MAX_SPEED = 120.0
         private const val SEEK_RAMP_MS = 7_000L
         private const val SEEK_REPEAT_TIMEOUT_MS = 1_000L
+        private const val SEEK_KEY_UP_CAP_MS = 300_000L
+
+        /**
+         * True when a seek must stop. Screen on: no key repeat for 1 s (the key-up was lost). Screen off, no repeats
+         * come: only a 5 min cap, in case the key-up never arrives.
+         */
+        internal fun seekTimedOut(nowMs: Long, lastRepeatMs: Long, seekStartMs: Long, waitForKeyUp: Boolean): Boolean =
+            if (waitForKeyUp) nowMs - seekStartMs > SEEK_KEY_UP_CAP_MS else nowMs - lastRepeatMs > SEEK_REPEAT_TIMEOUT_MS
 
         // Forward seeks stop this far before the end, so seeking alone never skips to the next track
         private const val SEEK_END_MARGIN_MS = 1_000
+
+        /**
+         * True when a screen-off seek must stop before its key-up: forward at the end margin, back at the start, or
+         * the track changed. Then a lost key-up changes one track at most. A forward seek with an unknown duration
+         * (0) stops only when the track changes.
+         */
+        internal fun screenOffSeekEnds(direction: Int, positionMs: Int, durationMs: Int, trackChanged: Boolean): Boolean {
+            if (trackChanged) return true
+            return if (direction > 0) durationMs > 0 && positionMs >= durationMs - SEEK_END_MARGIN_MS else positionMs <= 0
+        }
 
         /** Seek speed (x real time) after seeking for [seekingMs]. */
         internal fun seekSpeed(seekingMs: Long): Double {
@@ -489,7 +560,8 @@ class InputRouter private constructor() {
 
         /** Seek step in ms for a tick [elapsedMs] after the last one, after seeking for [seekingMs]. */
         internal fun seekStepMs(seekingMs: Long, elapsedMs: Long): Int {
-            return Math.round(seekSpeed(seekingMs) * elapsedMs.coerceAtLeast(0L)).toInt()
+            // Capped at a few ticks: a stale time (a forged event) must not overflow the Int or give a negative step
+            return Math.round(seekSpeed(seekingMs) * elapsedMs.coerceIn(0L, SEEK_TICK_MS * 5)).toInt()
         }
 
         /** Forward seek offset of up to [stepMs], clamped to stop [SEEK_END_MARGIN_MS] before the end. */
