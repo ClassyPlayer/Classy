@@ -142,6 +142,9 @@ class NavigationManager private constructor() {
     /** The state of the top back-stack entry (where Back goes), or null. */
     fun previousState(): ScreenState? = backStack.peek()?.state
 
+    /** True when an entry of the back stack is accepted by [where]. */
+    fun backStackHas(where: (ScreenState) -> Boolean): Boolean = backStack.any { where(it.state) }
+
     /** Back to the nearest entry that [where] accepts; the entries above it go. Without one: to the main menu. */
     fun popBackStackTo(where: (ScreenState) -> Boolean): Boolean {
         while (backStack.isNotEmpty() && !where(backStack.peek().state)) backStack.pop()

@@ -65,7 +65,7 @@ internal fun MainActivity.initControllers() {
         }
     }.apply {
         divider = ColorDrawable(0)
-        dividerHeight = if (ThemeManager.isClassicTheme()) 0 else (4 * resources.displayMetrics.density).toInt()
+        dividerHeight = 0
         selector = ColorDrawable(0)
         itemsCanFocus = true
         isSoundEffectsEnabled = false
@@ -83,30 +83,21 @@ internal fun MainActivity.initControllers() {
         activity = this,
         rootView = layoutMainMenu as ViewGroup,
         clickFeedback = { clickFeedback() },
-        onActionTriggered = { action -> handleMainMenuAction(action) },
-        onButtonFocusChanged = { el ->
-            homeWidgetsController?.updateFocusPreview(el)
-        },
-        onLongPressScreenOff = View.OnLongClickListener {
-            turnOffScreen()
-            true
-        },
+        onAction = { action -> handleMainMenuAction(action) },
+        onHold = { turnOffScreen() },
         localize = { t(it) },
-        onDynamicUiBuilt = {
-            homeWidgetsController?.refreshWidgets()
-        }
+        onShowPane = { homeWidgetsController?.refreshWidgets() }
     )
 
     homeWidgetsController = HomeWidgetsController(
         context = this,
-        mainMenuProvider = { mainMenuController },
+        ivMainMenuCover = findViewById(R.id.iv_main_menu_cover),
         ivBrowserCover = findViewById(R.id.iv_browser_cover),
         frameBrowserCover = findViewById(R.id.frame_browser_cover),
         fetchRandomIdleCoverAsync = { fetchRandomIdleCoverAsync() },
         isAudiobookMode = {
             isAudiobookLibraryMode || (isBrowserControllerInitialized() && (browserController.isAudiobookLibraryMode || browserController.currentBrowserMode is BrowserMode.Audiobooks))
-        },
-        is24HourFormat = { is24HourFormat }
+        }
     )
 
     browserController = BrowserController(
@@ -597,6 +588,13 @@ internal fun MainActivity.shuffleAllSongs() {
     Prefs.SHUFFLE.setAsync(prefs, true)
     AudioPlayerManager.getInstance().playTrackList(tracks, tracks.indices.random())
     changeScreen(MainActivity.STATE_PLAYER)
+}
+
+/** Now Playing: back to it when it is under this screen (no second copy in the back stack), else open it. */
+internal fun MainActivity.showNowPlaying() {
+    val nav = NavigationManager.getInstance()
+    if (nav.backStackHas { it == ScreenState.Player }) nav.popBackStackTo { it == ScreenState.Player }
+    else handleMainMenuAction("OPEN_PLAYER")
 }
 
 internal fun MainActivity.handleMainMenuAction(action: String) {

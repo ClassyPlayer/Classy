@@ -1,9 +1,10 @@
 package com.themoon.y1.views
 
 import android.content.Context
+import android.graphics.Bitmap
 import android.graphics.Canvas
-import android.graphics.Paint
 import android.graphics.Rect
+import android.graphics.RectF
 import android.graphics.drawable.ColorDrawable
 import android.util.AttributeSet
 import android.view.View
@@ -264,10 +265,16 @@ open class EdgeFadeScrollView @JvmOverloads constructor(
 
     override fun onDetachedFromWindow() {
         ListEdges.unregister(this)
+        glide.cancel()
         super.onDetachedFromWindow()
     }
 
     private val painter = EdgeFadePainter()
+
+    /** Settings → Controls → List Glide ([ListGlide]). */
+    internal val glide = RowGlide(this)
+
+    override fun dispatchDraw(canvas: Canvas) = glide.draw(canvas) { super.dispatchDraw(it) }
 
     private fun moreAbove(): Boolean = childCount > 0 && scrollY > 0
 
@@ -329,10 +336,16 @@ open class EdgeFadeListView(context: Context) : ListView(context) {
 
     override fun onDetachedFromWindow() {
         ListEdges.unregister(this)
+        glide.cancel()
         super.onDetachedFromWindow()
     }
 
     private val painter = EdgeFadePainter()
+
+    /** Settings → Controls → List Glide ([ListGlide]). */
+    internal val glide = RowGlide(this)
+
+    override fun dispatchDraw(canvas: Canvas) = glide.draw(canvas) { super.dispatchDraw(it) }
 
     private fun moreAbove(): Boolean =
         childCount > 0 && ListEdges.listHasMoreAbove(firstVisiblePosition, getChildAt(0).top, paddingTop)
@@ -367,22 +380,30 @@ open class EdgeFadeListView(context: Context) : ListView(context) {
         ListEdges.updateLength(this)
     }
 
+    /** True during a step by the ListView's own D-pad step (ListView.arrowScroll): it keeps the row clear of the fades and moves the selection itself. */
+    internal var inArrowStep = false
+
     override fun requestChildFocus(child: View?, focused: View?) {
         super.requestChildFocus(child, focused)
-        if (child != null) ListEdges.revealRow(this, child)
+        if (child != null && !inArrowStep) ListEdges.revealRow(this, child)
     }
 }
 
 /**
- * Draws the list fade over an opaque colour background as 1 px strips of that colour, from almost
- * opaque at the edge to almost clear. It uses no shader: with Android's own solid-colour fade
+ * Draws the list fade over an opaque colour background as 1 px rows of that colour, from almost
+ * opaque at the edge to almost clear: a 1 px wide bitmap for each edge, stretched to the list width (one draw
+ * for each edge, not one for each row). It uses no shader: with Android's own solid-colour fade
  * (a gradient shader that View.draw moves with setLocalMatrix for each edge), the Y2 sometimes
  * drew a solid band of the colour when it drew both the top and the bottom fade.
  */
 internal class EdgeFadePainter {
-    private var paints: Array<Paint> = emptyArray()
+    /** The fade as 1 px wide bitmaps, one row for each pixel row: top edge, bottom edge. One bitmap draw each. */
+    private var topFade: Bitmap? = null
+    private var bottomFade: Bitmap? = null
     private var color = 0
     private var length = 0
+    private val src = Rect()
+    private val dst = RectF()
 
     /** The fade strength for Android's own drawing: none where this painter draws the fade. */
     fun androidStrength(v: View, moreContent: Boolean): Float =
@@ -394,11 +415,17 @@ internal class EdgeFadePainter {
         val solid = ListEdges.solidColorBehind(v)
         val len = v.verticalFadingEdgeLength
         if (solid == 0 || len <= 0) return
-        if (solid != color || len != length || paints.size != len) {
+        if (solid != color || len != length || topFade == null) {
+            val rgb = solid and 0x00FFFFFF
+            val top = IntArray(len) { i -> (ListEdges.fadeAlpha(i, len) shl 24) or rgb }
+            topFade = try {
+                Bitmap.createBitmap(top, 1, len, Bitmap.Config.ARGB_8888)
+            } catch (_: OutOfMemoryError) {
+                null
+            } ?: return
+            bottomFade = Bitmap.createBitmap(IntArray(len) { top[len - 1 - it] }, 1, len, Bitmap.Config.ARGB_8888)
             color = solid
             length = len
-            val rgb = solid and 0x00FFFFFF
-            paints = Array(len) { i -> Paint().apply { this.color = (ListEdges.fadeAlpha(i, len) shl 24) or rgb } }
         }
         // The canvas is in scrolled coordinates: the visible area starts at (scrollX, scrollY).
         val left = (v.scrollX + v.paddingLeft).toFloat()
@@ -406,9 +433,17 @@ internal class EdgeFadePainter {
         val top = v.scrollY + v.paddingTop
         val bottom = v.scrollY + v.height - v.paddingBottom
         val n = minOf(len, (bottom - top) / 2)
-        for (i in 0 until n) {
-            if (moreAbove) canvas.drawRect(left, (top + i).toFloat(), right, (top + i + 1).toFloat(), paints[i])
-            if (moreBelow) canvas.drawRect(left, (bottom - i - 1).toFloat(), right, (bottom - i).toFloat(), paints[i])
+        if (n <= 0) return
+        // One bitmap row for each pixel row (no filter): the same pixels as one rectangle for each row
+        if (moreAbove) {
+            src.set(0, 0, 1, n)
+            dst.set(left, top.toFloat(), right, (top + n).toFloat())
+            canvas.drawBitmap(topFade!!, src, dst, null)
+        }
+        if (moreBelow) {
+            src.set(0, len - n, 1, len)
+            dst.set(left, (bottom - n).toFloat(), right, bottom.toFloat())
+            canvas.drawBitmap(bottomFade!!, src, dst, null)
         }
     }
 }

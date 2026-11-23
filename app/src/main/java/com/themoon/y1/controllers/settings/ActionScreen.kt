@@ -20,7 +20,8 @@ import com.themoon.y1.navigation.SettingsSubMode
 object ActionScreens {
 
     /**
-     * [checked] not null: a choice row, with the check mark when true (as the Language list).
+     * [checked] not null: a choice row, with the check mark when true (as the Language list), unless [value] is
+     * set: a [value] row is a value row whatever [checked] says.
      * [opensList]: the row opens a deeper list over this screen; it has a chevron, and the screen stays under the
      * list, so Back comes back to it.
      * [closes] false: the row does not close the screen before its action, because the action goes to another
@@ -31,6 +32,8 @@ object ActionScreens {
         val checked: Boolean? = null,
         val opensList: Boolean = false,
         val closes: Boolean = !opensList,
+        /** Not null: a value row ([onOff] shows as the switch of the Settings rows). It wins over [checked]: a row with both is a value row. */
+        val value: String? = null,
         /** Tells the row from the others when a list is shown again (the selected row stays); null: the label. */
         val key: String? = null,
         val run: () -> Unit
@@ -152,7 +155,8 @@ object ActionScreens {
             val onClick = { choose(action, close) }
             val checked = action.checked
             val key = action.key ?: action.label
-            if (checked == null) RowSpec(action.label, RowLook.VALUE, value = if (action.opensList) "〉" else "", key = key, onClick = onClick)
+            if (action.value != null) RowSpec(action.label, RowLook.VALUE, value = action.value, key = key, onClick = onClick)
+            else if (checked == null) RowSpec(action.label, RowLook.VALUE, value = if (action.opensList) "〉" else "", key = key, onClick = onClick)
             else RowSpec(action.label, RowLook.CHOICE, checked = checked, key = key, onClick = onClick)
         },
         focus = if (!spec.selectAction) Focus.NONE else if (spec.focusChecked) Focus.CHECKED else Focus.FIRST

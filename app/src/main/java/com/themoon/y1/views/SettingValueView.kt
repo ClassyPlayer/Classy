@@ -134,7 +134,7 @@ class SettingValueView(context: Context) : TextView(context) {
         track.set(left.toFloat(), top.toFloat(), right.toFloat(), (top + h).toFloat())
 
         val selected = (parent as? View)?.isFocused == true || isFocused
-        val accent = if (ThemeManager.isClassicTheme()) CLASSIC_ACCENT else ThemeManager.getListButtonFocusedBg()
+        val accent = CLASSIC_ACCENT
         val selectedText = ThemeManager.getListButtonFocusedTextColor()
         val secondaryText = ThemeManager.getTextColorSecondary()
 

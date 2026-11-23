@@ -1,7 +1,6 @@
 package com.themoon.y1.views
 
 import android.content.Context
-import android.graphics.Color
 import android.graphics.drawable.ClipDrawable
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
@@ -18,40 +17,19 @@ import android.widget.TextView
 import com.themoon.y1.ThemeManager
 
 object ListItemViewFactory {
+    /** The text size of a list row in dp. The Classy row style ([ClassicMenuStyle], [ClassyLists]) can set its own size. */
+    const val LIST_TEXT_SIZE = 21f
 
-    fun createButtonBackground(context: Context, color: Int): GradientDrawable {
-        val shape = GradientDrawable()
-        shape.setColor(color)
-        val radius = ThemeManager.getButtonRadius() * context.resources.displayMetrics.density
-        shape.cornerRadius = radius
-        return shape
-    }
+    @Suppress("UNUSED_PARAMETER")
+    fun createButtonBackground(context: Context, color: Int): GradientDrawable =
+        GradientDrawable().apply { setColor(color) }
 
-    fun createFocusedButtonBackground(context: Context): GradientDrawable {
-        val density = context.resources.displayMetrics.density
-        if (ThemeManager.isClassicTheme()) {
-            return GradientDrawable(
-                GradientDrawable.Orientation.TOP_BOTTOM,
-                intArrayOf(0xFF62B7F5.toInt(), 0xFF2588DC.toInt(), 0xFF0865C4.toInt())
-            )
-        }
-        val base = ThemeManager.getListButtonFocusedBg()
-        val hsv = FloatArray(3)
-        Color.colorToHSV(base, hsv)
-        hsv[2] = Math.min(1f, hsv[2] * 1.25f)
-        val lighter = (base and 0xFF000000.toInt()) or (Color.HSVToColor(hsv) and 0x00FFFFFF)
-        Color.colorToHSV(base, hsv)
-        hsv[2] = Math.max(0f, hsv[2] * 0.65f)
-        val darker = (base and 0xFF000000.toInt()) or (Color.HSVToColor(hsv) and 0x00FFFFFF)
-
-        val shape = GradientDrawable(
-            GradientDrawable.Orientation.TOP_BOTTOM,
-            intArrayOf(lighter, base, darker)
-        )
-        val radius = ThemeManager.getButtonRadius() * density
-        shape.cornerRadius = radius
-        return shape
-    }
+    /** The blue gradient of the selected row. */
+    @Suppress("UNUSED_PARAMETER")
+    fun createFocusedButtonBackground(context: Context): GradientDrawable = GradientDrawable(
+        GradientDrawable.Orientation.TOP_BOTTOM,
+        intArrayOf(0xFF62B7F5.toInt(), 0xFF2588DC.toInt(), 0xFF0865C4.toInt())
+    )
 
     fun createListButtonWithIcon(
         context: Context,
@@ -70,17 +48,13 @@ object ListItemViewFactory {
             background = createButtonBackground(context, ThemeManager.getListButtonNormalBg())
 
             val padLeft = (8 * d).toInt()
-            val padTopBottom = ((if (ThemeManager.isClassicTheme()) 4 else 6) * d).toInt()
+            val padTopBottom = (4 * d).toInt()
             val padRight = (10 * d).toInt()
             setPadding(padLeft, padTopBottom, padRight, padTopBottom)
 
-            val rowLp = LinearLayout.LayoutParams(
+            layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
-            ).apply {
-                val margin = if (ThemeManager.isClassicTheme()) 0 else (2 * d).toInt()
-                setMargins(0, margin, 0, margin)
-            }
-            layoutParams = rowLp
+            )
         }
 
         val normalColor = if (customColor != 0) customColor else ThemeManager.getTextColorPrimary()
@@ -100,7 +74,7 @@ object ListItemViewFactory {
 
         val tvText = TextView(context).apply {
             text = textLabel
-            setTextSize(TypedValue.COMPLEX_UNIT_PX, ThemeManager.getListTextSize() * d)
+            setTextSize(TypedValue.COMPLEX_UNIT_PX, LIST_TEXT_SIZE * d)
             setTextColor(normalColor)
             typeface = ThemeManager.getCustomFontBold()
             isSingleLine = true
@@ -214,13 +188,13 @@ object ListItemViewFactory {
 
     fun createListButtonSimple(context: Context, text: String): Button {
         val d = context.resources.displayMetrics.density
-        val rowHeight = if (ThemeManager.isClassicTheme()) (ClassicMenuStyle.ROW_HEIGHT_DP * d).toInt() else (48f * d).toInt()
-        val padX = ((if (ThemeManager.isClassicTheme()) 8 else 12) * d).toInt()
+        val rowHeight = (ClassicMenuStyle.ROW_HEIGHT_DP * d).toInt()
+        val padX = (8 * d).toInt()
         val btn = Button(context).apply {
             this.text = text
             setTextColor(ThemeManager.getTextColorPrimary())
-            setTextSize(TypedValue.COMPLEX_UNIT_PX, (if (ThemeManager.isClassicTheme()) 21f else 16f) * d)
-            typeface = if (ThemeManager.isClassicTheme()) ThemeManager.getCustomFontBold() else ThemeManager.getCustomFont()
+            setTextSize(TypedValue.COMPLEX_UNIT_PX, 21f * d)
+            typeface = ThemeManager.getCustomFontBold()
             includeFontPadding = false
             gravity = Gravity.LEFT or Gravity.CENTER_VERTICAL
             setPadding(padX, 0, padX, 0)
@@ -248,11 +222,11 @@ object ListItemViewFactory {
     fun createDialogButton(context: Context, text: String): View {
         val d = context.resources.displayMetrics.density
         val btnHeight = (36f * d).toInt()
-        val cornerRad = (if (ThemeManager.isClassicTheme()) 6f else ThemeManager.getButtonRadius().toFloat()) * d
+        val cornerRad = 6f * d
 
         val btn = TextView(context).apply {
             this.text = text
-            setTextSize(TypedValue.COMPLEX_UNIT_PX, (if (ThemeManager.isClassicTheme()) 16f else 15f) * d)
+            setTextSize(TypedValue.COMPLEX_UNIT_PX, 16f * d)
             typeface = ThemeManager.getCustomFontBold()
             gravity = Gravity.CENTER
             isFocusable = true
@@ -288,8 +262,8 @@ object ListItemViewFactory {
 
     fun createSettingRow(context: Context, title: String, value: String): LinearLayout {
         val d = context.resources.displayMetrics.density
-        val rowHeight = if (ThemeManager.isClassicTheme()) (ClassicMenuStyle.ROW_HEIGHT_DP * d).toInt() else (48f * d).toInt()
-        val padX = ((if (ThemeManager.isClassicTheme()) 8 else 12) * d).toInt()
+        val rowHeight = (ClassicMenuStyle.ROW_HEIGHT_DP * d).toInt()
+        val padX = (8 * d).toInt()
         val row = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -302,20 +276,20 @@ object ListItemViewFactory {
         val tvTitle = TextView(context).apply {
             text = title
             setTextColor(ThemeManager.getTextColorPrimary())
-            setTextSize(TypedValue.COMPLEX_UNIT_PX, (if (ThemeManager.isClassicTheme()) 21f else 16f) * d)
-            typeface = if (ThemeManager.isClassicTheme()) ThemeManager.getCustomFontBold() else ThemeManager.getCustomFont()
+            setTextSize(TypedValue.COMPLEX_UNIT_PX, 21f * d)
+            typeface = ThemeManager.getCustomFontBold()
             includeFontPadding = false
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.0f)
         }
         row.addView(tvTitle)
 
-        val displayVal = if (ThemeManager.isClassicTheme()) value.replace("〉", "›") else value
+        val displayVal = value.replace("〉", "›")
         // Shows an on/off value as a switch when Settings → Toggle Style is Switch.
         val tvVal = SettingValueView(context).apply {
             stateKey = title
             text = displayVal
             setTextColor(ThemeManager.getTextColorSecondary())
-            setTextSize(TypedValue.COMPLEX_UNIT_PX, (if (ThemeManager.isClassicTheme()) 21f else 14f) * d)
+            setTextSize(TypedValue.COMPLEX_UNIT_PX, 21f * d)
             typeface = ThemeManager.getCustomFont()
             includeFontPadding = false
         }
@@ -396,8 +370,8 @@ object ListItemViewFactory {
         focusedIconColor: Int = 0
     ): View {
         val d = context.resources.displayMetrics.density
-        val rowHeight = if (ThemeManager.isClassicTheme()) (ClassicMenuStyle.ROW_HEIGHT_DP * d).toInt() else (48f * d).toInt()
-        val padX = ((if (ThemeManager.isClassicTheme()) 8 else 12) * d).toInt()
+        val rowHeight = (ClassicMenuStyle.ROW_HEIGHT_DP * d).toInt()
+        val padX = (8 * d).toInt()
         val row = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -431,8 +405,8 @@ object ListItemViewFactory {
         val tv = TextView(context).apply {
             this.text = text
             setTextColor(actualTextColor)
-            setTextSize(TypedValue.COMPLEX_UNIT_PX, ThemeManager.getListTextSize() * d)
-            typeface = if (ThemeManager.isClassicTheme()) ThemeManager.getCustomFontBold() else ThemeManager.getCustomFont()
+            setTextSize(TypedValue.COMPLEX_UNIT_PX, LIST_TEXT_SIZE * d)
+            typeface = ThemeManager.getCustomFontBold()
             includeFontPadding = false
             isSingleLine = true
             ellipsize = TextUtils.TruncateAt.MARQUEE

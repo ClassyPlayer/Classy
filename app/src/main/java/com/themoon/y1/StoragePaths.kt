@@ -185,8 +185,6 @@ object StoragePaths {
 
     fun getThumbsCacheDir(): File = ensureDir(File(getPrimaryRoot(), ".y1_thumbs_cache"))
 
-    fun getThemesDir(): File = ensureDir(File(getPrimaryRoot(), "Y1_Themes"))
-
     fun getLanguagesDir(): File = ensureDir(File(getPrimaryRoot(), "Y1_Languages"))
 
     /**

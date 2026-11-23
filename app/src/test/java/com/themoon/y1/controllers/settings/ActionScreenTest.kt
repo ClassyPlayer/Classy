@@ -124,6 +124,17 @@ class ActionScreenTest {
     }
 
     @Test
+    fun aRowWithAValueIsAValueRowAlsoWhenItIsChecked() {
+        val spec = ActionScreens.Spec("Power", actions = listOf(
+            ActionScreens.Action("Wi-Fi", checked = true, value = "On") {},
+            ActionScreens.Action("Bluetooth", checked = false, value = "Off") {}
+        ))
+        val rows = ActionScreens.list(spec) {}.rows
+        assertEquals(listOf(RowLook.VALUE, RowLook.VALUE), rows.map { it.look })
+        assertEquals(listOf("On", "Off"), rows.map { it.value })
+    }
+
+    @Test
     fun aRowKeyIsTheKeyWhenGivenElseTheLabel() {
         val spec = ActionScreens.Spec(
             "Queue",

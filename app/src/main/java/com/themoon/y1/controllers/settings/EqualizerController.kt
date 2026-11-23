@@ -25,6 +25,7 @@ import com.themoon.y1.managers.AudioEffectManager
 import com.themoon.y1.managers.AudioEffectPlan
 import com.themoon.y1.managers.AudioPlayerManager
 import com.themoon.y1.navigation.ScreenState
+import com.themoon.y1.navigation.WheelKind
 import com.themoon.y1.views.EqSliderView
 import com.themoon.y1.views.Notice
 import com.themoon.y1.views.TablerIcons
@@ -355,6 +356,9 @@ class EqualizerController(
     }
 
     // The band edit is a wheel step (onWheel), so a general wheel step of the router does not take it first
+    // The wheel moves the level of the band that is edited
+    override fun wheelKind(): WheelKind = if (isGraphicEqOpen && currentAdjustingBand >= 0) WheelKind.VALUE else WheelKind.LIST
+
     override fun onWheel(delta: Int, event: KeyEvent): Boolean {
         if (!isGraphicEqOpen) return screen.wheel(delta)
         if (currentAdjustingBand < 0) return false

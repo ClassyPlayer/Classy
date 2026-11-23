@@ -11,8 +11,8 @@ import com.themoon.y1.views.ClassicMenuStyle
 import com.themoon.y1.views.CoverPane
 
 /**
- * The split screen of a list ([ListSpec.pane]): the list pane at the left ([ClassicMenuStyle.PANE_WIDTH_DP] wide in
- * the Classic themes), the art pane at the right ([CoverPane]), and the status bar over the list pane only.
+ * The split screen of a list ([ListSpec.pane]): the list pane at the left ([ClassicMenuStyle.PANE_WIDTH_DP]
+ * wide), the art pane at the right ([CoverPane]), and the status bar over the list pane only.
  * A screen makes one [Pane] for its views; [ListScreen] shows it for the lists that have it and hides it for the others.
  *
  * [onShow] runs each time the pane shows (for example: the art of the song that plays).
@@ -44,13 +44,11 @@ class Pane(
         if (on) frame.visibility = View.VISIBLE
         val density = activity.resources.displayMetrics.density
         listPane.setPadding(0, (ClassicMenuStyle.STATUS_HEIGHT_DP * density).toInt(), 0, 0)
-        if (ThemeManager.isClassicTheme()) {
-            val lp = listPane.layoutParams as? LinearLayout.LayoutParams
-            if (lp != null) {
-                lp.width = if (on) (ClassicMenuStyle.PANE_WIDTH_DP * density).toInt() else 0
-                lp.weight = if (on) 0f else 1f
-                listPane.layoutParams = lp
-            }
+        val lp = listPane.layoutParams as? LinearLayout.LayoutParams
+        if (lp != null) {
+            lp.width = if (on) (ClassicMenuStyle.PANE_WIDTH_DP * density).toInt() else 0
+            lp.weight = if (on) 0f else 1f
+            listPane.layoutParams = lp
         }
         activity.findViewById<View>(R.id.layout_status_bar)?.let {
             fitStatusBar(it, on)

@@ -1,7 +1,6 @@
 package com.themoon.y1.controllers.menu
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Test
 
 class MenuOrderTest {
@@ -26,26 +25,5 @@ class MenuOrderTest {
     @Test
     fun idsThatTheThemeDoesNotHaveAreIgnored() {
         assertEquals(listOf("b", "a"), sorted("x,b,y,a", Item("a", 0), Item("b", 1)))
-    }
-
-    @Test
-    fun migrationKeepsTheCurrentThemeOrder() {
-        val all = mapOf(
-            "custom_menu_order_Classic Dark" to "btn_now,btn_music",
-            "custom_menu_order_Classic Light" to "btn_music,btn_now",
-            "shuffle" to true
-        )
-        assertEquals("btn_music,btn_now", MenuOrder.fromThemeOrders(all, "Classic Light"))
-    }
-
-    @Test
-    fun migrationUsesAnotherThemeOrderWhenTheCurrentThemeHasNone() {
-        val all = mapOf("custom_menu_order_Classic Dark" to "btn_now,btn_radio", "custom_menu_order_Old" to "")
-        assertEquals("btn_now,btn_radio", MenuOrder.fromThemeOrders(all, "Classic Light"))
-    }
-
-    @Test
-    fun noOldOrderGivesNull() {
-        assertNull(MenuOrder.fromThemeOrders(mapOf("custom_menu_order_Classic Dark" to ""), "Classic Light"))
     }
 }

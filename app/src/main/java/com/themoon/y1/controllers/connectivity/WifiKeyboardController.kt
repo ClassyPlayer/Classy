@@ -18,6 +18,7 @@ import com.themoon.y1.navigation.KeyboardSubmit
 import com.themoon.y1.navigation.KeyboardTarget
 import com.themoon.y1.navigation.KeyboardTargets
 import com.themoon.y1.navigation.ScreenState
+import com.themoon.y1.navigation.WheelKind
 import com.themoon.y1.views.Notice
 import com.themoon.y1.views.QwertyKeyboardView
 
@@ -184,6 +185,9 @@ class WifiKeyboardController(
         handler.removeCallbacks(longPressBackRunnable)
         onExitKeyboard(target)
     }
+
+    // The wheel moves the keys of the keyboard
+    override fun wheelKind(): WheelKind = WheelKind.VALUE
 
     override fun onWheel(delta: Int, event: KeyEvent): Boolean {
         if (delta > 0) {
