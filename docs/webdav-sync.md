@@ -84,12 +84,10 @@ NAS**, and you choose: delete one, or Delete All. Your copy is kept until you do
 Forgets the address, login and certificate, and the ticked folders. The songs stay on the player: Classy forgets that
 it synced them, so no later sync deletes them. Delete them with a file manager if you do not want them.
 
-A new **Server URL** does the same: no ticked folders, no certificate, and the songs of the old URL stay. With the same
-folder path on another host, a sync of the same folders takes the old copies back if they have the server's size, and skips the others. With another folder
-path, the local paths are below the new folder: a file whose path below it is the same as one of the old copies (for
-example `Album/a.mp3` under `/music/` and under `/other/`) replaces that copy, and the other old copies stay. Delete
-those by hand. Only the same
-address in another spelling (for example with a `/` at the end) keeps everything.
+A new **Server URL** does the same: no ticked folders, no certificate, and the songs of the old URL stay. The local
+paths are below the folder of the URL. A sync never writes over an old copy at such a path: it takes the copy back if
+it has the server's size, and else skips that file. Old copies that no new file takes back stay; delete them by hand.
+Only the same address in another spelling (for example with a `/` at the end) keeps everything.
 
 ### If something goes wrong
 
