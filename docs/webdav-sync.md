@@ -152,6 +152,8 @@ videos too; WebDAV Sync copies the folder tree of the server as it is, keyed by 
   host. A relative href must be a path starting with `/`. An absolute href of this server is turned into its path when the listing
   is read, so the ledger key and the folder hrefs are always paths.
 - hrefs are compared percent-encoded; `decodeHref` decodes each segment as UTF-8 (`+` stays `+`).
+- A PROPFIND answer is read into memory (at most 32 MB) and refused if its bytes have `<!DOCTYPE`, so the XML parser
+  never reads an entity or a URL from the server. Android's parser ignores the `disallow-doctype-decl` feature.
 - Timeouts: 10 s connect, 30 s read.
 
 ### Certificates
@@ -194,7 +196,8 @@ stays, untracked. A target is
 If a sync fails or is cancelled after it downloaded or deleted files, the UI still asks for a library rescan
 (`WebDavSync.changedByRun`).
 
-`deleteTracked` skips a file that is playing (`AudioPlayerManager.isFileCurrentlyPlaying`) or that cannot be deleted:
+`deleteTracked` removes only the record when another record keeps the same file (two server names that became one
+FAT name). It skips a file that is playing (`AudioPlayerManager.isFileCurrentlyPlaying`) or that cannot be deleted:
 it stays in the ledger and goes in the next sync. After a delete it calls `pruneEmptyDirs`, which removes the empty
 folders above the file, up to the `Music` roots of both storages (`File.delete()` fails on a folder that has files, so
 nothing else is removed).
