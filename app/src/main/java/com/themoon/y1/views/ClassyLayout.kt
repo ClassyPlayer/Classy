@@ -194,7 +194,7 @@ object ClassyLayout {
     // Screens whose content starts below the status bar.
 
     private val belowStatusBarIds = intArrayOf(
-        R.id.layout_settings_mode,
+        R.id.layout_settings_list_pane,
         R.id.layout_storage_mode,
         R.id.layout_bluetooth_mode,
         R.id.layout_wifi_mode,
@@ -215,7 +215,8 @@ object ClassyLayout {
         }
     }
 
-    private val coverPaneIds = intArrayOf(R.id.frame_main_menu_cover, R.id.frame_browser_cover, R.id.frame_video_cover)
+    private val coverPaneIds =
+        intArrayOf(R.id.frame_main_menu_cover, R.id.frame_browser_cover, R.id.frame_video_cover, R.id.frame_settings_cover)
 
     // Text helpers
 

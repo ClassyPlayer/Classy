@@ -40,6 +40,7 @@ import com.themoon.y1.managers.UpdateChannel
 import com.themoon.y1.managers.UsbDrive
 import com.themoon.y1.lists.Focus
 import com.themoon.y1.lists.ListSpec
+import com.themoon.y1.lists.Pane
 import com.themoon.y1.lists.RowLook
 import com.themoon.y1.lists.RowSpec
 import com.themoon.y1.models.AlbumKey
@@ -82,13 +83,24 @@ class SettingsController(
     private val applyAlbumTiltSetting: () -> Unit,
     private val setShuffle: (Boolean) -> Unit,
     private val setRepeatMode: (Int) -> Unit,
-    private val localize: (String) -> String
+    private val localize: (String) -> String,
+    /** Puts the art into the cover pane of the top level (each time it shows). */
+    onShowPane: () -> Unit
 ) : ScreenController {
 
     private val containerSettingsItems: LinearLayout = rootView.findViewById(R.id.container_settings_items)
     private val prefs = activity.getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
     private val mainActivity: MainActivity? get() = activity as? MainActivity
     private val screen = ListScreen(containerSettingsItems, clickFeedback = clickFeedback)
+
+    /** The cover pane at the right of the top level, as in the main menu and Music. The group pages are full width. */
+    private val pane = Pane(
+        activity, rootView.findViewById(R.id.layout_settings_list_pane), rootView.findViewById(R.id.frame_settings_cover),
+        rootView.findViewById(R.id.iv_settings_cover), onShowPane
+    )
+
+    /** True while the top level shows with its cover pane. */
+    val isPaneShown: Boolean get() = isUiActive && pane.isShown
     private val rows = SettingRows(prefs, localize) { refresh() }
 
     private var isUiActive = false
@@ -341,13 +353,16 @@ class SettingsController(
         return topLevelSpec()
     }
 
-    /** The top level: one row for each group that has rows in this build (a direct group: its row itself). */
+    /**
+     * The top level: one menu row for each group that has rows in this build (a direct group: the row that opens its
+     * screen), with the cover pane, as the main menu.
+     */
     private fun topLevelSpec(): ListSpec = ListSpec(localize("Settings"), groups.filter { it.rows.isNotEmpty() }.map { group ->
-        if (group.direct) group.rows.first().make()
-        else RowSpec(localize(group.title), RowLook.VALUE, value = SettingRows.CHEVRON, onClick = {
+        if (group.direct) group.rows.first().make().let { RowSpec(it.label, onClick = it.onClick) }
+        else RowSpec(localize(group.title), onClick = {
             mainActivity?.changeScreen(ScreenState.Settings(SettingsSubMode.Group(group.title)))
         })
-    })
+    }, pane = pane)
 
     /** A value changed: the list that shows is made again, and the selected row stays. */
     private fun refresh() {
@@ -368,6 +383,8 @@ class SettingsController(
 
     override fun onExit() {
         endMenuReorder()
+        // The Settings layout is also the screen of Equalizer, FM Radio and Jellyfin: full width for them
+        pane.hide()
         isUiActive = false
         actionPage = null
         containerSettingsItems.isFocusable = false

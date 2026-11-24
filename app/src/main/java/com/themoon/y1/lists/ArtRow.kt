@@ -2,7 +2,6 @@ package com.themoon.y1.lists
 
 import android.content.Context
 import android.graphics.Typeface
-import android.graphics.drawable.Drawable
 import android.text.TextUtils
 import android.util.TypedValue
 import android.view.Gravity
@@ -14,6 +13,8 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import com.themoon.y1.ThemeManager
 import com.themoon.y1.views.ClassicMenuStyle
+import com.themoon.y1.views.ClassyLists
+import com.themoon.y1.views.FocusLook
 import com.themoon.y1.views.ListItemViewFactory
 
 /**
@@ -78,15 +79,7 @@ class ArtRow private constructor(context: Context, inListView: Boolean) {
         ).apply { leftMargin = dp(8) }
     }
 
-    private val arrow = TextView(context).apply {
-        text = "〉"
-        setTextSize(TypedValue.COMPLEX_UNIT_PX, 18f * density)
-        visibility = View.GONE
-        layoutParams = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT
-        ).apply { leftMargin = dp(6) }
-        setTextColor(0xFFFFFFFF.toInt())
-    }
+    private val arrow = ClassyLists.arrow(context, leftMarginDp = 6)
 
     init {
         view.addView(image)
@@ -99,10 +92,8 @@ class ArtRow private constructor(context: Context, inListView: Boolean) {
         view.addView(text)
         view.addView(trailing)
         view.addView(arrow)
-        ClassicMenuStyle.apply(view, title, arrow, HEIGHT_DP)
+        ClassicMenuStyle.apply(view, title, HEIGHT_DP)
         view.tag = this
-        view.setOnFocusChangeListener { _, hasFocus -> showFocus(hasFocus) }
-        showFocus(false)
     }
 
     /** Sets the texts; an empty [line2] shows no second line. The image stays: set it with [image]. */
@@ -112,9 +103,12 @@ class ArtRow private constructor(context: Context, inListView: Boolean) {
         subtitle.visibility = if (line2.isEmpty()) View.GONE else View.VISIBLE
         trailing.text = right ?: ""
         trailing.visibility = if (right == null) View.GONE else View.VISIBLE
+        // A row with a right-edge text does not open a list: no arrow
+        look.arrow = if (right == null) arrow else null
+        if (right != null) arrow.visibility = View.GONE
         // The new text has a new layout: set the ellipsis for the focus now (no extra layout later)
         subtitle.ellipsize = if (view.isFocused) TextUtils.TruncateAt.MARQUEE else TextUtils.TruncateAt.END
-        showFocus(view.isFocused)
+        look.refresh()
     }
 
     /** Sets the right-edge text of a row bound with one (it may come later than the row). */
@@ -122,39 +116,23 @@ class ArtRow private constructor(context: Context, inListView: Boolean) {
         trailing.text = right
     }
 
-    private var focusedBg: Drawable? = null
-    private var normalBg: Drawable? = null
-    private var normalBgColor = 0
-
     /**
-     * The focus look. A wheel step changes it on two rows, so it requests no layout: the chevron is INVISIBLE (not
-     * GONE) on a row that can show it, and the second line changes its ellipsis only when it does not fit.
+     * The focus look ([FocusLook]). A wheel step changes it on two rows, so it requests no layout: the second line
+     * changes its ellipsis only when it does not fit.
      */
-    private fun showFocus(focused: Boolean) {
-        val context = view.context
-        val normalColor = ThemeManager.getListButtonNormalBg()
-        if (normalBg == null || normalColor != normalBgColor) {
-            // The drawables of this row, made again only when the theme colour changes
-            normalBg = ListItemViewFactory.createButtonBackground(context, normalColor)
-            focusedBg = ListItemViewFactory.createFocusedButtonBackground(context)
-            normalBgColor = normalColor
+    private val look = FocusLook.of(view).text(title)
+        .text(subtitle) { ThemeManager.getTextColorSecondary() }
+        .text(trailing) { ThemeManager.getTextColorSecondary() }
+        .onFocus { focused ->
+            val ellipsize = if (focused) TextUtils.TruncateAt.MARQUEE else TextUtils.TruncateAt.END
+            if (subtitle.ellipsize != ellipsize && !subtitleFits()) subtitle.ellipsize = ellipsize
+            subtitle.isSelected = focused
         }
-        val bg = if (focused) focusedBg else normalBg
-        if (view.background !== bg) view.background = bg
-        val focusedText = ThemeManager.getListButtonFocusedTextColor()
-        title.setTextColor(if (focused) focusedText else ThemeManager.getTextColorPrimary())
-        subtitle.setTextColor(if (focused) focusedText else ThemeManager.getTextColorSecondary())
-        trailing.setTextColor(if (focused) focusedText else ThemeManager.getTextColorSecondary())
-        arrow.visibility = when {
-            trailing.visibility == View.VISIBLE -> View.GONE
-            focused -> View.VISIBLE
-            else -> View.INVISIBLE
+        .also {
+            it.marquee = title
+            it.arrow = arrow
+            it.refresh()
         }
-        title.isSelected = focused
-        val ellipsize = if (focused) TextUtils.TruncateAt.MARQUEE else TextUtils.TruncateAt.END
-        if (subtitle.ellipsize != ellipsize && !subtitleFits()) subtitle.ellipsize = ellipsize
-        subtitle.isSelected = focused
-    }
 
     /** The second line shows in full (no "…", no scroll): its ellipsis mode changes nothing. */
     private fun subtitleFits(): Boolean {

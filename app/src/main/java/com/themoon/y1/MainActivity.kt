@@ -1323,6 +1323,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
             STATE_BROWSER -> ::browserController.isInitialized && browserController.isCoverPaneActive()
             STATE_VIDEOS -> ::videoBrowserController.isInitialized && videoBrowserController.isCoverPaneActive()
             STATE_PHOTOS -> ::photosController.isInitialized && photosController.isPaneShown
+            STATE_SETTINGS -> ::settingsController.isInitialized && settingsController.isPaneShown
             else -> false
         }
     }
@@ -1352,10 +1353,6 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
 
     fun setupAudiobookProgress(btn: View, pos: Int, dur: Int) {
         ListItemViewFactory.setupAudiobookProgress(this, btn, pos, dur) { showFastScrollLetter(it) }
-    }
-
-    fun applyProgressBackground(btn: View, currentMs: Int, totalMs: Int, isFocused: Boolean) {
-        ListItemViewFactory.applyProgressBackground(this, btn, currentMs, totalMs, isFocused)
     }
 
     internal fun createListButton(text: String, icon: String, color: Int? = null): View =
