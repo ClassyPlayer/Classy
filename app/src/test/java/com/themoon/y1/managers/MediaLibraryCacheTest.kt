@@ -138,14 +138,15 @@ class MediaLibraryCacheTest {
               {"path":"/music/t3.ogg","title":"T3","dateModified":1729000000000,"fileSize":9},
               {"path":"/music/t4.opus","title":"T4","dateModified":1729000000000,"fileSize":9},
               {"path":"/music/t5.m4a","title":"T5","dateModified":1729000000000,"fileSize":9},
-              {"path":"/music/t6.wav","title":"T6","dateModified":1729000000000,"fileSize":9}
+              {"path":"/music/t6.wav","title":"T6","dateModified":1729000000000,"fileSize":9},
+              {"path":"/music/t7.m4b","title":"T7","dateModified":1729000000000,"fileSize":9}
             ],"books":[
               {"path":"/books/b1.m4b","title":"B1","dateModified":1729000000000,"fileSize":9}
             ]}"""
         )
         val cache = mlm.parseLibraryCache(json) { _, _ -> true }
         // 0 makes the next scan extract the tags again; WAV files and audiobooks have no release type here
-        assertEquals(listOf(0L, 0L, 0L, 0L, 0L, 1729000000000L), cache.music.map { it.dateModified })
+        assertEquals(listOf(0L, 0L, 0L, 0L, 0L, 1729000000000L, 0L), cache.music.map { it.dateModified })
         assertEquals(1729000000000L, cache.books[0].dateModified)
     }
 

@@ -65,9 +65,10 @@ object ReleaseTypes {
     /**
      * The primary type of an album with [tracks]:
      * 1. the type that most of its tagged tracks have (on a tie, the first one found);
-     * 2. else the type in its title ([primaryOfTitle]);
-     * 3. else SINGLE when [untaggedSingleMaxTracks] > 0 and it has that many tracks or fewer;
-     * 4. else null (no type: an album).
+     * 2. null when a track has a release type tag with no primary type ("live"): the album is tagged, not a single;
+     * 3. else the type in its title ([primaryOfTitle]);
+     * 4. else SINGLE when [untaggedSingleMaxTracks] > 0 and it has that many tracks or fewer;
+     * 5. else null (no type: an album).
      */
     fun primaryOfAlbum(tracks: List<SongItem>, untaggedSingleMaxTracks: Int): Primary? {
         if (tracks.isEmpty()) return null
@@ -85,6 +86,8 @@ object ReleaseTypes {
             }
         }
         if (best != null) return best
+        // Only an untagged album is guessed from its title or its length
+        if (tracks.any { it.releaseType.isNotBlank() }) return null
         primaryOfTitle(tracks[0].album)?.let { return it }
         return if (untaggedSingleMaxTracks > 0 && tracks.size <= untaggedSingleMaxTracks) Primary.SINGLE else null
     }

@@ -733,7 +733,7 @@ class MediaLibraryManager private constructor() {
                 .forEach { it.dateModified = 0L }
         }
         // A cache from before the release type tags (v4): the next scan reads the music files with these tags again
-        // (MP3 TXXX, FLAC/Ogg/Opus RELEASETYPE, M4A freeform atom). Audiobooks are not in Cover Flow. Migration 020
+        // (MP3 TXXX, FLAC/Ogg/Opus RELEASETYPE, M4A/M4B freeform atom). Audiobooks are not in Cover Flow. Migration 020
         // starts that scan.
         if (root.optInt("v", 1) < 4) {
             music.filter { val n = it.file.name.lowercase(); RELEASE_TYPE_EXTENSIONS.any { ext -> n.endsWith(ext) } }
@@ -866,8 +866,8 @@ class MediaLibraryManager private constructor() {
          */
         internal const val CACHE_VERSION = 4
 
-        /** The files whose release type tag the scan reads (v4). */
-        private val RELEASE_TYPE_EXTENSIONS = listOf(".mp3", ".flac", ".ogg", ".opus", ".m4a")
+        /** The files whose release type tag the scan reads (v4). An M4B file in Music is music too. */
+        private val RELEASE_TYPE_EXTENSIONS = listOf(".mp3", ".flac", ".ogg", ".opus", ".m4a", ".m4b")
 
         /**
          * Hidden files and folders (name starts with "."): the scan skips them. They are not songs: macOS writes a

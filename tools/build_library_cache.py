@@ -184,7 +184,9 @@ def scan_folder(local_root: Path, device_root: str):
                         mood = read_moods(tags)
                     track_num = extract_track_number(first_tag(tags, "tracknumber", "track"))
                     compilation = read_compilation(local_path, tags)
-                    release_type = read_release_type(local_path, tags)
+                # Outside the easy-tag check: an MP3 or M4A whose only tag is the release type has no easy tags
+                if audio is not None:
+                    release_type = read_release_type(local_path, audio.tags or {})
             except Exception as e:
                 print(f"  ! couldn't read tags from {local_path}: {e}", file=sys.stderr)
 

@@ -67,8 +67,9 @@ class ReleaseTypesTest {
         assertNull(ReleaseTypes.primaryOfAlbum(album("Long", 4), 3))
         // A tagged album keeps its type whatever its length
         assertEquals(Primary.ALBUM, ReleaseTypes.primaryOfAlbum(album("Short", 2, "album;live"), 3))
-        // A secondary type alone is no primary type: the track count still decides
-        assertEquals(Primary.SINGLE, ReleaseTypes.primaryOfAlbum(album("Short", 2, "live"), 3))
+        // A secondary type alone is still a tag: no guess from the length or the title
+        assertNull(ReleaseTypes.primaryOfAlbum(album("Short", 2, "live"), 3))
+        assertNull(ReleaseTypes.primaryOfAlbum(album("Collection - Single", 1, "compilation"), 0))
     }
 
     @Test fun noTracksNoType() = assertNull(ReleaseTypes.primaryOfAlbum(emptyList(), 5))

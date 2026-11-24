@@ -3,7 +3,7 @@ package com.themoon.y1.migrations
 /**
  * Migration 020: the scan now reads the release type tag (single, EP, album, ...) that Cover Flow can hide singles and
  * EPs by, but it does not read the tags again of a file that did not change. The cache load marks the MP3, FLAC, Ogg,
- * Opus and M4A tracks of an older cache (version < 4) as changed (MediaLibraryManager.parseLibraryCache), and this
+ * Opus, M4A and M4B music tracks of an older cache (version < 4) as changed (MediaLibraryManager.parseLibraryCache), and this
  * migration starts the library rescan that reads them.
  */
 class Migration020ReleaseTypes : Migration {
