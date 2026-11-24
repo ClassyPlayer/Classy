@@ -1355,8 +1355,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
         ListItemViewFactory.setupAudiobookProgress(this, btn, pos, dur) { showFastScrollLetter(it) }
     }
 
-    internal fun createListButton(text: String, icon: String, color: Int? = null): View =
-        createListButtonWithIcon(icon, text, color ?: 0)
+    internal fun createListButton(text: String, color: Int? = null): View = createListButtonWithIcon("", text, color ?: 0)
 
     private val systemStatusReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {

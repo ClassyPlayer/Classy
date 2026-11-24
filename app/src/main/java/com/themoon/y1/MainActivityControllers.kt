@@ -206,7 +206,7 @@ internal fun MainActivity.initControllers() {
             val container = findViewById<LinearLayout>(R.id.container_settings_items)
             if (container != null) ListItemViewFactory.createCategoryHeader(this, container, title)
         },
-        createListButton = { icon, text -> createListButton(text, icon) },
+        createListButton = { text -> createListButton(text) },
         clickFeedback = { clickFeedback() },
         rebootAudioEngine = { rebootAudioEngine() },
         onNavigateBack = { NavigationManager.getInstance().popBackStack() },

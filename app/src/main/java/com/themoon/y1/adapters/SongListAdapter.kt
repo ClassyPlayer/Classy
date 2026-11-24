@@ -74,7 +74,6 @@ class SongListAdapter(
 
         val main = MainActivity.instance
         if (artRows && main != null) return getArtRowView(main, convertView, song, position, songPosition)
-        var iconCode = if (main != null && main.isAudiobookLibraryMode) "\uE310" else "\uE405"
         var displayTitle = song.title
         var customColor = 0
 
@@ -145,7 +144,7 @@ class SongListAdapter(
             convertView.getChildAt(0) is TextView
 
         val btn: View = if (!isSongRowValid || main == null) {
-            main?.createListButtonWithIcon(iconCode, displayTitle, customColor)?.apply {
+            main?.createListButtonWithIcon("", displayTitle, customColor)?.apply {
                 tag = "song_row"
                 val rowHeight = (ClassicMenuStyle.ROW_HEIGHT_DP * main.resources.displayMetrics.density).toInt()
                 layoutParams = AbsListView.LayoutParams(
@@ -155,7 +154,6 @@ class SongListAdapter(
             } ?: View(parent?.context)
         } else {
             val layout = convertView as LinearLayout
-            (layout.getChildAt(0) as TextView).text = iconCode
             (layout.getChildAt(1) as TextView).text = displayTitle
             convertView
         }

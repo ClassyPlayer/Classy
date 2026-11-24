@@ -40,7 +40,7 @@ class EqualizerController(
     override val rootView: ViewGroup,
     private val eqPresetNames: List<String>,
     private val createCategoryHeader: (title: String) -> Unit,
-    private val createListButton: (icon: String, text: String) -> View,
+    private val createListButton: (text: String) -> View,
     private val clickFeedback: () -> Unit,
     private val rebootAudioEngine: () -> Unit,
     private val onNavigateBack: () -> Unit,
@@ -299,7 +299,7 @@ class EqualizerController(
         hsv.addView(eqContainer)
         containerSettingsItems.addView(hsv)
 
-        val btnBack = createListButton("\uE5C4", localize("Back to EQ Settings"))
+        val btnBack = createListButton(localize("Back to EQ Settings"))
         btnBack.setOnClickListener {
             clickFeedback()
             buildEqualizerSettingsUI(back = true)
