@@ -118,6 +118,7 @@ class WebDavUiController(
 
     // ---- Rows ----
 
+    /** A section header; the list draws the bars around [title]. */
     private fun header(title: String) = RowSpec(title, RowLook.HEADER, key = "\u0000header $title")
 
     private fun info(text: String, key: String = "\u0000info $text") = RowSpec(text, RowLook.INFO, key = key)
@@ -134,7 +135,7 @@ class WebDavUiController(
     private fun rootSpec(): ListSpec {
         val p = provider
         val rows = ArrayList<RowSpec>()
-        rows += header("━ " + localize("Server") + " ━")
+        rows += header(localize("Server"))
         rows += value(localize("Server URL"), p.url.ifEmpty { notSet }) {
             // Another server forgets the synced files: not while a sync uses them
             if (sync.isRunning) Notice.show(activity, localize("Syncing...")) else onOpenKeyboard(KeyboardTarget.WebDavUrl)
@@ -145,7 +146,7 @@ class WebDavUiController(
         }
         rows += action(localize("Test Connection")) { testConnection() }
         pendingFingerprint?.takeIf { pendingFor == p.url }?.let { fp ->
-            rows += header("━ " + localize("Certificate") + " ━")
+            rows += header(localize("Certificate"))
             // 32 hex pairs: four lines of eight, so it fits the screen
             fp.split(":").chunked(8).forEachIndexed { i, part -> rows += info(part.joinToString(":"), key = "\u0000fp $i") }
             rows += action(localize("Trust Certificate")) {
@@ -156,7 +157,7 @@ class WebDavUiController(
             }
         }
 
-        rows += header("━ " + localize("Sync") + " ━")
+        rows += header(localize("Sync"))
         rows += value(localize("Folders"), "${p.ticked.size} 〉") {
             if (!p.isConfigured()) Notice.show(activity, notSet) else try {
                 open(WebDavLevel.Folders(p.client().rootHref))
