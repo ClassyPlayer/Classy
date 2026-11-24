@@ -28,6 +28,7 @@ class ClassyApplication : MultiDexApplication() {
         com.themoon.y1.battery.BatteryGuard.start(this)
         com.themoon.y1.battery.BatteryHistory.start(this)
         stopStaleProcesses()
+        com.themoon.y1.sync.webdav.WebDavAutoSyncReceiver.register(this)
     }
 
     /**

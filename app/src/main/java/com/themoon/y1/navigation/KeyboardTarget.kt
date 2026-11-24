@@ -1,5 +1,7 @@
 package com.themoon.y1.navigation
 
+import com.themoon.y1.sync.webdav.serverUri
+
 /**
  * What the on-screen keyboard is open for. Each opening gives one, in [ScreenState.WifiKeyboard],
  * so nothing from an earlier opening is used again. The title, the hint, the submit key label and
@@ -17,6 +19,9 @@ sealed interface KeyboardTarget {
     data object JellyfinUsername : KeyboardTarget
     data class JellyfinPassword(val username: String) : KeyboardTarget
     data object JellyfinToken : KeyboardTarget
+    data object WebDavUrl : KeyboardTarget
+    data object WebDavUser : KeyboardTarget
+    data class WebDavPassword(val username: String) : KeyboardTarget
 }
 
 /** Result of the submit key for a [KeyboardTarget]. */
@@ -42,6 +47,9 @@ object KeyboardTargets {
         KeyboardTarget.JellyfinUsername -> localize("Username")
         is KeyboardTarget.JellyfinPassword -> localize("Password") + ": " + target.username
         KeyboardTarget.JellyfinToken -> localize("API Token")
+        KeyboardTarget.WebDavUrl -> localize("WebDAV URL")
+        KeyboardTarget.WebDavUser -> localize("Username")
+        is KeyboardTarget.WebDavPassword -> localize("Password") + ": " + target.username
     }
 
     /** Grey text in the empty input field. */
@@ -56,15 +64,19 @@ object KeyboardTargets {
         KeyboardTarget.JellyfinUsername -> localize("Username")
         is KeyboardTarget.JellyfinPassword -> localize("Password")
         KeyboardTarget.JellyfinToken -> localize("API Token")
+        KeyboardTarget.WebDavUrl -> "https://..."
+        KeyboardTarget.WebDavUser -> localize("Username")
+        is KeyboardTarget.WebDavPassword -> localize("Password")
     }
 
     /** Label of the QWERTY submit key. */
     fun actionLabel(target: KeyboardTarget, localize: (String) -> String): String = when (target) {
         is KeyboardTarget.WifiPassword -> localize("Connect")
         KeyboardTarget.PodcastSearch, KeyboardTarget.LibrarySearch -> localize("Search")
-        KeyboardTarget.LastFmUsername, KeyboardTarget.JellyfinUsername -> localize("Next")
-        is KeyboardTarget.LastFmPassword, is KeyboardTarget.JellyfinPassword, KeyboardTarget.JellyfinToken -> localize("Login")
-        KeyboardTarget.JellyfinServerUrl -> localize("Save")
+        KeyboardTarget.LastFmUsername, KeyboardTarget.JellyfinUsername, KeyboardTarget.WebDavUser -> localize("Next")
+        is KeyboardTarget.LastFmPassword, is KeyboardTarget.JellyfinPassword, KeyboardTarget.JellyfinToken,
+        is KeyboardTarget.WebDavPassword -> localize("Login")
+        KeyboardTarget.JellyfinServerUrl, KeyboardTarget.WebDavUrl -> localize("Save")
     }
 
     /** What the submit key does with [text]. Passwords are not trimmed. */
@@ -77,8 +89,17 @@ object KeyboardTargets {
             required(text.trim(), "Please enter a username.") { KeyboardSubmit.Accepted(it, KeyboardTarget.LastFmPassword(it)) }
         KeyboardTarget.JellyfinUsername ->
             required(text.trim(), "Please enter a username.") { KeyboardSubmit.Accepted(it, KeyboardTarget.JellyfinPassword(it)) }
-        is KeyboardTarget.LastFmPassword, is KeyboardTarget.JellyfinPassword ->
+        is KeyboardTarget.LastFmPassword, is KeyboardTarget.JellyfinPassword, is KeyboardTarget.WebDavPassword ->
             required(text, "Please enter a password.") { KeyboardSubmit.Accepted(it) }
+        KeyboardTarget.WebDavUrl -> text.trim().let {
+            when {
+                !it.startsWith("https://") && !it.startsWith("http://") -> KeyboardSubmit.Rejected("URL must start with http:// or https://")
+                serverUri(it) == null -> KeyboardSubmit.Rejected("Not a valid URL") // no host, or a character a URL cannot have
+                else -> KeyboardSubmit.Accepted(it)
+            }
+        }
+        KeyboardTarget.WebDavUser ->
+            required(text.trim(), "Please enter a username.") { KeyboardSubmit.Accepted(it, KeyboardTarget.WebDavPassword(it)) }
     }
 
     private inline fun required(value: String, message: String, accept: (String) -> KeyboardSubmit): KeyboardSubmit =

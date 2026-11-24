@@ -362,7 +362,7 @@ class ListScreen(
             }.view
             RowLook.CUSTOM -> row.view!!.also { (it.parent as? ViewGroup)?.removeView(it) }
             RowLook.HEADER -> headerRow(row.label)
-            RowLook.INFO -> infoRow(row.label)
+            RowLook.INFO -> infoRow(row.label, row.progress)
         }
         if (row.id != View.NO_ID) view.id = row.id
         if (!row.enabled) {
@@ -410,17 +410,38 @@ class ListScreen(
         isFocusable = false
     }
 
-    private fun infoRow(text: String): TextView = TextView(context).apply {
-        val d = resources.displayMetrics.density
+    /** An info line, with a progress bar under the text when [progress] (0 to 100) is not null. */
+    private fun infoRow(line: String, progress: Int?): View {
+        val d = context.resources.displayMetrics.density
         val padX = (8 * d).toInt()
-        this.text = text
-        setTextColor(ThemeManager.getTextColorSecondary())
-        setTextSize(TypedValue.COMPLEX_UNIT_PX, 19f * d)
-        typeface = ThemeManager.getCustomFont()
-        setPadding(padX, (6 * d).toInt(), padX, (6 * d).toInt())
-        isFocusable = false
-        isClickable = false
-        layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        val pct = progress?.coerceIn(0, 100)
+        val label = TextView(context).apply {
+            text = line
+            setTextColor(ThemeManager.getTextColorSecondary())
+            setTextSize(TypedValue.COMPLEX_UNIT_PX, 19f * d)
+            typeface = ThemeManager.getCustomFont()
+            setPadding(padX, (6 * d).toInt(), padX, ((if (pct == null) 6 else 3) * d).toInt())
+            isFocusable = false
+            isClickable = false
+        }
+        val fill = LinearLayout.LayoutParams.MATCH_PARENT
+        if (pct == null) {
+            label.layoutParams = LinearLayout.LayoutParams(fill, ViewGroup.LayoutParams.WRAP_CONTENT)
+            return label
+        }
+        val bar = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setBackgroundColor((ThemeManager.getTextColorSecondary() and 0x00FFFFFF) or 0x40000000)
+            addView(View(context).apply { setBackgroundColor(ThemeManager.getTextColorPrimary()) }, LinearLayout.LayoutParams(0, fill, pct.toFloat()))
+            addView(View(context), LinearLayout.LayoutParams(0, fill, (100 - pct).toFloat()))
+        }
+        return LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            isFocusable = false
+            layoutParams = LinearLayout.LayoutParams(fill, ViewGroup.LayoutParams.WRAP_CONTENT)
+            addView(label, LinearLayout.LayoutParams(fill, ViewGroup.LayoutParams.WRAP_CONTENT))
+            addView(bar, LinearLayout.LayoutParams(fill, (4 * d).toInt()).apply { setMargins(padX, 0, padX, (6 * d).toInt()) })
+        }
     }
 
     private fun focusedIndex(): Int = (0 until rows.childCount).firstOrNull { rows.getChildAt(it).hasFocus() } ?: -1

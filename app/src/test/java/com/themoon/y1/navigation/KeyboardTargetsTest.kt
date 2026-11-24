@@ -16,8 +16,25 @@ class KeyboardTargetsTest {
         KeyboardTarget.JellyfinServerUrl,
         KeyboardTarget.JellyfinUsername,
         KeyboardTarget.JellyfinPassword("bob"),
-        KeyboardTarget.JellyfinToken
+        KeyboardTarget.JellyfinToken,
+        KeyboardTarget.WebDavUrl,
+        KeyboardTarget.WebDavUser,
+        KeyboardTarget.WebDavPassword("eve")
     )
+
+    @Test
+    fun webDav_urlMustBeHttp_userLeadsToPassword() {
+        assertEquals("WebDAV URL", KeyboardTargets.title(KeyboardTarget.WebDavUrl, localize))
+        assertEquals("https://...", KeyboardTargets.hint(KeyboardTarget.WebDavUrl, localize))
+        assertEquals("Save", KeyboardTargets.actionLabel(KeyboardTarget.WebDavUrl, localize))
+        assertEquals(KeyboardSubmit.Accepted("https://nas:5006/music"), KeyboardTargets.submit(KeyboardTarget.WebDavUrl, " https://nas:5006/music "))
+        assertEquals(KeyboardSubmit.Rejected("URL must start with http:// or https://"), KeyboardTargets.submit(KeyboardTarget.WebDavUrl, "nas:5006"))
+        assertEquals(KeyboardSubmit.Rejected("Not a valid URL"), KeyboardTargets.submit(KeyboardTarget.WebDavUrl, "https://"))
+        assertEquals(KeyboardSubmit.Rejected("Not a valid URL"), KeyboardTargets.submit(KeyboardTarget.WebDavUrl, "https://nas/100%"))
+        assertEquals(KeyboardSubmit.Accepted("eve", KeyboardTarget.WebDavPassword("eve")), KeyboardTargets.submit(KeyboardTarget.WebDavUser, " eve "))
+        assertEquals(KeyboardSubmit.Accepted(" p w "), KeyboardTargets.submit(KeyboardTarget.WebDavPassword("eve"), " p w "))
+        assertEquals("Login", KeyboardTargets.actionLabel(KeyboardTarget.WebDavPassword("eve"), localize))
+    }
 
     @Test
     fun librarySearch_showsSearch_andRunsTheSearch() {
@@ -62,7 +79,7 @@ class KeyboardTargetsTest {
 
     @Test
     fun actionLabels() {
-        val expected = listOf("Connect", "Search", "Search", "Next", "Login", "Save", "Next", "Login", "Login")
+        val expected = listOf("Connect", "Search", "Search", "Next", "Login", "Save", "Next", "Login", "Login", "Save", "Next", "Login")
         assertEquals(expected, all.map { KeyboardTargets.actionLabel(it, localize) })
     }
 
@@ -93,7 +110,7 @@ class KeyboardTargetsTest {
         for (t in all) {
             val r = KeyboardTargets.submit(t, "x")
             val hasNext = r is KeyboardSubmit.Accepted && r.next != null
-            val isUsername = t is KeyboardTarget.LastFmUsername || t is KeyboardTarget.JellyfinUsername
+            val isUsername = t is KeyboardTarget.LastFmUsername || t is KeyboardTarget.JellyfinUsername || t is KeyboardTarget.WebDavUser
             assertEquals(t.toString(), isUsername, hasNext)
         }
     }

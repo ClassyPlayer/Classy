@@ -91,6 +91,16 @@ class ActionScreenTest {
     }
 
     @Test
+    fun anInfoLineCanHaveAProgressBar() {
+        val key = ActionScreens.add(ActionScreens.Spec("Sync", listOf("1/3")))
+        assertTrue(ActionScreens.setInfo(key, listOf("1/3", "a.flac", "b.flac"), listOf(null, 40, null)))
+        val rows = ActionScreens.list(ActionScreens.spec(key)!!) {}.rows
+        assertEquals(listOf(null, 40, null), rows.map { it.progress })
+        assertEquals(listOf("1/3", "a.flac", "b.flac"), rows.map { it.label }) // the text has no marker
+        ActionScreens.forget(key)
+    }
+
+    @Test
     fun aSpecIsAListOfInfoRowsThenActionRows() {
         val steps = mutableListOf<String>()
         val spec = ActionScreens.Spec(
