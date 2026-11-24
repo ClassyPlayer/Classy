@@ -52,4 +52,36 @@ class CertPinTest {
         assertSame(inner, findCertNotTrusted(wrapped))
         assertNull(findCertNotTrusted(RuntimeException("x")))
     }
+
+    private class FakeSystem(val trusts: Boolean) : javax.net.ssl.X509TrustManager {
+        override fun checkServerTrusted(chain: Array<out X509Certificate>?, authType: String?) {
+            if (!trusts) throw java.security.cert.CertificateException("unknown authority")
+        }
+        override fun checkClientTrusted(chain: Array<out X509Certificate>?, authType: String?) {}
+        override fun getAcceptedIssuers(): Array<X509Certificate> = emptyArray()
+    }
+
+    @Test
+    fun aCertificateThatTheSystemTrustsNeedsNoPin() {
+        // A public certificate that is renewed: no Trust Certificate step, before or after
+        PinningTrustManager(null, FakeSystem(trusts = true)).checkServerTrusted(arrayOf(cert("cert_b.der")), "RSA")
+    }
+
+    @Test
+    fun aCertificateThatTheSystemRefusesNeedsThePin() {
+        try {
+            PinningTrustManager(null, FakeSystem(trusts = false)).checkServerTrusted(arrayOf(cert("cert_a.der")), "RSA")
+            fail("expected CertNotTrusted")
+        } catch (e: CertNotTrusted) {
+            assertEquals(fpA, e.fingerprint)
+        }
+        PinningTrustManager(fpA, FakeSystem(trusts = false)).checkServerTrusted(arrayOf(cert("cert_a.der")), "RSA")
+    }
+
+    @Test
+    fun onlyThePinnedCertificateSkipsTheHostNameCheck() {
+        assertTrue(PinningTrustManager(fpA).isPinned(cert("cert_a.der")))
+        assertFalse(PinningTrustManager(fpA).isPinned(cert("cert_b.der")))
+        assertFalse(PinningTrustManager(null).isPinned(cert("cert_a.der")))
+    }
 }

@@ -59,7 +59,7 @@ class WebDavSyncProvider private constructor(context: Context) : MediaSyncProvid
 
     /** Throws an IOException for a URL that [serverUri] does not take: call it where an error can show. */
     fun client(url: String = this.url, user: String = this.user, password: String = this.password, pin: String? = this.pin): WebDavClient =
-        WebDavClient(url, user, password, if (url.startsWith("https://")) PinningTrustManager(pin) else null)
+        WebDavClient(url, user, password, if (url.startsWith("https://")) PinningTrustManager(pin, PinningTrustManager.systemTrustManager()) else null)
 
     /**
      * Sets the Server URL. The same server (scheme, host and port) keeps the pin, the ticked folders and the synced

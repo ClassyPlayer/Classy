@@ -15,7 +15,8 @@ import java.net.URISyntaxException
 import java.util.concurrent.CancellationException
 import java.util.concurrent.TimeUnit
 import javax.net.ssl.SSLContext
-import javax.net.ssl.X509TrustManager
+import java.security.cert.X509Certificate
+import okhttp3.internal.tls.OkHostnameVerifier
 import javax.xml.parsers.DocumentBuilderFactory
 
 class DavHttpException(val code: Int) : IOException("HTTP $code")
@@ -136,14 +137,15 @@ object Propfind {
 }
 
 /**
- * Minimal WebDAV client: PROPFIND Depth 1 and GET. [trust] pins a self-signed cert (see CertPin);
- * when it is set, hostname checks are skipped because the certificate itself is pinned.
+ * Minimal WebDAV client: PROPFIND Depth 1 and GET. [trust] accepts a pinned self-signed certificate or one that
+ * Android trusts (see CertPin). The host name is not checked for the pinned certificate (a NAS by IP address), but it
+ * is for any other.
  */
 class WebDavClient(
     private val baseUrl: String,
     user: String,
     password: String,
-    trust: X509TrustManager?
+    trust: PinningTrustManager?
 ) {
     private val auth = Credentials.basic(user, password, Charsets.UTF_8)
 
@@ -161,7 +163,10 @@ class WebDavClient(
                 val ctx = SSLContext.getInstance("TLS")
                 ctx.init(null, arrayOf(trust), null)
                 sslSocketFactory(ctx.socketFactory, trust)
-                hostnameVerifier { _, _ -> true }
+                hostnameVerifier { host, session ->
+                    val leaf = try { session.peerCertificates.firstOrNull() as? X509Certificate } catch (_: Exception) { null }
+                    (leaf != null && trust.isPinned(leaf)) || OkHostnameVerifier.INSTANCE.verify(host, session)
+                }
             }
         }
         .build()

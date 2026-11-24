@@ -26,10 +26,13 @@ Opening WebDAV Sync reads the file and then **deletes it**, so the password does
 
 ### A self-signed certificate (https)
 
+A certificate that Android trusts (from a known authority, for the name in the Server URL) works with no step.
+
 A NAS at home usually has a certificate that no authority signed. The first time you connect, Classy shows the
 certificate's fingerprint (four lines of hex). Compare it with the one on your NAS. If it is the same, choose **Trust
-Certificate**. Classy then accepts that one certificate and no other: if it ever changes, the connection stops until
-you trust the new one.
+Certificate**. Classy then accepts that one certificate: if it changes (a renewal), the connection stops until you
+trust the new one. Android 4.4 does not know some newer authorities, for example Let's Encrypt: such a certificate
+also needs Trust Certificate, and again after each renewal.
 
 ### Choose the folders
 
@@ -98,7 +101,7 @@ On a FAT card (the SD card), characters that FAT does not take (`< > : " | ? * \
 |---|---|
 | `sync/webdav/WebDavSyncProvider.kt` | Server settings and the ticked folders, in the private prefs `webdav_sync`. One-time import of `classy_webdav.json`. |
 | `sync/webdav/WebDavClient.kt` | The HTTP side: PROPFIND (Depth 1) and GET. OkHttp. |
-| `sync/webdav/CertPin.kt` | Trust on first use: one pinned leaf certificate (SHA-256). |
+| `sync/webdav/CertPin.kt` | The system's authorities, or trust on first use: one pinned leaf certificate (SHA-256). |
 | `sync/webdav/SyncPlan.kt` | Pure functions: what to download, mark or delete. Path mapping. No I/O except `pruneEmptyDirs`. |
 | `sync/webdav/WebDavSync.kt` | Runs a sync or a move on one background thread. Owns the ledger. |
 | `sync/webdav/AutoSyncGate.kt`, `WebDavAutoSyncReceiver.kt` | When Auto Sync may start. |
@@ -140,8 +143,9 @@ On a FAT card (the SD card), characters that FAT does not take (`< > : " | ? * \
 
 ### Certificates
 
-`https://` uses `PinningTrustManager(pin)`. With no pin, or another certificate, `checkServerTrusted` throws
-`CertNotTrusted(fingerprint)`. `findCertNotTrusted` finds it in the cause chain, `WebDavUiController.handleCert` keeps the
+`https://` uses `PinningTrustManager(pin, systemTrustManager())`. The pinned leaf passes, and the host name is not
+checked for it (a NAS by IP address). Else a chain that Android's authorities trust passes, and OkHttp's
+`OkHostnameVerifier` then checks the host name. Else `checkServerTrusted` throws `CertNotTrusted(fingerprint)`. `findCertNotTrusted` finds it in the cause chain, `WebDavUiController.handleCert` keeps the
 fingerprint and shows it, and Trust Certificate saves it as the pin. A Server URL of another server clears the pin
 (`WebDavSyncProvider.changeUrl`, also for the config file). `http://` is allowed and has no protection.
 

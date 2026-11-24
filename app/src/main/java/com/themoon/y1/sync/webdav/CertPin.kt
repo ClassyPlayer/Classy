@@ -1,8 +1,10 @@
 package com.themoon.y1.sync.webdav
 
+import java.security.KeyStore
 import java.security.MessageDigest
 import java.security.cert.CertificateException
 import java.security.cert.X509Certificate
+import javax.net.ssl.TrustManagerFactory
 import javax.net.ssl.X509TrustManager
 
 /** The server certificate is not the pinned one (or nothing is pinned yet). [fingerprint] is the server's. */
@@ -23,12 +25,28 @@ fun findCertNotTrusted(e: Throwable): CertNotTrusted? {
     return null
 }
 
-/** Trusts exactly one leaf certificate, chosen by the user on first connect (trust on first use). */
-class PinningTrustManager(private val pinnedSha256: String?) : X509TrustManager {
+/**
+ * Trusts the pinned leaf certificate (trust on first use, for a self-signed server), or a chain that [system] (the
+ * certificate authorities of Android) trusts: a server with a public certificate keeps working when it is renewed.
+ * Anything else throws [CertNotTrusted] with the leaf's fingerprint, for the user to compare and trust.
+ */
+class PinningTrustManager(private val pinnedSha256: String?, private val system: X509TrustManager? = null) : X509TrustManager {
+
+    /** True when [leaf] is the pinned certificate. Then the host name does not matter (a NAS by IP address). */
+    fun isPinned(leaf: X509Certificate): Boolean = sha256Fingerprint(leaf.encoded).equals(pinnedSha256, ignoreCase = true)
+
     override fun checkServerTrusted(chain: Array<out X509Certificate>?, authType: String?) {
         val leaf = chain?.firstOrNull() ?: throw CertificateException("Empty certificate chain")
-        val fp = sha256Fingerprint(leaf.encoded)
-        if (!fp.equals(pinnedSha256, ignoreCase = true)) throw CertNotTrusted(fp)
+        if (isPinned(leaf)) return
+        if (system != null) {
+            try {
+                system.checkServerTrusted(chain, authType)
+                return // the host name is checked after this, by the client's HostnameVerifier
+            } catch (_: CertificateException) {
+                // not signed by an authority that Android knows: the user can pin it
+            }
+        }
+        throw CertNotTrusted(sha256Fingerprint(leaf.encoded))
     }
 
     override fun checkClientTrusted(chain: Array<out X509Certificate>?, authType: String?) {
@@ -36,4 +54,15 @@ class PinningTrustManager(private val pinnedSha256: String?) : X509TrustManager 
     }
 
     override fun getAcceptedIssuers(): Array<X509Certificate> = emptyArray()
+
+    companion object {
+        /** The default trust manager of the platform (Android's certificate authorities), or null if there is none. */
+        fun systemTrustManager(): X509TrustManager? = try {
+            val f = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm())
+            f.init(null as KeyStore?)
+            f.trustManagers.filterIsInstance<X509TrustManager>().firstOrNull()
+        } catch (_: Exception) {
+            null
+        }
+    }
 }
