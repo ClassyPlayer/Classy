@@ -15,6 +15,7 @@ import com.themoon.y1.managers.UpdateChannel
 import com.themoon.y1.managers.UsbDrive
 import com.themoon.y1.managers.VolumeSteps
 import com.themoon.y1.models.AlbumKey
+import com.themoon.y1.models.AlbumYear
 import com.themoon.y1.navigation.LetterJump
 import com.themoon.y1.views.CoverPane
 import com.themoon.y1.views.ListEdges
@@ -190,6 +191,7 @@ object Prefs {
     val GROUP_ALBUMS_BY_ARTIST = add(BoolPref(AlbumKey.PREF_BY_ARTIST, false, PrefGroup.MENUS, resettable = true))
     /** Show the folder-based audiobook series Cover Flow entry in Audiobooks. */
     val AUDIOBOOK_SERIES_COVER_FLOW = add(BoolPref("audiobook_series_cover_flow", false, PrefGroup.LIBRARY, resettable = true))
+    val ALBUMS_BY_YEAR = add(BoolPref(AlbumYear.PREF, false, PrefGroup.MENUS, resettable = true))
 
     // --- Controls ---
     val BUTTON_SOUND = add(BoolPref("sound", true, PrefGroup.CONTROLS))

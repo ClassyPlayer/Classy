@@ -891,5 +891,6 @@
   "Last sync failed": "La última sincronización falló",
   "Cannot save the sync record": "No se puede guardar el registro de sincronización",
   "This Folder": "Esta carpeta",
-  "Sync cancelled": "Sincronización cancelada"
+  "Sync cancelled": "Sincronización cancelada",
+  "Sort by Year": "Ordenar por año"
 }

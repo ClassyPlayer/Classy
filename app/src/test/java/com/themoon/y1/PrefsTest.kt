@@ -51,6 +51,7 @@ class PrefsTest {
             "wheel_mode", "list_glide",
             // Settings → Library → Audiobook Series Cover Flow
             "audiobook_series_cover_flow")
+            "wheel_mode", "list_glide", "albums_by_year")
         assertEquals(before + added, Prefs.RESETTABLE.map { it.key }.toSet())
     }
 

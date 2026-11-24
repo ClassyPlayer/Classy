@@ -891,5 +891,6 @@
   "Last sync failed": "上次同步失败",
   "Cannot save the sync record": "无法保存同步记录",
   "This Folder": "此文件夹",
-  "Sync cancelled": "同步已取消"
+  "Sync cancelled": "同步已取消",
+  "Sort by Year": "按年份排序"
 }
