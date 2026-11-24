@@ -15,7 +15,6 @@ import com.themoon.y1.adapters.CategoryListAdapter
 import com.themoon.y1.adapters.SongListAdapter
 import com.themoon.y1.controllers.ScreenController
 import com.themoon.y1.controllers.menu.MusicMenuItems
-import com.themoon.y1.lists.LetterBox
 import com.themoon.y1.lists.ListScreen
 import com.themoon.y1.lists.ListSpec
 import com.themoon.y1.lists.Pane
@@ -80,10 +79,7 @@ class BrowserController(
 
     override val listScreen: ListScreen get() = screen
 
-    private val screen = ListScreen(containerBrowserItems, listVirtualSongs, clickFeedback, letterBox = object : LetterBox {
-        override fun show(letter: String) { MainActivity.instance?.showJumpLetter(letter) }
-        override fun hide() { MainActivity.instance?.hideFastScrollLetter() }
-    })
+    private val screen = ListScreen(containerBrowserItems, listVirtualSongs, clickFeedback)
 
     var currentBrowserMode: BrowserMode = BrowserMode.Root
     var isAudiobookLibraryMode: Boolean = false
@@ -96,9 +92,6 @@ class BrowserController(
     var categoryArtistFilter: String = ""
     var categoryArtistFilterIsTrackArtist: Boolean = false
     var categoryGenreFilter: String = ""
-
-    /** The letter in the letter box during letter mode; null when the wheel steps row by row. */
-    val jumpLetter: String? get() = screen.jumpLetter
 
     companion object {
         const val ALL_SONGS_SENTINEL = "__ALL_SONGS__"
@@ -811,7 +804,6 @@ class BrowserController(
     }
 
     /** Ends letter mode (another screen). The list is already at the first row of the letter. */
-    fun endLetterJump() = screen.endLetters()
 
     /** In letter mode, a centre press only ends it; Back and Play/Pause end it and then work as usual. */
 

@@ -747,8 +747,6 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
             state is ScreenState.Settings && state.subMode is SettingsSubMode.Jellyfin -> ScreenState.Jellyfin()
             else -> state
         }
-        if (::browserController.isInitialized) browserController.endLetterJump()
-        if (::booksController.isInitialized) booksController.endLetterJump()
         tvFastScrollLetter?.animate()?.cancel()
         tvFastScrollLetter?.visibility = View.GONE
         syncCurrentScreenState(targetState)
@@ -1082,17 +1080,6 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     }
 
     /**
-     * Shows the letter box in the middle of the screen with the letter of letter mode (BrowserController.jumpLetter).
-     * Rows call this when they get focus; when the wheel steps row by row there is no jump letter, and nothing shows.
-     */
-    @Suppress("UNUSED_PARAMETER")
-    fun showFastScrollLetter(rawText: String) {
-        if (currentScreenState != STATE_BROWSER || !::browserController.isInitialized) return
-        val letter = browserController.jumpLetter ?: return
-        showJumpLetter(letter)
-    }
-
-    /**
      * Shows [letter] in the letter box. It stays until [hideFastScrollLetter]: the screen hides it at the end of
      * letter mode ([LetterJump.Mode]). The box gets its theme colours when it comes on; after that, only a new
      * letter changes it.
@@ -1351,14 +1338,8 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     fun createFocusedButtonBackground(): GradientDrawable =
         ListItemViewFactory.createFocusedButtonBackground(this)
 
-    fun createListButtonWithIcon(iconUnicode: String, textLabel: String, customColor: Int = 0): View =
-        ListItemViewFactory.createListButtonWithIcon(this, iconUnicode, textLabel, customColor) { showFastScrollLetter(it) }
-
-    fun setupAudiobookProgress(btn: View, pos: Int, dur: Int) {
-        ListItemViewFactory.setupAudiobookProgress(this, btn, pos, dur) { showFastScrollLetter(it) }
-    }
-
-    internal fun createListButton(text: String, color: Int? = null): View = createListButtonWithIcon("", text, color ?: 0)
+    internal fun createListButton(text: String, color: Int? = null): View =
+        ListItemViewFactory.createListButtonWithIcon(this, "", text, color ?: 0)
 
     private val systemStatusReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {

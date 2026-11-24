@@ -39,7 +39,8 @@ object ListItemViewFactory {
         iconUnicode: String,
         textLabel: String,
         customColor: Int = 0,
-        onFastScrollLetter: ((String) -> Unit)? = null
+        /** Called when the row gets the focus. */
+        onFocused: (() -> Unit)? = null
     ): View {
         val d = context.resources.displayMetrics.density
         val rowButton = LinearLayout(context).apply {
@@ -81,7 +82,7 @@ object ListItemViewFactory {
         rowButton.addView(tvText)
         rowButton.addView(tvArrow)
         ClassyLists.styleRow(rowButton, tvText)
-        menuRowLook(rowButton, normalColor) { if (it) onFastScrollLetter?.invoke(tvText.text.toString()) }
+        menuRowLook(rowButton, normalColor) { if (it) onFocused?.invoke() }
         return rowButton
     }
 
@@ -108,8 +109,7 @@ object ListItemViewFactory {
         context: Context,
         btn: View,
         pos: Int,
-        dur: Int,
-        onFastScrollLetter: ((String) -> Unit)? = null
+        dur: Int
     ) {
         if (pos <= 0 || dur <= 0) return
         val look = FocusLook.of(btn).reset()
@@ -120,7 +120,6 @@ object ListItemViewFactory {
         }
         for (tv in texts) look.text(tv)
         look.progress = intArrayOf(pos, dur)
-        look.onFocus { if (it) texts.lastOrNull()?.let { tv -> onFastScrollLetter?.invoke(tv.text.toString()) } }
         look.refresh()
     }
 

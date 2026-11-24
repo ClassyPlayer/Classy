@@ -15,7 +15,6 @@ import android.widget.BaseAdapter
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ListView
-import com.themoon.y1.MainActivity
 import com.themoon.y1.Prefs
 import com.themoon.y1.R
 import com.themoon.y1.StoragePaths
@@ -30,7 +29,6 @@ import com.themoon.y1.controllers.ScreenController
 import com.themoon.y1.controllers.settings.SettingRows
 import com.themoon.y1.lists.ArtRow
 import com.themoon.y1.lists.Focus
-import com.themoon.y1.lists.LetterBox
 import com.themoon.y1.lists.ListScreen
 import com.themoon.y1.lists.ListSpec
 import com.themoon.y1.lists.Pane
@@ -108,10 +106,7 @@ class BooksController(
     init {
         listPane.setPadding(0, (ClassyMetrics.STATUS_BAR_HEIGHT * activity.resources.displayMetrics.density).toInt(), 0, 0)
         listPane.addView(listView, (rowViews.parent as View).layoutParams)
-        screen = ListScreen(rowViews, listView, clickFeedback, letterBox = object : LetterBox {
-            override fun show(letter: String) { MainActivity.instance?.showJumpLetter(letter) }
-            override fun hide() { MainActivity.instance?.hideFastScrollLetter() }
-        })
+        screen = ListScreen(rowViews, listView, clickFeedback)
         rootView.viewTreeObserver.addOnGlobalFocusChangeListener { _, now -> if (isShown()) onFocus(now) }
     }
 
@@ -169,7 +164,6 @@ class BooksController(
         return true
     }
 
-    fun endLetterJump() = screen.endLetters()
 
     /** The books on the card may have changed (a USB share): the next visit scans again, or now if Books shows. */
     fun forget() {

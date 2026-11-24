@@ -127,12 +127,6 @@ interface RowTexts {
     fun rowText(position: Int): String?
 }
 
-/** The letter box of the letter jump: it shows the letter while the wheel jumps from letter to letter. */
-interface LetterBox {
-    fun show(letter: String)
-    fun hide()
-}
-
 /** The pure rules of the renderer. */
 object ListModel {
 
