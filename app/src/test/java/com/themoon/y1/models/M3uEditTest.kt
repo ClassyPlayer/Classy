@@ -45,7 +45,17 @@ class M3uEditTest {
         val a = File("/Music/a.mp3")
         val b = File("/Music/b.mp3")
         val c = File("/Music/c.mp3")
-        assertEquals(listOf(c, a), M3uEdit.newSongs(listOf(b, c, a, c), setOf(b.absolutePath)))
-        assertEquals(emptyList<File>(), M3uEdit.newSongs(listOf(a), setOf(a.absolutePath)))
+        assertEquals(listOf(c, a), M3uEdit.newSongs(listOf(b, c, a, c), setOf(M3uEdit.key(b))))
+        assertEquals(emptyList<File>(), M3uEdit.newSongs(listOf(a), setOf(M3uEdit.key(a))))
+        // A playlist of a computer can name the file in another case (FAT finds it)
+        assertEquals(emptyList<File>(), M3uEdit.newSongs(listOf(a), setOf(M3uEdit.key(File("/MUSIC/A.mp3")))))
+    }
+
+    @Test
+    fun allTheTagLinesOfTheEntryGoButNotTheHeader() {
+        val vlc = listOf("#EXTM3U", "#EXTINF:1,X", "#EXTVLCOPT:start-time=5", "/m/x.mp3", "#EXTINF:2,Y", "/m/y.mp3")
+        assertEquals(listOf("#EXTM3U", "#EXTINF:2,Y", "/m/y.mp3"), M3uEdit.removeEntry(vlc, 0) { it == "/m/x.mp3" })
+        // A header with attributes is not a tag of the first entry
+        assertEquals(listOf("#EXTM3U x-name=\"A\""), M3uEdit.removeEntry(listOf("#EXTM3U x-name=\"A\"", "/m/x.mp3"), 0) { true })
     }
 }

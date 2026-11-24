@@ -28,6 +28,7 @@ import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.InputStreamReader
 import java.io.OutputStreamWriter
+import java.nio.charset.CodingErrorAction
 import java.util.ArrayList
 
 /**
@@ -54,23 +55,15 @@ class PlaylistController(
 
     private val screen = ListScreen(rootView.findViewById(R.id.container_browser_items), listVirtualSongs, clickFeedback)
 
-    var currentM3uFile: File? = null
-
     override fun onEnter(state: ScreenState) {
         when (state) {
             is ScreenState.Playlists -> buildPlaylistsUI()
-            is ScreenState.M3uPlaylistSongs -> {
-                currentM3uFile = state.m3uFile
-                buildM3uSongsUI(state.m3uFile)
-            }
+            is ScreenState.M3uPlaylistSongs -> buildM3uSongsUI(state.m3uFile)
             is ScreenState.SmartPlaylistSongs -> buildSmartPlaylistUI(state)
             is ScreenState.Browser -> {
                 when (state.mode) {
                     is BrowserMode.Playlists -> buildPlaylistsUI()
-                    is BrowserMode.M3uSongs -> {
-                        currentM3uFile = state.mode.m3uFile
-                        buildM3uSongsUI(state.mode.m3uFile)
-                    }
+                    is BrowserMode.M3uSongs -> buildM3uSongsUI(state.mode.m3uFile)
                     else -> buildPlaylistsUI()
                 }
             }
@@ -111,10 +104,7 @@ class PlaylistController(
         }
         val labels = PlaylistPaths.labels(m3uFiles, ::storageName)
         for ((i, m3u) in m3uFiles.withIndex()) {
-            rows += RowSpec(labels[i], onClick = {
-                currentM3uFile = m3u
-                onPlaylistSelected(m3u)
-            }, onHold = { showDeletePlaylistDialog(m3u) })
+            rows += RowSpec(labels[i], onClick = { onPlaylistSelected(m3u) }, onHold = { showDeletePlaylistDialog(m3u) })
         }
         if (m3uFiles.isEmpty()) rows += RowSpec(localize("No .m3u files found in Playlists"), color = ThemeManager.getTextColorSecondary())
         screen.show(ListSpec(localize("Playlists"), rows, focus = Focus.LAST))
@@ -218,20 +208,28 @@ class PlaylistController(
         return if (plain.path != audioFile.path && plain.exists() && PlaylistPaths.sameFile(plain, audioFile)) plain else audioFile
     }
 
-    /** The lines of [m3uFile], or null when it cannot be read. */
-    private fun readLines(m3uFile: File): List<String>? = try {
-        BufferedReader(InputStreamReader(FileInputStream(m3uFile), "UTF-8")).use { it.readLines() }
+    /**
+     * The lines of [m3uFile], or null when it cannot be read. [strict]: also null when the file is not valid UTF-8 (a
+     * playlist of a computer in an old code page): writing it again would break its other non-ASCII names for ever.
+     */
+    private fun readLines(m3uFile: File, strict: Boolean = false): List<String>? = try {
+        val decoder = Charsets.UTF_8.newDecoder().apply {
+            val action = if (strict) CodingErrorAction.REPORT else CodingErrorAction.REPLACE
+            onMalformedInput(action)
+            onUnmappableCharacter(action)
+        }
+        BufferedReader(InputStreamReader(FileInputStream(m3uFile), decoder)).use { it.readLines() }
     } catch (e: Exception) {
         null
     }
 
-    /** The absolute paths of the songs in [m3uFile] (also songs that are not on the player now). */
-    private fun songPathsIn(m3uFile: File): Set<String> =
-        readLines(m3uFile).orEmpty().filter(M3uEdit::isEntry).mapTo(HashSet()) { resolveEntry(it, m3uFile).absolutePath }
+    /** The [M3uEdit.key] of each song in [m3uFile] (also songs that are not on the player now). */
+    private fun songKeysIn(m3uFile: File): Set<String> =
+        readLines(m3uFile).orEmpty().filter(M3uEdit::isEntry).mapTo(HashSet()) { M3uEdit.key(resolveEntry(it, m3uFile)) }
 
     /** With No Duplicates in Playlists on: the songs of [songFiles] that [m3uFile] does not have yet. */
     private fun songsToAdd(m3uFile: File, songFiles: List<File>): List<File> =
-        if (noDuplicates()) M3uEdit.newSongs(songFiles, if (m3uFile.exists()) songPathsIn(m3uFile) else emptySet()) else songFiles
+        if (noDuplicates()) M3uEdit.newSongs(songFiles, if (m3uFile.exists()) songKeysIn(m3uFile) else emptySet()) else songFiles
 
     fun showDeletePlaylistDialog(m3uFile: File) {
         ActionScreens.open(ActionScreens.Spec(
@@ -254,12 +252,12 @@ class PlaylistController(
             localize("Remove from Playlist"),
             listOf(audioFile.nameWithoutExtension, localize("Do you want to remove this track from the playlist?")),
             listOf(ActionScreens.Action(localize("Remove")) {
-                if (removeSongFromM3uFile(m3uFile, audioFile, occurrence)) {
-                    buildM3uSongsUI(m3uFile)
-                    Notice.show(activity, localize("Track removed."))
-                } else {
-                    Notice.error(activity, localize("Failed to save."))
+                when (removeSongFromM3uFile(m3uFile, audioFile, occurrence)) {
+                    RemoveResult.REMOVED -> Notice.show(activity, localize("Track removed."))
+                    RemoveResult.NOT_FOUND -> {} // the file changed since the list was made: the list shows it again now
+                    RemoveResult.FAILED -> Notice.error(activity, localize("Failed to save."))
                 }
+                buildM3uSongsUI(m3uFile)
             }),
             selectAction = false // one centre push does not remove a song by accident
         ))
@@ -370,25 +368,29 @@ class PlaylistController(
         }
     }
 
+    enum class RemoveResult { REMOVED, NOT_FOUND, FAILED }
+
     /**
-     * Removes the [occurrence]-th (0 = first) entry of [songFile] from [m3uFile], with its `#EXTINF` line. The entry is
+     * Removes the [occurrence]-th (0 = first) entry of [songFile] from [m3uFile], with its `#EXT...` lines. The entry is
      * found by its file (the same rules as [parseM3uFile]), not by its name: two songs with one file name in two
-     * albums stay apart. The new text goes to a temporary file first, so a failed write keeps the playlist. False when
-     * nothing was removed.
+     * albums stay apart. The new text goes to a temporary file, which one rename puts in place (also on FAT, the
+     * microSD card): a failed write keeps the playlist as it was. A file that is not valid UTF-8 is not written.
      */
-    fun removeSongFromM3uFile(m3uFile: File, songFile: File, occurrence: Int = 0): Boolean {
-        if (!m3uFile.exists()) return false
-        val lines = readLines(m3uFile) ?: return false
+    fun removeSongFromM3uFile(m3uFile: File, songFile: File, occurrence: Int = 0): RemoveResult {
+        if (!m3uFile.exists()) return RemoveResult.NOT_FOUND
+        val lines = readLines(m3uFile, strict = true) ?: return RemoveResult.FAILED
         val target = songFile.absolutePath
-        val kept = M3uEdit.removeEntry(lines, occurrence) { resolveEntry(it, m3uFile).absolutePath == target } ?: return false
+        val kept = M3uEdit.removeEntry(lines, occurrence) { resolveEntry(it, m3uFile).absolutePath == target }
+            ?: return RemoveResult.NOT_FOUND
+        val tmp = File(m3uFile.path + ".tmp")
         return try {
-            val tmp = File(m3uFile.path + ".tmp")
             BufferedWriter(OutputStreamWriter(FileOutputStream(tmp, false), "UTF-8")).use { w -> for (l in kept) w.write(l + "\n") }
-            // One rename replaces the file; FAT (the microSD card) cannot rename over a file, so delete it first there
-            tmp.renameTo(m3uFile) || (m3uFile.delete() && tmp.renameTo(m3uFile))
+            if (tmp.renameTo(m3uFile)) RemoveResult.REMOVED else RemoveResult.FAILED
         } catch (e: Exception) {
             e.printStackTrace()
-            false
+            RemoveResult.FAILED
+        } finally {
+            if (tmp.exists()) tmp.delete() // after a failure: the playlist is as it was, and no .tmp file stays
         }
     }
 }

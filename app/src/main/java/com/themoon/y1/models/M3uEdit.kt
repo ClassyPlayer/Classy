@@ -10,26 +10,34 @@ object M3uEdit {
 
     /**
      * [lines] without the entry that is the [occurrence]-th (0 = the first) entry for which [matches] is true, and
-     * without the `#EXTINF` line right before it (its title and length belong to that entry). Null when there is no
-     * such entry. [matches] gets the entry line as it is in the file (the caller resolves it to a file).
+     * without the `#EXT...` lines right before it (`#EXTINF`, `#EXTVLCOPT`, `#EXTGRP`: they belong to that entry; not
+     * `#EXTM3U`). Null when there is no such entry. [matches] gets the entry line as it is in the file.
      */
     fun removeEntry(lines: List<String>, occurrence: Int, matches: (String) -> Boolean): List<String>? {
         var seen = 0
         for ((i, line) in lines.withIndex()) {
             if (!isEntry(line) || !matches(line)) continue
             if (seen++ < occurrence) continue
-            val from = if (i > 0 && lines[i - 1].trim().startsWith("#EXTINF", ignoreCase = true)) i - 1 else i
+            var from = i
+            while (from > 0 && isEntryTag(lines[from - 1])) from--
             return lines.subList(0, from) + lines.subList(i + 1, lines.size)
         }
         return null
     }
 
+    /** A tag line of the entry under it (`#EXTINF`, `#EXTVLCOPT`, ...), not the `#EXTM3U` header. */
+    private fun isEntryTag(line: String): Boolean =
+        line.trim().let { it.startsWith("#EXT", ignoreCase = true) && !it.startsWith("#EXTM3U", ignoreCase = true) }
+
+    /** The key of a song file for the duplicate check: its absolute path in lower case (FAT finds a file in any case). */
+    fun key(file: File): String = file.absolutePath.lowercase()
+
     /**
-     * The songs of [songs] to add to a playlist that has the songs [inPlaylist] (absolute paths): each song once, and
-     * none that is in it already. The order of [songs] stays.
+     * The songs of [songs] to add to a playlist that has the songs [inPlaylist] ([key]s): each song once, and none that
+     * is in it already. The order of [songs] stays.
      */
     fun newSongs(songs: List<File>, inPlaylist: Set<String>): List<File> {
         val seen = HashSet(inPlaylist)
-        return songs.filter { seen.add(it.absolutePath) }
+        return songs.filter { seen.add(key(it)) }
     }
 }
