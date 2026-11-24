@@ -892,5 +892,7 @@
   "Cannot save the sync record": "同期記録を保存できません",
   "This Folder": "このフォルダ",
   "Sync cancelled": "同期をキャンセルしました",
-  "Sort by Year": "年で並べ替え"
+  "Sort by Year": "年で並べ替え",
+  "No Duplicates in Playlists": "プレイリスト内の重複なし",
+  "Already in Playlist": "既にプレイリストにあります"
 }

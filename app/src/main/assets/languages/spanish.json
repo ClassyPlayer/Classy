@@ -892,5 +892,7 @@
   "Cannot save the sync record": "No se puede guardar el registro de sincronización",
   "This Folder": "Esta carpeta",
   "Sync cancelled": "Sincronización cancelada",
-  "Sort by Year": "Ordenar por año"
+  "Sort by Year": "Ordenar por año",
+  "No Duplicates in Playlists": "Sin duplicados en las listas",
+  "Already in Playlist": "Ya está en la lista"
 }

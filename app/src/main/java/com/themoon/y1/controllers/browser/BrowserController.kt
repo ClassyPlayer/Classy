@@ -570,7 +570,9 @@ class BrowserController(
             main?.virtualSongList?.add(song.file)
         }
 
-        screen.show(ListSpec(localize("My Favorites"), adapter = SongListAdapter(targetSongs),
+        // Hold a song: remove it from My Favorites
+        val adapter = SongListAdapter(targetSongs, onHold = { song, _ -> MainActivity.instance?.showRemoveFromFavoritesDialog(song.file) })
+        screen.show(ListSpec(localize("My Favorites"), adapter = adapter,
             empty = localize("No favorites added yet."), letters = true))
 
         // The song that plays, if it is a favorite

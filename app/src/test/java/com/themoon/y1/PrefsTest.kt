@@ -52,6 +52,9 @@ class PrefsTest {
             // Settings → Library → Audiobook Series Cover Flow
             "audiobook_series_cover_flow")
             "wheel_mode", "list_glide", "albums_by_year")
+            "wheel_mode", "list_glide", "albums_by_year",
+            // Settings → Library
+            "playlist_no_duplicates")
         assertEquals(before + added, Prefs.RESETTABLE.map { it.key }.toSet())
     }
 

@@ -188,6 +188,8 @@ object Prefs {
     val MUSIC_MENU_ORDER = add(StringPref("music_menu_order", "", PrefGroup.MENUS))
     /** Music Menu Items: "hide_music_btn_<item id>" = true hides the item. */
     val MUSIC_MENU_HIDDEN = add(PrefFamily("hide_music_btn_", PrefGroup.MENUS))
+    /** Settings → Library → No Duplicates in Playlists. */
+    val PLAYLIST_NO_DUPLICATES = add(BoolPref("playlist_no_duplicates", false, PrefGroup.GENERAL, resettable = true))
     val GROUP_ALBUMS_BY_ARTIST = add(BoolPref(AlbumKey.PREF_BY_ARTIST, false, PrefGroup.MENUS, resettable = true))
     /** Show the folder-based audiobook series Cover Flow entry in Audiobooks. */
     val AUDIOBOOK_SERIES_COVER_FLOW = add(BoolPref("audiobook_series_cover_flow", false, PrefGroup.LIBRARY, resettable = true))
