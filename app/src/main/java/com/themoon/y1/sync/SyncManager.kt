@@ -1,10 +1,8 @@
 package com.themoon.y1.sync
 
 import android.content.Context
-import android.net.wifi.WifiManager
 import android.os.Handler
 import android.os.Looper
-import android.os.PowerManager
 import android.util.Log
 import com.themoon.y1.StoragePaths
 import com.themoon.y1.managers.AlbumCoverManager
@@ -138,22 +136,8 @@ class SyncManager internal constructor(context: Context? = null) {
         currentCancellationToken = token
 
         executor.execute {
-            val pm = context?.getSystemService(Context.POWER_SERVICE) as? PowerManager
-            var wakeLock: PowerManager.WakeLock? = null
-            var wifiLock: WifiManager.WifiLock? = null
-
             try {
-                wakeLock = pm?.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Classy:JellyfinSync")
-                wakeLock?.acquire()
-
-                val wm = context?.getSystemService(Context.WIFI_SERVICE) as? WifiManager
-                if (wm != null) {
-                    wifiLock = wm.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "Classy:JellyfinSync")
-                    wifiLock.acquire()
-                }
-
-                executeSync(localSongs, trackNumberMap, token)
-
+                SyncLocks.hold(context, "Classy:JellyfinSync") { executeSync(localSongs, trackNumberMap, token) }
             } catch (e: Exception) {
                 Log.e(TAG, "Sync failed: " + e.message, e)
                 if (token.isCancelled()) {
@@ -163,12 +147,6 @@ class SyncManager internal constructor(context: Context? = null) {
                 }
             } finally {
                 isSyncing = false
-                if (wifiLock != null && wifiLock.isHeld) {
-                    try { wifiLock.release() } catch (ignored: Exception) {}
-                }
-                if (wakeLock != null && wakeLock.isHeld) {
-                    try { wakeLock.release() } catch (ignored: Exception) {}
-                }
             }
         }
     }

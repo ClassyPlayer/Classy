@@ -41,6 +41,9 @@ class WifiKeyboardController(
     private val onSubmitJellyfinUsername: (username: String) -> Unit,
     private val onSubmitJellyfinPassword: (password: String) -> Unit,
     private val onSubmitJellyfinToken: (token: String) -> Unit,
+    private val onSubmitWebDavUrl: (url: String) -> Unit,
+    private val onSubmitWebDavUser: (user: String) -> Unit,
+    private val onSubmitWebDavPassword: (password: String) -> Unit,
     private val onConnectWifi: (ssid: String, password: String, isOpen: Boolean) -> Unit,
     /** Text already in the field when the keyboard opens (the saved value, for the Jellyfin settings). */
     private val initialText: (KeyboardTarget) -> String,
@@ -176,6 +179,9 @@ class WifiKeyboardController(
                     KeyboardTarget.JellyfinUsername -> onSubmitJellyfinUsername(value)
                     is KeyboardTarget.JellyfinPassword -> onSubmitJellyfinPassword(value)
                     KeyboardTarget.JellyfinToken -> onSubmitJellyfinToken(value)
+                    KeyboardTarget.WebDavUrl -> onSubmitWebDavUrl(value)
+                    KeyboardTarget.WebDavUser -> onSubmitWebDavUser(value)
+                    is KeyboardTarget.WebDavPassword -> onSubmitWebDavPassword(value)
                 }
             }
         }

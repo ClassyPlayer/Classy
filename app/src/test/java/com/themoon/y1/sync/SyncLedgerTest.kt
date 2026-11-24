@@ -73,4 +73,40 @@ class SyncLedgerTest {
         assertFalse(afterRemove.contains("id1"))
         assertFalse(afterRemove.contains("id3"))
     }
+
+    @Test
+    fun saveSaysWhetherTheFileWasWritten() {
+        val dir = java.nio.file.Files.createTempDirectory("ledger").toFile()
+        try {
+            val ok = java.io.File(dir, "ledger.json")
+            assertTrue(SyncLedger(ok).save())
+            assertTrue(ok.length() > 0)
+            // A parent that is a file: the folder cannot be made, so the ledger is not written
+            val blocker = java.io.File(dir, "blocker").apply { writeText("x") }
+            assertFalse(SyncLedger(java.io.File(blocker, "ledger.json")).save())
+        } finally {
+            dir.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun loadReadsTheOldLedgerThatAStoppedSaveLeft() {
+        val dir = java.nio.file.Files.createTempDirectory("ledger").toFile()
+        try {
+            val file = java.io.File(dir, "ledger.json")
+            SyncLedger(file).apply {
+                putItem(SyncLedger.LedgerItem("a", "lib", "music", "/m/a.mp3", 1L, "v", false))
+                assertTrue(save())
+                assertTrue(save()) // over an existing file
+            }
+            assertTrue(file.renameTo(java.io.File(dir, "ledger.json.old")))
+            val again = SyncLedger(file).apply { load() }
+            assertNotNull(again.getItem("a"))
+            // The next save writes the file and deletes the old one, so a ledger deleted by hand later stays empty
+            assertTrue(again.save())
+            assertFalse(java.io.File(dir, "ledger.json.old").exists())
+        } finally {
+            dir.deleteRecursively()
+        }
+    }
 }

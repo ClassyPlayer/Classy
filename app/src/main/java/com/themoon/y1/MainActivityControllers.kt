@@ -392,6 +392,22 @@ internal fun MainActivity.initControllers() {
             provider.accessToken = token
             NavigationManager.getInstance().popBackStack()
         },
+        onSubmitWebDavUrl = { url ->
+            // Another server must be trusted again, and starts with no folders; a sync that started meanwhile keeps the old URL
+            try {
+                if (!com.themoon.y1.sync.webdav.WebDavSyncProvider.getInstance(this).changeUrl(url)) Notice.show(this, t("Syncing..."))
+            } catch (e: com.themoon.y1.sync.webdav.LedgerNotSaved) {
+                Notice.error(this, t(e.message ?: "")) // the old URL stays
+            }
+            NavigationManager.getInstance().popBackStack()
+        },
+        onSubmitWebDavUser = { user ->
+            com.themoon.y1.sync.webdav.WebDavSyncProvider.getInstance(this).user = user
+        },
+        onSubmitWebDavPassword = { password ->
+            com.themoon.y1.sync.webdav.WebDavSyncProvider.getInstance(this).password = password
+            NavigationManager.getInstance().popBackStack()
+        },
         onConnectWifi = { ssid, password, isOpen ->
             val wm = getSystemService(Context.WIFI_SERVICE) as? WifiManager
             if (wm != null) {
@@ -418,6 +434,9 @@ internal fun MainActivity.initControllers() {
                 KeyboardTarget.JellyfinUsername -> provider.username
                 is KeyboardTarget.JellyfinPassword -> provider.password
                 KeyboardTarget.JellyfinToken -> provider.accessToken
+                KeyboardTarget.WebDavUrl -> com.themoon.y1.sync.webdav.WebDavSyncProvider.getInstance(this).url
+                KeyboardTarget.WebDavUser -> com.themoon.y1.sync.webdav.WebDavSyncProvider.getInstance(this).user
+                is KeyboardTarget.WebDavPassword -> "" // the keyboard does not mask: the saved password is not shown
                 else -> ""
             }
         },
@@ -476,6 +495,26 @@ internal fun MainActivity.initControllers() {
         isCustomScanning = { isCustomScanning }
     )
 
+    webDavUiController = com.themoon.y1.controllers.sync.WebDavUiController(
+        activity = this,
+        rootView = layoutSettingsMode as ViewGroup,
+        clickFeedback = { clickFeedback() },
+        onOpenKeyboard = { target -> changeScreen(ScreenState.WifiKeyboard(target)) },
+        onRequestWifi = { changeScreen(MainActivity.STATE_WIFI) },
+        isNetworkConnected = {
+            val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager
+            val net = cm?.activeNetworkInfo
+            net != null && net.isConnected
+        },
+        // A run can end after this window is gone (the activity was made again): then the live one rescans on the broadcast
+        onSyncFinished = {
+            if (isDestroyed) applicationContext.sendBroadcast(
+                android.content.Intent(com.themoon.y1.sync.webdav.WebDavSync.ACTION_SYNCED).setPackage(packageName)
+            ) else startMediaLibraryScan()
+        },
+        localize = { t(it) }
+    )
+
     otaUpdateManager = OtaUpdateManager(
         activity = this,
         clickFeedback = { clickFeedback() },
@@ -502,6 +541,7 @@ internal fun MainActivity.initControllers() {
         },
         onOpenEqualizer = { changeScreen(ScreenState.Equalizer) },
         onOpenJellyfin = { changeScreen(ScreenState.Jellyfin()) },
+        onOpenWebDav = { changeScreen(ScreenState.WebDav()) },
         onOpenUpdateCheck = { otaUpdateManager?.checkForUpdates() },
         onClearCacheConfirmed = {
             MediaLibraryManager.getInstance().musicLibrary.clear()
@@ -546,6 +586,7 @@ internal fun MainActivity.initControllers() {
         registerController(ScreenState.FmRadioMenu::class.java, fmRadioController)
         registerController(ScreenState.FmRadioSaved::class.java, fmRadioController)
         registerController(ScreenState.Jellyfin::class.java, jellyfinUiController)
+        registerController(ScreenState.WebDav::class.java, webDavUiController)
         registerController(ScreenState.Bluetooth::class.java, bluetoothController)
         registerController(ScreenState.Wifi::class.java, wifiController)
         registerController(ScreenState.WifiKeyboard::class.java, wifiKeyboardController)

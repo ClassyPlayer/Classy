@@ -71,6 +71,7 @@ class SettingsController(
     private val onNavigateToScreen: (Int) -> Unit,
     private val onOpenEqualizer: () -> Unit,
     private val onOpenJellyfin: () -> Unit,
+    private val onOpenWebDav: () -> Unit,
     private val onOpenUpdateCheck: () -> Unit,
     private val onClearCacheConfirmed: () -> Unit,
     private val resetBacklightTimer: () -> Unit,
@@ -264,6 +265,7 @@ class SettingsController(
                 ) { onClearCacheConfirmed() })
             },
             action("Jellyfin Sync", { JellyfinSyncProvider.getInstance(activity).getStatusSummary() }, opens = true) { onOpenJellyfin() },
+            action("WebDAV Sync", { com.themoon.y1.sync.webdav.WebDavSyncProvider.getInstance(activity).getStatusSummary() }, opens = true) { onOpenWebDav() },
             toggle("Sync Scrobbles to Last.fm", { scrobbler().isEnabled() }, { scrobbler().setEnabled(it) }),
             action("Last.fm Account", { lastFmAccountText() }, opens = true) { openLastFmAccount() },
         )),

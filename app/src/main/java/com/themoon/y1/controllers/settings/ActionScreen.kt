@@ -51,7 +51,9 @@ object ActionScreens {
         val selectAction: Boolean = true,
         val onCancel: (() -> Unit)? = null,
         /** The screen opens on the row with the check mark (the playing track of a queue), not on the first row. */
-        val focusChecked: Boolean = false
+        val focusChecked: Boolean = false,
+        /** For each line of [info], a progress bar under it (0 to 100), or null for none. */
+        val progress: List<Int?> = emptyList()
     )
 
     /** The screens that are kept: an entry under a newer screen can show again when Back comes back to it. */
@@ -72,11 +74,11 @@ object ActionScreens {
     @Synchronized
     fun spec(key: Int): Spec? = specs[key]
 
-    /** Replaces the info rows of screen [key] (a progress screen). Returns false if the screen is gone. */
+    /** Replaces the info rows of screen [key] (a progress screen), with their [progress] bars. Returns false if the screen is gone. */
     @Synchronized
-    fun setInfo(key: Int, info: List<String>): Boolean {
+    fun setInfo(key: Int, info: List<String>, progress: List<Int?> = emptyList()): Boolean {
         val old = specs[key] ?: return false
-        specs[key] = Spec(old.title, info, old.actions, old.selectAction, old.onCancel, old.focusChecked)
+        specs[key] = Spec(old.title, info, old.actions, old.selectAction, old.onCancel, old.focusChecked, progress)
         return true
     }
 
@@ -121,9 +123,9 @@ object ActionScreens {
         refresh(key)
     }
 
-    /** Shows the new info rows of screen [key] now if it is the screen that shows. */
-    fun update(key: Int, info: List<String>) {
-        if (setInfo(key, info)) refresh(key)
+    /** Shows the new info rows of screen [key] (with a bar for each [progress] that is not null) now if it is the screen that shows. */
+    fun update(key: Int, info: List<String>, progress: List<Int?> = emptyList()) {
+        if (setInfo(key, info, progress)) refresh(key)
     }
 
     private fun refresh(key: Int) {
@@ -151,7 +153,7 @@ object ActionScreens {
      */
     fun list(spec: Spec, close: () -> Unit): ListSpec = ListSpec(
         spec.title,
-        spec.info.map { RowSpec(it, RowLook.INFO) } + spec.actions.map { action ->
+        spec.info.mapIndexed { i, line -> RowSpec(line, RowLook.INFO, progress = spec.progress.getOrNull(i)) } + spec.actions.map { action ->
             val onClick = { choose(action, close) }
             val checked = action.checked
             val key = action.key ?: action.label

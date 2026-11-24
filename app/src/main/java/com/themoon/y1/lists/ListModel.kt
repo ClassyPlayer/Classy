@@ -70,6 +70,8 @@ class RowSpec(
     val key: String = label,
     /** False: the row is grey and the wheel skips it (a setting that cannot be used now). */
     val enabled: Boolean = true,
+    /** [RowLook.INFO]: a progress bar under the text, 0 to 100; null = no bar. */
+    val progress: Int? = null,
     /** True: the click feedback comes after [onClick] (a row that changes the click sound or vibration plays the new one). */
     val feedbackAfter: Boolean = false,
     val onClick: (() -> Unit)? = null,
@@ -171,8 +173,9 @@ object ListModel {
     fun shownRows(spec: ListSpec): List<RowSpec> =
         if (spec.rows.isEmpty() && spec.empty != null && !spec.isLong) listOf(RowSpec(spec.empty, key = EMPTY_KEY)) else spec.rows
 
-    /** The text of each shown row for the letter jump: the label (none for the empty row). */
-    fun letterTexts(rows: List<RowSpec>): List<String?> = rows.map { if (it.key == EMPTY_KEY) null else it.label }
+    /** The text of each shown row for the letter jump: the label (none for the empty row and the info rows, like a hint). */
+    fun letterTexts(rows: List<RowSpec>): List<String?> =
+        rows.map { if (it.key == EMPTY_KEY || it.look == RowLook.INFO) null else it.label }
 
     const val EMPTY_KEY = "\u0000empty"
 }

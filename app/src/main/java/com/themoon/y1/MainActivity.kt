@@ -134,6 +134,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
         const val STATE_BOOK_READER = 21
         const val STATE_PHOTOS = 22
         const val STATE_PHOTO_VIEWER = 23
+        const val STATE_WEBDAV = 24
 
         const val BROWSER_ROOT = 0
         const val BROWSER_FOLDER = 1
@@ -369,6 +370,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     lateinit var brightnessController: BrightnessController
     lateinit var storageController: StorageController
     lateinit var jellyfinUiController: JellyfinUiController
+    lateinit var webDavUiController: com.themoon.y1.controllers.sync.WebDavUiController
     lateinit var webServerController: WebServerController
     var otaUpdateManager: OtaUpdateManager? = null
     var externalSdMountMonitor: ExternalSdMountMonitor? = null
@@ -714,6 +716,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
             is ScreenState.Equalizer -> STATE_EQUALIZER
             is ScreenState.FmRadio, is ScreenState.FmRadioMenu, is ScreenState.FmRadioSaved -> STATE_FM_RADIO
             is ScreenState.Jellyfin -> STATE_JELLYFIN
+            is ScreenState.WebDav -> STATE_WEBDAV
             is ScreenState.Player -> STATE_PLAYER
             is ScreenState.Settings -> {
                 when (state.subMode) {
@@ -1284,6 +1287,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
             }
             STATE_EQUALIZER -> t("Equalizer")
             STATE_JELLYFIN -> t("Jellyfin")
+            STATE_WEBDAV -> t("WebDAV Sync")
             STATE_GAMES -> t("Games")
             STATE_BOOKS -> t("Books")
             STATE_PHOTOS -> t("Photos")

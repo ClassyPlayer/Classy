@@ -144,7 +144,9 @@ class SyncLedger @JvmOverloads constructor(private val ledgerFile: File? = null)
 
     @Synchronized
     @JvmOverloads
-    fun load(file: File = ledgerFile ?: StoragePaths.primaryFile(LEDGER_FILENAME)) {
+    fun load(path: File = ledgerFile ?: StoragePaths.primaryFile(LEDGER_FILENAME)) {
+        // A save that stopped between its two renames (FAT) left the old ledger as "<name>.old"
+        val file = if (!path.exists()) File(path.parentFile ?: File("."), "${path.name}.old") else path
         if (!file.exists()) return
 
         var reader: BufferedReader? = null
@@ -208,9 +210,10 @@ class SyncLedger @JvmOverloads constructor(private val ledgerFile: File? = null)
         }
     }
 
+    /** Writes the ledger to a temporary file, then renames it over [file]. Returns false when [file] was not replaced. */
     @Synchronized
     @JvmOverloads
-    fun save(file: File = ledgerFile ?: StoragePaths.primaryFile(LEDGER_FILENAME)) {
+    fun save(file: File = ledgerFile ?: StoragePaths.primaryFile(LEDGER_FILENAME)): Boolean {
         val parent = file.parentFile ?: File(".")
         val tempFile = File(parent, "${file.name}.tmp")
         var writer: BufferedWriter? = null
@@ -253,16 +256,33 @@ class SyncLedger @JvmOverloads constructor(private val ledgerFile: File? = null)
             writer = null
 
             if (tempFile.exists() && tempFile.length() > 0) {
-                if (file.exists()) {
-                    file.delete()
+                // One rename replaces the old file at once. Where that is not possible (FAT), the old file moves aside
+                // first, and back if the new one cannot move in: a failed save never loses the old ledger
+                val old = File(parent, "${file.name}.old")
+                if (tempFile.renameTo(file)) {
+                    old.delete() // left by a save that stopped between its renames: load must not find it later
+                    return true
                 }
-                tempFile.renameTo(file)
+                if (file.exists()) {
+                    old.delete()
+                    if (file.renameTo(old)) {
+                        if (tempFile.renameTo(file)) {
+                            old.delete()
+                            return true
+                        }
+                        old.renameTo(file)
+                    }
+                }
+                Log.e(TAG, "Failed to save sync ledger: cannot rename ${tempFile.name}")
+                tempFile.delete()
             }
+            return false
         } catch (e: Exception) {
             Log.e(TAG, "Failed to save sync ledger: ${e.message}")
             if (tempFile.exists()) {
                 tempFile.delete()
             }
+            return false
         } finally {
             try {
                 writer?.close()
