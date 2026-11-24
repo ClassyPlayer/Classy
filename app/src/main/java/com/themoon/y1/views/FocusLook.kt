@@ -75,11 +75,12 @@ class FocusLook private constructor(private val row: View) : View.OnFocusChangeL
 
     /** Shows the look of the row's focus now (after a change of the parts or of the theme). */
     fun refresh(): FocusLook {
-        show(row.isFocused)
+        show(row.isFocused || picked)
         return this
     }
 
-    override fun onFocusChange(v: View, hasFocus: Boolean) = show(hasFocus)
+    // A picked row has the focused texts on its own background
+    override fun onFocusChange(v: View, hasFocus: Boolean) = show(hasFocus || picked)
 
     private fun show(focused: Boolean) {
         val p = progress
