@@ -824,16 +824,7 @@ class SyncManager internal constructor(context: Context? = null) {
             return inst
         }
 
-        /**
-         * Resolves sync root according to Y2 SD-first priority.
-         */
-
-        fun getSyncRoot(): File {
-            return if (StoragePaths.hasSecondaryStorage()) {
-                File(StoragePaths.SECONDARY_PATH)
-            } else {
-                File(StoragePaths.PRIMARY_PATH)
-            }
-        }
+        /** Where synced media goes: the microSD card when there is one (sdcard0 on the Y1, sdcard1 on the Y2). */
+        fun getSyncRoot(): File = StoragePaths.getCardRoot()
     }
 }

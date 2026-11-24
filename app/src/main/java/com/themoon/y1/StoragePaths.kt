@@ -1,5 +1,6 @@
 package com.themoon.y1
 
+import android.os.Environment
 import com.themoon.y1.managers.ExternalSdMountMonitor
 import java.io.File
 import java.util.Locale
@@ -232,6 +233,26 @@ object StoragePaths {
 
     /** The root of the microSD card, or null when hasSecondaryStorage() is false. */
     fun getSecondaryRoot(): File? = if (hasSecondaryStorage()) File(SECONDARY_PATH) else null
+
+    /**
+     * The root of the microSD card, for large downloads (Jellyfin sync). The Y1 mounts its card at sdcard0 and its
+     * internal memory at sdcard1; the Y2 has emulated internal storage and its card at sdcard1. So the primary
+     * storage is used when Android reports it as a mounted removable volume, else sdcard1 when it is there, else
+     * the primary storage.
+     */
+    fun getCardRoot(): File = chooseCardRoot(mountedRemovablePrimary(), getSecondaryRoot(), getPrimaryRoot())
+
+    internal fun chooseCardRoot(removablePrimary: File?, secondaryRoot: File?, primaryRoot: File): File =
+        removablePrimary ?: secondaryRoot ?: primaryRoot
+
+    /** The primary storage when it is a mounted removable volume (the Y1's card), else null. */
+    private fun mountedRemovablePrimary(): File? = try {
+        if (Environment.isExternalStorageRemovable() &&
+            Environment.getExternalStorageState() == Environment.MEDIA_MOUNTED
+        ) Environment.getExternalStorageDirectory() else null
+    } catch (_: Exception) {
+        null
+    }
 
     fun isStorageVolumeName(name: String?): Boolean {
         if (name == null) return false
