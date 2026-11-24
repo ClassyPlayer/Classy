@@ -159,11 +159,8 @@ class WebDavUiController(
 
         rows += header(localize("Sync"))
         rows += value(localize("Folders"), "${p.ticked.size} 〉") {
-            if (!p.isConfigured()) Notice.show(activity, notSet) else try {
-                open(WebDavLevel.Folders(p.client().rootHref))
-            } catch (e: Exception) { // a URL that cannot be read
-                Notice.error(activity, errorText(e, localize))
-            }
+            if (!p.isConfigured()) Notice.show(activity, notSet)
+            else p.rootHref()?.let { open(WebDavLevel.Folders(it)) } ?: Notice.error(activity, localize("Not a valid URL"))
         }
         rows += value(localize("Auto Sync"), onOff(p.autoSync, localize)) {
             p.autoSync = !p.autoSync

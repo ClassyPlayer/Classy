@@ -4,6 +4,7 @@ import java.security.KeyStore
 import java.security.MessageDigest
 import java.security.cert.CertificateException
 import java.security.cert.X509Certificate
+import okhttp3.internal.tls.OkHostnameVerifier
 import javax.net.ssl.TrustManagerFactory
 import javax.net.ssl.X509TrustManager
 
@@ -26,27 +27,31 @@ fun findCertNotTrusted(e: Throwable): CertNotTrusted? {
 }
 
 /**
- * Trusts the pinned leaf certificate (trust on first use, for a self-signed server), or a chain that [system] (the
- * certificate authorities of Android) trusts: a server with a public certificate keeps working when it is renewed.
- * Anything else throws [CertNotTrusted] with the leaf's fingerprint, for the user to compare and trust.
+ * Trusts the pinned leaf certificate (trust on first use, for a self-signed server; any host name, so a NAS by IP
+ * address works), or a chain that [system] (the certificate authorities of Android) trusts and whose leaf names [host]:
+ * a server with a public certificate keeps working when it is renewed. Anything else, also a public certificate for
+ * another name, throws [CertNotTrusted] with the leaf's fingerprint, for the user to compare and trust.
+ * The host check is here, not in a HostnameVerifier, so that a name that does not match can be pinned too.
  */
-class PinningTrustManager(private val pinnedSha256: String?, private val system: X509TrustManager? = null) : X509TrustManager {
-
-    /** True when [leaf] is the pinned certificate. Then the host name does not matter (a NAS by IP address). */
-    fun isPinned(leaf: X509Certificate): Boolean = sha256Fingerprint(leaf.encoded).equals(pinnedSha256, ignoreCase = true)
+class PinningTrustManager(
+    private val pinnedSha256: String?,
+    private val system: X509TrustManager? = null,
+    private val host: String? = null
+) : X509TrustManager {
 
     override fun checkServerTrusted(chain: Array<out X509Certificate>?, authType: String?) {
         val leaf = chain?.firstOrNull() ?: throw CertificateException("Empty certificate chain")
-        if (isPinned(leaf)) return
-        if (system != null) {
+        val fp = sha256Fingerprint(leaf.encoded)
+        if (fp.equals(pinnedSha256, ignoreCase = true)) return
+        if (system != null && host != null && OkHostnameVerifier.INSTANCE.verify(host, leaf)) {
             try {
                 system.checkServerTrusted(chain, authType)
-                return // the host name is checked after this, by the client's HostnameVerifier
+                return
             } catch (_: CertificateException) {
                 // not signed by an authority that Android knows: the user can pin it
             }
         }
-        throw CertNotTrusted(sha256Fingerprint(leaf.encoded))
+        throw CertNotTrusted(fp)
     }
 
     override fun checkClientTrusted(chain: Array<out X509Certificate>?, authType: String?) {
@@ -56,13 +61,18 @@ class PinningTrustManager(private val pinnedSha256: String?, private val system:
     override fun getAcceptedIssuers(): Array<X509Certificate> = emptyArray()
 
     companion object {
-        /** The default trust manager of the platform (Android's certificate authorities), or null if there is none. */
-        fun systemTrustManager(): X509TrustManager? = try {
-            val f = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm())
-            f.init(null as KeyStore?)
-            f.trustManagers.filterIsInstance<X509TrustManager>().firstOrNull()
-        } catch (_: Exception) {
-            null
+        /**
+         * The default trust manager of the platform (Android's certificate authorities), or null if there is none.
+         * Made once: it reads all the system certificates, which is slow on the Y2.
+         */
+        val systemTrustManager: X509TrustManager? by lazy {
+            try {
+                val f = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm())
+                f.init(null as KeyStore?)
+                f.trustManagers.filterIsInstance<X509TrustManager>().firstOrNull()
+            } catch (_: Exception) {
+                null
+            }
         }
     }
 }

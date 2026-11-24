@@ -62,26 +62,31 @@ class CertPinTest {
     }
 
     @Test
-    fun aCertificateThatTheSystemTrustsNeedsNoPin() {
-        // A public certificate that is renewed: no Trust Certificate step, before or after
-        PinningTrustManager(null, FakeSystem(trusts = true)).checkServerTrusted(arrayOf(cert("cert_b.der")), "RSA")
+    fun aCertificateThatTheSystemTrustsForThisHostNeedsNoPin() {
+        // A public certificate that is renewed: no Trust Certificate step, before or after (cert_b is for "test-nas-b")
+        PinningTrustManager(null, FakeSystem(trusts = true), "test-nas-b").checkServerTrusted(arrayOf(cert("cert_b.der")), "RSA")
+    }
+
+    @Test
+    fun aTrustedCertificateForAnotherNameCanBePinned() {
+        // A NAS by IP address with a public certificate for its name: not trusted as it is, but the user can pin it
+        try {
+            PinningTrustManager(null, FakeSystem(trusts = true), "192.168.1.10").checkServerTrusted(arrayOf(cert("cert_a.der")), "RSA")
+            fail("expected CertNotTrusted")
+        } catch (e: CertNotTrusted) {
+            assertEquals(fpA, e.fingerprint)
+        }
+        PinningTrustManager(fpA, FakeSystem(trusts = true), "192.168.1.10").checkServerTrusted(arrayOf(cert("cert_a.der")), "RSA")
     }
 
     @Test
     fun aCertificateThatTheSystemRefusesNeedsThePin() {
         try {
-            PinningTrustManager(null, FakeSystem(trusts = false)).checkServerTrusted(arrayOf(cert("cert_a.der")), "RSA")
+            PinningTrustManager(null, FakeSystem(trusts = false), "test-nas-a").checkServerTrusted(arrayOf(cert("cert_a.der")), "RSA")
             fail("expected CertNotTrusted")
         } catch (e: CertNotTrusted) {
             assertEquals(fpA, e.fingerprint)
         }
-        PinningTrustManager(fpA, FakeSystem(trusts = false)).checkServerTrusted(arrayOf(cert("cert_a.der")), "RSA")
-    }
-
-    @Test
-    fun onlyThePinnedCertificateSkipsTheHostNameCheck() {
-        assertTrue(PinningTrustManager(fpA).isPinned(cert("cert_a.der")))
-        assertFalse(PinningTrustManager(fpA).isPinned(cert("cert_b.der")))
-        assertFalse(PinningTrustManager(null).isPinned(cert("cert_a.der")))
+        PinningTrustManager(fpA, FakeSystem(trusts = false), "test-nas-a").checkServerTrusted(arrayOf(cert("cert_a.der")), "RSA")
     }
 }

@@ -244,6 +244,17 @@ class WebDavClientTest {
         assertNull(serverUri("https://nas/100%"))
         assertNull(serverUri("ftp://nas/music"))
         assertNull(serverUri("nas:5006"))
+        assertEquals("my_nas", serverHost("http://my_nas:5005/dav")) // java.net.URI has no host for it; OkHttp has
+        assertEquals("nas", serverHost("HTTPS://NAS:5006/dav"))
+        assertEquals("/", rootHrefOf(serverUri("https://nas:5006")!!))
+        assertEquals("/My%20Music/", rootHrefOf(serverUri("https://nas/My Music")!!))
+    }
+
+    @Test
+    fun sameServerReadsHostsThatUriDoesNot() {
+        assertTrue(sameServer(java.net.URI("http://my_nas:5005/a"), java.net.URI("http://MY_NAS:5005/b")))
+        assertFalse(sameServer(java.net.URI("http://my_nas:5005/a"), java.net.URI("http://my_nas:5006/a")))
+        assertTrue(sameServer(java.net.URI("https://nas/a"), java.net.URI("https://nas:443/b")))
     }
 
     @Test(expected = java.io.IOException::class)

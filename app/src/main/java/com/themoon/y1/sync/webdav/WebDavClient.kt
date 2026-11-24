@@ -1,6 +1,7 @@
 package com.themoon.y1.sync.webdav
 
 import okhttp3.Credentials
+import okhttp3.HttpUrl
 import okhttp3.MediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -15,8 +16,6 @@ import java.net.URISyntaxException
 import java.util.concurrent.CancellationException
 import java.util.concurrent.TimeUnit
 import javax.net.ssl.SSLContext
-import java.security.cert.X509Certificate
-import okhttp3.internal.tls.OkHostnameVerifier
 import javax.xml.parsers.DocumentBuilderFactory
 
 class DavHttpException(val code: Int) : IOException("HTTP $code")
@@ -40,10 +39,14 @@ internal fun replaceFile(part: File, target: File) {
     throw IOException("Cannot write ${target.name}")
 }
 
-/** Same scheme, host (any case) and port; no port means the default of the scheme. */
+/**
+ * Same scheme, host (any case) and port; no port means the default of the scheme. OkHttp reads the host, so a name
+ * that java.net.URI does not take as a host ("my_nas") works too.
+ */
 internal fun sameServer(a: URI, b: URI): Boolean {
-    fun port(u: URI) = if (u.port >= 0) u.port else if (u.scheme.equals("https", ignoreCase = true)) 443 else 80
-    return a.scheme.equals(b.scheme, ignoreCase = true) && a.host?.equals(b.host, ignoreCase = true) == true && port(a) == port(b)
+    val x = HttpUrl.parse(a.toString()) ?: return false
+    val y = HttpUrl.parse(b.toString()) ?: return false
+    return x.scheme() == y.scheme() && x.host() == y.host() && x.port() == y.port()
 }
 
 /**
@@ -59,8 +62,16 @@ fun serverUri(url: String): URI? {
     }
     val scheme = u.scheme?.lowercase()
     if (scheme != "http" && scheme != "https") return null
-    return u.takeIf { !it.host.isNullOrEmpty() }
+    // A host: java.net.URI has none for a name like "my_nas" (only an authority), so OkHttp, which sends the requests, decides
+    if (u.rawAuthority.isNullOrEmpty() || HttpUrl.parse(u.toString())?.host().isNullOrEmpty()) return null
+    return u
 }
+
+/** The host of a [serverUri] URL (lower case), or null. */
+fun serverHost(url: String): String? = serverUri(url)?.let { HttpUrl.parse(it.toString())?.host() }
+
+/** The path of the server URL [uri] as an href (encoded, ends with '/'): the root of the folders. */
+fun rootHrefOf(uri: URI): String = (uri.rawPath?.takeIf { it.isNotEmpty() } ?: "/").let { if (it.endsWith("/")) it else "$it/" }
 
 /** Percent-decodes each path segment as UTF-8. '+' stays '+' (paths are not form-encoded). */
 fun decodeHref(href: String): String {
@@ -137,9 +148,8 @@ object Propfind {
 }
 
 /**
- * Minimal WebDAV client: PROPFIND Depth 1 and GET. [trust] accepts a pinned self-signed certificate or one that
- * Android trusts (see CertPin). The host name is not checked for the pinned certificate (a NAS by IP address), but it
- * is for any other.
+ * Minimal WebDAV client: PROPFIND Depth 1 and GET. [trust] accepts a pinned self-signed certificate, or one that
+ * Android trusts for the host of the URL; it checks the host name itself (see CertPin), so OkHttp does not again.
  */
 class WebDavClient(
     private val baseUrl: String,
@@ -163,16 +173,13 @@ class WebDavClient(
                 val ctx = SSLContext.getInstance("TLS")
                 ctx.init(null, arrayOf(trust), null)
                 sslSocketFactory(ctx.socketFactory, trust)
-                hostnameVerifier { host, session ->
-                    val leaf = try { session.peerCertificates.firstOrNull() as? X509Certificate } catch (_: Exception) { null }
-                    (leaf != null && trust.isPinned(leaf)) || OkHostnameVerifier.INSTANCE.verify(host, session)
-                }
+                hostnameVerifier { _, _ -> true } // the trust manager checked the name, or the certificate is pinned
             }
         }
         .build()
 
     /** The path of [baseUrl], as an href (encoded, ends with '/'). */
-    val rootHref: String = (baseUri.rawPath ?: "/").let { if (it.endsWith("/")) it else "$it/" }
+    val rootHref: String = rootHrefOf(baseUri)
 
     /**
      * The URL of [href]. The password goes with every request, so an absolute href must name the server that the

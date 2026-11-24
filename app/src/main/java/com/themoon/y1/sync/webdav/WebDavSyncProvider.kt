@@ -63,8 +63,14 @@ class WebDavSyncProvider private constructor(context: Context) : MediaSyncProvid
         set(v) { prefs.edit().putLong("last_auto_attempt", v).apply() }
 
     /** Throws an IOException for a URL that [serverUri] does not take: call it where an error can show. */
-    fun client(url: String = this.url, user: String = this.user, password: String = this.password, pin: String? = this.pin): WebDavClient =
-        WebDavClient(url, user, password, if (url.startsWith("https://")) PinningTrustManager(pin, PinningTrustManager.systemTrustManager()) else null)
+    fun client(url: String = this.url, user: String = this.user, password: String = this.password, pin: String? = this.pin): WebDavClient {
+        val https = serverUri(url)?.scheme.equals("https", ignoreCase = true) // also "HTTPS://" from the config file
+        return WebDavClient(url, user, password,
+            if (https) PinningTrustManager(pin, PinningTrustManager.systemTrustManager, serverHost(url)) else null)
+    }
+
+    /** The href of the top folder of the Server URL, or null for a URL that [serverUri] does not take. No client, no I/O. */
+    fun rootHref(): String? = serverUri(url)?.let { rootHrefOf(it) }
 
     /**
      * Sets the Server URL. The same server (scheme, host and port) keeps the pin, the ticked folders and the synced
