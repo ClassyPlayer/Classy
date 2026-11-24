@@ -887,5 +887,7 @@
   "Cannot save the sync record": "동기화 기록을 저장할 수 없습니다",
   "This Folder": "이 폴더",
   "Sync cancelled": "동기화가 취소되었습니다",
-  "Sort by Year": "연도순 정렬"
+  "Sort by Year": "연도순 정렬",
+  "No Duplicates in Playlists": "재생목록 중복 없음",
+  "Already in Playlist": "이미 재생목록에 있음"
 }
