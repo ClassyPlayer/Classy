@@ -27,7 +27,7 @@ import com.themoon.y1.views.ToggleStyle
  */
 enum class PrefGroup(val isSetting: Boolean) {
     PLAYBACK(true), DISPLAY(true), NOW_PLAYING(true), STATUS_BAR(true), APPEARANCE(true), MENUS(true),
-    CONTROLS(true), CONNECTIVITY(true), DATE_TIME(true), GENERAL(true),
+    CONTROLS(true), CONNECTIVITY(true), LIBRARY(true), DATE_TIME(true), GENERAL(true),
 
     /** Playback state that the app saves while it plays. */
     STATE(false),
@@ -186,6 +186,8 @@ object Prefs {
     /** Music Menu Items: "hide_music_btn_<item id>" = true hides the item. */
     val MUSIC_MENU_HIDDEN = add(PrefFamily("hide_music_btn_", PrefGroup.MENUS))
     val GROUP_ALBUMS_BY_ARTIST = add(BoolPref(AlbumKey.PREF_BY_ARTIST, false, PrefGroup.MENUS, resettable = true))
+    /** Show the folder-based audiobook series Cover Flow entry in Audiobooks. */
+    val AUDIOBOOK_SERIES_COVER_FLOW = add(BoolPref("audiobook_series_cover_flow", false, PrefGroup.LIBRARY, resettable = true))
 
     // --- Controls ---
     val BUTTON_SOUND = add(BoolPref("sound", true, PrefGroup.CONTROLS))

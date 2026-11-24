@@ -48,7 +48,14 @@ class CoverFlowController(
     private val onRebuildUniqueAlbumList: (() -> Unit)? = null,
     /** The library song in Now Playing (playing or paused), or null: Cover Flow opens at its album (see [CoverFlowStart]). */
     private val nowPlayingSong: () -> SongItem? = { null },
-    private val localize: (String) -> String
+    private val localize: (String) -> String,
+    /** Optional state-aware list rebuild, used by the folder-based audiobook Cover Flow. */
+    private val prepareItems: ((ScreenState) -> Unit)? = null,
+    /** Additional route recognised as this controller's active Cover Flow screen. */
+    private val isAdditionalOpenState: (ScreenState) -> Boolean = { false },
+    private val emptyText: String? = null,
+    /** Optional status bar title in place of "Cover Flow" (the audiobook Cover Flow shows the series name). */
+    private val titleProvider: (() -> String)? = null
 ) : ScreenController {
 
     private val containerBrowserItems: LinearLayout = rootView.findViewById(R.id.container_browser_items)
@@ -103,6 +110,7 @@ class CoverFlowController(
     private var preparedRandomStart = -1
 
     override fun onEnter(state: ScreenState) {
+        prepareItems?.invoke(state)
         if (uniqueAlbumList.isEmpty()) onRebuildUniqueAlbumList?.invoke()
         // Only Back from the song list of the album that Cover Flow opened keeps that album.
         val back = albumListState
@@ -129,10 +137,12 @@ class CoverFlowController(
     }
 
     override fun onRefreshUI() {
+        NavigationManager.getInstance().currentState?.let { prepareItems?.invoke(it) }
         buildCoverFlowUI()
     }
 
     override fun onLibraryLoaded() {
+        NavigationManager.getInstance().currentState?.let { prepareItems?.invoke(it) }
         buildCoverFlowUI()
     }
 
@@ -180,7 +190,7 @@ class CoverFlowController(
 
         if (uniqueAlbumList.isEmpty()) {
             val tvEmpty = TextView(activity).apply {
-                text = localize("No Albums Found")
+                text = emptyText ?: localize("No Albums Found")
                 textSize = 18f
                 setTextColor(ThemeManager.getTextColorSecondary())
                 gravity = Gravity.CENTER
@@ -274,7 +284,10 @@ class CoverFlowController(
         mainHandler.postDelayed(prepareTask, PREPARE_DELAY_MS)
     }
 
-    private fun isOpen() = NavigationManager.getInstance().currentState is ScreenState.CoverFlow
+    private fun isOpen(): Boolean {
+        val state = NavigationManager.getInstance().currentState
+        return state is ScreenState.CoverFlow || (state != null && isAdditionalOpenState(state))
+    }
 
     /**
      * Starts the thumbnail check of all albums one time for each album list (the list changes only at a library
@@ -432,7 +445,7 @@ class CoverFlowController(
     private fun showStatusTitle() {
         val total = uniqueAlbumList.size
         if (total == 0) return
-        tvStatusTitle?.text = CoverFlowTitle.format(localize("Cover Flow"), currentCoverFlowIndex + 1, total)
+        tvStatusTitle?.text = CoverFlowTitle.format(titleProvider?.invoke() ?: localize("Cover Flow"), currentCoverFlowIndex + 1, total)
     }
 
     /** Sets the status title at the next frame, one time for all the steps before it. */

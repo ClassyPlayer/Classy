@@ -1,0 +1,2 @@
+4a05c698f068eb73905ad9eb58727528ef59752551d2b3d23bc9400a3e4ed6b1  /mnt/c/Users/Christopher/Downloads/Classy-Y2-Series-Local-Build-Kit-FIXED-v8/Classy-main/OUTPUT/rom_y2.zip
+0c811d785680b8aab9f065656270a81c2c573be5594c2da54dd40a3474d77607  /mnt/c/Users/Christopher/Downloads/Classy-Y2-Series-Local-Build-Kit-FIXED-v8/Classy-main/OUTPUT/app-y2-debug.apk

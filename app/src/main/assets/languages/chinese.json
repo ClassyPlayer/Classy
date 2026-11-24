@@ -851,6 +851,8 @@
   "Queue": "队列",
   "Earlier Tracks": "更早的曲目",
   "Later Tracks": "更后的曲目",
-  "Open this address in a browser on your computer or phone.": "在电脑或手机的浏览器中打开此地址。",
-  "Scan the code with a phone, or open the address in a browser.": "用手机扫描二维码，或在浏览器中打开此地址。"
+  "Audiobook Series": "Audiobook Series",
+  "No Audiobooks Found": "No Audiobooks Found",
+  "Series Cover Flow": "Series Cover Flow",
+  "Audiobook Series Cover Flow": "Audiobook Series Cover Flow"
 }

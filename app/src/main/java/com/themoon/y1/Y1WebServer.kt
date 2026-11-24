@@ -26,10 +26,9 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 
-/** The HTTP server of Wireless PC Upload. The file browser has one top-level folder for each storage ([WebRoots]). */
 class Y1WebServer @JvmOverloads constructor(
     private val context: Context?,
-    private val roots: WebRoots = WebRoots.ofDevice(),
+    rootFolder: File? = null,
     private val port: Int = 8080
 ) : Thread() {
 
@@ -41,6 +40,7 @@ class Y1WebServer @JvmOverloads constructor(
     )
     @Volatile
     private var running = true
+    private val rootFolder: File = (rootFolder ?: StoragePaths.getWebServerRoot()).absoluteFile
 
     fun getListeningPort(): Int {
         val socket = serverSocket
@@ -100,9 +100,9 @@ class Y1WebServer @JvmOverloads constructor(
         }
     }
 
-    /** Deletes [file] (a folder with all its contents) in the storage root [base]. */
     @Throws(IOException::class)
-    private fun deleteFileOrFolder(file: File, base: File) {
+    private fun deleteFileOrFolder(file: File) {
+        val base = rootFolder.canonicalFile
         val canonical = file.canonicalFile
         if (canonical == base || !canonical.path.startsWith(base.path + File.separator)) {
             throw IOException("Cannot delete outside shared folder")
@@ -113,7 +113,7 @@ class Y1WebServer @JvmOverloads constructor(
         if (file.isDirectory) {
             val children = file.listFiles() ?: throw IOException("Cannot read folder")
             for (child in children) {
-                deleteFileOrFolder(child, base)
+                deleteFileOrFolder(child)
             }
         }
         if (!file.delete()) {
@@ -240,8 +240,6 @@ class Y1WebServer @JvmOverloads constructor(
                             "<a href='/lastfm' style='font-size:14px; color:#B39DDB; text-decoration:none; vertical-align:middle;'>🎧 Last.fm Settings</a></h2>" +
                             "<div class='box' id='uploadBox'>" +
                             "<div style='font-size:16px; margin-bottom:12px; font-weight:500; color:#B39DDB;'>📍 <span id='currentPathText'>/</span></div>" +
-                            "<div id='topHint' style='text-align:center; color:#9E9E9E; font-size:13px; display:none;'>Open a storage folder to make folders and upload files.</div>" +
-                            "<div id='writeTools'>" +
                             "<div style='text-align:center; color:#9E9E9E; font-size:13px; margin-bottom:20px; padding-bottom:15px; border-bottom:1px solid #333340;'>💡 <b>Drag & Drop</b> files anywhere in this box to upload instantly!</div>" +
                             "<div style='display:flex; gap:8px; margin-bottom:15px;'>" +
                             "<input type='text' id='fName' placeholder='New folder name...'>" +
@@ -249,7 +247,6 @@ class Y1WebServer @JvmOverloads constructor(
                             "<div style='display:flex; gap:8px; align-items:center;'>" +
                             "<input type='file' id='fInput' multiple accept='*/*' style='flex-grow:1; color:#9E9E9E;'>" +
                             "<button onclick='uploadAll()' class='action'>Upload Here</button></div>" +
-                            "</div>" +
                             "<div id='status' style='margin-top:12px; color:#81C784; font-weight:600; font-size:14px;'></div>" +
                             "</div>" +
                             "<div class='box' id='fileList'>Loading...</div>" +
@@ -266,16 +263,10 @@ class Y1WebServer @JvmOverloads constructor(
                             "</div></div>" +
                             "<script>" +
                             "const nativeFetch = window.fetch.bind(window); window.fetch = (url, options) => nativeFetch(url, options).then(r => { if (!r.ok) { document.getElementById('status').textContent = 'Request failed (' + r.status + ')'; throw Error('Request failed'); } return r; });" +
-                            "let currentPath = ''; let shownPath = ''; let listRequest = 0;" +
-                            // Only the latest list request may change the page: an older answer that comes late is ignored
+                            "let currentPath = '';" +
                             "function loadList() {" +
-                            " const request = ++listRequest;" +
                             " fetch('/api/list?dir=' + encodeURIComponent(currentPath)).then(r=>{if(!r.ok) throw Error('Cannot load folder'); return r.json();}).then(data=>{" +
-                            " if(request !== listRequest) return;" +
-                            " shownPath = currentPath;" +
                             " document.getElementById('currentPathText').textContent='/' + currentPath;" +
-                            " document.getElementById('writeTools').style.display=currentPath?'':'none';" +
-                            " document.getElementById('topHint').style.display=currentPath?'none':'';" +
                             " const list=document.getElementById('fileList'); list.textContent='';" +
                             " function button(row,label,action) {const b=document.createElement('button');b.className='action';b.textContent=label;b.onclick=e=>{e.stopPropagation();action(e);};row.appendChild(b);}" +
                             " if(currentPath) {const back=document.createElement('div');back.className='item';back.textContent='\\u2190 Go Back';back.onclick=goUp;list.appendChild(back);}" +
@@ -291,12 +282,11 @@ class Y1WebServer @JvmOverloads constructor(
                             " if(['json','txt','xml','ini','md','m3u','m3u8','eq'].includes(ext)) button(row,'Edit',e=>openEditor(e,path,f.name));" +
                             " button(row,'Download',()=>{window.location.href='/api/download?path='+path;});" +
                             " }" +
-                            " if(!f.storage) {button(row,'Rename',e=>renameItem(e,f.name)); button(row,'Delete',e=>deleteItem(e,f.name));}" +
+                            " button(row,'Rename',e=>renameItem(e,f.name));" +
+                            " button(row,'Delete',e=>deleteItem(e,f.name));" +
                             " list.appendChild(row);" +
                             " });" +
-                            " }).catch(e=>{if(request !== listRequest) return; document.getElementById('status').textContent=e.message;" +
-                            // A storage that cannot be opened (no card): back to the top level; else stay in the folder on the screen
-                            " if(currentPath && currentPath.indexOf('/')<0) {currentPath=''; loadList();} else currentPath=shownPath;});" +
+                            " }).catch(e=>{document.getElementById('status').textContent=e.message;});" +
                             "}" +
                             "function goInto(dirName) { currentPath = currentPath ? currentPath + '/' + dirName : dirName; loadList(); }" +
                             "function goUp() { let parts = currentPath.split('/'); parts.pop(); currentPath = parts.join('/'); loadList(); }" +
@@ -342,24 +332,23 @@ class Y1WebServer @JvmOverloads constructor(
                             "}" +
                             "async function uploadAll(droppedFiles) { " +
                             "  var files = droppedFiles || document.getElementById('fInput').files; var st = document.getElementById('status'); " +
-                            "  if(files.length === 0 || !currentPath) return;" +
-                            "  const dir = currentPath;" +
+                            "  if(files.length === 0) return;" +
                             "  for(var i=0; i<files.length; i++) { " +
                             "    st.innerText = 'Uploading: ' + files[i].name + ' (' + (i+1) + '/' + files.length + ')'; " +
-                            "    await fetch('/api/upload?dir=' + encodeURIComponent(dir) + '&name=' + encodeURIComponent(files[i].name), {method:'POST', body:files[i]}); " +
+                            "    await fetch('/api/upload?dir=' + encodeURIComponent(currentPath) + '&name=' + encodeURIComponent(files[i].name), {method:'POST', body:files[i]}); " +
                             "  } " +
                             "  st.innerText = '✅ Upload Complete!'; document.getElementById('fInput').value=''; loadList();" +
                             "}" +
-                            "async function uploadFolderItems(fileList, baseDir) { " +
+                            "async function uploadFolderItems(fileList) { " +
                             "  var st = document.getElementById('status'); " +
                             "  for(var i=0; i<fileList.length; i++) { " +
                             "    let item = fileList[i]; " +
                             "    let displayPath = item.path ? item.path + item.file.name : item.file.name; " +
                             "    st.innerText = 'Uploading: ' + displayPath + ' (' + (i+1) + '/' + fileList.length + ')'; " +
-                            "    let targetDir = baseDir; " +
+                            "    let targetDir = currentPath; " +
                             "    if(item.path) { " +
                             "       let subDir = item.path.replace(/\\/$/, ''); " +
-                            "       targetDir = baseDir + '/' + subDir; " +
+                            "       targetDir = currentPath ? currentPath + '/' + subDir : subDir; " +
                             "    } " +
                             "    await fetch('/api/upload?dir=' + encodeURIComponent(targetDir) + '&name=' + encodeURIComponent(item.file.name), {method:'POST', body:item.file}); " +
                             "  } " +
@@ -370,8 +359,6 @@ class Y1WebServer @JvmOverloads constructor(
                             "dropZone.addEventListener('dragleave', function(e) { e.preventDefault(); dropZone.classList.remove('dragover'); });" +
                             "dropZone.addEventListener('drop', function(e) { " +
                             "  e.preventDefault(); dropZone.classList.remove('dragover'); " +
-                            "  if(!currentPath) { document.getElementById('status').innerText = 'Open a storage folder first.'; return; } " +
-                            "  const baseDir = currentPath; " +
                             "  let items = e.dataTransfer.items; " +
                             "  if(!items) { if(e.dataTransfer.files.length > 0) uploadAll(e.dataTransfer.files); return; } " +
                             "  document.getElementById('status').innerText = 'Scanning dropped items...'; " +
@@ -393,7 +380,7 @@ class Y1WebServer @JvmOverloads constructor(
                             "  } " +
                             "  function checkDone() { " +
                             "    if(pending === 0) { " +
-                            "      if(filesToUpload.length > 0) uploadFolderItems(filesToUpload, baseDir); " +
+                            "      if(filesToUpload.length > 0) uploadFolderItems(filesToUpload); " +
                             "      else document.getElementById('status').innerText = 'No files found.'; " +
                             "    } " +
                             "  } " +
@@ -411,16 +398,10 @@ class Y1WebServer @JvmOverloads constructor(
                     var dirStr = ""
                     if (q.startsWith("dir=")) dirStr = URLDecoder.decode(q.substring(4), "UTF-8")
 
+                    val targetDir = if (dirStr.isEmpty()) rootFolder else SafeFiles.resolve(rootFolder, dirStr)
                     val json = StringBuilder("[")
-                    val targetDir = if (dirStr.isEmpty()) null else roots.resolve(dirStr)
 
-                    if (targetDir == null) {
-                        // The top level: one folder for each storage
-                        for (name in roots.names()) {
-                            if (json.length > 1) json.append(",")
-                            json.append("{\"name\":").append(JSONObject.quote(name)).append(",\"isDir\":true,\"storage\":true}")
-                        }
-                    } else if (targetDir.exists() && targetDir.isDirectory) {
+                    if (targetDir.exists() && targetDir.isDirectory) {
                         val files = targetDir.listFiles()
                         if (files != null) {
                             for (i in 0..1) {
@@ -445,18 +426,17 @@ class Y1WebServer @JvmOverloads constructor(
                         if (p.startsWith("dir=")) dirStr = URLDecoder.decode(p.substring(4), "UTF-8")
                         if (p.startsWith("name=")) name = URLDecoder.decode(p.substring(5), "UTF-8")
                     }
-                    val targetDir = roots.resolve(dirStr)
+                    val targetDir = if (dirStr.isEmpty()) rootFolder else SafeFiles.resolve(rootFolder, dirStr)
                     val newDir = SafeFiles.child(targetDir, name)
                     if (!newDir.isDirectory && !newDir.mkdirs()) throw IOException("Cannot create folder")
                     os.write("HTTP/1.1 200 OK\r\n\r\nOK".toByteArray(Charsets.UTF_8))
                 } else if (method == "POST" && path.startsWith("/api/delete")) {
                     val q = path.split("\\?".toRegex())[1]
                     val targetPath = URLDecoder.decode(q.substring(5), "UTF-8")
-                    val targetFile = roots.resolve(targetPath)
-                    val base = roots.rootOf(targetPath).canonicalFile
-                    if (targetFile == base) throw IOException("Cannot delete root")
+                    val targetFile = SafeFiles.resolve(rootFolder, targetPath)
+                    if (targetFile == rootFolder.canonicalFile) throw IOException("Cannot delete root")
                     if (targetFile.exists()) {
-                        deleteFileOrFolder(targetFile, base)
+                        deleteFileOrFolder(targetFile)
                     }
                     os.write("HTTP/1.1 200 OK\r\n\r\nOK".toByteArray(Charsets.UTF_8))
                 } else if (method == "POST" && path.startsWith("/api/rename")) {
@@ -471,7 +451,7 @@ class Y1WebServer @JvmOverloads constructor(
                         if (p.startsWith("new=")) newName = URLDecoder.decode(p.substring(4), "UTF-8")
                     }
 
-                    val targetDir = roots.resolve(dirStr)
+                    val targetDir = if (dirStr.isEmpty()) rootFolder else SafeFiles.resolve(rootFolder, dirStr)
                     val oldFile = SafeFiles.child(targetDir, oldName)
                     val newFile = SafeFiles.child(targetDir, newName)
 
@@ -483,7 +463,7 @@ class Y1WebServer @JvmOverloads constructor(
                 } else if (method == "GET" && path.startsWith("/api/file")) {
                     val q = path.split("\\?".toRegex())[1]
                     val targetPath = URLDecoder.decode(q.substring(5), "UTF-8")
-                    val targetFile = roots.resolve(targetPath)
+                    val targetFile = SafeFiles.resolve(rootFolder, targetPath)
 
                     if (!targetFile.exists() || targetFile.isDirectory) {
                         os.write("HTTP/1.1 404 Not Found\r\n\r\nNot Found".toByteArray(Charsets.UTF_8))
@@ -524,7 +504,7 @@ class Y1WebServer @JvmOverloads constructor(
                         if (p.startsWith("name=")) name = URLDecoder.decode(p.substring(5), "UTF-8")
                     }
 
-                    val targetDir = roots.resolve(dirStr)
+                    val targetDir = if (dirStr.isEmpty()) rootFolder else SafeFiles.resolve(rootFolder, dirStr)
                     if (!targetDir.isDirectory && !targetDir.mkdirs()) throw IOException("Cannot create folder")
                     val outFile = SafeFiles.child(targetDir, name)
 
@@ -534,7 +514,7 @@ class Y1WebServer @JvmOverloads constructor(
                 } else if (method == "POST" && path.startsWith("/api/save")) {
                     val q = path.split("\\?".toRegex())[1]
                     val targetPath = URLDecoder.decode(q.substring(5), "UTF-8")
-                    val targetFile = roots.resolve(targetPath)
+                    val targetFile = SafeFiles.resolve(rootFolder, targetPath)
 
                     SafeFiles.replace(targetFile, inputStream, contentLength)
 
@@ -542,7 +522,7 @@ class Y1WebServer @JvmOverloads constructor(
                 } else if (method == "GET" && path.startsWith("/api/download")) {
                     val q = path.split("\\?".toRegex())[1]
                     val targetPath = URLDecoder.decode(q.substring(5), "UTF-8")
-                    val targetFile = roots.resolve(targetPath)
+                    val targetFile = SafeFiles.resolve(rootFolder, targetPath)
 
                     if (!targetFile.exists() || targetFile.isDirectory) {
                         os.write("HTTP/1.1 404 Not Found\r\n\r\nNot Found".toByteArray(Charsets.UTF_8))

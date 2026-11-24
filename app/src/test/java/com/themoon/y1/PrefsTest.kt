@@ -48,7 +48,9 @@ class PrefsTest {
             // Settings → Photos (the slideshow)
             "photos_slide_time", "photos_repeat", "photos_shuffle", "photos_transition",
             // Settings → Controls → Wheel Mode (Y2) and List Glide
-            "wheel_mode", "list_glide")
+            "wheel_mode", "list_glide",
+            // Settings → Library → Audiobook Series Cover Flow
+            "audiobook_series_cover_flow")
         assertEquals(before + added, Prefs.RESETTABLE.map { it.key }.toSet())
     }
 

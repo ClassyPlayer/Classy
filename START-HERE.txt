@@ -1,0 +1,34 @@
+CLASSY Y2 — LOCAL WINDOWS BUILD KIT
+Audiobook Series Cover Flow modification
+
+You do NOT need a GitHub account or Android Studio.
+
+WHAT THIS PACKAGE DOES
+- Builds the modified Classy Y2 APK on your own Windows PC using Ubuntu in WSL2.
+- Runs the Y2 unit tests.
+- Builds rom_y2.zip using the project's Y2 firmware packaging script.
+- Copies the results into the OUTPUT folder beside this file.
+
+ONE-TIME WINDOWS SETUP
+1. Extract this entire ZIP to a normal folder, for example:
+   C:\Classy-Y2-Series-Build
+2. Open Windows PowerShell as Administrator.
+3. Run:
+   wsl --install -d Ubuntu
+4. Restart Windows if prompted.
+5. Open Ubuntu from the Start menu and finish its first-run setup by creating a Linux username and password.
+6. Close Ubuntu.
+
+BUILD
+1. Double-click BUILD-Y2-WINDOWS.bat.
+2. Ubuntu will install Java 17 and Android SDK build components, download Gradle dependencies, run the tests, and build the firmware.
+3. The first build can take a while and needs an internet connection. When sudo asks for your Ubuntu password, type it (the cursor will not show the characters) and press Enter.
+4. When it finishes, find OUTPUT\rom_y2.zip.
+
+IMPORTANT LIMITS
+- The ROM builder needs WSL2 loop-mount support. The script checks this before touching the base firmware. If the check fails, it stops and does not produce a ROM.
+- The firmware package is generated from the project's clean Y2 base firmware. It does not contain your current player's private app data or audiobook progress.
+- Do not flash until you have separately backed up your audiobook files, Classy playback positions/bookmarks, and any other internal storage, and have a recovery plan.
+- The build uses a debug-signed Y2 app. It is intended to be bundled into the ROM by the supplied build script; it is not an APK update to install over the official release.
+
+If the build stops, keep the complete error text. Do not rename an incomplete ZIP to rom_y2.zip.

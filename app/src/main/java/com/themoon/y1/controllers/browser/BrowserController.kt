@@ -10,6 +10,7 @@ import android.widget.LinearLayout
 import android.widget.ListView
 import android.widget.TextView
 import com.themoon.y1.AppPrefs
+import com.themoon.y1.Prefs
 import com.themoon.y1.MainActivity
 import com.themoon.y1.R
 import com.themoon.y1.StoragePaths
@@ -271,6 +272,10 @@ class BrowserController(
             }
         } else {
             rows += RowSpec(localize("Continue"), onClick = { continueAudiobook() })
+            if (Prefs.AUDIOBOOK_SERIES_COVER_FLOW.get(AppPrefs.get(activity))) {
+                rows += RowSpec(localize("Series Cover Flow"), key = "audiobook_series_cover_flow",
+                    onClick = { onNavigateToScreen(ScreenState.AudiobookCoverFlow()) })
+            }
             rows += RowSpec(localize("Books"), onClick = { openList(BrowserMode.Albums()) })
             rows += RowSpec(localize("Authors"), onClick = { openList(BrowserMode.Artists) })
         }
@@ -284,9 +289,14 @@ class BrowserController(
     private fun continueAudiobook() {
         val main = MainActivity.instance ?: return
         main.isAudiobookLibraryMode = true
-        val savedPath = main.prefs.getString("last_played_audiobook_path", null)
+        // Only a file of the Audiobooks folders counts: an older save can hold a music file (played while the
+        // audiobook mode was still on), and Continue must not open that.
+        fun audiobookPath(path: String?): String? = if (!path.isNullOrEmpty() && StoragePaths.isUnderAudiobooks(path)) path else null
+        val seriesFolder = main.prefs.getString("audiobook_series_last_played", null)
+        val savedPath = audiobookPath(main.prefs.getString("last_played_audiobook_path", null))
+            ?: audiobookPath(seriesFolder?.let { main.prefs.getString("audiobook_series_last_book_$it", null) })
             ?: if (main.prefs.getBoolean("last_played_is_audiobook", false)) {
-                main.prefs.getString("last_played_song_path", null)
+                audiobookPath(main.prefs.getString("last_played_song_path", null))
             } else null
         val file = if (!savedPath.isNullOrEmpty()) File(savedPath) else null
         val targetFile = if (file != null && file.exists()) file else MainActivity.audiobookLibrary.firstOrNull()?.file

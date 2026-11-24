@@ -1,0 +1,13 @@
+FLASHING SAFETY CHECK
+
+This build kit only creates a firmware archive. It does not back up the current player.
+
+The ROM builder starts from a clean Y2 base ROM and replaces system components. It cannot preserve your existing Classy private database or playback progress by itself. A firmware flash can erase internal storage.
+
+Before using Updater CE:
+- Copy all audiobook/music files from the player to the PC.
+- Make a separate backup of Classy's app-private playback state/bookmarks using a verified method for this exact device and app version.
+- Keep a known-good Y2 recovery firmware and confirm how to restore it.
+- Do not assume an Updater option called Keep Settings and Media also preserves Classy's private database.
+
+If you cannot verify the Classy playback-state backup, stop before flashing.

@@ -459,9 +459,8 @@ class StoragePathsParityTest {
     }
 
     @Test
-    fun getSecondaryRoot_isTheCardOnlyWhenPresent() {
-        val expected = if (StoragePaths.hasSecondaryStorage()) java.io.File(StoragePaths.SECONDARY_PATH) else null
-        assertEquals(expected, StoragePaths.getSecondaryRoot())
+    fun getWebServerRoot_returnsPrimaryRoot() {
+        assertEquals(StoragePaths.getPrimaryRoot(), StoragePaths.getWebServerRoot())
     }
 
     @Test

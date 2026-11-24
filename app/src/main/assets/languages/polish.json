@@ -851,6 +851,8 @@
   "Queue": "Kolejka",
   "Earlier Tracks": "Wcześniejsze utwory",
   "Later Tracks": "Późniejsze utwory",
-  "Open this address in a browser on your computer or phone.": "Otwórz ten adres w przeglądarce na komputerze lub telefonie.",
-  "Scan the code with a phone, or open the address in a browser.": "Zeskanuj kod telefonem lub otwórz adres w przeglądarce."
+  "Audiobook Series": "Audiobook Series",
+  "No Audiobooks Found": "No Audiobooks Found",
+  "Series Cover Flow": "Series Cover Flow",
+  "Audiobook Series Cover Flow": "Audiobook Series Cover Flow"
 }

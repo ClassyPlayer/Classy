@@ -41,6 +41,8 @@ sealed interface ScreenState {
     /** An ebook ([file]) on the reader page. */
     data class BookReader(val file: File) : ScreenState
     data object CoverFlow : ScreenState
+    /** Audiobooks → Series Cover Flow; a non-null directory opens that series' books. */
+    data class AudiobookCoverFlow(val seriesDirectory: File? = null) : ScreenState
     data object Playlists : ScreenState
     data class M3uPlaylistSongs(val m3uFile: File) : ScreenState
     /** iPod smart playlist in Music -> Playlists: Recently Played or Top 25 Most Played. */

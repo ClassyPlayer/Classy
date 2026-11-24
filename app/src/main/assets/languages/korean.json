@@ -851,6 +851,8 @@
   "Queue": "대기열",
   "Earlier Tracks": "이전 트랙",
   "Later Tracks": "다음 트랙",
-  "Open this address in a browser on your computer or phone.": "컴퓨터나 휴대폰의 브라우저에서 이 주소를 여세요.",
-  "Scan the code with a phone, or open the address in a browser.": "휴대폰으로 코드를 스캔하거나 브라우저에서 주소를 여세요."
+  "Audiobook Series": "Audiobook Series",
+  "No Audiobooks Found": "No Audiobooks Found",
+  "Series Cover Flow": "Series Cover Flow",
+  "Audiobook Series Cover Flow": "Audiobook Series Cover Flow"
 }

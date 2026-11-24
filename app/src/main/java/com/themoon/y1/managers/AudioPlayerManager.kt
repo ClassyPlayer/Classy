@@ -37,6 +37,7 @@ import com.google.android.exoplayer2.upstream.DefaultAllocator
 import com.google.android.exoplayer2.upstream.DefaultDataSourceFactory
 import com.google.android.exoplayer2.util.Util
 import com.themoon.y1.MainActivity
+import com.themoon.y1.controllers.coverflow.AudiobookSeriesIndex
 import com.themoon.y1.R
 import com.themoon.y1.StoragePaths
 import com.themoon.y1.core.TimeFormat
@@ -1222,8 +1223,15 @@ class AudioPlayerManager private constructor() {
                         val editor = main.prefs.edit()
                             .putInt("book_pos_$filePath", getCurrentPosition())
                             .putInt("book_dur_$filePath", getDuration())
-                        if (isAudiobook) {
+                        // Only a file of the Audiobooks folders: music played while the audiobook mode flag was still
+                        // set must not become the audiobook that Continue opens.
+                        if (isAudiobook && StoragePaths.isUnderAudiobooks(filePath)) {
                             editor.putString("last_played_audiobook_path", filePath)
+                            // Each book folder remembers its own current file, so reopening a book from the
+                            // Series Cover Flow resumes at its chapter even after other books were played.
+                            for (dir in AudiobookSeriesIndex.foldersAbove(StoragePaths.getAudiobooksDirs(), java.io.File(filePath))) {
+                                editor.putString("audiobook_last_in_" + dir.absolutePath, filePath)
+                            }
                         }
                         editor.apply()
                     }
@@ -1917,8 +1925,21 @@ class AudioPlayerManager private constructor() {
                 .putBoolean("last_played_is_audiobook", main.isAudiobookLibraryMode)
                 .putBoolean("has_saved_playback_state", true)
 
-            if (main.isAudiobookLibraryMode || currentFile.absolutePath.contains("/Audiobooks")) {
+            if (StoragePaths.isUnderAudiobooks(currentFile.absolutePath) || currentFile.absolutePath.contains("/Audiobooks")) {
                 editor.putString("last_played_audiobook_path", currentFile.absolutePath)
+                // Index each audiobook file once for series resume. The separate marker also handles
+                // upgrades where last_played_audiobook_path was already this file before the feature
+                // was enabled; comparing only that older key would otherwise skip the first series save.
+                if (main.prefs.getString("audiobook_series_indexed_path", null) != currentFile.absolutePath) {
+                    val series = AudiobookSeriesIndex.seriesFolderForFile(
+                        MainActivity.audiobookLibrary, StoragePaths.getAudiobooksDirs(), currentFile
+                    )
+                    if (series != null) {
+                        editor.putString("audiobook_series_last_played", series.absolutePath)
+                            .putString("audiobook_series_last_book_${series.absolutePath}", currentFile.absolutePath)
+                    }
+                    editor.putString("audiobook_series_indexed_path", currentFile.absolutePath)
+                }
             }
 
             if (sync) editor.commit() else editor.apply()

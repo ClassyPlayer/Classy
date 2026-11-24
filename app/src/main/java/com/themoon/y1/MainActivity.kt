@@ -303,6 +303,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     fun isPlayerControllerInitialized(): Boolean = ::playerController.isInitialized
     lateinit var playlistController: PlaylistController
     lateinit var coverFlowController: CoverFlowController
+    lateinit var audiobookCoverFlowController: CoverFlowController
     fun isCoverFlowControllerInitialized(): Boolean = ::coverFlowController.isInitialized
     lateinit var playerController: PlayerController
     lateinit var equalizerController: EqualizerController
@@ -702,7 +703,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     fun syncCurrentScreenState(state: ScreenState) {
         currentScreenState = when (state) {
             is ScreenState.MainMenu -> STATE_MENU
-            is ScreenState.CoverFlow -> STATE_COVERFLOW
+            is ScreenState.CoverFlow, is ScreenState.AudiobookCoverFlow -> STATE_COVERFLOW
             is ScreenState.Browser -> {
                 when (state.mode) {
                     is BrowserMode.CoverFlow -> STATE_COVERFLOW
@@ -1287,11 +1288,14 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
             STATE_QUIZ -> t("Music Quiz")
             STATE_VIDEOS -> if (::videoBrowserController.isInitialized) videoBrowserController.getCurrentTitle() else t("Videos")
             STATE_COVERFLOW -> {
-                val total = uniqueAlbumList.size
-                if (total > 0 && ::coverFlowController.isInitialized) {
-                    com.themoon.y1.controllers.coverflow.CoverFlowTitle.format(t("Cover Flow"), coverFlowController.currentCoverFlowIndex + 1, total)
+                val route = NavigationManager.getInstance().currentState as? ScreenState.AudiobookCoverFlow
+                if (route != null) {
+                    if (route.seriesDirectory == null) t("Audiobook Series") else route.seriesDirectory.name
                 } else {
-                    t("Cover Flow")
+                    val total = uniqueAlbumList.size
+                    if (total > 0 && ::coverFlowController.isInitialized) {
+                        com.themoon.y1.controllers.coverflow.CoverFlowTitle.format(t("Cover Flow"), coverFlowController.currentCoverFlowIndex + 1, total)
+                    } else t("Cover Flow")
                 }
             }
             STATE_EQUALIZER -> t("Equalizer")
