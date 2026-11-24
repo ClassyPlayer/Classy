@@ -170,6 +170,22 @@ class Id3Test {
         assertNull(Id3.lyrics(file(ByteArray(40))))
     }
 
+    private fun v3frame(id: String, body: ByteArray) =
+        id.toByteArray() + byteArrayOf((body.size shr 24).toByte(), (body.size shr 16).toByte(), (body.size shr 8).toByte(), body.size.toByte(), 0, 0) + body
+
+    @Test fun v23UnsynchronisedTagThatIsCutKeepsTheLyricsBeforeTheCut() {
+        val lyrics = v3frame("USLT", uslt(3, byteArrayOf(0), "Before the cut".toByteArray()))
+        val cut = v3frame("TIT2", byteArrayOf(3) + "A long title".toByteArray()).let { it.copyOf(it.size - 5) }
+        assertEquals("Before the cut", Id3.lyrics(file(head(3, 5 * 1024 * 1024, 0x80), lyrics, cut)))
+    }
+
+    @Test fun v23UnsynchronisedTagOverTheLimitKeepsTheLyricsOfItsStart() {
+        // A 5 MB cover after the lyrics: only the first 4 MB of the tag are read
+        val lyrics = v3frame("USLT", uslt(3, byteArrayOf(0), "Before the cover".toByteArray()))
+        val cover = v3frame("APIC", ByteArray(5 * 1024 * 1024))
+        assertEquals("Before the cover", Id3.lyrics(file(head(3, lyrics.size + cover.size, 0x80), lyrics, cover)))
+    }
+
     // MusicBrainz album id (TXXX: encoding, description, value)
 
     private val mbid = "f36eb891-6276-452a-8fdf-cde443a6f543"
@@ -186,6 +202,13 @@ class Id3Test {
         val body = byteArrayOf(1) + utf16("MusicBrainz Album Id") + byteArrayOf(0, 0) + utf16(mbid)
         val v3 = "TXXX".toByteArray() + byteArrayOf(0, 0, 0, body.size.toByte(), 0, 0) + body
         assertEquals(mbid, Id3.musicBrainzAlbumId(tag(3, 0, ByteArray(0), v3)))
+    }
+
+    @Test fun utf16AlbumIdWithOneBomForBothStrings() {
+        // Only the description has a BOM (FF FE): the value has the same byte order
+        val body = byteArrayOf(1, 0xFF.toByte(), 0xFE.toByte()) + "MusicBrainz Album Id".toByteArray(Charsets.UTF_16LE) +
+            byteArrayOf(0, 0) + mbid.toByteArray(Charsets.UTF_16LE)
+        assertEquals(mbid, Id3.musicBrainzAlbumId(tag(3, 0, ByteArray(0), v3frame("TXXX", body))))
     }
 
     @Test fun v24ExtendedHeaderAndUnsynchronisedAlbumId() {

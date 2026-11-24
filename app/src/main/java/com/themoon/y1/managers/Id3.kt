@@ -16,7 +16,7 @@ import java.io.RandomAccessFile
  * store plain big-endian frame sizes instead of syncsafe ones (the walk loses its place there).
  */
 object Id3 {
-    /** v2.3 tags with the unsynchronisation flag are read whole to undo it; a larger one gives nothing. */
+    /** v2.3 tags with the unsynchronisation flag are read into memory to undo it, at most this much of them. */
     private const val MAX_UNSYNC_TAG = 4 * 1024 * 1024
     private const val MAX_YEAR_FRAME = 128
     private const val MAX_LYRICS_FRAME = 512 * 1024
@@ -76,13 +76,14 @@ object Id3 {
     /**
      * The strings of a text frame [body]: body[0] is the encoding, then [skip] bytes (3 for the language of USLT), then
      * strings that end with a NUL (two NULs in UTF-16). At most [limit] strings: the last one takes the rest. Each
-     * string loses its own BOM.
+     * string loses its own BOM; a UTF-16 string with no BOM keeps the byte order of the string before it.
      */
     internal fun strings(body: ByteArray, skip: Int = 0, limit: Int = Int.MAX_VALUE): List<String> {
         if (body.isEmpty()) return emptyList()
         val enc = body[0].toInt()
         val step = if (enc == 1 || enc == 2) 2 else 1
         val out = ArrayList<String>()
+        var littleEndian = false
         var pos = 1 + skip
         while (pos < body.size) {
             var end = body.size
@@ -98,24 +99,24 @@ object Id3 {
                     i += step
                 }
             }
-            out.add(decode(enc, body, pos, end))
+            var from = pos
+            fun startsWith(vararg bom: Int) = end - from >= bom.size && bom.indices.all { body[from + it].toInt() and 255 == bom[it] }
+            out.add(when (enc) {
+                // 1 = UTF-16 with a BOM, 2 = UTF-16BE (some taggers add a BOM there too)
+                1, 2 -> {
+                    if (startsWith(0xFF, 0xFE)) { littleEndian = true; from += 2 }
+                    else if (startsWith(0xFE, 0xFF)) { littleEndian = false; from += 2 }
+                    String(body, from, end - from, if (littleEndian) Charsets.UTF_16LE else Charsets.UTF_16BE)
+                }
+                3 -> {
+                    if (startsWith(0xEF, 0xBB, 0xBF)) from += 3
+                    String(body, from, end - from, Charsets.UTF_8)
+                }
+                else -> String(body, from, end - from, Charsets.ISO_8859_1)
+            })
             pos = next
         }
         return out
-    }
-
-    private fun decode(enc: Int, b: ByteArray, from: Int, to: Int): String {
-        fun startsWith(vararg bom: Int) = to - from >= bom.size && bom.indices.all { b[from + it].toInt() and 255 == bom[it] }
-        return when (enc) {
-            // 1 = UTF-16 with a BOM, 2 = UTF-16BE (some taggers add a BOM there too)
-            1, 2 -> when {
-                startsWith(0xFF, 0xFE) -> String(b, from + 2, to - from - 2, Charsets.UTF_16LE)
-                startsWith(0xFE, 0xFF) -> String(b, from + 2, to - from - 2, Charsets.UTF_16BE)
-                else -> String(b, from, to - from, Charsets.UTF_16BE)
-            }
-            3 -> if (startsWith(0xEF, 0xBB, 0xBF)) String(b, from + 3, to - from - 3, Charsets.UTF_8) else String(b, from, to - from, Charsets.UTF_8)
-            else -> String(b, from, to - from, Charsets.ISO_8859_1)
-        }
     }
 
     /** Where the frames are read from: the file, or the tag in memory after its unsynchronisation was undone. */
@@ -162,9 +163,10 @@ object Id3 {
         var end = 10L + syncsafe(h, 6)
         var c = Cursor(f, null)
         if (!v4 && tagFlags and 0x80 != 0) {
-            // v2.3 unsynchronises the whole tag, and the sizes inside it are those of the original data
-            val n = end - 10
-            if (n > MAX_UNSYNC_TAG) return
+            // v2.3 unsynchronises the whole tag, and the sizes inside it are those of the original data. A tag that is
+            // cut or larger than the limit: the complete frames of its start
+            val n = minOf(end - 10, f.length() - 10, MAX_UNSYNC_TAG.toLong())
+            if (n <= 0) return
             val raw = ByteArray(n.toInt())
             f.readFully(raw)
             val tag = deUnsync(raw)
