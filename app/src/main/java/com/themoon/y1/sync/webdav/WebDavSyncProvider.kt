@@ -73,9 +73,11 @@ class WebDavSyncProvider private constructor(context: Context) : MediaSyncProvid
     fun rootHref(): String? = serverUri(url)?.let { rootHrefOf(it) }
 
     /**
-     * Sets the Server URL. The same server (scheme, host and port) keeps the pin, the ticked folders and the synced
-     * files. Another server starts again: no pin, no ticked folders, and the synced files are forgotten (they stay on
-     * the player; see [WebDavSync.forgetAll]). False while a sync runs: then nothing changes.
+     * Sets the Server URL. The same folder of the same server (scheme, host, port, and the path with any spelling, for
+     * example a slash at the end) keeps the pin, the ticked folders and the synced files. Anything else starts again: no
+     * pin, no ticked folders, and the synced files are forgotten (they stay on the player; see [WebDavSync.forgetAll]).
+     * Another top folder must start again too: the local paths are below it, and the ticked folders may be outside it.
+     * False while a sync runs: then nothing changes.
      */
     fun changeUrl(newUrl: String): Boolean {
         val sync = WebDavSync.getInstance(app)
@@ -85,7 +87,8 @@ class WebDavSyncProvider private constructor(context: Context) : MediaSyncProvid
             if (sync.isRunning) return false
             val old = serverUri(url)
             val new = serverUri(v)
-            if (old != null && new != null && sameServer(old, new)) {
+            if (old != null && new != null && sameServer(old, new) &&
+                decodeHref(rootHrefOf(old)) == decodeHref(rootHrefOf(new))) {
                 url = v
                 return true
             }

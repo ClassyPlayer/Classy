@@ -76,9 +76,9 @@ NAS**, and you choose: delete one, or Delete All. Your copy is kept until you do
 Forgets the address, login and certificate, and the ticked folders. The songs stay on the player: Classy forgets that
 it synced them, so no later sync deletes them. Delete them with a file manager if you do not want them.
 
-A **Server URL** of another server (another host, port, or `http`/`https`) does the same: no ticked folders, no
-certificate, and the songs of the old server stay. A sync of the same folders downloads them again over the old copies.
-Another path on the same server keeps everything.
+A new **Server URL** does the same: no ticked folders, no certificate, and the songs of the old URL stay. A sync of the
+same folders downloads them again over the old copies. Only the same address in another spelling (for example with a
+`/` at the end) keeps everything.
 
 ### If something goes wrong
 
@@ -152,10 +152,11 @@ videos too; WebDAV Sync copies the folder tree of the server as it is, keyed by 
 
 ### Certificates
 
-`https://` uses `PinningTrustManager(pin, systemTrustManager())`. The pinned leaf passes, and the host name is not
-checked for it (a NAS by IP address). Else a chain that Android's authorities trust passes, and OkHttp's
-`OkHostnameVerifier` then checks the host name. Else `checkServerTrusted` throws `CertNotTrusted(fingerprint)`. `findCertNotTrusted` finds it in the cause chain, `WebDavUiController.handleCert` keeps the
-fingerprint and shows it, and Trust Certificate saves it as the pin. A Server URL of another server clears the pin
+`https://` uses `PinningTrustManager(pin, systemTrustManager, host)`. The pinned leaf passes with any host name (a NAS
+by IP address). Else a chain that Android's authorities trust passes if its leaf names the host (`OkHostnameVerifier`).
+Else `checkServerTrusted` throws `CertNotTrusted(fingerprint)`, also for a public certificate of another name, so the
+user can pin it. The host check is in the trust manager, so the client's `HostnameVerifier` accepts all. `findCertNotTrusted` finds it in the cause chain, `WebDavUiController.handleCert` keeps the
+fingerprint and shows it, and Trust Certificate saves it as the pin. A new Server URL clears the pin
 (`WebDavSyncProvider.changeUrl`, also for the config file). `http://` is allowed and has no protection.
 
 ### A sync (`WebDavSync.run`)
