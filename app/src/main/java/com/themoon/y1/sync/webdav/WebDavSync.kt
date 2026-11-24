@@ -128,11 +128,14 @@ class WebDavSync private constructor(context: Context) {
         if (isRunning) return false
         synchronized(ledger) {
             loadLedger()
-            for (href in ledger.getAllItems().keys) ledger.removeItem(href)
+            // A copy of memory, not the file: memory can be newer (a move whose last save failed)
+            val before = ledger.getAllItems()
+            val lastTime = ledger.getLastSyncTime()
+            for (href in before.keys) ledger.removeItem(href)
             ledger.setLastSyncTime(0)
             if (!saveLedger()) {
-                ledgerStamp = -1L // read the records on disk again: memory is as the file
-                loadLedger()
+                for (item in before.values) ledger.putItem(item)
+                ledger.setLastSyncTime(lastTime)
                 throw LedgerNotSaved()
             }
         }
@@ -191,6 +194,7 @@ class WebDavSync private constructor(context: Context) {
             if (deleteTracked(plan.remove) > 0) { changed = true; changedByRun = true }
         }
 
+        sweepPartFiles(plan.downloads.mapNotNull { it.target.parentFile })
         val player = AudioPlayerManager.getInstance()
         val got = AtomicLong(0) // bytes of all files so far, finished or not
         val finished = AtomicInteger(0)
@@ -316,8 +320,16 @@ class WebDavSync private constructor(context: Context) {
         fun target(item: SyncLedger.LedgerItem): File =
             base?.let { localFileFor(item.jellyfinId, it, to, onSd) } ?: movedPath(item.localPath, from, to, onSd)!!
         val total = items.sumOf { File(it.localPath!!).length() }
+        // Space only for the files to copy: a complete copy at the target needs none
+        val toCopy = items.filter { File(it.localPath!!).exists() && !target(it).exists() }.sumOf { File(it.localPath!!).length() }
         to.mkdirs()
-        requireFreeSpace(total, if (to.exists()) to else to.parentFile!!)
+        requireFreeSpace(toCopy, if (to.exists()) to else to.parentFile!!)
+        sweepPartFiles(items.mapNotNull { target(it).parentFile })
+        // How many records keep each file, counted once: a shared source (two names that became one FAT name) stays
+        // until its last record moves
+        val owners = synchronized(ledger) {
+            HashMap<String, Int>().also { m -> for (it in ledger.getAllItems().values) it.localPath?.let { p -> m.add(pathKey(p), 1) } }
+        }
 
         val player = AudioPlayerManager.getInstance()
         var done = 0L
@@ -343,7 +355,7 @@ class WebDavSync private constructor(context: Context) {
                     done += src.length()
                     // A source that another record still keeps (two names that became one FAT name) stays for that one;
                     // the last record that moves deletes it
-                    val shared = synchronized(ledger) { keptByOther(item.jellyfinId, src.path) }
+                    val shared = (owners[pathKey(src.path)] ?: 0) > 1
                     if (!shared) {
                         // Checked again: the user can start the source during the copy
                         if (player.isFileCurrentlyPlaying(src) || !src.delete()) {
@@ -356,6 +368,8 @@ class WebDavSync private constructor(context: Context) {
                     continue // the source is not there (an SD card that is out) and nothing complete is at the target: keep the record
                 }
                 moved++
+                owners.add(pathKey(src.path), -1)
+                owners.add(pathKey(dst.path), 1)
                 synchronized(ledger) {
                     item.localPath = dst.path
                     ledger.putItem(item)
@@ -368,6 +382,21 @@ class WebDavSync private constructor(context: Context) {
         }
         if (!saved) throw LedgerNotSaved() // the new paths are in memory only (the next save writes them)
         return moved > 0
+    }
+
+    /**
+     * Deletes the temporary files ([newPartFile]) that a run which stopped (the app or the player went off) left in
+     * [dirs], the folders that this run writes to. One run at a time, so no other run is writing them.
+     */
+    private fun sweepPartFiles(dirs: Collection<File>) {
+        for (dir in dirs.toSet()) {
+            dir.listFiles { f -> f.isFile && f.name.startsWith(PART_PREFIX) && f.name.endsWith(PART_SUFFIX) }?.forEach { it.delete() }
+        }
+    }
+
+    /** Adds [n] to the count of [key] (HashMap.merge is API 24). */
+    private fun HashMap<String, Int>.add(key: String, n: Int) {
+        this[key] = (this[key] ?: 0) + n
     }
 
     /** The key of a local path: FAT (the SD card) does not tell "A" from "a". */

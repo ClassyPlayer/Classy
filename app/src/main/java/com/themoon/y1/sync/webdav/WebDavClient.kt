@@ -49,8 +49,12 @@ internal fun replaceFile(part: File, target: File) {
 internal fun newPartFile(target: File): File {
     val dir = target.parentFile ?: File(".")
     dir.mkdirs()
-    return File.createTempFile(".partial-", ".part", dir)
+    return File.createTempFile(PART_PREFIX, PART_SUFFIX, dir)
 }
+
+/** The name of a [newPartFile]: "<prefix><random digits><suffix>". */
+internal const val PART_PREFIX = ".partial-"
+internal const val PART_SUFFIX = ".part"
 
 /**
  * Same scheme, host (any case) and port; no port means the default of the scheme. OkHttp reads the host, so a name

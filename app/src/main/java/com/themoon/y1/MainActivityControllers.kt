@@ -512,7 +512,12 @@ internal fun MainActivity.initControllers() {
             val net = cm?.activeNetworkInfo
             net != null && net.isConnected
         },
-        onSyncFinished = { startMediaLibraryScan() },
+        // A run can end after this window is gone (the activity was made again): then the live one rescans on the broadcast
+        onSyncFinished = {
+            if (isDestroyed) applicationContext.sendBroadcast(
+                android.content.Intent(com.themoon.y1.sync.webdav.WebDavSync.ACTION_SYNCED).setPackage(packageName)
+            ) else startMediaLibraryScan()
+        },
         localize = { t(it) }
     )
 

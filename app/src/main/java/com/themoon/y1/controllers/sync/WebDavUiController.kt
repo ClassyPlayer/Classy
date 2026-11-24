@@ -249,7 +249,7 @@ class WebDavUiController(
             val error = try {
                 p.client(url, user, password, pin).let { it.list(it.rootHref) } // a URL that cannot be read is an error here, not a crash
                 null
-            } catch (e: Exception) {
+            } catch (e: Throwable) { // also an OutOfMemoryError of a very large answer: a message, not a crash
                 e
             }
             activity.runOnUiThread {
@@ -314,7 +314,7 @@ class WebDavUiController(
         Thread {
             val result = try {
                 Result.success(p.client(url, user, password, pin).list(href).sortedWith(compareBy({ !it.isDir }, { decodeHref(it.href).lowercase() })))
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 Result.failure(e)
             }
             activity.runOnUiThread {

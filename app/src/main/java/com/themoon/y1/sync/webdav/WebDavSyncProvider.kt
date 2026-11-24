@@ -145,7 +145,7 @@ class WebDavSyncProvider private constructor(context: Context) : MediaSyncProvid
                 val c = client()
                 c.list(c.rootHref)
                 callback.onSuccess(url, "WebDAV")
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 callback.onError(errorText(e))
             }
         }.start()

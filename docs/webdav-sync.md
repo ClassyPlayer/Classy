@@ -23,6 +23,8 @@ player's storage:
 ```
 
 Opening WebDAV Sync reads the file and then **deletes it**, so the password does not stay on the card in plain text.
+A file that is not valid (no `http://` or `https://` URL with a host, or no user or password) is not imported and
+**stays**, with the error on the screen: correct it, or delete it by hand.
 
 ### A self-signed certificate (https)
 
@@ -147,7 +149,8 @@ videos too; WebDAV Sync copies the folder tree of the server as it is, keyed by 
   `mayReplace` (the sync says no while the target plays: `TargetBusy`, and the file waits for the next sync), then
   `replaceFile`: one rename over the old file. On FAT, which cannot rename over a file, the old file moves aside to
   `<name>.old` (or `.old1`, ...), the new one moves in, and the old one is deleted; if the new one cannot move in, the
-  old one moves back. A failed or cancelled download leaves the target as it was.
+  old one moves back. A failed or cancelled download leaves the target as it was. A temporary file that a stopped run left is deleted
+at the start of the next run, in the folders that the run writes to.
 - Auth is HTTP Basic, sent with every request. `urlFor(href)` refuses an absolute href that names another host, so
   the password is never sent to a server the user did not enter.
 - Redirects are not followed: a 3xx answer is an error (`HTTP 301`), so no request, and no password, goes to another

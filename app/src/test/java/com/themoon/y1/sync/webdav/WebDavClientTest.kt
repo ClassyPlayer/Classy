@@ -93,6 +93,54 @@ class WebDavClientTest {
         assertEquals("/a+b/c", decodeHref("/a+b/c"))
     }
 
+    /** No temporary file ([newPartFile]) is left next to [target]. */
+    private fun assertNoPartFile(target: File) {
+        assertEquals(emptyList<String>(), target.parentFile?.list()?.filter { it.startsWith(PART_PREFIX) } ?: emptyList<String>())
+    }
+
+    /** An HTTP server that answers each request with a 301 to [location]. */
+    private fun serveRedirect(location: String): ServerSocket {
+        val s = ServerSocket(0)
+        Thread {
+            while (!s.isClosed) {
+                try {
+                    s.accept().use { c ->
+                        val r = c.getInputStream().bufferedReader()
+                        while (r.readLine()?.isNotEmpty() == true) { }
+                        c.getOutputStream().apply {
+                            write("HTTP/1.1 301 Moved Permanently\r\nLocation: $location\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".toByteArray())
+                            flush()
+                        }
+                    }
+                } catch (_: Exception) {
+                }
+            }
+        }.apply { isDaemon = true }.start()
+        return s
+    }
+
+    @Test
+    fun aRedirectIsAnErrorAndIsNotFollowed() {
+        // The password goes with every request: a redirect to another host must not get it
+        val other = ServerSocket(0)
+        var otherGotAConnection = false
+        Thread { try { other.accept().close(); otherGotAConnection = true } catch (_: Exception) {} }.apply { isDaemon = true }.start()
+        val redirect = serveRedirect("http://127.0.0.1:${other.localPort}/steal/")
+        try {
+            val c = WebDavClient("http://127.0.0.1:${redirect.localPort}/music/", "u", "p", null)
+            try { c.list("/music/"); fail("expected HTTP 301") } catch (e: DavHttpException) { assertEquals(301, e.code) }
+            val target = File(tmp.root, "r/song.flac")
+            try { c.download("/music/song.flac", target, 5, { false }, progress = {}); fail("expected HTTP 301") } catch (e: DavHttpException) { assertEquals(301, e.code) }
+            assertFalse(target.exists())
+            assertNoPartFile(target)
+            Thread.sleep(200)
+            assertFalse(otherGotAConnection)
+        } finally {
+            redirect.close()
+            other.close()
+        }
+    }
+
     /** One-response-per-connection HTTP server; declares [declaredLength] but sends [body]. */
     private fun serve(body: ByteArray, declaredLength: Long = body.size.toLong()): String {
         val s = ServerSocket(0)
@@ -121,7 +169,7 @@ class WebDavClientTest {
         val target = File(tmp.root, "a/song.flac")
         WebDavClient(base, "u", "p", null).download("/music/song.flac", target, 5, { false }, progress = {})
         assertEquals("hello", target.readText())
-        assertFalse(File(target.path + ".part").exists())
+        assertNoPartFile(target)
     }
 
     @Test
@@ -135,7 +183,7 @@ class WebDavClientTest {
         } catch (_: TargetBusy) {
         }
         assertEquals("old", target.readText())
-        assertFalse(File(target.path + ".part").exists())
+        assertNoPartFile(target)
     }
 
     @Test
@@ -148,7 +196,7 @@ class WebDavClientTest {
         } catch (_: java.io.IOException) {
         }
         assertEquals("old", target.readText())
-        assertFalse(File(target.path + ".part").exists())
+        assertNoPartFile(target)
     }
 
     @Test
@@ -161,7 +209,7 @@ class WebDavClientTest {
         } catch (_: CancellationException) {
         }
         assertFalse(target.exists())
-        assertFalse(File(target.path + ".part").exists())
+        assertNoPartFile(target)
     }
 
     @Test
