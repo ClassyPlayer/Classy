@@ -884,5 +884,6 @@
   "URL must start with http:// or https://": "URL 必须以 http:// 或 https:// 开头",
   "Not a valid URL": "无效的 URL",
   "Last sync failed": "上次同步失败",
-  "Cannot save the sync record": "无法保存同步记录"
+  "Cannot save the sync record": "无法保存同步记录",
+  "This Folder": "此文件夹"
 }

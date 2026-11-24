@@ -273,6 +273,16 @@ class WebDavUiController(
         val ticked = provider.ticked
         val rows = ArrayList<RowSpec>()
         rows += info(localize("Center: open · Hold: select"), key = "\u0000hint")
+        // The folder itself, also one with files and no sub-folders (the top folder of the URL, for example). Center
+        // ticks it; under a ticked folder it shows ticked and cannot be unticked alone, as a sub-folder row
+        val selfUnder = ticked.any { it.trimEnd('/') != href.trimEnd('/') && isUnder(href, it) }
+        rows += RowSpec(
+            localize("This Folder"),
+            RowLook.CHOICE,
+            checked = selfUnder || href in ticked,
+            key = "\u0000self",
+            onClick = if (selfUnder) null else ({ toggle(href) })
+        )
         for (d in subs) {
             if (!d.isDir) {
                 rows += info(WebDavSyncProvider.folderName(d.href), key = d.href)

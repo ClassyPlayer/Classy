@@ -884,5 +884,6 @@
   "URL must start with http:// or https://": "La URL debe empezar por http:// o https://",
   "Not a valid URL": "URL no válida",
   "Last sync failed": "La última sincronización falló",
-  "Cannot save the sync record": "No se puede guardar el registro de sincronización"
+  "Cannot save the sync record": "No se puede guardar el registro de sincronización",
+  "This Folder": "Esta carpeta"
 }

@@ -40,6 +40,8 @@ also needs Trust Certificate, and again after each renewal.
 
 - **Center** opens a folder.
 - **Hold** Center ticks or unticks it (a tick shows at the left).
+- **This Folder**, the first row, ticks the folder that is open, also one with only files (for example the folder of
+  the Server URL itself).
 - Ticking a folder takes everything inside it. The folders inside show ticked, and cannot be unticked one by one.
   To leave one out, untick the parent and tick the folders you want.
 
@@ -244,6 +246,7 @@ The limit: no auto sync while the app process is not running. A `JobScheduler` w
   Server URL changes). A refresh of a
   loaded folder keeps the old list on screen if it fails.
 - A folder row is `RowLook.CHOICE`. Center opens (`onClick`), Hold ticks (`onHold`, a long click through the list).
+  The first row, *This Folder*, ticks the open folder with Center (`toggle(href)`).
   A folder under a ticked parent shows ticked and has no `onHold`; a ticked folder is not under itself, so its own Hold
   unticks it.
 - `toggle` unticks, or ticks and drops the ticked folders inside it (the new folder covers them).
