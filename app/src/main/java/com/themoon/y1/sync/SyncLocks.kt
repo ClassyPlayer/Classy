@@ -13,9 +13,10 @@ object SyncLocks {
      * the player awake for ever.
      */
     fun <T> hold(context: Context?, tag: String, maxMs: Long = 0L, work: () -> T): T {
-        val wake = (context?.getSystemService(Context.POWER_SERVICE) as? PowerManager)
+        val app = context?.applicationContext // WifiManager of an activity leaks it on Android < 7
+        val wake = (app?.getSystemService(Context.POWER_SERVICE) as? PowerManager)
             ?.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, tag)
-        val wifi = (context?.getSystemService(Context.WIFI_SERVICE) as? WifiManager)
+        val wifi = (app?.getSystemService(Context.WIFI_SERVICE) as? WifiManager)
             ?.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, tag)
         try {
             if (maxMs > 0) wake?.acquire(maxMs) else wake?.acquire()
