@@ -882,5 +882,6 @@
   "Certificate not trusted": "신뢰할 수 없는 인증서",
   "Not enough space": "공간이 부족합니다",
   "URL must start with http:// or https://": "URL은 http:// 또는 https://로 시작해야 합니다",
-  "Not a valid URL": "올바른 URL이 아닙니다"
+  "Not a valid URL": "올바른 URL이 아닙니다",
+  "Last sync failed": "마지막 동기화 실패"
 }

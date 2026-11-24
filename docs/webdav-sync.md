@@ -54,7 +54,8 @@ Folders you tick are what the player keeps. A folder you untick is removed from 
   are; only a file that changed on the server downloads to the new place, and its old copy is deleted.
 - When the sync downloaded or deleted files, the library scans again, so the songs show up.
 - **Parallel Downloads** (1 to 4): files that download at the same time. 1 is the gentlest for a weak Wi-Fi or NAS.
-- **Last Synced** shows the time of the last sync.
+- **Last Synced** shows the time of the last sync. After a sync that failed (also an Auto Sync), **Last sync failed**
+  shows its error under it, until a sync works.
 
 A song that is playing is never replaced or deleted. It waits for the next sync.
 
@@ -112,7 +113,7 @@ On a FAT card (the SD card), characters that FAT does not take (`< > : " | ? * \
 ### Data
 
 - **Prefs** `webdav_sync`: `url`, `user`, `password`, `pin`, `dest_sd`, `auto_sync`, `parallel`, `ticked` (a set of
-  hrefs), `last_sync`, `last_auto_attempt`. The password is in plain text in the app's private prefs. Clear Data or
+  hrefs), `last_sync`, `last_auto_attempt`, `last_error` (`errorText` of the last failed sync, empty after one that worked). The password is in plain text in the app's private prefs. Clear Data or
   Log Out removes it.
 - **Ledger** `webdav_ledger.json` in the primary storage root. One item for each synced file, keyed by the file's
   **href** (percent-encoded path on the server). The `LedgerItem` fields, with the Jellyfin names they keep:

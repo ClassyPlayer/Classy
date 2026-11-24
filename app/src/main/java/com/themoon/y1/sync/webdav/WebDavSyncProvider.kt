@@ -52,6 +52,11 @@ class WebDavSyncProvider private constructor(context: Context) : MediaSyncProvid
         get() = prefs.getLong("last_sync", 0L)
         set(v) { prefs.edit().putLong("last_sync", v).apply() }
 
+    /** The error of the last sync ([errorText], not translated yet), or empty after a sync that worked. */
+    var lastError: String
+        get() = prefs.getString("last_error", "") ?: ""
+        set(v) { prefs.edit().putString("last_error", v).apply() }
+
     /** When Auto Sync last started a sync, also one that failed: a down server is not tried at every broadcast. */
     var lastAutoAttempt: Long
         get() = prefs.getLong("last_auto_attempt", 0L)
@@ -82,6 +87,7 @@ class WebDavSyncProvider private constructor(context: Context) : MediaSyncProvid
                 pin = null
                 ticked = emptySet()
                 lastSync = 0L
+                lastError = ""
                 url = v
             }
         }

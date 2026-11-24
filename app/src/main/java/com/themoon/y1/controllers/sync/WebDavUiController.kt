@@ -195,6 +195,10 @@ class WebDavUiController(
         val last = p.lastSync
         rows += value(localize("Last Synced"),
             if (last > 0) SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(java.util.Date(last)) else localize("Never"))
+        // A failed Auto Sync has no screen of its own: its error shows here until a sync works
+        p.lastError.takeIf { it.isNotEmpty() && !sync.isRunning }?.let {
+            rows += info(localize("Last sync failed") + ": " + localize(it), key = "\u0000lastError")
+        }
         rows += value(localize("Log Out / Reset"), "〉 ") {
             ActionScreens.open(ActionScreens.Spec(
                 localize("WebDAV Sync"),

@@ -882,5 +882,6 @@
   "Certificate not trusted": "证书不受信任",
   "Not enough space": "空间不足",
   "URL must start with http:// or https://": "URL 必须以 http:// 或 https:// 开头",
-  "Not a valid URL": "无效的 URL"
+  "Not a valid URL": "无效的 URL",
+  "Last sync failed": "上次同步失败"
 }

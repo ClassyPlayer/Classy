@@ -74,13 +74,14 @@ class WebDavSync private constructor(context: Context) {
         File(if (onSd) StoragePaths.SECONDARY_PATH else StoragePaths.PRIMARY_PATH, "Music")
 
     @Synchronized
-    fun start(listener: Listener, removeAllUnticked: Boolean = false): Boolean = launch(listener) { run(it, removeAllUnticked) }
+    fun start(listener: Listener, removeAllUnticked: Boolean = false): Boolean = launch(listener, isSync = true) { run(it, removeAllUnticked) }
 
     /** Moves the synced files from the other storage into [destRoot]. Same listener and lock as a sync. */
     @Synchronized
-    fun startMove(listener: Listener): Boolean = launch(listener) { move(it) }
+    fun startMove(listener: Listener): Boolean = launch(listener, isSync = false) { move(it) }
 
-    private fun launch(listener: Listener, work: (Listener) -> Boolean): Boolean {
+    /** [isSync]: the result goes to [WebDavSyncProvider.lastError], which the settings show (Auto Sync has no screen). */
+    private fun launch(listener: Listener, isSync: Boolean, work: (Listener) -> Boolean): Boolean {
         if (isRunning) return false
         isRunning = true
         cancelled = false
@@ -94,9 +95,11 @@ class WebDavSync private constructor(context: Context) {
                 wake?.acquire(WAKE_LOCK_MS)
                 wifi?.acquire()
                 val changed = work(listener)
+                if (isSync) WebDavSyncProvider.getInstance(ctx).lastError = ""
                 main.post { listener.onDone(changed) }
             } catch (e: Throwable) {
                 Log.w(TAG, "Sync failed: ${e.message}")
+                if (isSync && e !is CancellationException) WebDavSyncProvider.getInstance(ctx).lastError = errorText(e)
                 val changed = changedByRun // read here: a next run can reset it before this callback runs
                 main.post { listener.onError(e, changed) }
             } finally {
