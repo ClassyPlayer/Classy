@@ -32,6 +32,18 @@ class ListModelTest {
     }
 
     @Test
+    fun aFolderOpensAtTheFirstRowAfterItsNavigationRows() {
+        val rows = listOf("..", "Play All", "Info", "Album A", "Song 1")
+        val lead = { i: Int -> i < 2 }
+        // The info row cannot be selected: the first folder
+        assertEquals(3, ListModel.firstRow(rows, Focus.FIRST, null, selectable = { it != 2 }, lead = lead))
+        // Only navigation rows (an empty folder): the first of them
+        assertEquals(0, ListModel.firstRow(rows.take(2), Focus.FIRST, null, lead = lead))
+        // A chosen or remembered row comes first
+        assertEquals(1, ListModel.firstRow(rows, Focus.LAST, "Play All", lead = lead))
+    }
+
+    @Test
     fun aRowIsEnabledAndGivesTheFeedbackFirstByDefault() {
         val row = RowSpec("Vibration Strength")
         assertTrue(row.enabled)

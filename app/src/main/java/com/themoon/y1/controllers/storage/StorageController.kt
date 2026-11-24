@@ -3,7 +3,6 @@ package com.themoon.y1.controllers.storage
 import android.app.Activity
 import android.os.Build
 import android.os.StatFs
-import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
@@ -39,6 +38,8 @@ class StorageController(
 
     private val layoutStorage: LinearLayout = rootView.findViewById(R.id.layout_storage_mode)
     private val tvStorageHeader: TextView? = rootView.findViewById(R.id.tv_storage_header)
+    override val listScreen: ListScreen get() = screen
+
     private val screen = ListScreen(rootView.findViewById(R.id.container_storage_items), clickFeedback = clickFeedback)
 
     override fun onEnter(state: ScreenState) {
@@ -59,10 +60,6 @@ class StorageController(
         showColours()
         screen.update(spec())
     }
-
-    override fun onWheel(delta: Int, event: KeyEvent): Boolean = screen.wheel(delta)
-
-    override fun title(): String? = screen.title
 
     private fun showColours() {
         layoutStorage.setBackgroundColor(ThemeManager.getOverlayBackgroundColor())

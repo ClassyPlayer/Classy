@@ -4,7 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class Migration008PlayOnMenuItemTest {
-    private fun with(order: String) = Migration008PlayOnMenuItem.withPlayOn(order)
+    private fun with(order: String) = NewMenuItem.insertAfter(order, Migration008PlayOnMenuItem.ITEM, Migration008PlayOnMenuItem.AFTER)
 
     @Test
     fun goesAfterWifi() {

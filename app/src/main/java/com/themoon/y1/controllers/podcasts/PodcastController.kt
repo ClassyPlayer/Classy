@@ -1,7 +1,6 @@
 package com.themoon.y1.controllers.podcasts
 
 import android.app.Activity
-import android.view.KeyEvent
 import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.ListView
@@ -22,7 +21,6 @@ import com.themoon.y1.navigation.NavigationManager
 import com.themoon.y1.navigation.ScreenState
 import com.themoon.y1.podcasts.PodcastDownloadManager
 import com.themoon.y1.podcasts.PodcastRepository
-import com.themoon.y1.views.ListItemViewFactory
 import com.themoon.y1.views.Notice
 import com.themoon.y1.views.TablerIcons
 import java.io.File
@@ -47,6 +45,8 @@ class PodcastController(
     private val showLoadingPopup: (message: String?) -> Unit = {},
     private val onHideLoadingPopup: () -> Unit = {}
 ) : ScreenController {
+
+    override val listScreen: ListScreen get() = screen
 
     private val screen = ListScreen(containerBrowserItems, listVirtualSongs, clickFeedback)
 
@@ -93,10 +93,6 @@ class PodcastController(
     override fun onThemeChanged() {
         shown?.let { onEnter(it) }
     }
-
-    override fun onWheel(delta: Int, event: KeyEvent): Boolean = screen.wheel(delta)
-
-    override fun title(): String? = screen.title
 
     private fun open(state: ScreenState) {
         (activity as? MainActivity)?.changeScreen(state)
@@ -189,23 +185,18 @@ class PodcastController(
 
     private fun manageSpec(): ListSpec {
         val rows = ArrayList<RowSpec>()
-        rows += RowSpec(localize("Back to Podcasts"), onClick = { NavigationManager.getInstance().popBackStack() })
+        rows += RowSpec(localize("Back to Podcasts"), lead = true, onClick = { NavigationManager.getInstance().popBackStack() })
         val channels = repository.getSubscriptions()
         if (channels.isEmpty()) rows += RowSpec("⚠️ " + localize("No subscriptions found."), RowLook.INFO)
         for (ch in channels) {
-            val row = ListItemViewFactory.createTablerListButtonWithRightIcon(activity, TablerIcons.TRASH, ch.title, null,
-                0xFFFF5555.toInt(), 0xFFFF5555.toInt())
-            rows += RowSpec(ch.title, RowLook.CUSTOM, view = row, onClick = { showDeleteConfirmDialog(ch.title, ch.rssUrl) })
+            rows += RowSpec(ch.title, RowLook.ICON, icon = TablerIcons.TRASH, color = 0xFFFF5555.toInt(),
+                onClick = { showDeleteConfirmDialog(ch.title, ch.rssUrl) })
         }
         return ListSpec("${localize("Podcasts")}: ${localize("Manage Subscriptions")}", rows)
     }
 
     /** Manage Subscriptions: the first channel is selected (not the Back row). */
-    fun buildManageUI() {
-        val spec = manageSpec()
-        screen.show(spec)
-        spec.rows.getOrNull(1)?.let { screen.select(it.key) }
-    }
+    fun buildManageUI() = screen.show(manageSpec())
 
     private fun showDeleteConfirmDialog(channelName: String, rssUrl: String) {
         ActionScreens.open(confirmScreen(

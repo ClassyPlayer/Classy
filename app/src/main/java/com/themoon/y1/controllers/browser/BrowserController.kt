@@ -4,11 +4,9 @@ import android.app.Activity
 import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Button
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ListView
-import android.widget.TextView
 import com.themoon.y1.AppPrefs
 import com.themoon.y1.Prefs
 import com.themoon.y1.MainActivity
@@ -19,7 +17,6 @@ import com.themoon.y1.adapters.CategoryListAdapter
 import com.themoon.y1.adapters.SongListAdapter
 import com.themoon.y1.controllers.ScreenController
 import com.themoon.y1.controllers.menu.MusicMenuItems
-import com.themoon.y1.lists.LetterBox
 import com.themoon.y1.lists.ListScreen
 import com.themoon.y1.lists.ListSpec
 import com.themoon.y1.lists.Pane
@@ -35,7 +32,6 @@ import com.themoon.y1.navigation.InputRouter
 import com.themoon.y1.navigation.NavigationManager
 import com.themoon.y1.navigation.RowKey
 import com.themoon.y1.navigation.ScreenState
-import com.themoon.y1.navigation.WheelKind
 import com.themoon.y1.navigation.isFolderLevel
 import com.themoon.y1.views.ListItemViewFactory
 import com.themoon.y1.views.Notice
@@ -83,10 +79,9 @@ class BrowserController(
         }
     }
 
-    private val screen = ListScreen(containerBrowserItems, listVirtualSongs, clickFeedback, letterBox = object : LetterBox {
-        override fun show(letter: String) { MainActivity.instance?.showJumpLetter(letter) }
-        override fun hide() { MainActivity.instance?.hideFastScrollLetter() }
-    })
+    override val listScreen: ListScreen get() = screen
+
+    private val screen = ListScreen(containerBrowserItems, listVirtualSongs, clickFeedback)
 
     var currentBrowserMode: BrowserMode = BrowserMode.Root
     var isAudiobookLibraryMode: Boolean = false
@@ -99,9 +94,6 @@ class BrowserController(
     var categoryArtistFilter: String = ""
     var categoryArtistFilterIsTrackArtist: Boolean = false
     var categoryGenreFilter: String = ""
-
-    /** The letter in the letter box during letter mode; null when the wheel steps row by row. */
-    val jumpLetter: String? get() = screen.jumpLetter
 
     companion object {
         const val ALL_SONGS_SENTINEL = "__ALL_SONGS__"
@@ -218,8 +210,6 @@ class BrowserController(
         isAudiobookLibraryMode = false
     }
 
-    override fun title(): String? = screen.title
-
     override fun onLibraryLoaded() {
         // The Music menu itself does not change; rebuilding it would move the selection to the top
         if (currentBrowserMode !is BrowserMode.Root) onRefreshUI()
@@ -253,12 +243,6 @@ class BrowserController(
         }
     }
 
-    /** Shows [spec], and its title also when no screen change sets it (library scan, test commands). */
-    private fun show(spec: ListSpec) {
-        screen.show(spec)
-        activity.findViewById<TextView>(R.id.tv_status_clock)?.text = spec.title
-    }
-
     /** The Music menu (the items of Settings → Music Menu Items) or the Audiobooks menu, with the art pane. */
     fun buildFileBrowserUI() {
         if (currentBrowserMode is BrowserMode.Folder) {
@@ -283,7 +267,7 @@ class BrowserController(
         val isScanning = MainActivity.instance?.isCustomScanning == true
         rows += RowSpec(if (isScanning) localize("Scanning Media...") else localize("Scan Media Library"), key = "scan",
             onClick = { onStartMediaLibraryScan() })
-        show(ListSpec(if (audiobooks) localize("Audiobooks") else localize("Music"), rows, pane = pane))
+        screen.show(ListSpec(if (audiobooks) localize("Audiobooks") else localize("Music"), rows, pane = pane))
     }
 
     /** Audiobooks → Continue: plays the last book from its saved place. */
@@ -453,7 +437,7 @@ class BrowserController(
         }
 
         val albumList = type == "ALBUM" || type == "GENRE_ALBUM"
-        show(ListSpec(catTitle, adapter = CategoryListAdapter(categories, type, isAudiobookLibraryMode, albumArtists = albumArtists),
+        screen.show(ListSpec(catTitle, adapter = CategoryListAdapter(categories, type, isAudiobookLibraryMode, albumArtists = albumArtists),
             empty = localize(if (albumList) "No albums found." else "No results found."), letters = true))
     }
 
@@ -555,7 +539,7 @@ class BrowserController(
             main?.virtualSongList?.add(song.file)
         }
 
-        show(ListSpec(songsTitle, adapter = SongListAdapter(displaySongs),
+        screen.show(ListSpec(songsTitle, adapter = SongListAdapter(displaySongs),
             empty = localize(if (virtualQueryType == "SEARCH") "No results found." else "No Songs"), letters = true))
     }
 
@@ -578,7 +562,7 @@ class BrowserController(
             main?.virtualSongList?.add(song.file)
         }
 
-        show(ListSpec(localize("My Favorites"), adapter = SongListAdapter(targetSongs),
+        screen.show(ListSpec(localize("My Favorites"), adapter = SongListAdapter(targetSongs),
             empty = localize("No favorites added yet."), letters = true))
 
         // The song that plays, if it is a favorite
@@ -610,8 +594,9 @@ class BrowserController(
         val canGoUp = !isTop && currentFolder.parentFile != null
 
         val rows = ArrayList<RowSpec>()
+        // A folder opens at its first folder or file, not at ".." or Play All; an empty folder at ".."
         if (canGoUp) {
-            rows += RowSpec("..", key = UP_KEY, onClick = { currentFolder.parentFile?.let { openParentFolder(it, addToBackStack = true) } })
+            rows += RowSpec("..", key = UP_KEY, lead = !files.isNullOrEmpty(), onClick = { currentFolder.parentFile?.let { openParentFolder(it, addToBackStack = true) } })
         }
 
         if (files == null || files.isEmpty()) {
@@ -620,17 +605,12 @@ class BrowserController(
             } else {
                 "📂 ${localize("Empty Folder (Tap to go back)")}"
             }
-            val btnEmpty = Button(activity).apply {
-                text = emptyMsg
-                setTextColor(0xFFFF5555.toInt())
-                background = ListItemViewFactory.createButtonBackground(activity, ThemeManager.getListButtonNormalBg())
-            }
-            rows += RowSpec(emptyMsg, RowLook.CUSTOM, view = btnEmpty, onClick = {
+            rows += RowSpec(emptyMsg, color = 0xFFFF5555.toInt(), onClick = {
                 // Back when a folder list is under this one or no folder is above it; else one level up in place of this list
                 if (isTop || NavigationManager.getInstance().previousState()?.isFolderLevel == true) onBackPressed()
                 else openParentFolder(currentFolder.parentFile ?: StoragePaths.getTopStorageRoot(), addToBackStack = false)
             })
-            show(ListSpec(folderTitle, rows))
+            screen.show(ListSpec(folderTitle, rows))
             return
         }
 
@@ -680,7 +660,7 @@ class BrowserController(
         Collections.sort(apkFiles, fileSorter)
 
         if (!isTop && !StoragePaths.isAnyStorageRoot(currentFolder) && (audioFiles.isNotEmpty() || folders.isNotEmpty())) {
-            rows += RowSpec("▶ ${localize("Play All")}", key = PLAY_ALL_KEY, onClick = {
+            rows += RowSpec("▶ ${localize("Play All")}", key = PLAY_ALL_KEY, lead = true, onClick = {
                 val allAudio = ArrayList<File>()
                 showLoadingPopup()
                 Thread {
@@ -705,29 +685,21 @@ class BrowserController(
         }
 
         for (apk in apkFiles) {
-            val label = "📦 [${localize("INSTALL")}] ${apk.name}"
-            val b = Button(activity).apply {
-                text = label
-                setTextColor(0xFF00FFFF.toInt())
-                background = ListItemViewFactory.createButtonBackground(activity, ThemeManager.getListButtonNormalBg())
-            }
-            rows += RowSpec(label, RowLook.CUSTOM, view = b, key = apk.absolutePath, onClick = { installApk(apk) })
+            // The theme's grey: cyan was hard to read on Classic Light
+            rows += RowSpec("📦 [${localize("INSTALL")}] ${apk.name}", color = ThemeManager.getTextColorSecondary(), key = apk.absolutePath,
+                onClick = { installApk(apk) })
         }
         for (audio in audioFiles) rows += folderAudioRow(audio)
 
-        show(ListSpec(folderTitle, rows, letters = true))
+        screen.show(ListSpec(folderTitle, rows, letters = true))
 
-        // The file that plays, if it is in this folder; else the first folder, else the first file (not ".." or Play All)
+        // The file that plays, if it is in this folder
         val curPlaylist = MainActivity.instance?.currentPlaylist
         val curIndex = MainActivity.instance?.currentIndex ?: -1
         val playing = if (curPlaylist != null && curIndex in curPlaylist.indices) {
             rows.indexOfFirst { it.key == curPlaylist[curIndex].absolutePath }
         } else -1
-        if (playing >= 0) {
-            screen.select(playing)
-        } else {
-            rows.firstOrNull { it.key != UP_KEY && it.key != PLAY_ALL_KEY }?.let { screen.select(it.key) }
-        }
+        if (playing >= 0) screen.select(playing)
     }
 
     /** The text of the row of [folder] in a folder list; [isTop]: the list of the storage volumes. */
@@ -768,17 +740,12 @@ class BrowserController(
             val dur = prefs.getInt("book_dur_" + audio.absolutePath, 0)
             if (pos > 0 && dur > 0) {
                 val b = ListItemViewFactory.createListButtonWithIcon(activity, "", audio.name)
-                ListItemViewFactory.setupAudiobookProgress(activity, b, pos, dur)
+                ListItemViewFactory.setupAudiobookProgress(b, pos, dur)
                 return RowSpec(audio.name, RowLook.CUSTOM, view = b, key = audio.absolutePath, onClick = click, onHold = hold)
             }
         }
         return RowSpec(audio.name, key = audio.absolutePath, onClick = click, onHold = hold)
     }
-
-    fun isCoverPaneActive(): Boolean = pane?.isShown == true
-
-    fun getCurrentBrowserTitle(): String =
-        screen.title?.takeIf { it.isNotBlank() } ?: if (isAudiobookLibraryMode) localize("Audiobooks") else localize("Music")
 
     private fun collectAudioFilesAsFile(dir: File, list: MutableList<File>) {
         val files = dir.listFiles() ?: return
@@ -847,16 +814,8 @@ class BrowserController(
     }
 
     /** Ends letter mode (another screen). The list is already at the first row of the letter. */
-    fun endLetterJump() = screen.endLetters()
 
     /** In letter mode, a centre press only ends it; Back and Play/Pause end it and then work as usual. */
-    override fun dispatchKeyEvent(event: KeyEvent): Boolean = screen.key(event)
-
-    override fun onWheel(delta: Int, event: KeyEvent): Boolean = screen.wheel(delta, event.eventTime)
-
-    override fun wheelKind(): WheelKind = screen.wheelKind
-
-    override fun onWheelTouch(isTouching: Boolean, timeMs: Long) = screen.wheelTouch(isTouching, timeMs)
 
     /** Back held in Folders (the first key repeat): out of all folder levels at once. The release does nothing. */
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {

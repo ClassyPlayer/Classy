@@ -24,13 +24,12 @@ import com.themoon.y1.navigation.NavigationManager
 import com.themoon.y1.navigation.PhotosLevel
 import com.themoon.y1.navigation.RowFocus
 import com.themoon.y1.navigation.ScreenState
-import com.themoon.y1.navigation.WheelKind
 import com.themoon.y1.photos.PhotoDecoder
 import com.themoon.y1.photos.PhotoIndex
 import com.themoon.y1.photos.PhotoItem
 import com.themoon.y1.photos.PhotoLibrary
 import com.themoon.y1.photos.PhotoThumbs
-import com.themoon.y1.views.ClassicMenuStyle
+import com.themoon.y1.views.ClassyMetrics
 import com.themoon.y1.views.Notice
 import java.io.File
 import java.util.Random
@@ -60,6 +59,8 @@ class PhotosController(
     private val listPane: ViewGroup = (rowViews.parent as View).parent as ViewGroup
     private val paneImage: ImageView = rootView.findViewById(R.id.iv_photos_cover)
     private val pane = Pane(activity, listPane, rootView.findViewById(R.id.frame_photos_cover), paneImage)
+    override val listScreen: ListScreen get() = screen
+
     private val screen = ListScreen(rowViews, clickFeedback = clickFeedback)
     private val grid = PhotoGridView(activity)
 
@@ -90,9 +91,6 @@ class PhotosController(
     }
 
     private fun isShown(): Boolean = rootView.visibility == View.VISIBLE
-
-    /** True while the art pane shows (the status bar then covers the list pane only). */
-    val isPaneShown: Boolean get() = isShown() && pane.isShown
 
     val isScanning: Boolean get() = PhotoLibrary.isScanning
 
@@ -169,11 +167,8 @@ class PhotosController(
             screen.update(spec)
         } else {
             screen.show(spec)
-            // A folder opens at its first folder (or its Photos row), not at Slideshow: as Music → Folders and Play All
-            if (l is PhotosLevel.Folder) spec.rows.firstOrNull { it.key != KEY_SLIDESHOW && it.look != RowLook.INFO }?.let { screen.select(it.key) }
         }
         if (l == PhotosLevel.Root) showPanePhoto()
-        refreshTitle()
     }
 
     private fun emptyText(): String = localize(if (PhotoLibrary.isScanning) "Indexing photos..." else "No photos found.")
@@ -247,7 +242,8 @@ class PhotosController(
         }
         val path = folder.absolutePath
         if (PhotoIndex.countUnder(photos, path) > 0) {
-            rows += RowSpec("▶ " + localize("Slideshow"), key = KEY_SLIDESHOW,
+            // A folder opens at its first folder (or its Photos row), not at Slideshow: as Music → Folders and Play All
+            rows += RowSpec("▶ " + localize("Slideshow"), key = KEY_SLIDESHOW, lead = true,
                 onClick = { changeScreen(ScreenState.PhotoViewer(PhotoIndex.underFolder(path), 0, slideshow = true)) })
         }
         for ((sub, _) in PhotoIndex.subfolders(photos, path)) {
@@ -323,7 +319,7 @@ class PhotosController(
         screen.clear()
         lists.visibility = View.GONE
         grid.visibility = View.VISIBLE
-        grid.topInset = (ClassicMenuStyle.STATUS_HEIGHT_DP * activity.resources.displayMetrics.density).toInt()
+        grid.topInset = (ClassyMetrics.STATUS_BAR_HEIGHT * activity.resources.displayMetrics.density).toInt()
         grid.frameColor = ThemeManager.getListButtonFocusedBg()
         grid.emptyColor = (ThemeManager.getTextColorSecondary() and 0x00FFFFFF) or 0x33000000
         grid.setPhotos(PhotoLibrary.set(set), gridFocus[set] ?: 0)
@@ -364,10 +360,6 @@ class PhotosController(
         }
         return screen.wheel(delta, event.eventTime)
     }
-
-    override fun wheelKind(): WheelKind = screen.wheelKind
-
-    override fun onWheelTouch(isTouching: Boolean, timeMs: Long) = screen.wheelTouch(isTouching, timeMs)
 
     /** Back held in Folders (the first key repeat): out of all folder levels at once, as Music → Folders. */
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {

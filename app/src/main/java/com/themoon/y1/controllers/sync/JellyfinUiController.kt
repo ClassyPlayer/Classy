@@ -4,7 +4,6 @@ import android.app.Activity
 import android.os.StatFs
 import android.util.TypedValue
 import android.view.Gravity
-import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
@@ -67,6 +66,8 @@ class JellyfinUiController(
         const val PENDING_ACTION_QUICKCONNECT = 4
     }
 
+    override val listScreen: ListScreen get() = screen
+
     private val screen = ListScreen(rootView.findViewById(R.id.container_settings_items), null, clickFeedback)
     private val provider: JellyfinSyncProvider get() = JellyfinSyncProvider.getInstance(activity)
     private val syncManager: SyncManager get() = SyncManager.getInstance(activity)
@@ -92,10 +93,6 @@ class JellyfinUiController(
     override fun onThemeChanged() {
         NavigationManager.getInstance().currentState?.let { onEnter(it) }
     }
-
-    override fun onWheel(delta: Int, event: KeyEvent): Boolean = screen.wheel(delta)
-
-    override fun title(): String? = screen.title
 
     /** The Jellyfin level that shows now, or null when another screen shows. */
     private val shownLevel: JellyfinLevel?
@@ -167,7 +164,7 @@ class JellyfinUiController(
 
     // ---- Rows ----
 
-    /** A header between the row groups (a HEADER look of the list model later). */
+    /** A header between the row groups; an empty [title] gives a plain divider. */
     private fun header(title: String) = RowSpec(title, RowLook.HEADER, key = "\u0000header $title")
 
     /** A grey line that the wheel skips. */
@@ -182,7 +179,7 @@ class JellyfinUiController(
 
     private fun rootSpec(): ListSpec {
         val rows = ArrayList<RowSpec>()
-        rows += header("━ " + localize("Server") + " ━")
+        rows += header(localize("Server"))
         val rawUrl = provider.serverUrl
         rows += value(localize("Server URL"), rawUrl.ifEmpty { localize("Not Configured") }) {
             onOpenKeyboard(KeyboardTarget.JellyfinServerUrl)
@@ -215,7 +212,7 @@ class JellyfinUiController(
         }
         rows += action(localize("Test Connection")) { testConnection() }
 
-        rows += header("━ " + localize("Libraries") + " ━")
+        rows += header(localize("Libraries"))
         val ledger = syncManager.ledger
         val cachedLibs = provider.getCachedLibraries()
         if (cachedLibs.isEmpty()) {
@@ -237,7 +234,7 @@ class JellyfinUiController(
         }
         rows += action(localize("Fetch Libraries")) { fetchLibraries() }
 
-        rows += header("━ " + localize("Sync") + " ━")
+        rows += header(localize("Sync"))
         rows += value(localize("Remove Deleted"), onOff(provider.isRemoveDeletedEnabled, localize)) {
             provider.isRemoveDeletedEnabled = !provider.isRemoveDeletedEnabled
             refresh()
@@ -284,7 +281,7 @@ class JellyfinUiController(
             })
         }
         if ("manual".equals(mode, ignoreCase = true)) {
-            rows += header("━━━━━━━━━━━━━━")
+            rows += header("")
             rows += value(localize("Browse & Select"), "", opens = true) { open(JellyfinLevel.Browse(library.id)) }
             rows += value(localize("Selected"), ledger.getLibrarySelections(library.id).size.toString())
         }

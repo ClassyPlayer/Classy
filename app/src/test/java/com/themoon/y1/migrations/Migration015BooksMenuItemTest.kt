@@ -6,7 +6,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class Migration015BooksMenuItemTest {
-    private fun with(order: String) = Migration015BooksMenuItem.withBooks(order)
+    private fun with(order: String) = NewMenuItem.insertAfter(order, Migration015BooksMenuItem.ITEM, Migration015BooksMenuItem.AFTER)
 
     @Test
     fun goesAfterAudiobooks() {
@@ -26,8 +26,8 @@ class Migration015BooksMenuItemTest {
 
     @Test
     fun hiddenOnlyWithoutABooksFolder() {
-        assertFalse(Migration015BooksMenuItem.startsHidden(hasBooksFolder = true, isSdCardMounted = true))
-        assertTrue(Migration015BooksMenuItem.startsHidden(hasBooksFolder = false, isSdCardMounted = true))
-        assertFalse(Migration015BooksMenuItem.startsHidden(hasBooksFolder = false, isSdCardMounted = false))
+        assertFalse(NewMenuItem.startsHidden(hasFolder = true, isSdCardMounted = true))
+        assertTrue(NewMenuItem.startsHidden(hasFolder = false, isSdCardMounted = true))
+        assertFalse(NewMenuItem.startsHidden(hasFolder = false, isSdCardMounted = false))
     }
 }

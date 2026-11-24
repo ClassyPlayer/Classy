@@ -20,7 +20,7 @@ import com.themoon.y1.managers.MediaLibraryManager
 import com.themoon.y1.models.ArtistNames
 import com.themoon.y1.models.SongItem
 import com.themoon.y1.podcasts.PodcastDownloadManager
-import com.themoon.y1.views.ClassicMenuStyle
+import com.themoon.y1.views.ClassyMetrics
 import com.themoon.y1.views.ListItemViewFactory
 import com.themoon.y1.views.TablerIcons
 import java.io.File
@@ -144,9 +144,9 @@ class SongListAdapter(
             convertView.getChildAt(0) is TextView
 
         val btn: View = if (!isSongRowValid || main == null) {
-            main?.createListButtonWithIcon("", displayTitle, customColor)?.apply {
+            main?.let { ListItemViewFactory.createListButtonWithIcon(it, "", displayTitle, customColor) }?.apply {
                 tag = "song_row"
-                val rowHeight = (ClassicMenuStyle.ROW_HEIGHT_DP * main.resources.displayMetrics.density).toInt()
+                val rowHeight = (ClassyMetrics.ROW_HEIGHT * main.resources.displayMetrics.density).toInt()
                 layoutParams = AbsListView.LayoutParams(
                     AbsListView.LayoutParams.MATCH_PARENT,
                     rowHeight
@@ -163,7 +163,7 @@ class SongListAdapter(
             val pos = main.prefs.getInt("book_pos_" + song.file.absolutePath, 0)
             val dur = main.prefs.getInt("book_dur_" + song.file.absolutePath, 0)
             if (pos > 0 && dur > 0) {
-                main.setupAudiobookProgress(btn, pos, dur)
+                ListItemViewFactory.setupAudiobookProgress(btn, pos, dur)
                 hasProgress = true
             }
         }
@@ -183,7 +183,7 @@ class SongListAdapter(
             }
 
             if (pos > 0 && dur > 0) {
-                main.setupAudiobookProgress(btn, pos, dur)
+                ListItemViewFactory.setupAudiobookProgress(btn, pos, dur)
                 hasProgress = true
             }
         }
@@ -191,10 +191,7 @@ class SongListAdapter(
         if (!hasProgress && main != null && btn is LinearLayout) {
             val normalColor = if (customColor != 0) customColor else ThemeManager.getTextColorPrimary()
             ListItemViewFactory.menuRowLook(btn, normalColor) { focused ->
-                if (focused) {
-                    main.virtualListSelectedIndex = position
-                    main.showFastScrollLetter(song.title)
-                }
+                if (focused) main.virtualListSelectedIndex = position
             }
         }
 

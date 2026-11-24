@@ -24,6 +24,7 @@ import com.themoon.y1.lists.RowSpec
 import com.themoon.y1.managers.AudioEffectManager
 import com.themoon.y1.managers.AudioEffectPlan
 import com.themoon.y1.managers.AudioPlayerManager
+import com.themoon.y1.navigation.RowFocus
 import com.themoon.y1.navigation.ScreenState
 import com.themoon.y1.navigation.WheelKind
 import com.themoon.y1.views.EqSliderView
@@ -74,6 +75,8 @@ class EqualizerController(
     private var currentAdjustingBand: Short = -1
     /** The sliders of the open Graphic Equalizer, one for each band. */
     private val bandSliders = ArrayList<EqSliderView>()
+    /** The rows of the open Graphic Equalizer for the wheel: the bands, then the Back row. */
+    private val graphicEqRows = ArrayList<View>()
     private var isGraphicEqOpen = false
     private var isProfileSelectorOpen = false
 
@@ -113,7 +116,7 @@ class EqualizerController(
 
     private fun settingsSpec(focus: Focus = Focus.FIRST): ListSpec {
         val rows = ArrayList<RowSpec>()
-        rows += RowSpec("10-Band Software EQ", RowLook.VALUE, value = onOff(isSoftwareEqEnabled, localize), onClick = {
+        rows += RowSpec(localize("10-Band Software EQ"), RowLook.VALUE, value = onOff(isSoftwareEqEnabled, localize), onClick = {
             if (isSoftwareEqEnabled) {
                 isSoftwareEqEnabled = false
                 currentEqProfile = "preset_0"
@@ -134,20 +137,20 @@ class EqualizerController(
         } else {
             activeName = currentEqProfile.removePrefix("custom_")
         }
-        rows += RowSpec("EQ Profile / Preset", RowLook.VALUE, value = activeName, opens = true, onClick = { buildProfileSelectorUI() })
+        rows += RowSpec(localize("EQ Profile / Preset"), RowLook.VALUE, value = activeName, opens = true, onClick = { buildProfileSelectorUI() })
 
         val steps = arrayOf("Off", "Weak", "Normal", "Strong")
-        rows += RowSpec("Bass Boost", RowLook.VALUE, value = localize(steps[currentBassBoostStep % 4]), onClick = {
+        rows += RowSpec(localize("Bass Boost"), RowLook.VALUE, value = localize(steps[currentBassBoostStep % 4]), onClick = {
             currentBassBoostStep = (currentBassBoostStep + 1) % 4
             AudioEffectManager.getInstance().applyAudioEffects()
             screen.update(settingsSpec())
         })
-        rows += RowSpec("Virtualizer", RowLook.VALUE, value = localize(steps[currentVirtualizerStep % 4]), onClick = {
+        rows += RowSpec(localize("Virtualizer"), RowLook.VALUE, value = localize(steps[currentVirtualizerStep % 4]), onClick = {
             currentVirtualizerStep = (currentVirtualizerStep + 1) % 4
             AudioEffectManager.getInstance().applyAudioEffects()
             screen.update(settingsSpec())
         })
-        rows += RowSpec("Crossfeed", RowLook.VALUE, value = localize(steps[currentCrossfeedStep % 4]), onClick = {
+        rows += RowSpec(localize("Crossfeed"), RowLook.VALUE, value = localize(steps[currentCrossfeedStep % 4]), onClick = {
             currentCrossfeedStep = (currentCrossfeedStep + 1) % 4
             AudioPlayerManager.getInstance().crossfeedProcessor.setIntensity(currentCrossfeedStep)
             screen.update(settingsSpec())
@@ -185,7 +188,7 @@ class EqualizerController(
         })
 
         rows += RowSpec(localize("GRAPHIC EQUALIZER"), RowLook.HEADER)
-        rows += RowSpec("Graphic Equalizer", RowLook.VALUE, value = localize("Open Editor"), opens = true, onClick = {
+        rows += RowSpec(localize("Graphic Equalizer"), RowLook.VALUE, value = localize("Open Editor"), opens = true, onClick = {
             if (currentEqProfile.startsWith("preset_")) {
                 Notice.show(activity, localize("Please create a Custom Profile to edit!"), long = true)
             } else {
@@ -234,6 +237,7 @@ class EqualizerController(
         // The saved levels are the levels that play (AudioEffectManager reads the same prefs)
         val profileName = currentEqProfile.removePrefix("custom_")
         bandSliders.clear()
+        graphicEqRows.clear()
 
         for (i in 0 until bands) {
             val bandIdx = i.toShort()
@@ -294,6 +298,7 @@ class EqualizerController(
             }
 
             eqContainer.addView(bandLayout)
+            graphicEqRows += bandLayout
         }
 
         hsv.addView(eqContainer)
@@ -305,6 +310,7 @@ class EqualizerController(
             buildEqualizerSettingsUI(back = true)
         }
         containerSettingsItems.addView(btnBack)
+        graphicEqRows += btnBack
 
         if (eqContainer.childCount > 0) {
             eqContainer.postDelayed({
@@ -317,7 +323,6 @@ class EqualizerController(
     private fun buildProfileSelectorUI() {
         isProfileSelectorOpen = true
         screen.show(profilesSpec())
-        screen.select(currentEqProfile)
     }
 
     private fun profilesSpec(): ListSpec {
@@ -337,7 +342,7 @@ class EqualizerController(
             for (name in customList.split(",")) if (name.isNotBlank()) profile("custom_$name", name)
         }
         rows += RowSpec(localize("Back"), onClick = { buildEqualizerSettingsUI(back = true) })
-        return ListSpec(localize("Equalizer"), rows, id = "eq-profiles")
+        return ListSpec(localize("Equalizer"), rows, focus = Focus.CHECKED, id = "eq-profiles")
     }
 
     /** Asks before the 10-band EQ (it uses the CPU), on an action screen; Back cancels. */
@@ -361,7 +366,7 @@ class EqualizerController(
 
     override fun onWheel(delta: Int, event: KeyEvent): Boolean {
         if (!isGraphicEqOpen) return screen.wheel(delta)
-        if (currentAdjustingBand < 0) return false
+        if (currentAdjustingBand < 0) return stepGraphicEq(delta)
         val idx = currentAdjustingBand.toInt()
         if (idx in bandSliders.indices) {
             val name = currentEqProfile.removePrefix("custom_")
@@ -371,6 +376,15 @@ class EqualizerController(
             // Update the slider in place: a rebuild would end the band edit and move the focus to the first band
             bandSliders[idx].setLevel(level)
         }
+        clickFeedback()
+        return true
+    }
+
+    /** One wheel step in the Graphic Equalizer: from band to band, and from the last band to the Back row. */
+    private fun stepGraphicEq(delta: Int): Boolean {
+        val current = graphicEqRows.indexOfFirst { it.hasFocus() }
+        val i = RowFocus.next(graphicEqRows.size, current, delta, RowFocus.isLoopOn(activity)) { true } ?: return true
+        graphicEqRows[i].requestFocus()
         clickFeedback()
         return true
     }

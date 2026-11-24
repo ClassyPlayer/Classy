@@ -6,7 +6,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class Migration012GamesMenuItemTest {
-    private fun with(order: String) = Migration012GamesMenuItem.withGames(order)
+    private fun with(order: String) = NewMenuItem.insertAfter(order, Migration012GamesMenuItem.ITEM, Migration012GamesMenuItem.AFTER)
 
     @Test
     fun goesAfterMusicQuiz() {
@@ -26,9 +26,9 @@ class Migration012GamesMenuItemTest {
 
     @Test
     fun hiddenOnlyWithoutAGamesFolder() {
-        assertFalse(Migration012GamesMenuItem.startsHidden(hasGamesFolder = true, isSdCardMounted = true))
-        assertTrue(Migration012GamesMenuItem.startsHidden(hasGamesFolder = false, isSdCardMounted = true))
+        assertFalse(NewMenuItem.startsHidden(hasFolder = true, isSdCardMounted = true))
+        assertTrue(NewMenuItem.startsHidden(hasFolder = false, isSdCardMounted = true))
         // The folder can be on a card that is not mounted yet: the row stays
-        assertFalse(Migration012GamesMenuItem.startsHidden(hasGamesFolder = false, isSdCardMounted = false))
+        assertFalse(NewMenuItem.startsHidden(hasFolder = false, isSdCardMounted = false))
     }
 }

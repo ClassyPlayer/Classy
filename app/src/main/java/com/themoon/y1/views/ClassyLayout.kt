@@ -69,7 +69,7 @@ object ClassyLayout {
                 applyStatusBar(main, d)
                 appliedStatusKey = statusBarKey(main)
             }
-            keepStatusBarFull(main.findViewById(R.id.layout_status_bar))
+            keepStatusBarOpaque(main.findViewById(R.id.layout_status_bar))
             applyScreenPaddings(main, d)
             if (first || main.findViewById<View>(R.id.layout_player_mode)?.visibility == View.VISIBLE) {
                 ClassyNowPlaying.apply(main, d)
@@ -167,25 +167,15 @@ object ClassyLayout {
     }
 
     /**
-     * Keeps the status bar at the full width (the controllers set half the width for the split screens)
-     * and opaque in Cover Flow (applyTheme and Cover Flow make it transparent there). It stays transparent
-     * over the video player. Called at each apply and before each frame ([ClassyStatusRuleView]), because
+     * Keeps the status bar opaque in Cover Flow (applyTheme and Cover Flow make it transparent there). It stays
+     * transparent over the video player. Called at each apply and before each frame ([ClassyStatusRuleView]), because
      * the controllers also change it outside applyTheme(). Returns true when it changed the bar.
      */
-    internal fun keepStatusBarFull(bar: View?): Boolean {
+    internal fun keepStatusBarOpaque(bar: View?): Boolean {
         if (bar == null) return false
-        var changed = false
-        val lp = bar.layoutParams
-        if (lp != null && lp.width != ViewGroup.LayoutParams.MATCH_PARENT) {
-            lp.width = ViewGroup.LayoutParams.MATCH_PARENT
-            bar.layoutParams = lp
-            changed = true
-        }
-        if (MainActivity.instance?.currentScreenState == MainActivity.STATE_COVERFLOW && isTransparent(bar.background)) {
-            bar.background = ThemeManager.createStatusBarBackground()
-            changed = true
-        }
-        return changed
+        if (MainActivity.instance?.currentScreenState != MainActivity.STATE_COVERFLOW || !isTransparent(bar.background)) return false
+        bar.background = ThemeManager.createStatusBarBackground()
+        return true
     }
 
     internal fun isTransparent(bg: Drawable?): Boolean =
@@ -215,8 +205,10 @@ object ClassyLayout {
         }
     }
 
-    private val coverPaneIds =
-        intArrayOf(R.id.frame_main_menu_cover, R.id.frame_browser_cover, R.id.frame_video_cover, R.id.frame_settings_cover)
+    private val coverPaneIds = intArrayOf(
+        R.id.frame_main_menu_cover, R.id.frame_browser_cover, R.id.frame_video_cover, R.id.frame_settings_cover,
+        R.id.frame_photos_cover, R.id.frame_books_cover
+    )
 
     // Text helpers
 

@@ -1,7 +1,5 @@
 package com.themoon.y1.migrations
 
-import com.themoon.y1.Prefs
-
 /**
  * Migration 008: the main menu has a new row *Play On* (after *Wi-Fi*). A saved order (Settings → Menus → Main
  * Menu Items) puts an item that it does not have at the end: put Play On after Wi-Fi in it once.
@@ -20,23 +18,13 @@ class Migration008PlayOnMenuItem : Migration {
     @Throws(Exception::class)
     override fun migrate(context: MigrationContext) {
         val prefs = context.settingsPrefs ?: return
-        val order = Prefs.MENU_ORDER.get(prefs)
-        val updated = withPlayOn(order)
-        if (updated != order) Prefs.MENU_ORDER.set(prefs, updated)
+        NewMenuItem.putAfter(prefs, ITEM, AFTER)
     }
 
     companion object {
         const val VERSION: Int = 8
         const val ID: String = "008_play_on_menu_item"
         const val ITEM = "btn_play_on"
-
-        /** [order] with [ITEM] after btn_wifi (or at the end without btn_wifi); the same order if it has [ITEM]. */
-        fun withPlayOn(order: String): String {
-            val ids = order.split(",").filter { it.isNotEmpty() }.toMutableList()
-            if (ids.isEmpty() || ITEM in ids) return order
-            val wifi = ids.indexOf("btn_wifi")
-            if (wifi >= 0) ids.add(wifi + 1, ITEM) else ids.add(ITEM)
-            return ids.joinToString(",")
-        }
+        const val AFTER = "btn_wifi"
     }
 }

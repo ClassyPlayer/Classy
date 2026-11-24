@@ -26,7 +26,7 @@ import com.themoon.y1.models.AlbumKey
 import com.themoon.y1.models.AlbumTrackOrder
 import com.themoon.y1.models.SongItem
 import com.themoon.y1.navigation.BrowserMode
-import com.themoon.y1.views.ClassicMenuStyle
+import com.themoon.y1.views.ClassyMetrics
 import com.themoon.y1.views.ListItemViewFactory
 import com.themoon.y1.views.Notice
 import java.io.File
@@ -381,7 +381,7 @@ class CategoryListAdapter(
             row = ListItemViewFactory.createListButtonWithIcon(main, "", name).apply {
                 tag = SIMPLE_ROW
                 val d = main.resources.displayMetrics.density
-                val height = (ClassicMenuStyle.ROW_HEIGHT_DP * d).toInt()
+                val height = (ClassyMetrics.ROW_HEIGHT * d).toInt()
                 layoutParams = AbsListView.LayoutParams(AbsListView.LayoutParams.MATCH_PARENT, height)
             }
         }
