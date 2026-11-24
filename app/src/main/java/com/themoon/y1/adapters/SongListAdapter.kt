@@ -163,7 +163,7 @@ class SongListAdapter(
             val pos = main.prefs.getInt("book_pos_" + song.file.absolutePath, 0)
             val dur = main.prefs.getInt("book_dur_" + song.file.absolutePath, 0)
             if (pos > 0 && dur > 0) {
-                ListItemViewFactory.setupAudiobookProgress(main, btn, pos, dur)
+                ListItemViewFactory.setupAudiobookProgress(btn, pos, dur)
                 hasProgress = true
             }
         }
@@ -183,7 +183,7 @@ class SongListAdapter(
             }
 
             if (pos > 0 && dur > 0) {
-                ListItemViewFactory.setupAudiobookProgress(main, btn, pos, dur)
+                ListItemViewFactory.setupAudiobookProgress(btn, pos, dur)
                 hasProgress = true
             }
         }

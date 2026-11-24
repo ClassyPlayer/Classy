@@ -69,8 +69,6 @@ class VideoBrowserController(
         thumbCache.evictAll()
     }
 
-    fun isCoverPaneActive(): Boolean = pane?.isShown == true
-
     private val videoExtensions = setOf("mp4", "mkv", "avi", "mov", "m4v", "webm", "3gp", "ts", "wmv")
 
     override fun onEnter(state: ScreenState) {

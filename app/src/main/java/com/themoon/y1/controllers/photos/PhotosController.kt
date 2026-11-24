@@ -92,9 +92,6 @@ class PhotosController(
 
     private fun isShown(): Boolean = rootView.visibility == View.VISIBLE
 
-    /** True while the art pane shows (the status bar then covers the list pane only). */
-    val isPaneShown: Boolean get() = isShown() && pane.isShown
-
     val isScanning: Boolean get() = PhotoLibrary.isScanning
 
     override fun title(): String = when (val l = level) {

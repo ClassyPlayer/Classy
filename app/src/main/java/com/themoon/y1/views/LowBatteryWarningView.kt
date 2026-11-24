@@ -197,7 +197,7 @@ class LowBatteryWarningView private constructor(private val main: MainActivity) 
             banner.layoutParams = it
         }
         // The look of a selected list row: the theme's selection colours, bold list text, the row padding.
-        banner.background = ListItemViewFactory.createFocusedButtonBackground(main)
+        banner.background = ListItemViewFactory.createFocusedButtonBackground()
         banner.setTextColor(ThemeManager.getListButtonFocusedTextColor())
         banner.typeface = ThemeManager.getCustomFontBold()
         banner.setTextSize(TypedValue.COMPLEX_UNIT_PX, ClassyMetrics.LIST_TEXT_SP * d)

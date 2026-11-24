@@ -96,8 +96,6 @@ class SettingsController(
         rootView.findViewById(R.id.iv_settings_cover), onShowPane
     )
 
-    /** True while the top level shows with its cover pane. */
-    val isPaneShown: Boolean get() = isUiActive && pane.isShown
     private val rows = SettingRows(prefs, localize) { refresh() }
 
     private var isUiActive = false

@@ -309,7 +309,6 @@ internal fun MainActivity.applyThemeInternal() {
             } else {
                 statusBar.background = createStatusBarBackground()
             }
-            updateStatusBarWidth()
         }
 
         val primary = ThemeManager.getTextColorPrimary()
@@ -376,11 +375,11 @@ internal fun MainActivity.applyThemeInternal() {
         val btnServerToggle = findViewById<android.widget.Button>(R.id.btn_server_toggle)
         if (btnServerToggle != null) {
             if (btnServerToggle.hasFocus()) {
-                btnServerToggle.background = createFocusedButtonBackground()
+                btnServerToggle.background = com.themoon.y1.views.ListItemViewFactory.createFocusedButtonBackground()
                 btnServerToggle.setTextColor(ThemeManager.getListButtonFocusedTextColor())
                 btnServerToggle.typeface = ThemeManager.getCustomFontBold()
             } else {
-                btnServerToggle.background = createButtonBackground(ThemeManager.getListButtonNormalBg())
+                btnServerToggle.background = com.themoon.y1.views.ListItemViewFactory.createButtonBackground(ThemeManager.getListButtonNormalBg())
                 btnServerToggle.setTextColor(primary)
                 btnServerToggle.typeface = ThemeManager.getCustomFont()
             }

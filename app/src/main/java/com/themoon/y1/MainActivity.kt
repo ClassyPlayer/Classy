@@ -1307,21 +1307,6 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
         updateStatusBarClock()
     }
 
-    fun isPaneBasedScreen(): Boolean {
-        return when (currentScreenState) {
-            STATE_MENU -> true
-            STATE_BROWSER -> ::browserController.isInitialized && browserController.isCoverPaneActive()
-            STATE_VIDEOS -> ::videoBrowserController.isInitialized && videoBrowserController.isCoverPaneActive()
-            STATE_PHOTOS -> ::photosController.isInitialized && photosController.isPaneShown
-            STATE_SETTINGS -> ::settingsController.isInitialized && settingsController.isPaneShown
-            else -> false
-        }
-    }
-
-    fun updateStatusBarWidth() {
-        findViewById<View>(R.id.layout_status_bar)?.let { com.themoon.y1.lists.Pane.fitStatusBar(it, isPaneBasedScreen()) }
-    }
-
     fun showUsbStorageDialog() = usbStorageManager.showUsbStorageDialog()
 
     fun startUsbStorage() = usbStorageManager.startUsbStorage()
@@ -1331,12 +1316,6 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     fun showUsbStorageOverlay() = usbStorageManager.showUsbStorageOverlay()
 
     fun hideUsbStorageOverlay() = usbStorageManager.hideUsbStorageOverlay()
-
-    fun createButtonBackground(color: Int): GradientDrawable =
-        ListItemViewFactory.createButtonBackground(this, color)
-
-    fun createFocusedButtonBackground(): GradientDrawable =
-        ListItemViewFactory.createFocusedButtonBackground(this)
 
     internal fun createListButton(text: String, color: Int? = null): View =
         ListItemViewFactory.createListButtonWithIcon(this, "", text, color ?: 0)

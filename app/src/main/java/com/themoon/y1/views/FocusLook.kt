@@ -21,17 +21,11 @@ class FocusLook private constructor(private val row: View) : View.OnFocusChangeL
     private val normals = ArrayList<() -> Int>(3)
     private val extras = ArrayList<(Boolean) -> Unit>(1)
 
-    /** The colour of the texts on the selected row. */
-    var focusedColor: () -> Int = { ThemeManager.getListButtonFocusedTextColor() }
-
     /** The arrow of a row that opens a list: only on the selected row. */
     var arrow: View? = null
 
     /** The text that scrolls (marquee) on the selected row. */
     var marquee: TextView? = null
-
-    /** Corner radius of the backgrounds, in px (dialog buttons). */
-    var corners = 0f
 
     /** An audiobook or podcast row: the background shows the position [0] of the length [1] (ms). Null: plain. */
     var progress: IntArray? = null
@@ -85,12 +79,12 @@ class FocusLook private constructor(private val row: View) : View.OnFocusChangeL
     private fun show(focused: Boolean) {
         val p = progress
         if (p != null) {
-            ListItemViewFactory.applyProgressBackground(row.context, row, p[0], p[1], focused)
+            ListItemViewFactory.applyProgressBackground(row, p[0], p[1], focused)
         } else {
             val bg = if (picked) pickedBg() else if (focused) focusedBg() else normalBg()
             if (row.background !== bg) row.background = bg
         }
-        val focusedText = focusedColor()
+        val focusedText = ThemeManager.getListButtonFocusedTextColor()
         for (i in texts.indices) texts[i].setTextColor(if (focused) focusedText else normals[i]())
         marquee?.isSelected = focused
         arrow?.visibility = if (focused) View.VISIBLE else View.INVISIBLE
@@ -102,18 +96,12 @@ class FocusLook private constructor(private val row: View) : View.OnFocusChangeL
         val bg = normalBg
         if (bg != null && color == normalBgColor) return bg
         normalBgColor = color
-        return ListItemViewFactory.createButtonBackground(row.context, color).also {
-            if (corners > 0f) it.cornerRadius = corners
-            normalBg = it
-        }
+        return ListItemViewFactory.createButtonBackground(color).also { normalBg = it }
     }
 
     private fun pickedBg(): GradientDrawable = pickedBg ?: GradientDrawable().apply { setColor(PICKED_COLOR) }.also { pickedBg = it }
 
-    private fun focusedBg(): GradientDrawable = focusedBg ?: ListItemViewFactory.createFocusedButtonBackground(row.context).also {
-        if (corners > 0f) it.cornerRadius = corners
-        focusedBg = it
-    }
+    private fun focusedBg(): GradientDrawable = focusedBg ?: ListItemViewFactory.createFocusedButtonBackground().also { focusedBg = it }
 
     companion object {
         /** The background of a [picked] row. */
@@ -125,7 +113,7 @@ class FocusLook private constructor(private val row: View) : View.OnFocusChangeL
             row.onFocusChangeListener = it
         }
 
-        /** The look of a button that has one text (Scan, a dialog button): the button text is the text. */
+        /** The look of a button that has one text (Scan): the button text is the text. */
         fun ofButton(button: TextView): FocusLook = of(button).also { if (it.texts.isEmpty()) it.text(button) }
     }
 }

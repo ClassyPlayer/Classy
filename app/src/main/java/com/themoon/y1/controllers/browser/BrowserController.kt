@@ -728,14 +728,12 @@ class BrowserController(
             val dur = prefs.getInt("book_dur_" + audio.absolutePath, 0)
             if (pos > 0 && dur > 0) {
                 val b = ListItemViewFactory.createListButtonWithIcon(activity, "", audio.name)
-                ListItemViewFactory.setupAudiobookProgress(activity, b, pos, dur)
+                ListItemViewFactory.setupAudiobookProgress(b, pos, dur)
                 return RowSpec(audio.name, RowLook.CUSTOM, view = b, key = audio.absolutePath, onClick = click, onHold = hold)
             }
         }
         return RowSpec(audio.name, key = audio.absolutePath, onClick = click, onHold = hold)
     }
-
-    fun isCoverPaneActive(): Boolean = pane?.isShown == true
 
     private fun collectAudioFilesAsFile(dir: File, list: MutableList<File>) {
         val files = dir.listFiles() ?: return

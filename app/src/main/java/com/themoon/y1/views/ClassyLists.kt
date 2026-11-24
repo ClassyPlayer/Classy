@@ -117,6 +117,3 @@ class ClassyChevronDrawable(color: Int, strokeWidth: Float) : Drawable() {
     @Deprecated("Deprecated in Java")
     override fun getOpacity(): Int = PixelFormat.TRANSLUCENT
 }
-
-/** Backward compatibility aliases. */
-typealias IpodClassicLists = ClassyLists

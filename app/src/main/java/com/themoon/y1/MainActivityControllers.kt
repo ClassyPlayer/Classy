@@ -9,7 +9,6 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ListView
-import android.widget.TextView
 import com.themoon.y1.controllers.browser.BrowserController
 import com.themoon.y1.controllers.connectivity.BluetoothController
 import com.themoon.y1.controllers.connectivity.WebServerController
@@ -52,7 +51,6 @@ import com.themoon.y1.views.Notice
 internal fun MainActivity.initControllers() {
     val rootContent = findViewById<ViewGroup>(android.R.id.content)
     val containerBrowserItems = findViewById<LinearLayout>(R.id.container_browser_items)
-    val tvBrowserPath = findViewById<TextView>(R.id.tv_browser_path)
 
     val listContainer = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL

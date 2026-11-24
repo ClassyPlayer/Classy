@@ -2,7 +2,6 @@ package com.themoon.y1.views
 
 import android.content.Context
 import android.graphics.drawable.ClipDrawable
-import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.LayerDrawable
 import android.text.TextUtils
@@ -23,13 +22,10 @@ object ListItemViewFactory {
     /** Space between the text (or the value) of a row and its arrow ([ClassyLists.arrow]). */
     private const val ARROW_MARGIN_DP = 10
 
-    @Suppress("UNUSED_PARAMETER")
-    fun createButtonBackground(context: Context, color: Int): GradientDrawable =
-        GradientDrawable().apply { setColor(color) }
+    fun createButtonBackground(color: Int): GradientDrawable = GradientDrawable().apply { setColor(color) }
 
     /** The blue gradient of the selected row. */
-    @Suppress("UNUSED_PARAMETER")
-    fun createFocusedButtonBackground(context: Context): GradientDrawable = GradientDrawable(
+    fun createFocusedButtonBackground(): GradientDrawable = GradientDrawable(
         GradientDrawable.Orientation.TOP_BOTTOM,
         intArrayOf(0xFF62B7F5.toInt(), 0xFF2588DC.toInt(), 0xFF0865C4.toInt())
     )
@@ -105,12 +101,7 @@ object ListItemViewFactory {
      * An audiobook or podcast row with a saved position: the background shows the progress (the row keeps its
      * texts; no arrow).
      */
-    fun setupAudiobookProgress(
-        context: Context,
-        btn: View,
-        pos: Int,
-        dur: Int
-    ) {
+    fun setupAudiobookProgress(btn: View, pos: Int, dur: Int) {
         if (pos <= 0 || dur <= 0) return
         val look = FocusLook.of(btn).reset()
         val texts = when {
@@ -124,7 +115,6 @@ object ListItemViewFactory {
     }
 
     fun applyProgressBackground(
-        context: Context,
         btn: View,
         currentMs: Int,
         totalMs: Int,
@@ -135,10 +125,10 @@ object ListItemViewFactory {
         if (progressPercent > 10000) progressPercent = 10000
 
         val baseColor = if (isFocused) ThemeManager.getListButtonFocusedBg() else ThemeManager.getListButtonNormalBg()
-        val baseBg = createButtonBackground(context, baseColor)
+        val baseBg = createButtonBackground(baseColor)
 
         val progressColor = if (isFocused) 0x66FFFFFF.toInt() else ((ThemeManager.getListButtonFocusedBg() and 0x00FFFFFF) or 0x44000000.toInt())
-        val progressBg = createButtonBackground(context, progressColor)
+        val progressBg = createButtonBackground(progressColor)
 
         val clipProgress = ClipDrawable(progressBg, Gravity.LEFT, ClipDrawable.HORIZONTAL)
         clipProgress.level = progressPercent
@@ -171,31 +161,6 @@ object ListItemViewFactory {
         btn.setPadding(ClassyLayout.px(ClassyMetrics.ROW_PADDING_LEFT, d), ClassyLayout.capCentredPaddingTop(btn, rowHeight.toFloat()),
             ClassyLayout.px(ClassyMetrics.ROW_PADDING_RIGHT, d), 0)
         FocusLook.ofButton(btn).refresh()
-        return btn
-    }
-
-    fun createDialogButton(context: Context, text: String): View {
-        val d = context.resources.displayMetrics.density
-        val btnHeight = (36f * d).toInt()
-        val cornerRad = 6f * d
-
-        val btn = TextView(context).apply {
-            this.text = text
-            setTextSize(TypedValue.COMPLEX_UNIT_PX, 16f * d)
-            typeface = ThemeManager.getCustomFontBold()
-            gravity = Gravity.CENTER
-            isFocusable = true
-            isClickable = true
-            includeFontPadding = false
-            layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                btnHeight
-            ).apply {
-                topMargin = (6f * d).toInt()
-            }
-        }
-
-        FocusLook.ofButton(btn).apply { corners = cornerRad }.refresh()
         return btn
     }
 
@@ -267,22 +232,9 @@ object ListItemViewFactory {
         container.addView(tv)
     }
 
-    fun createTablerListButton(
-        context: Context,
-        icon: Array<String>?,
-        text: String,
-        normalColor: Int = 0,
-        focusedColor: Int = 0
-    ): View = createTablerListButtonWithRightIcon(
-        context = context,
-        iconPaths = icon,
-        text = text,
-        rightIconPaths = null,
-        iconColor = normalColor,
-        textColor = normalColor,
-        focusedTextColor = focusedColor,
-        focusedIconColor = focusedColor
-    )
+    /** A row with an icon on the left; [color] (0 = the theme colour) is the colour of the icon and the text. */
+    fun createTablerListButton(context: Context, icon: Array<String>?, text: String, color: Int = 0): View =
+        createTablerListButtonWithRightIcon(context, icon, text, iconColor = color, textColor = color)
 
     /**
      * A row of a single-choice list (Theme, Language, EQ preset...). Each row keeps the tick column on the
@@ -310,8 +262,6 @@ object ListItemViewFactory {
         rightIconPaths: Array<String>? = null,
         iconColor: Int = 0,
         textColor: Int = 0,
-        focusedTextColor: Int = 0,
-        focusedIconColor: Int = 0,
         /** The colour of the right icon on a row that is not selected; 0 = the secondary text colour. */
         rightIconColor: Int = 0
     ): View {
@@ -325,8 +275,6 @@ object ListItemViewFactory {
 
         val actualIconColor = if (iconColor != 0) iconColor else ThemeManager.getTextColorPrimary()
         val actualTextColor = if (textColor != 0) textColor else ThemeManager.getTextColorPrimary()
-        val actualFocusedTextColor = if (focusedTextColor != 0) focusedTextColor else ThemeManager.getListButtonFocusedTextColor()
-        val actualFocusedIconColor = if (focusedIconColor != 0) focusedIconColor else ThemeManager.getListButtonFocusedTextColor()
         val actualRightIconColor = if (rightIconColor != 0) rightIconColor else ThemeManager.getTextColorSecondary()
 
         val iconSize = (18f * d).toInt()
@@ -369,12 +317,12 @@ object ListItemViewFactory {
         }
 
         val look = FocusLook.of(row).text(tv) { actualTextColor }
-        look.focusedColor = { actualFocusedTextColor }
         look.onFocus { focused ->
-            tick?.color = if (focused) actualFocusedIconColor else actualIconColor
-            if (iconPaths != null) ivLeft?.setImageBitmap(TablerIcons.render(iconPaths, iconSize, if (focused) actualFocusedIconColor else actualIconColor))
+            val focusedColor = ThemeManager.getListButtonFocusedTextColor()
+            tick?.color = if (focused) focusedColor else actualIconColor
+            if (iconPaths != null) ivLeft?.setImageBitmap(TablerIcons.render(iconPaths, iconSize, if (focused) focusedColor else actualIconColor))
             if (rightIconPaths != null) ivRight?.setImageBitmap(TablerIcons.render(rightIconPaths, rightIconSize,
-                if (focused) actualFocusedIconColor else actualRightIconColor))
+                if (focused) focusedColor else actualRightIconColor))
         }.refresh()
         ClassyLists.styleRow(row, tv)
         return row
