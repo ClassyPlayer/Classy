@@ -174,7 +174,6 @@ class PhotosController(
             if (l is PhotosLevel.Folder) spec.rows.firstOrNull { it.key != KEY_SLIDESHOW && it.look != RowLook.INFO }?.let { screen.select(it.key) }
         }
         if (l == PhotosLevel.Root) showPanePhoto()
-        refreshTitle()
     }
 
     private fun emptyText(): String = localize(if (PhotoLibrary.isScanning) "Indexing photos..." else "No photos found.")

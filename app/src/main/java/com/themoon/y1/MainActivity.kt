@@ -1273,9 +1273,10 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     }
 
     private fun updateStatusBarTitle() {
-        tvStatusBarTitle?.text = NavigationManager.getInstance().activeController?.title() ?: when (currentScreenState) {
+        val tv = tvStatusBarTitle ?: return
+        val title = NavigationManager.getInstance().activeController?.title() ?: when (currentScreenState) {
             STATE_MENU -> t("Classy")
-            STATE_BROWSER -> if (::browserController.isInitialized) browserController.getCurrentBrowserTitle() else t("Music")
+            STATE_BROWSER -> if (isAudiobookLibraryMode) t("Audiobooks") else t("Music")
             STATE_PLAYER -> t("Now Playing")
             STATE_SETTINGS -> t("Settings")
             STATE_BLUETOOTH -> t("Bluetooth")
@@ -1285,7 +1286,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
             STATE_STORAGE -> t("About")
             STATE_WEBSERVER -> t("Upload")
             STATE_QUIZ -> t("Music Quiz")
-            STATE_VIDEOS -> if (::videoBrowserController.isInitialized) videoBrowserController.getCurrentTitle() else t("Videos")
+            STATE_VIDEOS -> t("Videos")
             STATE_COVERFLOW -> {
                 val total = uniqueAlbumList.size
                 if (total > 0 && ::coverFlowController.isInitialized) {
@@ -1301,6 +1302,8 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
             STATE_PHOTOS -> t("Photos")
             else -> t("Classy")
         }
+        // A list calls this at each change of its rows: a new text only when the title changed (no new layout)
+        if (tv.text?.toString() != title) tv.text = title
     }
 
     fun updateStatusBarClock() {

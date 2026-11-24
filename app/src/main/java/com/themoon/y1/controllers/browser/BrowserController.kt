@@ -7,7 +7,6 @@ import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ListView
-import android.widget.TextView
 import com.themoon.y1.AppPrefs
 import com.themoon.y1.MainActivity
 import com.themoon.y1.R
@@ -249,12 +248,6 @@ class BrowserController(
         }
     }
 
-    /** Shows [spec], and its title also when no screen change sets it (library scan, test commands). */
-    private fun show(spec: ListSpec) {
-        screen.show(spec)
-        activity.findViewById<TextView>(R.id.tv_status_clock)?.text = spec.title
-    }
-
     /** The Music menu (the items of Settings → Music Menu Items) or the Audiobooks menu, with the art pane. */
     fun buildFileBrowserUI() {
         if (currentBrowserMode is BrowserMode.Folder) {
@@ -275,7 +268,7 @@ class BrowserController(
         val isScanning = MainActivity.instance?.isCustomScanning == true
         rows += RowSpec(if (isScanning) localize("Scanning Media...") else localize("Scan Media Library"), key = "scan",
             onClick = { onStartMediaLibraryScan() })
-        show(ListSpec(if (audiobooks) localize("Audiobooks") else localize("Music"), rows, pane = pane))
+        screen.show(ListSpec(if (audiobooks) localize("Audiobooks") else localize("Music"), rows, pane = pane))
     }
 
     /** Audiobooks → Continue: plays the last book from its saved place. */
@@ -440,7 +433,7 @@ class BrowserController(
         }
 
         val albumList = type == "ALBUM" || type == "GENRE_ALBUM"
-        show(ListSpec(catTitle, adapter = CategoryListAdapter(categories, type, isAudiobookLibraryMode, albumArtists = albumArtists),
+        screen.show(ListSpec(catTitle, adapter = CategoryListAdapter(categories, type, isAudiobookLibraryMode, albumArtists = albumArtists),
             empty = localize(if (albumList) "No albums found." else "No results found."), letters = true))
     }
 
@@ -542,7 +535,7 @@ class BrowserController(
             main?.virtualSongList?.add(song.file)
         }
 
-        show(ListSpec(songsTitle, adapter = SongListAdapter(displaySongs),
+        screen.show(ListSpec(songsTitle, adapter = SongListAdapter(displaySongs),
             empty = localize(if (virtualQueryType == "SEARCH") "No results found." else "No Songs"), letters = true))
     }
 
@@ -565,7 +558,7 @@ class BrowserController(
             main?.virtualSongList?.add(song.file)
         }
 
-        show(ListSpec(localize("My Favorites"), adapter = SongListAdapter(targetSongs),
+        screen.show(ListSpec(localize("My Favorites"), adapter = SongListAdapter(targetSongs),
             empty = localize("No favorites added yet."), letters = true))
 
         // The song that plays, if it is a favorite
@@ -612,7 +605,7 @@ class BrowserController(
                 if (isTop || NavigationManager.getInstance().previousState()?.isFolderLevel == true) onBackPressed()
                 else openParentFolder(currentFolder.parentFile ?: StoragePaths.getTopStorageRoot(), addToBackStack = false)
             })
-            show(ListSpec(folderTitle, rows))
+            screen.show(ListSpec(folderTitle, rows))
             return
         }
 
@@ -692,7 +685,7 @@ class BrowserController(
         }
         for (audio in audioFiles) rows += folderAudioRow(audio)
 
-        show(ListSpec(folderTitle, rows, letters = true))
+        screen.show(ListSpec(folderTitle, rows, letters = true))
 
         // The file that plays, if it is in this folder; else the first folder, else the first file (not ".." or Play All)
         val curPlaylist = MainActivity.instance?.currentPlaylist
@@ -753,9 +746,6 @@ class BrowserController(
     }
 
     fun isCoverPaneActive(): Boolean = pane?.isShown == true
-
-    fun getCurrentBrowserTitle(): String =
-        screen.title?.takeIf { it.isNotBlank() } ?: if (isAudiobookLibraryMode) localize("Audiobooks") else localize("Music")
 
     private fun collectAudioFilesAsFile(dir: File, list: MutableList<File>) {
         val files = dir.listFiles() ?: return

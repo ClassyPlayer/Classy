@@ -11,6 +11,7 @@ import android.widget.LinearLayout
 import android.widget.ListView
 import android.widget.ScrollView
 import android.widget.TextView
+import com.themoon.y1.MainActivity
 import com.themoon.y1.ThemeManager
 import com.themoon.y1.navigation.LetterJump
 import com.themoon.y1.navigation.PadWheel
@@ -30,6 +31,7 @@ import com.themoon.y1.views.ListItemViewFactory
  * - [wheel]: one step ([RowFocus]: Wheel Loop Scroll, rows that cannot take the focus are skipped,
  *   List Edges fade in the ListView), with the click feedback.
  * - Rows: one click feedback, then the row's action; a hold (long press) does the row's hold action.
+ * - [ListSpec.title]: the status bar title ([MainActivity.refreshStatusBarTitle]), at each [show] and [update].
  * - [ListSpec.pane]: the split screen shows with the list, and goes when a list without it shows or the screen exits.
  * - [ListSpec.letters]: the iPod letter jump ([LetterJump.Mode], Settings → Controls → Letter Jump) in [wheel], with
  *   the letter in [letterBox]; the screen gives its keys to [key] (a centre press ends letter mode).
@@ -330,6 +332,8 @@ class ListScreen(
         val long = spec.isLong
         scroll?.visibility = if (long) View.GONE else View.VISIBLE
         list?.visibility = if (long) View.VISIBLE else View.GONE
+        // The status bar shows the title of the new list (also without a screen change: a library scan, an action screen)
+        (context as? MainActivity)?.refreshStatusBarTitle()
         if (long) {
             list?.adapter = spec.adapter
             shown = ArrayList()

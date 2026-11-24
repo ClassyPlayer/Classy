@@ -264,10 +264,7 @@ internal fun MainActivity.initControllers() {
             changeScreen(ScreenState.Videos(mode))
         },
         clickFeedback = { clickFeedback() },
-        localize = { t(it) },
-        updateHeaderTitle = { title ->
-            tvStatusBarTitle?.text = title
-        }
+        localize = { t(it) }
     )
 
     videoPlayerController = VideoPlayerController(

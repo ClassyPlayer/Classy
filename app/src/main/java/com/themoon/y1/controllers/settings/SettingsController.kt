@@ -518,7 +518,6 @@ class SettingsController(
         }
         val list = ActionScreens.list(spec) { onNavigateBack() }
         if (again) screen.update(list) else screen.show(list)
-        mainActivity?.tvStatusBarTitle?.text = spec.title
     }
 
     // --- The screens that the rows open ---
