@@ -1,6 +1,5 @@
 package com.themoon.y1.migrations
 
-import com.themoon.y1.Prefs
 import com.themoon.y1.StoragePaths
 
 /**
@@ -22,37 +21,14 @@ class Migration012GamesMenuItem : Migration {
     @Throws(Exception::class)
     override fun migrate(context: MigrationContext) {
         val prefs = context.settingsPrefs ?: return
-        val order = Prefs.MENU_ORDER.get(prefs)
-        val updated = withGames(order)
-        if (updated != order) Prefs.MENU_ORDER.set(prefs, updated)
-        val hiddenKey = Prefs.MAIN_MENU_HIDDEN.key(ITEM)
-        if (!prefs.contains(hiddenKey)) {
-            val hasFolder = StoragePaths.getGamesDirs().any { it.isDirectory }
-            if (startsHidden(hasFolder, StoragePaths.hasSecondaryStorage())) {
-                prefs.edit().putBoolean(hiddenKey, true).apply()
-            }
-        }
+        NewMenuItem.putAfter(prefs, ITEM, AFTER)
+        NewMenuItem.hideWithoutFolder(prefs, ITEM) { StoragePaths.getGamesDirs() }
     }
 
     companion object {
         const val VERSION: Int = 12
         const val ID: String = "012_games_menu_item"
         const val ITEM = "btn_games"
-
-        /** [order] with [ITEM] after btn_musicquiz (or at the end without it); the same order if it has [ITEM]. */
-        fun withGames(order: String): String {
-            val ids = order.split(",").filter { it.isNotEmpty() }.toMutableList()
-            if (ids.isEmpty() || ITEM in ids) return order
-            val quiz = ids.indexOf("btn_musicquiz")
-            if (quiz >= 0) ids.add(quiz + 1, ITEM) else ids.add(ITEM)
-            return ids.joinToString(",")
-        }
-
-        /**
-         * Hide Games when no Games folder was found. When the microSD card is not mounted yet, the folder can be
-         * on it: the row stays (an empty Games list says where to put the games).
-         */
-        fun startsHidden(hasGamesFolder: Boolean, isSdCardMounted: Boolean): Boolean =
-            !hasGamesFolder && isSdCardMounted
+        const val AFTER = "btn_musicquiz"
     }
 }
