@@ -181,7 +181,10 @@ class WebDavSync private constructor(context: Context) {
         dest.mkdirs()
         requireFreeSpace(plan.bytes, if (dest.exists()) dest else File(StoragePaths.PRIMARY_PATH))
 
+        if (plan.conflicts.isNotEmpty()) Log.w(TAG, "${plan.conflicts.size} files skipped: a file that this sync did not make is at their place")
         synchronized(ledger) {
+            // Files at their place with the server's size: recorded as synced, not downloaded again
+            for (d in plan.adopt) ledger.putItem(SyncLedger.LedgerItem(d.entry.href, d.folderHref, "music", d.target.path, d.target.length(), versionOf(d.entry), false))
             for (href in plan.orphan) ledger.getItem(href)?.let { it.orphaned = true; ledger.putItem(it) }
             for (href in plan.unorphan) ledger.getItem(href)?.let { it.orphaned = false; ledger.putItem(it) }
             saveLedger()

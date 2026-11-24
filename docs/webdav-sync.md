@@ -63,6 +63,10 @@ Folders you tick are what the player keeps. A folder you untick is removed from 
 
 A song that is playing is never replaced or deleted. It waits for the next sync.
 
+A sync never writes over a file that it did not make (your own files, or those of Jellyfin Sync). If such a file has
+the size of the server file, the sync takes it as that file and does not download it again (for example after Log
+Out / Reset). Else the server file is skipped, and your file stays as it is.
+
 If nothing is ticked, Sync Now asks before it deletes everything it synced.
 
 ### Auto Sync
@@ -81,7 +85,7 @@ Forgets the address, login and certificate, and the ticked folders. The songs st
 it synced them, so no later sync deletes them. Delete them with a file manager if you do not want them.
 
 A new **Server URL** does the same: no ticked folders, no certificate, and the songs of the old URL stay. With the same
-folder path on another host, a sync of the same folders downloads them again over the old copies. With another folder
+folder path on another host, a sync of the same folders takes the old copies back if they have the server's size, and skips the others. With another folder
 path, the local paths are below the new folder: a file whose path below it is the same as one of the old copies (for
 example `Album/a.mp3` under `/music/` and under `/other/`) replaces that copy, and the other old copies stay. Delete
 those by hand. Only the same
@@ -187,6 +191,9 @@ fingerprint and shows it, and Trust Certificate saves it as the pin. A new Serve
 next sync. A copy that the user starts during the download, or that cannot be deleted (a card that is read-only),
 stays, untracked. A target is
      planned once: two names that share a FAT file are not written at the same time.
+   - **adopt** and **conflicts**: a target that is a file the ledger does not record (the user's own, or of Jellyfin
+     Sync) is never written. With the server's size it is recorded as this file (`adopt`); else it is skipped
+     (`conflicts`, in the log).
    - **unorphan**: a file that is back on the server.
    - **orphan**: a ledger item that is gone from the server but whose folder is ticked and was listed.
    - **remove**: a ledger item that no ticked folder covers any more (the user unticked it), unless the local file is

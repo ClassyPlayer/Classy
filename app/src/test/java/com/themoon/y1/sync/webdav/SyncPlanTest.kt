@@ -22,9 +22,11 @@ class SyncPlanTest {
         remote: Map<String, List<DavEntry>>,
         ledger: List<SyncLedger.LedgerItem> = emptyList(),
         ticked: Set<String> = remote.keys,
-        exists: (File) -> Boolean = { true },
-        otherRoot: File? = null
-    ) = SyncPlan.build(remote, ledger.associateBy { it.jellyfinId }, ticked, root, base, otherRoot = otherRoot, exists = exists)
+        // As on the player: the files that the ledger records are there, and no other file
+        exists: (File) -> Boolean = { f -> ledger.any { it.localPath == f.path } },
+        otherRoot: File? = null,
+        size: (File) -> Long = { -1L }
+    ) = SyncPlan.build(remote, ledger.associateBy { it.jellyfinId }, ticked, root, base, otherRoot = otherRoot, size = size, exists = exists)
 
     @Test
     fun tickedSubfolderKeepsItsFullPath() {
@@ -133,7 +135,7 @@ class SyncPlanTest {
         val h = "/music/Rock/a.flac"
         val onInternal = led(h, rock).also { it.localPath = "/internal/Music/Rock/a.flac" }
         val p = SyncPlan.build(mapOf(rock to listOf(file(h, etag = "\"e2\""))), mapOf(h to onInternal), setOf(rock), File("/sd/Music"), base,
-            otherRoot = File("/internal/Music")) { true }
+            otherRoot = File("/internal/Music")) { it.path.startsWith("/internal/") } // the old copy is there, the target not yet
         assertEquals(File("/internal/Music/Rock/a.flac"), p.downloads.single().replaces)
     }
 
@@ -143,7 +145,7 @@ class SyncPlanTest {
         val h = "/music/Rock/a.flac"
         val onSd = led(h, rock).also { it.localPath = "/sd/Music/Rock/a.flac" }
         val p = SyncPlan.build(mapOf(rock to listOf(file(h))), mapOf(h to onSd), setOf(rock), File("/internal/Music"), base,
-            otherRoot = File("/sd/Music")) { !it.path.startsWith("/sd/") }
+            otherRoot = File("/sd/Music")) { false } // the card is out, and the file is not on internal storage yet
         assertEquals(File("/sd/Music/Rock/a.flac"), p.downloads.single().replaces)
     }
 
@@ -157,7 +159,7 @@ class SyncPlanTest {
     fun twoNamesThatShareAFatFileAreDownloadedOnce() {
         val a = "/music/A:/a.flac"
         val b = "/music/A?/a.flac"
-        val p = SyncPlan.build(mapOf("/music/A:/" to listOf(file(a)), "/music/A?/" to listOf(file(b))), emptyMap(), setOf("/music/A:/", "/music/A?/"), root, base, safeNames = true) { true }
+        val p = SyncPlan.build(mapOf("/music/A:/" to listOf(file(a)), "/music/A?/" to listOf(file(b))), emptyMap(), setOf("/music/A:/", "/music/A?/"), root, base, safeNames = true) { false }
         assertEquals(1, p.downloads.size)
     }
 
@@ -165,10 +167,10 @@ class SyncPlanTest {
     fun namesThatDifferOnlyInCaseShareAFatFile() {
         val a = "/music/Rock/Track.flac"
         val b = "/music/Rock/track.flac"
-        val p = SyncPlan.build(mapOf(rock to listOf(file(a), file(b))), emptyMap(), setOf(rock), root, base, safeNames = true) { true }
+        val p = SyncPlan.build(mapOf(rock to listOf(file(a), file(b))), emptyMap(), setOf(rock), root, base, safeNames = true) { false }
         assertEquals(1, p.downloads.size)
         // and on a file system that tells them apart, both are downloaded
-        val q = SyncPlan.build(mapOf(rock to listOf(file(a), file(b))), emptyMap(), setOf(rock), root, base, safeNames = false) { true }
+        val q = SyncPlan.build(mapOf(rock to listOf(file(a), file(b))), emptyMap(), setOf(rock), root, base, safeNames = false) { false }
         assertEquals(2, q.downloads.size)
     }
 
@@ -308,6 +310,31 @@ class SyncPlanTest {
         ) { false }
         assertEquals(File(root, "Rock/Why_.flac"), plan.downloads.single().target)
     }
+    @Test
+    fun aFileThatTheSyncDidNotMakeIsNeverOverwritten() {
+        // The user's own file at the target, another size than on the server: skipped, not downloaded
+        val h = "/music/Rock/a.flac"
+        val p = build(mapOf(rock to listOf(file(h, size = 10))), exists = { true }, size = { 99L })
+        assertTrue(p.downloads.isEmpty())
+        assertEquals(listOf(h), p.conflicts)
+        assertTrue(p.adopt.isEmpty())
+    }
+
+    @Test
+    fun aFileWithTheServerSizeIsTakenOverNotDownloaded() {
+        // For example after Log Out / Reset: the copies are there, untracked, with the server's size
+        val h = "/music/Rock/a.flac"
+        val p = build(mapOf(rock to listOf(file(h, size = 10))), exists = { true }, size = { 10L })
+        assertTrue(p.downloads.isEmpty())
+        assertEquals(File(root, "Rock/a.flac"), p.adopt.single().target)
+    }
+
+    @Test
+    fun aChangedFileOfThisSyncIsStillReplaced() {
+        val h = "/music/Rock/a.flac"
+        assertEquals(1, build(mapOf(rock to listOf(file(h, etag = "\"e2\""))), listOf(led(h, rock))).downloads.size)
+    }
+
 }
 
 class PruneEmptyDirsTest {
@@ -326,4 +353,5 @@ class PruneEmptyDirsTest {
         org.junit.Assert.assertTrue(root.exists())
         root.deleteRecursively()
     }
+
 }

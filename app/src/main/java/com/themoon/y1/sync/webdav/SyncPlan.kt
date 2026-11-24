@@ -10,7 +10,17 @@ data class Download(val entry: DavEntry, val folderHref: String, val target: Fil
  * [orphan], [unorphan] and [remove] are ledger keys (hrefs). [orphan]: deleted on the NAS, the user decides.
  * [remove]: its folder is no longer ticked, so the sync deletes the local copy. Nothing here deletes files.
  */
-data class Plan(val downloads: List<Download>, val orphan: List<String>, val unorphan: List<String>, val remove: List<String>, val bytes: Long)
+data class Plan(
+    val downloads: List<Download>,
+    val orphan: List<String>,
+    val unorphan: List<String>,
+    val remove: List<String>,
+    val bytes: Long,
+    /** A file that is at the target already, not made by this sync, with the server's size: recorded, not downloaded. */
+    val adopt: List<Download> = emptyList(),
+    /** Hrefs whose target is a file that this sync did not make, of another size: skipped, the file stays as it is. */
+    val conflicts: List<String> = emptyList()
+)
 
 /** The ledger stores the server version as "<etag>|<lastModified>" in serverDateModified. */
 fun versionOf(e: DavEntry): String = "${e.etag ?: ""}|${e.lastModified ?: ""}"
@@ -75,9 +85,16 @@ object SyncPlan {
         safeNames: Boolean = false,
         /** The Music folder of the other storage (Save To): a copy there is left to Move Synced Files. */
         otherRoot: File? = null,
+        size: (File) -> Long = { it.length() },
         exists: (File) -> Boolean
     ): Plan {
         val downloads = ArrayList<Download>()
+        val adopt = ArrayList<Download>()
+        val conflicts = ArrayList<String>()
+        // The files that the ledger records (case-insensitive on FAT): a file at a target that is not one of them is
+        // the user's own (copied by USB, or of Jellyfin Sync), and a sync never writes over it
+        fun keyOf(path: String) = if (safeNames) path.lowercase() else path
+        val recordedPaths = ledger.values.mapNotNull { it.localPath?.takeIf { p -> p.isNotEmpty() }?.let(::keyOf) }.toSet()
         val unorphan = ArrayList<String>()
         val seen = HashSet<String>()
         val targets = HashSet<String>() // the local files of the selected folders: the remove list leaves them alone
@@ -101,7 +118,15 @@ object SyncPlan {
                 if (item == null || !(here || onOtherStorage) || changed(e, item)) {
                     // The new copy replaces the recorded one: that one must not stay on the player untracked
                     val replaces = recorded?.takeIf { it.path != target.path }
-                    if (planned.add(key)) downloads.add(Download(e, folder, target, replaces))
+                    if (!planned.add(key)) continue
+                    if (key !in recordedPaths && exists(target)) {
+                        // Not a file of this sync. With the server's size it is taken as this file (a sync after Log
+                        // Out / Reset, or a copy made by hand); else it is the user's own file and stays
+                        if (item == null && e.size >= 0 && size(target) == e.size) adopt.add(Download(e, folder, target))
+                        else conflicts.add(e.href)
+                        continue
+                    }
+                    downloads.add(Download(e, folder, target, replaces))
                 } else if (item.orphaned) {
                     unorphan.add(e.href)
                 }
@@ -114,7 +139,7 @@ object SyncPlan {
         val orphan = gone.filter { !it.orphaned && covering(it.jellyfinId)?.let { f -> f in remote.keys } == true }.map { it.jellyfinId }
         val remove = gone.filter { covering(it.jellyfinId) == null && (if (safeNames) it.localPath?.lowercase() else it.localPath) !in targets }.map { it.jellyfinId }
 
-        return Plan(downloads, orphan, unorphan, remove, downloads.sumOf { maxOf(it.entry.size, 0L) })
+        return Plan(downloads, orphan, unorphan, remove, downloads.sumOf { maxOf(it.entry.size, 0L) }, adopt, conflicts)
     }
 
     private fun changed(e: DavEntry, item: SyncLedger.LedgerItem): Boolean {
