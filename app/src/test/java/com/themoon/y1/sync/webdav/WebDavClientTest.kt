@@ -293,4 +293,23 @@ class WebDavClientTest {
         assertTrue(Propfind.hasDoctype("<!DOCTYPE x>".toByteArray(Charsets.UTF_16LE)))
         assertFalse(Propfind.hasDoctype("<D:multistatus xmlns:D=\"DAV:\"><D:href>/a/DOCTYPE.flac</D:href></D:multistatus>".toByteArray()))
     }
+
+    @Test
+    fun aSyncedFileNamedLikeAPartFileIsNotTouched() {
+        val base = serve("hello".toByteArray())
+        val target = File(tmp.root, "a/song.flac")
+        val other = File(tmp.root, "a/song.flac.part").apply { parentFile!!.mkdirs(); writeText("mine") }
+        WebDavClient(base, "u", "p", null).download("/music/song.flac", target, 5, { false }, progress = {})
+        assertEquals("hello", target.readText())
+        assertEquals("mine", other.readText())
+        assertEquals(listOf("song.flac", "song.flac.part"), target.parentFile!!.list()!!.sorted()) // no temporary file left
+    }
+
+    @Test
+    fun anXmlPageThatIsNotAListingIsRefused() {
+        // A gateway or login page with HTTP 200 is not an empty folder
+        assertRefused { Propfind.parse("<html xmlns=\"http://www.w3.org/1999/xhtml\"><body/></html>".byteInputStream(), "/music/") }
+        assertRefused { Propfind.parse("<multistatus><response/></multistatus>".byteInputStream(), "/music/") } // not in DAV:
+        assertTrue(Propfind.parse("<D:multistatus xmlns:D=\"DAV:\"/>".byteInputStream(), "/music/").isEmpty()) // an empty folder
+    }
 }

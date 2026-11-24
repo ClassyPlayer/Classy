@@ -43,6 +43,16 @@ internal fun replaceFile(part: File, target: File) {
 }
 
 /**
+ * A new, empty temporary file next to [target], for a download or a copy that then replaces [target]. Made with an
+ * exclusive create and a hidden name, so it is never a file that is there already (for example a synced "a.flac.part").
+ */
+internal fun newPartFile(target: File): File {
+    val dir = target.parentFile ?: File(".")
+    dir.mkdirs()
+    return File.createTempFile(".partial-", ".part", dir)
+}
+
+/**
  * Same scheme, host (any case) and port; no port means the default of the scheme. OkHttp reads the host, so a name
  * that java.net.URI does not take as a host ("my_nas") works too.
  */
@@ -123,6 +133,11 @@ object Propfind {
             try { setFeature("http://apache.org/xml/features/disallow-doctype-decl", true) } catch (_: Exception) {}
         }
         val doc = f.newDocumentBuilder().parse(java.io.ByteArrayInputStream(bytes))
+        // Only a WebDAV listing: an XML page of a gateway or a login form (HTTP 200) is not an empty folder
+        val root = doc.documentElement
+        if (root == null || root.namespaceURI != DAV || root.localName != "multistatus") {
+            throw IOException("The server answer is not a WebDAV listing")
+        }
         // Decoded: the URL that the user typed ("/Música") and the server's href ("/M%C3%BAsica/") name one folder
         val self = decodeHref(pathOf(requestHref)).trimEnd('/')
         val out = ArrayList<DavEntry>()
@@ -247,7 +262,7 @@ class WebDavClient(
     }
 
     /**
-     * GET into `target.part`, check the length, then replace [target] if [mayReplace] says yes (else [TargetBusy]).
+     * GET into a new hidden `.part` file next to [target] ([newPartFile]), check the length, then replace [target] if [mayReplace] says yes (else [TargetBusy]).
      * A failed or cancelled download leaves [target] as it was.
      */
     fun download(
@@ -258,8 +273,8 @@ class WebDavClient(
         mayReplace: () -> Boolean = { true },
         progress: (Long) -> Unit
     ) {
-        val part = File(target.path + ".part")
         target.parentFile?.mkdirs()
+        val part = newPartFile(target)
         try {
             val req = Request.Builder().url(urlFor(href)).header("Authorization", auth).build()
             http.newCall(req).execute().use { resp ->

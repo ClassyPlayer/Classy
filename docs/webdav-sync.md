@@ -80,7 +80,9 @@ it synced them, so no later sync deletes them. Delete them with a file manager i
 
 A new **Server URL** does the same: no ticked folders, no certificate, and the songs of the old URL stay. With the same
 folder path on another host, a sync of the same folders downloads them again over the old copies. With another folder
-path, the new copies go to other places in `Music`, and the old ones stay as well: delete them by hand. Only the same
+path, the local paths are below the new folder: a file whose path below it is the same as one of the old copies (for
+example `Album/a.mp3` under `/music/` and under `/other/`) replaces that copy, and the other old copies stay. Delete
+those by hand. Only the same
 address in another spelling (for example with a `/` at the end) keeps everything.
 
 ### If something goes wrong
@@ -141,7 +143,7 @@ videos too; WebDAV Sync copies the folder tree of the server as it is, keyed by 
 
 - `list(href)`: `PROPFIND` with `Depth: 1` and a small property body. Sub-folders are walked one request each, with
   a visited set and a `MAX_FOLDERS` (20 000) cap, so a server that links back to itself ends in an error.
-- `download(href, target, size, cancelled, mayReplace, progress)`: `GET` into `target.part`, check the length, ask
+- `download(href, target, size, cancelled, mayReplace, progress)`: `GET` into a new hidden `.partial-*.part` file next to the target (exclusive create, so never a synced file), check the length, ask
   `mayReplace` (the sync says no while the target plays: `TargetBusy`, and the file waits for the next sync), then
   `replaceFile`: one rename over the old file. On FAT, which cannot rename over a file, the old file moves aside to
   `<name>.old` (or `.old1`, ...), the new one moves in, and the old one is deleted; if the new one cannot move in, the
@@ -153,7 +155,8 @@ videos too; WebDAV Sync copies the folder tree of the server as it is, keyed by 
   is read, so the ledger key and the folder hrefs are always paths.
 - hrefs are compared percent-encoded; `decodeHref` decodes each segment as UTF-8 (`+` stays `+`).
 - A PROPFIND answer is read into memory (at most 32 MB) and refused if its bytes have `<!DOCTYPE`, so the XML parser
-  never reads an entity or a URL from the server. Android's parser ignores the `disallow-doctype-decl` feature.
+  never reads an entity or a URL from the server. Android's parser ignores the `disallow-doctype-decl` feature. An
+  answer whose root is not `DAV:multistatus` (a gateway or login page with HTTP 200) is an error, not an empty folder.
 - Timeouts: 10 s connect, 30 s read.
 
 ### Certificates
@@ -219,7 +222,7 @@ differ only in those characters end up as one file.
 
 ### Moving between storages
 
-`startMove` runs `move`: for each ledger item whose path is under the other storage's `Music`, copy to `*.part`, check
+`startMove` runs `move`: for each ledger item whose path is under the other storage's `Music`, copy to a new `.partial-*.part` file, check
 the length, replace the target, then delete the source. The target is the path of the item's href on this storage
 (`localFileFor`), as a sync makes it, so a FAT name on the SD card gets its own name back on internal storage. The sync
 plan finds a copy on the other storage the same way. A record whose source is missing (the SD card is out) is moved

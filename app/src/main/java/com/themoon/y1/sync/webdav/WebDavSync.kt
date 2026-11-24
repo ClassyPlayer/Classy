@@ -224,8 +224,10 @@ class WebDavSync private constructor(context: Context) {
                     }
                     // The old copy (other storage or path): the record now names the new one
                     d.replaces?.let { old ->
-                        // Checked again: the user can start the old copy while the new one downloads. A playing file is never deleted
-                        if (old.exists() && !player.isFileCurrentlyPlaying(old) && old.delete()) pruneEmptyDirs(old, listOf(destRoot(true), destRoot(false)))
+                        // Checked again: the user can start the old copy while the new one downloads. A playing file is never
+                        // deleted, nor one that another record keeps (two names that became one FAT name)
+                        val shared = synchronized(ledger) { keptByOther(d.entry.href, old.path) }
+                        if (old.exists() && !shared && !player.isFileCurrentlyPlaying(old) && old.delete()) pruneEmptyDirs(old, listOf(destRoot(true), destRoot(false)))
                         else if (old.exists()) Log.w(TAG, "Old copy kept (playing, or cannot be deleted): ${old.path}")
                     }
                 } catch (_: TargetBusy) {
@@ -339,12 +341,17 @@ class WebDavSync private constructor(context: Context) {
                         copyChecked(src, dst)
                     }
                     done += src.length()
-                    // Checked again: the user can start the source during the copy
-                    if (player.isFileCurrentlyPlaying(src) || !src.delete()) {
-                        if (!dstWasThere) dst.delete() // keep one copy, tracked where it is
-                        continue
+                    // A source that another record still keeps (two names that became one FAT name) stays for that one;
+                    // the last record that moves deletes it
+                    val shared = synchronized(ledger) { keptByOther(item.jellyfinId, src.path) }
+                    if (!shared) {
+                        // Checked again: the user can start the source during the copy
+                        if (player.isFileCurrentlyPlaying(src) || !src.delete()) {
+                            if (!dstWasThere) dst.delete() // keep one copy, tracked where it is
+                            continue
+                        }
+                        pruneEmptyDirs(src, listOf(from, to)) // the album folders that the move left empty
                     }
-                    pruneEmptyDirs(src, listOf(from, to)) // the album folders that the move left empty
                 } else if (!dst.exists() || dst.length() != item.fileSize) {
                     continue // the source is not there (an SD card that is out) and nothing complete is at the target: keep the record
                 }
@@ -361,6 +368,15 @@ class WebDavSync private constructor(context: Context) {
         }
         if (!saved) throw LedgerNotSaved() // the new paths are in memory only (the next save writes them)
         return moved > 0
+    }
+
+    /** The key of a local path: FAT (the SD card) does not tell "A" from "a". */
+    private fun pathKey(path: String): String = if (path.startsWith(destRoot(true).path + "/")) path.lowercase() else path
+
+    /** True when a ledger record other than [href] has the file [path]. Call it with the ledger lock. */
+    private fun keptByOther(href: String, path: String): Boolean {
+        val key = pathKey(path)
+        return ledger.getAllItems().values.any { it.jellyfinId != href && it.localPath?.let(::pathKey) == key }
     }
 
     /** True when [a] and [b] have the same bytes. */
@@ -386,10 +402,9 @@ class WebDavSync private constructor(context: Context) {
         }
     }
 
-    /** Copies into `dst.part`, checks the length, then replaces [dst]. On failure [dst] is as it was. */
+    /** Copies into a new `.part` file ([newPartFile]), checks the length, then replaces [dst]. On failure [dst] is as it was. */
     private fun copyChecked(src: File, dst: File) {
-        dst.parentFile?.mkdirs()
-        val part = File(dst.path + ".part")
+        val part = newPartFile(dst)
         try {
             src.inputStream().use { input ->
                 part.outputStream().use { out ->
@@ -439,15 +454,13 @@ class WebDavSync private constructor(context: Context) {
         loadUnlessRunning()
         val player = AudioPlayerManager.getInstance()
         // The files that other records keep: two server names that became one FAT name share a file
-        val sd = destRoot(true).path + "/"
-        fun key(path: String) = if (path.startsWith(sd)) path.lowercase() else path // FAT does not tell A from a
         val removing = hrefs.toSet()
-        val kept = ledger.getAllItems().values.filter { it.jellyfinId !in removing }.mapNotNull { it.localPath?.let(::key) }.toSet()
+        val kept = ledger.getAllItems().values.filter { it.jellyfinId !in removing }.mapNotNull { it.localPath?.let(::pathKey) }.toSet()
         var gone = 0
         for (href in hrefs) {
             val item = ledger.getItem(href)
             if (item == null) { gone++; continue }
-            if (item.localPath?.let(::key) in kept) { ledger.removeItem(href); gone++; continue } // only the record goes
+            if (item.localPath?.let(::pathKey) in kept) { ledger.removeItem(href); gone++; continue } // only the record goes
             val f = item.localPath?.takeIf { it.isNotEmpty() }?.let { File(it) }
             if (f != null && f.exists() && (player.isFileCurrentlyPlaying(f) || !f.delete())) continue
             if (f != null) pruneEmptyDirs(f, listOf(destRoot(true), destRoot(false)))
