@@ -85,7 +85,7 @@ class StringPref(key: String, default: String, group: PrefGroup, resettable: Boo
     override fun put(editor: SharedPreferences.Editor, value: String): SharedPreferences.Editor = editor.putString(key, value)
 }
 
-/** Keys that start with [prefix] and end with an id (a file path, a menu item, a theme name). */
+/** Keys that start with [prefix] and end with an id (a file path, a menu item). */
 class PrefFamily(
     val prefix: String,
     val group: PrefGroup,
@@ -253,8 +253,6 @@ object Prefs {
     /** Old theme keys (before the two themes were in the code). No code reads them. */
     val THEME_INDEX = add(PrefKey("app_theme_index", PrefGroup.LEGACY))
     val LAST_THEME_VERSION = add(PrefKey("last_installed_theme_version", PrefGroup.LEGACY, inBackup = false))
-    /** The main menu order of each theme name, before [MENU_ORDER]. */
-    val MENU_ORDER_OF_THEME = add(PrefFamily("custom_menu_order_", PrefGroup.LEGACY))
 
     /** All keys, in the order above. */
     val ALL: List<PrefKey> get() = keys

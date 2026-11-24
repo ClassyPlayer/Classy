@@ -17,7 +17,7 @@ class SettingsBackupTest {
         app.map["video_pos_/storage/sdcard1/Movies/a.mp4"] = 123456789012L
         app.map["radio_level"] = 0.75f
         app.map["app_theme_name"] = "Classic Dark"
-        app.map["custom_menu_order_Classic Dark"] = "btn_music,btn_now"
+        app.map["custom_menu_order"] = "btn_music,btn_now"
         app.map["hide_btn_btn_videos"] = true
         app.map["rating_/storage/sdcard1/Music/Session Token/song.mp3"] = 5
         app.map["favorite_songs_set"] = setOf("/storage/sdcard1/Music/b.mp3", "/storage/sdcard1/Music/a.mp3")
@@ -57,7 +57,7 @@ class SettingsBackupTest {
         assertEquals(123456789012L, m["video_pos_/storage/sdcard1/Movies/a.mp4"])
         assertEquals(0.75f, m["radio_level"])
         assertEquals("Classic Dark", m["app_theme_name"])
-        assertEquals("btn_music,btn_now", m["custom_menu_order_Classic Dark"])
+        assertEquals("btn_music,btn_now", m["custom_menu_order"])
         assertEquals(true, m["hide_btn_btn_videos"])
         assertEquals(5, m["rating_/storage/sdcard1/Music/Session Token/song.mp3"])
         assertEquals(setOf("/storage/sdcard1/Music/a.mp3", "/storage/sdcard1/Music/b.mp3"), m["favorite_songs_set"])
