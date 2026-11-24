@@ -44,7 +44,6 @@ import com.themoon.y1.navigation.ScreenState
 import com.themoon.y1.navigation.isFolderLevel
 import com.themoon.y1.views.ClassyMetrics
 import com.themoon.y1.views.EdgeFadeListView
-import com.themoon.y1.views.ListItemViewFactory
 import com.themoon.y1.views.Notice
 import com.themoon.y1.views.TablerIcons
 import java.io.File
@@ -266,8 +265,7 @@ class BooksController(
                 localize("No books found.\nCopy EPUB or TXT books into the \"Books\" folder on your SD card, then select Rescan Books."),
                 RowLook.INFO
             )
-            val rescan = ListItemViewFactory.createTablerListButton(activity, TablerIcons.REFRESH, localize("Rescan Books"))
-            rows += RowSpec(localize("Rescan Books"), RowLook.CUSTOM, view = rescan, key = KEY_RESCAN, onClick = { scan(); refresh() })
+            rows += RowSpec(localize("Rescan Books"), RowLook.ICON, icon = TablerIcons.REFRESH, key = KEY_RESCAN, onClick = { scan(); refresh() })
         }
         paneDefault = last ?: books?.firstOrNull()?.file
         rowBooks = rows.map { null }
@@ -331,11 +329,8 @@ class BooksController(
             id = "books_folder:" + folder.absolutePath)
     }
 
-    private fun folderRow(dir: File, label: String): RowSpec {
-        val view = ListItemViewFactory.createTablerListButton(activity, TablerIcons.FOLDER, label)
-        return RowSpec(label, RowLook.CUSTOM, view = view, key = dir.absolutePath,
-            onClick = { changeScreen(ScreenState.Books(BooksLevel.Folder(dir))) })
-    }
+    private fun folderRow(dir: File, label: String) = RowSpec(label, RowLook.ICON, icon = TablerIcons.FOLDER, key = dir.absolutePath,
+        onClick = { changeScreen(ScreenState.Books(BooksLevel.Folder(dir))) })
 
     private fun artRow(item: BookItem, label: String = item.title) = RowSpec(label, RowLook.ART, value = subtitle(item), key = item.path,
         image = { iv -> bindThumb(iv, item) }, onClick = { openBook(item.file) })

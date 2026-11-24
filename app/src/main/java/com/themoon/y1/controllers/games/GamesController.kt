@@ -17,7 +17,6 @@ import com.themoon.y1.lists.ListSpec
 import com.themoon.y1.lists.RowLook
 import com.themoon.y1.lists.RowSpec
 import com.themoon.y1.navigation.ScreenState
-import com.themoon.y1.views.ListItemViewFactory
 import com.themoon.y1.views.TablerIcons
 import java.io.File
 
@@ -118,8 +117,7 @@ class GamesController(
                 localize("No games found.\nCopy iPod games (.ipg files or game folders) into the \"Games\" folder on your SD card, then select Rescan Games."),
                 RowLook.INFO
             )
-            val rescan = ListItemViewFactory.createTablerListButton(activity, TablerIcons.REFRESH, localize("Rescan Games"))
-            rows += RowSpec(localize("Rescan Games"), RowLook.CUSTOM, view = rescan, key = KEY_RESCAN, onClick = { scan() })
+            rows += RowSpec(localize("Rescan Games"), RowLook.ICON, icon = TablerIcons.REFRESH, key = KEY_RESCAN, onClick = { scan() })
         }
         val spec = ListSpec(localize("Games"), rows)
         // Keep the selected row while the list grows; with no row selected yet (on entry, or the progress row only),

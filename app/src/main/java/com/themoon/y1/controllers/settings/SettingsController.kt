@@ -763,16 +763,12 @@ class SettingsController(
     /** System Update: the version, a divider, and Check for Updates (selected). */
     private fun updateSpec(): ListSpec {
         val version = versionName()
-        // Made in a vertical list, as in the Settings list: the full width
-        val divider = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
-            .also { ListItemViewFactory.createCategoryHeader(activity, it, "━━━━━━━━━━━━━━") }.getChildAt(0)
-        val check = ListItemViewFactory.createTablerListButton(activity, TablerIcons.REFRESH, localize("Check for Updates"))
         return ListSpec(localize("System Update"), listOf(
             RowSpec(localize("Current Version"), RowLook.VALUE, value = if (version.startsWith("v")) version else "v$version"),
             RowSpec(localize("Update Channel"), RowLook.VALUE, value = localize(UpdateChannel.label(updateChannel())),
                 opens = true, onClick = { openPage("UpdateChannel") }),
-            RowSpec("divider", RowLook.CUSTOM, view = divider),
-            RowSpec(localize("Check for Updates"), RowLook.CUSTOM, view = check, checked = true, onClick = { onOpenUpdateCheck() })
+            RowSpec("", RowLook.HEADER, key = "divider"),
+            RowSpec(localize("Check for Updates"), RowLook.ICON, icon = TablerIcons.REFRESH, checked = true, onClick = { onOpenUpdateCheck() })
         ), focus = Focus.CHECKED)
     }
 

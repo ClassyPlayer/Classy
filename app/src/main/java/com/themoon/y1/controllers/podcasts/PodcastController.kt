@@ -21,7 +21,6 @@ import com.themoon.y1.navigation.NavigationManager
 import com.themoon.y1.navigation.ScreenState
 import com.themoon.y1.podcasts.PodcastDownloadManager
 import com.themoon.y1.podcasts.PodcastRepository
-import com.themoon.y1.views.ListItemViewFactory
 import com.themoon.y1.views.Notice
 import com.themoon.y1.views.TablerIcons
 import java.io.File
@@ -190,9 +189,8 @@ class PodcastController(
         val channels = repository.getSubscriptions()
         if (channels.isEmpty()) rows += RowSpec("⚠️ " + localize("No subscriptions found."), RowLook.INFO)
         for (ch in channels) {
-            val row = ListItemViewFactory.createTablerListButtonWithRightIcon(activity, TablerIcons.TRASH, ch.title, null,
-                0xFFFF5555.toInt(), 0xFFFF5555.toInt())
-            rows += RowSpec(ch.title, RowLook.CUSTOM, view = row, onClick = { showDeleteConfirmDialog(ch.title, ch.rssUrl) })
+            rows += RowSpec(ch.title, RowLook.ICON, icon = TablerIcons.TRASH, color = 0xFFFF5555.toInt(),
+                onClick = { showDeleteConfirmDialog(ch.title, ch.rssUrl) })
         }
         return ListSpec("${localize("Podcasts")}: ${localize("Manage Subscriptions")}", rows)
     }

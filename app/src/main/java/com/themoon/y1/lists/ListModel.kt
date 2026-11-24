@@ -16,6 +16,9 @@ enum class RowLook {
     /** Label; the chevron shows on the focused row (Music lists, Playlists). */
     MENU,
 
+    /** An icon ([RowSpec.icon]) and the label (Rescan, a folder of books, the game menu). */
+    ICON,
+
     /** Label and a value on the right (Settings rows; On/Off shows as a switch with Toggle Style = Switch). */
     VALUE,
 
@@ -54,8 +57,10 @@ class RowSpec(
     val opens: Boolean = false,
     val checked: Boolean = false,
     val glyphs: List<RowGlyphs.Slot> = emptyList(),
-    /** Text colour of a [RowLook.MENU] row; 0 = the theme colour. */
+    /** Text colour of a [RowLook.MENU] row, text and icon colour of a [RowLook.ICON] row; 0 = the theme colour. */
     val color: Int = 0,
+    /** [RowLook.ICON]: the icon on the left ([com.themoon.y1.views.TablerIcons]). */
+    val icon: Array<String>? = null,
     val id: Int = View.NO_ID,
     val view: View? = null,
     /** [RowLook.ART]: puts the art into the row's image (at once, or later from a worker thread); null = no image. */
