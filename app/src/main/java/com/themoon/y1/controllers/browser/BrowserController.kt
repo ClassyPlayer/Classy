@@ -4,7 +4,6 @@ import android.app.Activity
 import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Button
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ListView
@@ -13,7 +12,6 @@ import com.themoon.y1.AppPrefs
 import com.themoon.y1.MainActivity
 import com.themoon.y1.R
 import com.themoon.y1.StoragePaths
-import com.themoon.y1.ThemeManager
 import com.themoon.y1.adapters.CategoryListAdapter
 import com.themoon.y1.adapters.SongListAdapter
 import com.themoon.y1.controllers.ScreenController
@@ -610,12 +608,7 @@ class BrowserController(
             } else {
                 "📂 ${localize("Empty Folder (Tap to go back)")}"
             }
-            val btnEmpty = Button(activity).apply {
-                text = emptyMsg
-                setTextColor(0xFFFF5555.toInt())
-                background = ListItemViewFactory.createButtonBackground(activity, ThemeManager.getListButtonNormalBg())
-            }
-            rows += RowSpec(emptyMsg, RowLook.CUSTOM, view = btnEmpty, onClick = {
+            rows += RowSpec(emptyMsg, color = 0xFFFF5555.toInt(), onClick = {
                 // Back when a folder list is under this one or no folder is above it; else one level up in place of this list
                 if (isTop || NavigationManager.getInstance().previousState()?.isFolderLevel == true) onBackPressed()
                 else openParentFolder(currentFolder.parentFile ?: StoragePaths.getTopStorageRoot(), addToBackStack = false)
@@ -695,13 +688,8 @@ class BrowserController(
         }
 
         for (apk in apkFiles) {
-            val label = "📦 [${localize("INSTALL")}] ${apk.name}"
-            val b = Button(activity).apply {
-                text = label
-                setTextColor(0xFF00FFFF.toInt())
-                background = ListItemViewFactory.createButtonBackground(activity, ThemeManager.getListButtonNormalBg())
-            }
-            rows += RowSpec(label, RowLook.CUSTOM, view = b, key = apk.absolutePath, onClick = { installApk(apk) })
+            rows += RowSpec("📦 [${localize("INSTALL")}] ${apk.name}", color = 0xFF00FFFF.toInt(), key = apk.absolutePath,
+                onClick = { installApk(apk) })
         }
         for (audio in audioFiles) rows += folderAudioRow(audio)
 

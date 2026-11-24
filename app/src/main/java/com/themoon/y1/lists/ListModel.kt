@@ -34,7 +34,7 @@ enum class RowLook {
     /** A view that the screen made itself ([RowSpec.view]); the renderer only places it and sets the actions. */
     CUSTOM,
 
-    /** A section title ("━ Paired Devices ━": small, grey, centred). The wheel skips it. */
+    /** A section title ("━ Paired Devices ━": small, grey, centred; an empty label gives a plain divider). The wheel skips it. */
     HEADER,
 
     /** Grey text, on more lines when it is long (a message, a hint, a progress line). The wheel skips it. */

@@ -398,7 +398,7 @@ class ListScreen(
 
     private fun headerRow(text: String): TextView = TextView(context).apply {
         val d = resources.displayMetrics.density
-        this.text = "━ $text ━"
+        this.text = if (text.isEmpty()) "━━━━━━━━━━━━━━" else "━ $text ━"
         setTextColor(ThemeManager.getTextColorSecondary())
         textSize = 12f
         gravity = Gravity.CENTER
