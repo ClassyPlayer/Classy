@@ -15,6 +15,8 @@ import android.widget.TextView
 import com.themoon.y1.MainActivity
 import com.themoon.y1.R
 import com.themoon.y1.StoragePaths
+import com.themoon.y1.Prefs
+import com.themoon.y1.core.extensions.onOff
 import com.themoon.y1.controllers.browser.BrowserController
 import com.themoon.y1.controllers.settings.ActionScreens
 import com.themoon.y1.lists.ArtRow
@@ -24,6 +26,7 @@ import com.themoon.y1.managers.AudioPlayerManager
 import com.themoon.y1.managers.LibrarySongs
 import com.themoon.y1.models.AlbumKey
 import com.themoon.y1.models.AlbumTrackOrder
+import com.themoon.y1.models.AlbumYear
 import com.themoon.y1.models.SongItem
 import com.themoon.y1.navigation.BrowserMode
 import com.themoon.y1.views.ClassyMetrics
@@ -40,7 +43,9 @@ class CategoryListAdapter(
         it.isAudiobookLibraryMode || (it.isBrowserControllerInitialized() && it.browserController.isAudiobookLibraryMode)
     } ?: false,
     /** Album artist of each album row in [items], so albums with the same title stay apart. */
-    private val albumArtists: List<String>? = null
+    private val albumArtists: List<String>? = null,
+    /** Year tag of each album row (Sort by Year is On): the row shows "<year> - <Album>". */
+    private val albumYears: List<String>? = null
 ) : BaseAdapter(), RowTexts {
 
     private var albumSongCounts: MutableMap<String, Int>? = null
@@ -248,7 +253,7 @@ class CategoryListAdapter(
 
         val albumArtist = albumArtists?.getOrNull(position)
         val lookupKey = albumArtist?.let { AlbumKey.of(name, it) } ?: name
-        val displayName = name
+        val displayName = albumYears?.getOrNull(position)?.let { AlbumYear.label(it, name) } ?: name
         ivCover.tag = lookupKey
         val songCount = albumSongCounts?.get(lookupKey) ?: albumSongCounts?.get(name) ?: 0
         val artist = (albumArtist ?: albumArtistsMap?.get(name))?.let { com.themoon.y1.models.ArtistNames.display(it) }
@@ -266,7 +271,7 @@ class CategoryListAdapter(
         } else {
             val albumFiles = albumFilesMap?.get(lookupKey) ?: albumFilesMap?.get(name)
             val sampleFile = if (!albumFiles.isNullOrEmpty()) albumFiles[0] else null
-            val albumKey = if (sampleFile != null) AlbumCoverManager.getAlbumKey(sampleFile, displayName) else displayName
+            val albumKey = if (sampleFile != null) AlbumCoverManager.getAlbumKey(sampleFile, name) else name // the year label is only the title: covers keep the key that the prefetch uses
 
             // Memory cache only: a disk thumbnail is read and decoded on the cover worker, not in the wheel step
             val directBmp = AlbumCoverManager.getInstance().getMemoryCover(albumKey)
@@ -277,7 +282,7 @@ class CategoryListAdapter(
             } else {
                 ivCover.setImageResource(if (isAudiobook) R.drawable.book else R.drawable.default_album)
                 ivCover.tag = lookupKey
-                loadAlbumArtAsync(lookupKey, displayName, sampleFile, ivCover)
+                loadAlbumArtAsync(lookupKey, name, sampleFile, ivCover)
             }
         }
 
@@ -316,6 +321,12 @@ class CategoryListAdapter(
                         },
                         ActionScreens.Action(main.t("Add to Playlist"), opensList = true) {
                             main.showAddToPlaylistDialog(inTrackOrder(tracks))
+                        },
+                        ActionScreens.Action(
+                            main.t("Sort by Year"), value = onOff(Prefs.ALBUMS_BY_YEAR.get(main.prefs)) { main.t(it) }
+                        ) {
+                            Prefs.ALBUMS_BY_YEAR.set(main.prefs, !Prefs.ALBUMS_BY_YEAR.get(main.prefs))
+                            main.browserController.buildVirtualCategories(type)
                         }
                     )
                 ))

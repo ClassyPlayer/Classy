@@ -886,5 +886,6 @@
   "Last sync failed": "Last sync failed",
   "Cannot save the sync record": "Cannot save the sync record",
   "This Folder": "This Folder",
-  "Sync cancelled": "Sync cancelled"
+  "Sync cancelled": "Sync cancelled",
+  "Sort by Year": "Sort by Year"
 }
