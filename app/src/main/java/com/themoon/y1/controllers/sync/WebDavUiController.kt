@@ -367,7 +367,14 @@ class WebDavUiController(
 
     private fun confirm(question: String, hrefs: List<String>) {
         ActionScreens.open(confirmScreen(localize("Deleted on NAS"), question, localize("Delete"), selectAction = false) {
-            val failed = hrefs.size - sync.deleteTracked(hrefs)
+            val failed = try {
+                hrefs.size - sync.deleteTracked(hrefs, onlyOrphans = true)
+            } catch (e: LedgerNotSaved) {
+                Notice.error(activity, errorText(e, localize))
+                onSyncFinished() // the files are deleted: the library must not show them
+                refresh()
+                return@confirmScreen
+            }
             if (failed > 0) Notice.error(activity, localize("Could not delete") + " ($failed)")
             if (failed < hrefs.size) onSyncFinished() // rescan so deleted songs leave the library
             refresh()

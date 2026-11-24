@@ -160,6 +160,8 @@ at the start of the next run, in the folders that the run writes to.
 - A PROPFIND answer is read into memory (at most 32 MB) and refused if its bytes have `<!DOCTYPE`, so the XML parser
   never reads an entity or a URL from the server. Android's parser ignores the `disallow-doctype-decl` feature. An
   answer whose root is not `DAV:multistatus` (a gateway or login page with HTTP 200) is an error, not an empty folder.
+  A failed status inside the 207 (for a resource, or for all its `propstat` blocks) is an error too (`DavHttpException`).
+  Properties are read only from `propstat` blocks with a 2xx status (a 404 for one property is normal).
 - Timeouts: 10 s connect, 30 s read.
 
 ### Certificates
@@ -241,7 +243,8 @@ ledger is saved when the move ends, also after an error or a cancel.
 
 `AutoSyncGate.shouldRun(enabled, configured, wifi, charging, running, now, lastSync)` is a pure function: on, set up,
 Wi-Fi, charging, not running, and at least an hour since the last sync or attempt (`MIN_INTERVAL_MS`; a clock set back
-also passes). `lastAutoAttempt` is saved also when the sync fails, so a server that is down is not tried at every
+also passes). When only the hour refuses a sync (still on Wi-Fi and charging), the receiver checks again when the hour ends
+(`Handler.postDelayed`, while the app process runs). `lastAutoAttempt` is saved also when the sync fails, so a server that is down is not tried at every
 broadcast. A stored time that is after now (the clock was set back) does not count (`lastCounted`): the first try is
 allowed and its own time throttles the next.
 

@@ -479,7 +479,7 @@ class WebDavSync private constructor(context: Context) {
      * Deletes the files this sync tracks under [hrefs] (orphans the user chose, or an unticked folder) and saves the
      * ledger once. A playing file, or one that cannot be deleted, stays tracked. Returns how many are gone.
      */
-    fun deleteTracked(hrefs: Collection<String>): Int = synchronized(ledger) {
+    fun deleteTracked(hrefs: Collection<String>, onlyOrphans: Boolean = false): Int = synchronized(ledger) {
         loadUnlessRunning()
         val player = AudioPlayerManager.getInstance()
         // The files that other records keep: two server names that became one FAT name share a file
@@ -489,6 +489,8 @@ class WebDavSync private constructor(context: Context) {
         for (href in hrefs) {
             val item = ledger.getItem(href)
             if (item == null) { gone++; continue }
+            // Deleted on NAS: a sync since the list was shown can have found the file on the server again. It stays
+            if (onlyOrphans && !item.orphaned) continue
             if (item.localPath?.let(::pathKey) in kept) { ledger.removeItem(href); gone++; continue } // only the record goes
             val f = item.localPath?.takeIf { it.isNotEmpty() }?.let { File(it) }
             if (f != null && f.exists() && (player.isFileCurrentlyPlaying(f) || !f.delete())) continue
@@ -496,7 +498,8 @@ class WebDavSync private constructor(context: Context) {
             ledger.removeItem(href)
             gone++
         }
-        saveLedger()
+        // The deleted records stay out of memory, so the next save writes them; the caller tells the user
+        if (!saveLedger()) throw LedgerNotSaved()
         gone
     }
 

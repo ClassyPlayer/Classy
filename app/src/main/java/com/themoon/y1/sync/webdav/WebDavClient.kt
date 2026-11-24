@@ -88,7 +88,12 @@ fun serverUri(url: String): URI? {
 fun serverHost(url: String): String? = serverUri(url)?.let { HttpUrl.parse(it.toString())?.host() }
 
 /** The path of the server URL [uri] as an href (encoded, ends with '/'): the root of the folders. */
-fun rootHrefOf(uri: URI): String = (uri.rawPath?.takeIf { it.isNotEmpty() } ?: "/").let { if (it.endsWith("/")) it else "$it/" }
+fun rootHrefOf(uri: URI): String {
+    // The path that OkHttp sends: it removes "." and ".." segments ("/music/./" is "/music/"), so the server's hrefs
+    // start with it. Percent encoding stays
+    val path = HttpUrl.parse(uri.toString())?.encodedPath() ?: uri.rawPath
+    return (path?.takeIf { it.isNotEmpty() } ?: "/").let { if (it.endsWith("/")) it else "$it/" }
+}
 
 /** Percent-decodes each path segment as UTF-8. '+' stays '+' (paths are not form-encoded). */
 fun decodeHref(href: String): String {
@@ -149,20 +154,46 @@ object Propfind {
         for (i in 0 until responses.length) {
             val r = responses.item(i) as Element
             val href = text(r, "href")?.trim()?.takeIf { it.isNotEmpty() } ?: continue
+            // A 207 can hold a failure for one resource (RFC 4918): that is an error, not a folder or file that is gone
+            child(r, "status")?.let { st -> statusCode(st.textContent).takeIf { it !in 200..299 }?.let { throw DavHttpException(it) } }
+            // The properties of the propstat blocks with a 2xx status only: a 404 for one property (no etag on a
+            // folder, for example) is normal. No block with 2xx: nothing of this resource can be read
+            val propstats = children(r, "propstat")
+            val props = propstats.filter { ps -> child(ps, "status")?.let { statusCode(it.textContent) in 200..299 } ?: true }
+                .mapNotNull { child(it, "prop") }
+            if (propstats.isNotEmpty() && props.isEmpty()) {
+                throw DavHttpException(propstats.firstNotNullOfOrNull { ps -> child(ps, "status")?.let { statusCode(it.textContent) } } ?: 500)
+            }
             if (decodeHref(pathOf(href)).trimEnd('/') == self) continue
-            val isDir = (r.getElementsByTagNameNS(DAV, "collection").length > 0)
+            fun prop(name: String) = props.firstNotNullOfOrNull { text(it, name) }
             out.add(
                 DavEntry(
                     href = href,
-                    isDir = isDir,
-                    size = text(r, "getcontentlength")?.trim()?.toLongOrNull() ?: -1L,
-                    etag = text(r, "getetag")?.trim()?.takeIf { it.isNotEmpty() },
-                    lastModified = text(r, "getlastmodified")?.trim()?.takeIf { it.isNotEmpty() }
+                    isDir = props.any { it.getElementsByTagNameNS(DAV, "collection").length > 0 },
+                    size = prop("getcontentlength")?.trim()?.toLongOrNull() ?: -1L,
+                    etag = prop("getetag")?.trim()?.takeIf { it.isNotEmpty() },
+                    lastModified = prop("getlastmodified")?.trim()?.takeIf { it.isNotEmpty() }
                 )
             )
         }
         return out
     }
+
+    /** The code of a DAV status line ("HTTP/1.1 403 Forbidden"); 500 if it cannot be read. */
+    private fun statusCode(line: String): Int = line.trim().split(' ').getOrNull(1)?.toIntOrNull() ?: 500
+
+    /** The child elements of [parent] named [name] in DAV: (not deeper ones). */
+    private fun children(parent: Element, name: String): List<Element> {
+        val out = ArrayList<Element>()
+        var n = parent.firstChild
+        while (n != null) {
+            if (n is Element && n.namespaceURI == DAV && n.localName == name) out.add(n)
+            n = n.nextSibling
+        }
+        return out
+    }
+
+    private fun child(parent: Element, name: String): Element? = children(parent, name).firstOrNull()
 
     private fun readLimited(input: InputStream): ByteArray {
         val out = ByteArrayOutputStream()

@@ -360,4 +360,33 @@ class WebDavClientTest {
         assertRefused { Propfind.parse("<multistatus><response/></multistatus>".byteInputStream(), "/music/") } // not in DAV:
         assertTrue(Propfind.parse("<D:multistatus xmlns:D=\"DAV:\"/>".byteInputStream(), "/music/").isEmpty()) // an empty folder
     }
+
+    private fun ms(vararg responses: String) = """<?xml version="1.0"?><D:multistatus xmlns:D="DAV:">${responses.joinToString("")}</D:multistatus>"""
+
+    @Test
+    fun aFailedFolderInsideA207IsAnErrorNotAnEmptyFolder() {
+        // The folder itself is refused: an error, so its files do not become "Deleted on NAS"
+        val forbidden = ms("<D:response><D:href>/music/Rock/</D:href><D:propstat><D:prop><D:resourcetype/></D:prop><D:status>HTTP/1.1 403 Forbidden</D:status></D:propstat></D:response>")
+        try { Propfind.parse(forbidden.byteInputStream(), "/music/Rock/"); fail("expected 403") } catch (e: DavHttpException) { assertEquals(403, e.code) }
+        val resourceStatus = ms("<D:response><D:href>/music/Rock/a.flac</D:href><D:status>HTTP/1.1 423 Locked</D:status></D:response>")
+        try { Propfind.parse(resourceStatus.byteInputStream(), "/music/Rock/"); fail("expected 423") } catch (e: DavHttpException) { assertEquals(423, e.code) }
+    }
+
+    @Test
+    fun aPropertyThatIsMissingDoesNotHideTheOthers() {
+        // A folder with no etag: the 404 block is ignored, the 200 block is read
+        val xml = ms("""<D:response><D:href>/music/Rock/Live/</D:href>
+            <D:propstat><D:prop><D:resourcetype><D:collection/></D:resourcetype></D:prop><D:status>HTTP/1.1 200 OK</D:status></D:propstat>
+            <D:propstat><D:prop><D:getetag/></D:prop><D:status>HTTP/1.1 404 Not Found</D:status></D:propstat></D:response>""")
+        val e = Propfind.parse(xml.byteInputStream(), "/music/Rock/").single()
+        assertTrue(e.isDir)
+        assertNull(e.etag)
+    }
+
+    @Test
+    fun theRootIsThePathThatOkHttpSends() {
+        assertEquals("/music/", rootHrefOf(serverUri("https://nas/music/./")!!))
+        assertEquals("/music/", rootHrefOf(serverUri("https://nas/music/Rock/..")!!))
+        assertEquals("/M%C3%BAsica/", rootHrefOf(serverUri("https://nas/Música")!!))
+    }
 }
