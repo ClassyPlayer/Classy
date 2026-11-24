@@ -400,7 +400,11 @@ internal fun MainActivity.initControllers() {
         },
         onSubmitWebDavUrl = { url ->
             // Another server must be trusted again, and starts with no folders; a sync that started meanwhile keeps the old URL
-            if (!com.themoon.y1.sync.webdav.WebDavSyncProvider.getInstance(this).changeUrl(url)) Notice.show(this, t("Syncing..."))
+            try {
+                if (!com.themoon.y1.sync.webdav.WebDavSyncProvider.getInstance(this).changeUrl(url)) Notice.show(this, t("Syncing..."))
+            } catch (e: com.themoon.y1.sync.webdav.LedgerNotSaved) {
+                Notice.error(this, t(e.message ?: "")) // the old URL stays
+            }
             NavigationManager.getInstance().popBackStack()
         },
         onSubmitWebDavUser = { user ->

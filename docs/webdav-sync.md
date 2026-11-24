@@ -197,8 +197,10 @@ folders above the file, up to the `Music` roots of both storages (`File.delete()
 nothing else is removed).
 
 `isRunning`, one single-thread executor and `launch` make sure there is only one sync at a time. `forgetAll(change)`
-(Log Out / Reset, another server) takes the same lock, refuses while a sync runs, and empties the ledger: the files stay
-on the player, untracked. `launch` holds a
+(Log Out / Reset, another server) takes the same lock, refuses while a sync runs, and saves an empty ledger before it
+changes the settings: the files stay on the player, untracked. If the ledger cannot be written (`SyncLedger.save`
+returns false), nothing changes and the screen shows "Cannot save the sync record": else the old records would come
+back at the next start, and a sync could delete those files. `launch` holds a
 partial wake lock and a Wi-Fi lock (`Classy:WebDavSync`) for the run with `SyncLocks.hold`, as Jellyfin Sync does; the
 wake lock has a 6 hour cap.
 

@@ -52,9 +52,11 @@ class WebDavSync private constructor(context: Context) {
         ledgerStamp = stampOfLedger()
     }
 
-    private fun saveLedger() {
-        ledger.save()
+    /** False when the file was not written (the old one stays on disk). */
+    private fun saveLedger(): Boolean {
+        val saved = ledger.save()
         ledgerStamp = stampOfLedger()
+        return saved
     }
 
     @Volatile
@@ -116,19 +118,25 @@ class WebDavSync private constructor(context: Context) {
     }
 
     /**
-     * Runs [change] (a reset, or another server) and forgets every synced file: the files stay on the player, but no
+     * Forgets every synced file, then runs [change] (a reset, or another server): the files stay on the player, but no
      * later sync deletes them as the files of an unticked folder. False, and nothing changes, while a sync runs.
+     * Throws [LedgerNotSaved], and nothing changes, when the empty ledger cannot be written: else the old records would
+     * come back at the next start, and a sync could delete those files.
      */
     @Synchronized
     fun forgetAll(change: () -> Unit): Boolean {
         if (isRunning) return false
-        change()
         synchronized(ledger) {
             loadLedger()
             for (href in ledger.getAllItems().keys) ledger.removeItem(href)
             ledger.setLastSyncTime(0)
-            saveLedger()
+            if (!saveLedger()) {
+                ledgerStamp = -1L // read the records on disk again: memory is as the file
+                loadLedger()
+                throw LedgerNotSaved()
+            }
         }
+        change()
         return true
     }
 

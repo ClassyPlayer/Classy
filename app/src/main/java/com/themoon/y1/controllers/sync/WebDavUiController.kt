@@ -21,6 +21,7 @@ import com.themoon.y1.navigation.NavigationManager
 import com.themoon.y1.navigation.ScreenState
 import com.themoon.y1.navigation.WebDavLevel
 import com.themoon.y1.sync.webdav.DavEntry
+import com.themoon.y1.sync.webdav.LedgerNotSaved
 import com.themoon.y1.sync.webdav.WebDavSync
 import com.themoon.y1.sync.webdav.WebDavSyncProvider
 import com.themoon.y1.sync.webdav.decodeHref
@@ -204,7 +205,8 @@ class WebDavUiController(
                 localize("WebDAV Sync"),
                 listOfNotNull(p.user.takeIf { it.isNotEmpty() }?.let { "@$it" }, p.url.takeIf { it.isNotEmpty() }),
                 listOf(ActionScreens.Action(localize("Log Out / Reset")) {
-                    if (!p.reset()) return@Action Notice.show(activity, localize("Syncing..."))
+                    val done = try { p.reset() } catch (e: LedgerNotSaved) { return@Action Notice.error(activity, errorText(e, localize)) }
+                    if (!done) return@Action Notice.show(activity, localize("Syncing..."))
                     pendingFingerprint = null
                     folders.clear()
                     refresh()

@@ -883,5 +883,6 @@
   "Not enough space": "Недостаточно места",
   "URL must start with http:// or https://": "URL должен начинаться с http:// или https://",
   "Not a valid URL": "Недопустимый URL",
-  "Last sync failed": "Последняя синхронизация не удалась"
+  "Last sync failed": "Последняя синхронизация не удалась",
+  "Cannot save the sync record": "Не удаётся сохранить журнал синхронизации"
 }

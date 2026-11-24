@@ -8,6 +8,9 @@ import java.net.UnknownHostException
 import java.util.Locale
 import java.util.concurrent.CancellationException
 
+/** The ledger file could not be written (for example a full or read-only storage). */
+class LedgerNotSaved : IOException("Cannot save the sync record")
+
 class NotEnoughSpace(val need: Long, val free: Long) : IOException("Need $need bytes, free $free")
 
 /** The one-line message shown to the user for a sync or connection error; [localize] translates the fixed texts. */

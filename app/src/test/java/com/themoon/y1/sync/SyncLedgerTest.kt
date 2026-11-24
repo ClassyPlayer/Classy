@@ -73,4 +73,19 @@ class SyncLedgerTest {
         assertFalse(afterRemove.contains("id1"))
         assertFalse(afterRemove.contains("id3"))
     }
+
+    @Test
+    fun saveSaysWhetherTheFileWasWritten() {
+        val dir = java.nio.file.Files.createTempDirectory("ledger").toFile()
+        try {
+            val ok = java.io.File(dir, "ledger.json")
+            assertTrue(SyncLedger(ok).save())
+            assertTrue(ok.length() > 0)
+            // A parent that is a file: the folder cannot be made, so the ledger is not written
+            val blocker = java.io.File(dir, "blocker").apply { writeText("x") }
+            assertFalse(SyncLedger(java.io.File(blocker, "ledger.json")).save())
+        } finally {
+            dir.deleteRecursively()
+        }
+    }
 }

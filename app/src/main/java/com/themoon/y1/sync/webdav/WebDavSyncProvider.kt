@@ -77,7 +77,7 @@ class WebDavSyncProvider private constructor(context: Context) : MediaSyncProvid
      * example a slash at the end) keeps the pin, the ticked folders and the synced files. Anything else starts again: no
      * pin, no ticked folders, and the synced files are forgotten (they stay on the player; see [WebDavSync.forgetAll]).
      * Another top folder must start again too: the local paths are below it, and the ticked folders may be outside it.
-     * False while a sync runs: then nothing changes.
+     * False while a sync runs, and [LedgerNotSaved] when the forgotten files cannot be saved: then nothing changes.
      */
     fun changeUrl(newUrl: String): Boolean {
         val sync = WebDavSync.getInstance(app)
@@ -102,7 +102,10 @@ class WebDavSyncProvider private constructor(context: Context) : MediaSyncProvid
         }
     }
 
-    /** Log Out / Reset: forgets all the settings and the synced files (they stay on the player). False while a sync runs. */
+    /**
+     * Log Out / Reset: forgets all the settings and the synced files (they stay on the player). False while a sync runs;
+     * [LedgerNotSaved] when the ledger cannot be written. Then nothing changes.
+     */
     fun reset(): Boolean = WebDavSync.getInstance(app).forgetAll { clearConfiguration() }
 
     /**
@@ -117,7 +120,8 @@ class WebDavSyncProvider private constructor(context: Context) : MediaSyncProvid
             if (sync.isRunning) return null
             return WebDavConfigFile.importFrom(f).fold(
                 onSuccess = { c ->
-                    changeUrl(c.url)
+                    // The file is deleted already: if the ledger cannot be saved, the user must put it there again
+                    try { changeUrl(c.url) } catch (e: LedgerNotSaved) { return "${WebDavConfigFile.FILE_NAME}: ${e.message}" }
                     user = c.user
                     password = c.password
                     null

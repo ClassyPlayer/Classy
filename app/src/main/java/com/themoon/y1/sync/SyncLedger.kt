@@ -208,9 +208,10 @@ class SyncLedger @JvmOverloads constructor(private val ledgerFile: File? = null)
         }
     }
 
+    /** Writes the ledger to a temporary file, then renames it over [file]. Returns false when [file] was not replaced. */
     @Synchronized
     @JvmOverloads
-    fun save(file: File = ledgerFile ?: StoragePaths.primaryFile(LEDGER_FILENAME)) {
+    fun save(file: File = ledgerFile ?: StoragePaths.primaryFile(LEDGER_FILENAME)): Boolean {
         val parent = file.parentFile ?: File(".")
         val tempFile = File(parent, "${file.name}.tmp")
         var writer: BufferedWriter? = null
@@ -256,13 +257,16 @@ class SyncLedger @JvmOverloads constructor(private val ledgerFile: File? = null)
                 if (file.exists()) {
                     file.delete()
                 }
-                tempFile.renameTo(file)
+                if (tempFile.renameTo(file)) return true
+                Log.e(TAG, "Failed to save sync ledger: cannot rename ${tempFile.name}")
             }
+            return false
         } catch (e: Exception) {
             Log.e(TAG, "Failed to save sync ledger: ${e.message}")
             if (tempFile.exists()) {
                 tempFile.delete()
             }
+            return false
         } finally {
             try {
                 writer?.close()
