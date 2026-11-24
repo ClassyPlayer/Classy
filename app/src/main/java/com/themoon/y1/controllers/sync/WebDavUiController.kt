@@ -420,9 +420,8 @@ class WebDavUiController(
             override fun onError(e: Throwable, changed: Boolean) {
                 ActionScreens.close(key)
                 if (changed) onSyncFinished() // files were downloaded, deleted or moved before it stopped
-                if (e is CancellationException) return
-                showError(e, syncUrl)
-                refresh()
+                refresh() // also after a cancel: the counts and Last Synced can have changed
+                if (e !is CancellationException) showError(e, syncUrl)
             }
         }
         val started = if (move) sync.startMove(listener) else sync.start(listener, removeAll)
