@@ -221,6 +221,8 @@ class WebDavUiController(
         val cert = findCertNotTrusted(e) ?: return false
         // The fingerprint is of the server that [url] named when the request began: a URL that changed meanwhile is another server
         if (url != provider.url) return true
+        // Told already (for example the parent folder that lists again after Back): one notice is enough
+        if (pendingFingerprint == cert.fingerprint && pendingFor == url) return true
         pendingFingerprint = cert.fingerprint
         pendingFor = url
         Notice.error(activity, localize("Check the certificate fingerprint, then Trust Certificate."))
@@ -305,9 +307,10 @@ class WebDavUiController(
                         return@runOnUiThread
                     }
                     folders.remove(href)
-                    showError(e, url)
-                    // Only if the user is still on this folder: it has nothing to show
+                    // Only if the user is still on this folder: it has nothing to show. Back first: the refresh of
+                    // showError must not find this folder on screen with no listing, and list it again
                     if (shownLevel == WebDavLevel.Folders(href)) NavigationManager.getInstance().popBackStack()
+                    showError(e, url)
                 }
             }
         }.start()
