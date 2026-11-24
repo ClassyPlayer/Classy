@@ -1,7 +1,6 @@
 package com.themoon.y1.controllers.settings
 
 import com.themoon.y1.lists.ListScreen
-import com.themoon.y1.navigation.RowFocus
 import android.app.Activity
 import android.content.Context
 import android.provider.Settings
@@ -410,15 +409,12 @@ class SettingsController(
     }
 
     override fun onWheel(delta: Int, event: KeyEvent): Boolean {
-        if (screen.isMoving) return screen.wheel(delta, event.eventTime)
         if (page == SettingsSubMode.Page(BATTERY_USAGE)) {
             // The wheel changes the range: down = Last 10 Days, up = Last 24 Hours
             if (batteryUsageView?.step(delta) == true) clickFeedback()
             return true
         }
-        RowFocus.step(containerSettingsItems, delta) ?: return false
-        clickFeedback()
-        return true
+        return screen.wheel(delta, event.eventTime)
     }
 
     // --- Values and effects of the rows ---
