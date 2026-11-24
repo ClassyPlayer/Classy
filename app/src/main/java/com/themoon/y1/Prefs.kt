@@ -15,6 +15,7 @@ import com.themoon.y1.managers.UpdateChannel
 import com.themoon.y1.managers.UsbDrive
 import com.themoon.y1.managers.VolumeSteps
 import com.themoon.y1.models.AlbumKey
+import com.themoon.y1.models.AlbumYear
 import com.themoon.y1.navigation.LetterJump
 import com.themoon.y1.views.CoverPane
 import com.themoon.y1.views.ListEdges
@@ -187,7 +188,10 @@ object Prefs {
     val MUSIC_MENU_ORDER = add(StringPref("music_menu_order", "", PrefGroup.MENUS))
     /** Music Menu Items: "hide_music_btn_<item id>" = true hides the item. */
     val MUSIC_MENU_HIDDEN = add(PrefFamily("hide_music_btn_", PrefGroup.MENUS))
+    /** Settings → Library → No Duplicates in Playlists. */
+    val PLAYLIST_NO_DUPLICATES = add(BoolPref("playlist_no_duplicates", false, PrefGroup.GENERAL, resettable = true))
     val GROUP_ALBUMS_BY_ARTIST = add(BoolPref(AlbumKey.PREF_BY_ARTIST, false, PrefGroup.MENUS, resettable = true))
+    val ALBUMS_BY_YEAR = add(BoolPref(AlbumYear.PREF, false, PrefGroup.MENUS, resettable = true))
     /** Cover Flow: show the albums with the release type Single, and EP ([com.themoon.y1.controllers.coverflow.CoverFlowAlbums]). */
     val COVER_FLOW_SINGLES = add(BoolPref("coverflow_show_singles", true, PrefGroup.MENUS, resettable = true))
     val COVER_FLOW_EPS = add(BoolPref("coverflow_show_eps", true, PrefGroup.MENUS, resettable = true))

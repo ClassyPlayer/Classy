@@ -136,14 +136,6 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
         const val STATE_PHOTO_VIEWER = 23
         const val STATE_WEBDAV = 24
 
-        const val BROWSER_ROOT = 0
-        const val BROWSER_FOLDER = 1
-        const val BROWSER_VIRTUAL_CATEGORIES = 2
-        const val BROWSER_VIRTUAL_SONGS = 3
-        const val BROWSER_PLAYLISTS = 4
-        const val BROWSER_FAVORITES = 5
-        const val BROWSER_PODCASTS = 6
-
         const val VIRTUAL_VOLUME_STEPS = VolumeSteps.STEPS
 
         var instance: MainActivity? = null
@@ -159,7 +151,6 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
 
     private var menuSlide: com.themoon.y1.views.MenuSlide? = null
     var currentScreenState: Int = STATE_MENU
-    var currentBrowserMode: Int = BROWSER_ROOT
     val currentPlaylist: ArrayList<File> = ArrayList()
     val originalPlaylist: ArrayList<File> = ArrayList()
     var currentIndex: Int = -1
@@ -1154,10 +1145,6 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
 
     fun showAddToPlaylistDialog(songFiles: List<File>) {
         playlistController.showAddToPlaylistDialog(songFiles)
-    }
-
-    fun showRemoveFromPlaylistDialog(songFile: File) {
-        playlistController.showRemoveFromPlaylistDialog(songFile)
     }
 
     fun showRemoveFromFavoritesDialog(songFile: File) {

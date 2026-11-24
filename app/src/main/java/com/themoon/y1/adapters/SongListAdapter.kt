@@ -34,7 +34,12 @@ class SongListAdapter(
     /** Playlist rows: the cover, the title over the artist, and the track length at the right. */
     private val artRows: Boolean = false,
     /** The rows are the episodes of a podcast channel (Podcasts), not songs of the library. */
-    private val isPodcast: Boolean = false
+    private val isPodcast: Boolean = false,
+    /**
+     * A hold on a song row: told the song and its occurrence (how many rows before it have the same file). Null: Add to
+     * Playlist. A playlist removes the song, My Favorites removes the favorite.
+     */
+    private val onHold: ((song: SongItem, occurrence: Int) -> Unit)? = null
 ) : BaseAdapter(), RowTexts {
 
     private val showShuffleRow: Boolean = !isPodcast && determineShuffleRow(items)
@@ -252,15 +257,17 @@ class SongListAdapter(
             main.clickFeedback()
             main.isLongPressConsumed = true
 
-            when (main.currentBrowserMode) {
-                5 -> main.showRemoveFromFavoritesDialog(song.file)
-                7 -> main.showRemoveFromPlaylistDialog(song.file)
-                else -> main.showAddToPlaylistDialog(song.file)
-            }
+            hold(main, song, songPosition)
             true
         }
 
         return btn
+    }
+
+    /** The hold action of the song at [songPosition]: [onHold], else Add to Playlist. */
+    private fun hold(main: MainActivity, song: SongItem, songPosition: Int) {
+        val hold = onHold ?: return main.showAddToPlaylistDialog(song.file)
+        hold(song, occurrenceOf(items, songPosition))
     }
 
     private fun getShuffleRowView(convertView: View?): View {
@@ -345,11 +352,7 @@ class SongListAdapter(
         art.view.setOnLongClickListener {
             main.clickFeedback()
             main.isLongPressConsumed = true
-            when (main.currentBrowserMode) {
-                5 -> main.showRemoveFromFavoritesDialog(song.file)
-                7 -> main.showRemoveFromPlaylistDialog(song.file)
-                else -> main.showAddToPlaylistDialog(song.file)
-            }
+            hold(main, song, songPosition)
             true
         }
         return art.view
@@ -434,4 +437,10 @@ class SongListAdapter(
                 "ARTIST" == type || "ARTIST_ALL_ALBUMS" == type
         }
     }
+}
+
+/** How many songs before [position] in [items] have the same file as the song at [position] (0 for the first). */
+internal fun occurrenceOf(items: List<SongItem>, position: Int): Int {
+    val path = items[position].file.absolutePath
+    return (0 until position).count { items[it].file.absolutePath == path }
 }
