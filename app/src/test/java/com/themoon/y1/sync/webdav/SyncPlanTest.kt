@@ -245,6 +245,8 @@ class SyncPlanTest {
         assertTrue(isUnder("/m/Rock/a.flac", "/m/Rock")) // a server that sends no trailing slash
         assertFalse(isUnder("/m/Rock Pop/a.flac", "/m/Rock"))
         assertFalse(isUnder("/m/Rock", "/m/Rock"))
+        assertTrue(isUnder("/m/M%C3%BAsica/a.flac", "/m/Música/"))
+        assertTrue(isUnder("/m/M%c3%basica/a.flac", "/m/M%C3%BAsica"))
     }
 
     @Test

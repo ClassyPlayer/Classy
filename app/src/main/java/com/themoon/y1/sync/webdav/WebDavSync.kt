@@ -250,7 +250,7 @@ class WebDavSync private constructor(context: Context) {
         while (queue.isNotEmpty()) {
             checkCancel()
             val href = queue.removeFirst()
-            if (!visited.add(href.trimEnd('/'))) continue
+            if (!visited.add(decodeHref(href).trimEnd('/'))) continue // decoded: one folder can come with two spellings
             if (visited.size > MAX_FOLDERS) throw IOException("Too many folders (a loop on the server?)")
             val list = try {
                 client.list(href)

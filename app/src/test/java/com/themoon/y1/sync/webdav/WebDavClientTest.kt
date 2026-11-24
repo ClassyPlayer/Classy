@@ -250,4 +250,14 @@ class WebDavClientTest {
     fun clientRefusesUrlWithNoHost() {
         WebDavClient("https://", "u", "p", null)
     }
+
+    @Test
+    fun theFolderItselfIsNotItsOwnSubFolderWhenTheSpellingDiffers() {
+        val xml = """<?xml version="1.0"?><D:multistatus xmlns:D="DAV:">
+          <D:response><D:href>/M%c3%basica/</D:href><D:propstat><D:prop><D:resourcetype><D:collection/></D:resourcetype></D:prop></D:propstat></D:response>
+          <D:response><D:href>/M%C3%BAsica/Rock/</D:href><D:propstat><D:prop><D:resourcetype><D:collection/></D:resourcetype></D:prop></D:propstat></D:response>
+        </D:multistatus>"""
+        // The typed URL has the raw name; the server sends it encoded, here in lower case
+        assertEquals(listOf("/M%C3%BAsica/Rock/"), Propfind.parse(xml.byteInputStream(), "/Música/").map { it.href })
+    }
 }

@@ -46,8 +46,11 @@ fun movedPath(localPath: String?, from: File, to: File, safeNames: Boolean = fal
     return File(to, if (safeNames) rest.split('/').joinToString("/") { fatSafe(it) } else rest)
 }
 
-/** True when [href] is below the folder [parent] (a folder named like the start of another one is not). */
-fun isUnder(href: String, parent: String): Boolean = href.startsWith(parent.trimEnd('/') + "/")
+/**
+ * True when [href] is below the folder [parent] (a folder named like the start of another one is not). Decoded, so
+ * "%C3%BA", "%c3%ba" and "ú" are one name.
+ */
+fun isUnder(href: String, parent: String): Boolean = decodeHref(href).startsWith(decodeHref(parent).trimEnd('/') + "/")
 
 /** Deletes the empty folders above [file] (a deleted file), up to but not including a folder of [roots]. */
 fun pruneEmptyDirs(file: File, roots: Collection<File>) {

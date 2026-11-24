@@ -103,13 +103,14 @@ object Propfind {
             try { setFeature("http://apache.org/xml/features/disallow-doctype-decl", true) } catch (_: Exception) {}
         }
         val doc = f.newDocumentBuilder().parse(xml)
-        val self = pathOf(requestHref).trimEnd('/')
+        // Decoded: the URL that the user typed ("/Música") and the server's href ("/M%C3%BAsica/") name one folder
+        val self = decodeHref(pathOf(requestHref)).trimEnd('/')
         val out = ArrayList<DavEntry>()
         val responses = doc.getElementsByTagNameNS(DAV, "response")
         for (i in 0 until responses.length) {
             val r = responses.item(i) as Element
             val href = text(r, "href")?.trim()?.takeIf { it.isNotEmpty() } ?: continue
-            if (pathOf(href).trimEnd('/') == self) continue
+            if (decodeHref(pathOf(href)).trimEnd('/') == self) continue
             val isDir = (r.getElementsByTagNameNS(DAV, "collection").length > 0)
             out.add(
                 DavEntry(
