@@ -11,7 +11,6 @@ import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
-import android.widget.ScrollView
 import android.widget.TextView
 import com.themoon.y1.Prefs
 import com.themoon.y1.battery.BatteryUsageView
@@ -23,6 +22,8 @@ import com.themoon.y1.FeatureVisibility
 import com.themoon.y1.ThemeManager
 import com.themoon.y1.controllers.ScreenController
 import com.themoon.y1.controllers.menu.MainMenuItems
+import com.themoon.y1.controllers.menu.MenuItem
+import com.themoon.y1.controllers.menu.MenuItems
 import com.themoon.y1.controllers.menu.MusicMenuItems
 import com.themoon.y1.managers.AudioEffectManager
 import com.themoon.y1.managers.AudioPlayerManager
@@ -51,6 +52,7 @@ import com.themoon.y1.navigation.SettingsSubMode
 import com.themoon.y1.sync.jellyfin.JellyfinSyncProvider
 import com.themoon.y1.views.ListEdges
 import com.themoon.y1.views.ListGlide
+import com.themoon.y1.views.FocusLook
 import com.themoon.y1.views.ListItemViewFactory
 import com.themoon.y1.views.Notice
 import com.themoon.y1.views.TablerIcons
@@ -116,9 +118,6 @@ class SettingsController(
     var dtHour: Int = 0
     var dtMinute: Int = 0
 
-    // Reorder state for main menu visibility
-    var isMenuReorderMode: Boolean = false
-    private var currentReorderRow: View? = null
     private var materialIconFont: Typeface? = null
 
     companion object {
@@ -308,7 +307,6 @@ class SettingsController(
 
     /** Builds the list of [state]: when it opens going down, and when Back comes back to it (NavigationManager). */
     override fun onEnter(state: ScreenState) {
-        endMenuReorder()
         page = (state as? ScreenState.Settings)?.subMode ?: SettingsSubMode.Root
         isUiActive = true
         actionPage = null
@@ -381,7 +379,8 @@ class SettingsController(
     override fun title(): String? = shownTitle
 
     override fun onExit() {
-        endMenuReorder()
+        // A picked-up row of Main Menu Items or Music Menu Items goes down, and the order is saved
+        screen.drop()
         // The Settings layout is also the screen of Equalizer, FM Radio and Jellyfin: full width for them
         pane.hide()
         isUiActive = false
@@ -410,45 +409,13 @@ class SettingsController(
             ActionScreens.cancel((actionPage as? SettingsSubMode.Action)?.let { ActionScreens.spec(it.key) }) { onNavigateBack() }
             return true
         }
-        if (isMenuReorderMode) {
-            toggleMenuReorderMode()
-            return true
-        }
+        if (screen.drop()) return true
         onNavigateBack()
         return true
     }
 
-    private val isMainMenuItems: Boolean get() = page == SettingsSubMode.Page("MainMenuItems")
-
     override fun onWheel(delta: Int, event: KeyEvent): Boolean {
-        if (isMainMenuItems && isMenuReorderMode && currentReorderRow != null) {
-            val idx = containerSettingsItems.indexOfChild(currentReorderRow)
-            if (delta < 0) {
-                if (idx > 0) {
-                    containerSettingsItems.removeViewAt(idx)
-                    containerSettingsItems.addView(currentReorderRow, idx - 1)
-                    currentReorderRow?.requestFocus()
-                    clickFeedback()
-                    val p = containerSettingsItems.parent
-                    if (p is ScrollView) {
-                        p.requestChildFocus(containerSettingsItems, currentReorderRow)
-                    }
-                }
-            } else {
-                if (idx < containerSettingsItems.childCount - 1) {
-                    containerSettingsItems.removeViewAt(idx)
-                    containerSettingsItems.addView(currentReorderRow, idx + 1)
-                    currentReorderRow?.requestFocus()
-                    clickFeedback()
-                    val p = containerSettingsItems.parent
-                    if (p is ScrollView) {
-                        p.requestChildFocus(containerSettingsItems, currentReorderRow)
-                    }
-                }
-            }
-            return true
-        }
-
+        if (screen.isMoving) return screen.wheel(delta, event.eventTime)
         if (page == SettingsSubMode.Page(BATTERY_USAGE)) {
             // The wheel changes the range: down = Last 10 Days, up = Last 24 Hours
             if (batteryUsageView?.step(delta) == true) clickFeedback()
@@ -457,28 +424,6 @@ class SettingsController(
         RowFocus.step(containerSettingsItems, delta) ?: return false
         clickFeedback()
         return true
-    }
-
-    override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
-        if (isMenuReorderMode && (keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER) &&
-            (event.flags and KeyEvent.FLAG_CANCELED_LONG_PRESS) == 0
-        ) {
-            toggleMenuReorderMode()
-            clickFeedback()
-            return true
-        }
-        return false
-    }
-
-    override fun onKeyLongPress(keyCode: Int, event: KeyEvent): Boolean {
-        if (isMainMenuItems && (keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER)) {
-            if (!isMenuReorderMode) {
-                toggleMenuReorderMode()
-                clickFeedback()
-            }
-            return true
-        }
-        return false
     }
 
     // --- Values and effects of the rows ---
@@ -902,75 +847,46 @@ class SettingsController(
 
     // --- Main Menu Items and Music Menu Items ---
 
-    private fun mainMenuItemsSpec(): ListSpec = ListSpec(localize("Main Menu Items"), MainMenuItems.ordered(prefs).map { item ->
-        val row = visibilityRow(item.label, { MainMenuItems.isHidden(prefs, item.id) }, reorderable = true) { hidden ->
-            MainMenuItems.setHidden(prefs, item.id, hidden)
-            FeatureVisibility.onMenuButtonToggled(activity, item.action, hidden)
-        }
-        row.tag = item.id
-        RowSpec(item.label, RowLook.CUSTOM, view = row)
-    })
+    private fun mainMenuItemsSpec(): ListSpec = menuItemsSpec("Main Menu Items", MainMenuItems) { item, hidden ->
+        FeatureVisibility.onMenuButtonToggled(activity, item.action, hidden)
+    }
 
-    private fun musicMenuItemsSpec(): ListSpec = ListSpec(localize("Music Menu Items"), MusicMenuItems.ordered(prefs).map { item ->
-        val label = localize(item.label)
-        val row = visibilityRow(label, { MusicMenuItems.isHidden(prefs, item.id) }, reorderable = false) { hidden ->
-            MusicMenuItems.setHidden(prefs, item.id, hidden)
-        }
-        RowSpec(label, RowLook.CUSTOM, view = row)
-    })
+    private fun musicMenuItemsSpec(): ListSpec = menuItemsSpec("Music Menu Items", MusicMenuItems)
 
     /**
-     * A row of Main Menu Items or Music Menu Items: an eye (shown) or a cross (hidden) on the right; a push changes it.
-     * [reorderable] (Main Menu Items): a hold starts the reorder, and the eye keeps the row colour until the row
-     * was selected once (as before: Music Menu Items colours it at once).
+     * Main Menu Items or Music Menu Items: the items of [menu] in their order. A push shows or hides an item (an eye or a
+     * cross on the right); a hold picks it up, the wheel moves it, and a push or Back puts it down ([ListSpec.reorder]).
      */
-    private fun visibilityRow(label: String, isHidden: () -> Boolean, reorderable: Boolean, setHidden: (Boolean) -> Unit): View {
+    private fun menuItemsSpec(title: String, menu: MenuItems, onHiddenChanged: (MenuItem, Boolean) -> Unit = { _, _ -> }): ListSpec =
+        ListSpec(localize(title), menu.ordered(prefs).map { item ->
+            val label = localize(item.label)
+            RowSpec(label, RowLook.CUSTOM, view = visibilityRow(label, menu.isHidden(prefs, item.id)), key = item.id, onClick = {
+                val hidden = !menu.isHidden(prefs, item.id)
+                menu.setHidden(prefs, item.id, hidden)
+                onHiddenChanged(item, hidden)
+                refresh()
+            })
+        }, reorder = { ids ->
+            menu.saveOrder(prefs, ids)
+            Notice.show(activity, localize("Menu order saved!"))
+        })
+
+    /** A row of Main Menu Items or Music Menu Items: an eye (shown) or a cross ([hidden]) on the right. */
+    private fun visibilityRow(label: String, hidden: Boolean): View {
         if (materialIconFont == null) {
             try {
                 materialIconFont = Typeface.createFromAsset(activity.assets, "fonts/MaterialIcons-Regular.ttf")
             } catch (_: Exception) {}
         }
-        fun icon(hidden: Boolean) = if (hidden) "" else ""
-        val row = createSettingRow(label, icon(isHidden()))
-        row.isFocusable = true
+        val row = createSettingRow(label, if (hidden) "\uE5CD" else "\uE8F4")
         val tvRight = row.getChildAt(1) as? TextView
         if (materialIconFont != null) {
             tvRight?.typeface = materialIconFont
             tvRight?.textSize = 22f
             tvRight?.let { centreIconInRow(it) }
         }
-        fun colourIcon(hidden: Boolean, focused: Boolean = row.hasFocus()) {
-            tvRight?.setTextColor(when {
-                focused -> ThemeManager.getListButtonFocusedTextColor()
-                hidden -> ThemeManager.getTextColorSecondary()
-                else -> ThemeManager.getTextColorPrimary()
-            })
-        }
-        if (!reorderable) colourIcon(isHidden())
-        // Keep the row highlight of createSettingRow: this listener replaces its listener.
-        val rowHighlight = row.onFocusChangeListener
-        row.setOnFocusChangeListener { v, hasFocus ->
-            if (reorderable && isMenuReorderMode) return@setOnFocusChangeListener
-            rowHighlight?.onFocusChange(v, hasFocus)
-            colourIcon(isHidden(), hasFocus)
-        }
-        if (reorderable) {
-            row.setOnLongClickListener {
-                clickFeedback()
-                if (!isMenuReorderMode) toggleMenuReorderMode()
-                true
-            }
-        }
-        row.setOnClickListener {
-            clickFeedback()
-            if (reorderable && isMenuReorderMode) {
-                toggleMenuReorderMode()
-                return@setOnClickListener
-            }
-            val hidden = !isHidden()
-            setHidden(hidden)
-            tvRight?.text = icon(hidden)
-            colourIcon(hidden)
+        tvRight?.let { icon ->
+            FocusLook.of(row).text(icon) { if (hidden) ThemeManager.getTextColorSecondary() else ThemeManager.getTextColorPrimary() }.refresh()
         }
         return row
     }
@@ -987,46 +903,6 @@ class SettingsController(
             it.height = ViewGroup.LayoutParams.WRAP_CONTENT
             it.gravity = Gravity.CENTER_VERTICAL
             tv.layoutParams = it
-        }
-    }
-
-    /**
-     * New rows replace the Main Menu Items rows (another page, Power, a theme change): end the reorder and save
-     * the order first. Later, the moved row is not in the list, and a save would read the rows of the other page.
-     */
-    private fun endMenuReorder() {
-        if (isMenuReorderMode) toggleMenuReorderMode()
-    }
-
-    fun toggleMenuReorderMode() {
-        // Material icon "swap_vert", from the same font as the eye icon. The font has no "↕" (and no space),
-        // so a fallback glyph sat on the icon baseline, below the row centre.
-        val reorderMark = ""
-        if (!isMenuReorderMode) {
-            val focused = activity.currentFocus
-            if (focused != null && focused.parent == containerSettingsItems) {
-                isMenuReorderMode = true
-                currentReorderRow = focused
-                currentReorderRow?.setBackgroundColor(0xFFD32F2F.toInt())
-                val tvRight = (currentReorderRow as? LinearLayout)?.getChildAt(1) as? TextView
-                val currentIcon = tvRight?.text?.toString()?.replace(reorderMark, "") ?: ""
-                tvRight?.text = currentIcon + reorderMark
-                tvRight?.setTextColor(0xFFFFFFFF.toInt())
-            }
-        } else {
-            isMenuReorderMode = false
-            if (currentReorderRow != null) {
-                // Replace the red reorder background with the normal row highlight.
-                currentReorderRow?.let { it.onFocusChangeListener?.onFocusChange(it, it.hasFocus()) }
-                val tvRight = (currentReorderRow as? LinearLayout)?.getChildAt(1) as? TextView
-                val currentIcon = tvRight?.text?.toString()?.replace(reorderMark, "") ?: ""
-                tvRight?.text = currentIcon
-                tvRight?.setTextColor(ThemeManager.getListButtonFocusedTextColor())
-                currentReorderRow = null
-            }
-            val ids = (0 until containerSettingsItems.childCount).mapNotNull { containerSettingsItems.getChildAt(it).tag as? String }
-            MainMenuItems.saveOrder(prefs, ids)
-            Notice.show(activity, localize("Menu order saved!"))
         }
     }
 

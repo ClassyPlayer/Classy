@@ -102,7 +102,12 @@ class ListSpec(
      * An A–Z list: a fast wheel turn starts the iPod letter jump ([com.themoon.y1.navigation.LetterJump]). Rows give
      * their letter by their label; an [adapter] gives it with [RowTexts]. Rows that are not in A–Z order step one by one.
      */
-    val letters: Boolean = false
+    val letters: Boolean = false,
+    /**
+     * The rows can change their order (a short list only): a hold on a row picks it up, the wheel moves it, and a push
+     * or Back puts it down. Then [reorder] gets the keys of the rows in the new order.
+     */
+    val reorder: ((List<String>) -> Unit)? = null
 ) {
     val isLong: Boolean get() = adapter != null && adapter.count > 0
 }
