@@ -63,8 +63,9 @@ class CertPinTest {
 
     @Test
     fun aCertificateThatTheSystemTrustsForThisHostNeedsNoPin() {
-        // A public certificate that is renewed: no Trust Certificate step, before or after (cert_b is for "test-nas-b")
-        PinningTrustManager(null, FakeSystem(trusts = true), "test-nas-b").checkServerTrusted(arrayOf(cert("cert_b.der")), "RSA")
+        // A public certificate that is renewed: no Trust Certificate step, before or after. cert_c has the name in its
+        // subjectAltName, as a public certificate has (OkHttp does not read the CN)
+        PinningTrustManager(null, FakeSystem(trusts = true), "test-nas-c").checkServerTrusted(arrayOf(cert("cert_c.der")), "RSA")
     }
 
     @Test
