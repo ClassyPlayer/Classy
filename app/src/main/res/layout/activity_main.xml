@@ -65,34 +65,6 @@
             android:paddingRight="0dp"
             android:paddingBottom="0dp">
 
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:visibility="gone">
-
-                <TextView
-                    android:id="@+id/tv_browser_path"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:singleLine="true"
-                    android:text="Path: /Music"
-                    android:textColor="#FFFFFF"
-                    android:textSize="16sp"
-                    android:visibility="gone" />
-
-                <TextView
-                    android:id="@+id/tv_browser_title_clock"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:singleLine="true"
-                    android:text=""
-                    android:textColor="#FFFFFF"
-                    android:textSize="16sp"
-                    android:visibility="gone" />
-            </LinearLayout>
-
             <com.themoon.y1.views.EdgeFadeScrollView
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"

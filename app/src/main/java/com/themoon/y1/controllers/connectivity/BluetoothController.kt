@@ -9,12 +9,7 @@ import android.bluetooth.BluetoothProfile
 import android.content.Context
 import android.os.Build
 import android.os.Handler
-import android.graphics.Path
-import android.graphics.RectF
 import android.os.Looper
-import android.util.TypedValue
-import android.view.Gravity
-import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
@@ -54,6 +49,8 @@ class BluetoothController(
     private val layoutBluetoothMode: LinearLayout = rootView.findViewById(R.id.layout_bluetooth_mode)
     private val btnScanBt: Button = rootView.findViewById(R.id.btn_scan_bt)
     private val containerBtItems: LinearLayout = rootView.findViewById(R.id.container_bt_items)
+
+    override val listScreen: ListScreen get() = screen
 
     private val screen = ListScreen(containerBtItems, clickFeedback = clickFeedback)
 
@@ -134,10 +131,6 @@ class BluetoothController(
         startBluetoothScan()
     }
 
-    override fun onWheel(delta: Int, event: KeyEvent): Boolean = screen.wheel(delta)
-
-    override fun title(): String? = screen.title
-
     fun setGlobalA2dpProxy(proxy: BluetoothProfile?) {
         globalA2dp = proxy
     }
@@ -192,7 +185,7 @@ class BluetoothController(
         // "Wait..." also while the Y2 Bluetooth service starts (RadioSwitch), as on the Power screen
         val shown = RadioSwitch.bluetoothState()
         val rows = ArrayList<RowSpec>()
-        rows += RowSpec(localize("Bluetooth Power"), RowLook.VALUE, value = if (shown == null) localize("Wait...") else onOff(isOn, localize),
+        rows += RowSpec(localize("Bluetooth Power"), RowLook.VALUE, value = RadioSwitch.valueText(shown, localize),
             key = POWER_KEY, onClick = { togglePower(ba) })
         val scanRow = RowSpec(btnScanBt.text.toString(), RowLook.CUSTOM, view = btnScanBt, key = SCAN_KEY,
             onClick = { startBluetoothScan(userAction = true) })
@@ -236,13 +229,9 @@ class BluetoothController(
             screen.valueView(POWER_KEY)?.text = onOff(false, localize)
             Notice.error(activity, localize("Failed"))
         }
-        when (request) {
-            RadioSwitch.Request.BUSY -> Notice.show(activity, localize("Please wait a moment..."))
-            RadioSwitch.Request.FAILED -> Notice.error(activity, localize("Failed"))
-            RadioSwitch.Request.DONE -> {
-                if (!turnOn) targetDeviceForAudio = null
-                screen.valueView(POWER_KEY)?.text = localize("Wait...")
-            }
+        if (RadioSwitch.tell(activity, request, localize)) {
+            if (!turnOn) targetDeviceForAudio = null
+            screen.valueView(POWER_KEY)?.text = RadioSwitch.valueText(null, localize)
         }
     }
 
@@ -250,38 +239,8 @@ class BluetoothController(
     private fun discoverableRow(): View {
         val discoverable = BluetoothDiscoverableManager.isDiscoverable()
         val row = ListItemViewFactory.createSettingRow(activity, localize("Discoverable"), onOff(discoverable, localize))
-        val value = row.getChildAt(1) as? TextView
-        // The time left goes on the left of the value (of the switch), in the same text style.
-        val time = TextView(activity).apply {
-            if (value != null) {
-                setTextSize(TypedValue.COMPLEX_UNIT_PX, value.textSize)
-                typeface = value.typeface
-                setTextColor(value.currentTextColor)
-            }
-            includeFontPadding = false
-            val padRight = (8 * activity.resources.displayMetrics.density).toInt()
-            val rowHeight = row.layoutParams?.height ?: 0
-            if (rowHeight > 0) {
-                // Put the centre of the digits on the centre line of the row, like the row title and the switch,
-                // in all themes: full row height, gravity TOP, and a top padding from the font (cap height of "H").
-                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT)
-                gravity = Gravity.TOP or Gravity.END
-                val path = Path()
-                paint.getTextPath("H", 0, 1, 0f, 0f, path)
-                val bounds = RectF()
-                path.computeBounds(bounds, true)
-                val top = BluetoothDiscoverableLogic.capCentredPaddingTop(rowHeight, paint.fontMetricsInt.ascent, -bounds.top)
-                setPadding(0, top, padRight, 0)
-            } else {
-                setPadding(0, 0, padRight, 0)
-            }
-            visibility = View.GONE
-        }
-        row.addView(time, 1)
-        // The row changes the value colour when it gets or loses the focus: give the same colour to the time.
-        FocusLook.of(row).onFocus { if (value != null) time.setTextColor(value.currentTextColor) }
-        discoverableValue = value
-        discoverableTime = time
+        discoverableValue = row.getChildAt(1) as? TextView
+        discoverableTime = ListItemViewFactory.addValueNote(row)
         discoverableShown = discoverable
         return row
     }

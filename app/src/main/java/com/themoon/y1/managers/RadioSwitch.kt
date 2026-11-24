@@ -5,6 +5,8 @@ import android.bluetooth.BluetoothAdapter
 import android.content.Context
 import android.net.wifi.WifiManager
 import android.util.Log
+import com.themoon.y1.core.extensions.onOff
+import com.themoon.y1.views.Notice
 
 /** Wi-Fi and Bluetooth on/off, for the Power screen, the Wi-Fi screen and the Bluetooth screen. */
 object RadioSwitch {
@@ -12,6 +14,22 @@ object RadioSwitch {
 
     /** What Android did with a request: [DONE] (the radio starts or stops), [BUSY] (it starts or stops already), [FAILED]. */
     enum class Request { DONE, BUSY, FAILED }
+
+    /** The value of a radio row: "Wait..." while the radio starts or stops ([on] = null), else On or Off. */
+    fun valueText(on: Boolean?, localize: (String) -> String): String = if (on == null) localize("Wait...") else onOff(on, localize)
+
+    /** Tells the user when a [request] is [Request.BUSY] or [Request.FAILED]. True for [Request.DONE]. */
+    fun tell(context: Context, request: Request, localize: (String) -> String): Boolean = when (request) {
+        Request.DONE -> true
+        Request.BUSY -> {
+            Notice.show(context, localize("Please wait a moment..."))
+            false
+        }
+        Request.FAILED -> {
+            Notice.error(context, localize("Failed"))
+            false
+        }
+    }
 
     fun wifiManager(c: Context): WifiManager? = c.applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
 

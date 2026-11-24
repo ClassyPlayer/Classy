@@ -39,7 +39,6 @@ import com.themoon.y1.lists.RowLook
 import com.themoon.y1.lists.RowSpec
 import com.themoon.y1.managers.AudioSources
 import com.themoon.y1.navigation.ScreenState
-import com.themoon.y1.views.ListItemViewFactory
 import com.themoon.y1.views.Notice
 import com.themoon.y1.views.TablerIcons
 import java.io.File
@@ -416,8 +415,7 @@ class GamePlayerController(
         menuLayout.visibility = View.VISIBLE
     }
 
-    private fun menuRow(icon: Array<String>, label: String, onClick: () -> Unit) = RowSpec(label, RowLook.CUSTOM,
-        view = ListItemViewFactory.createTablerListButton(activity, icon, label), onClick = onClick)
+    private fun menuRow(icon: Array<String>, label: String, onClick: () -> Unit) = RowSpec(label, RowLook.ICON, icon = icon, onClick = onClick)
 
     private fun artPx(): Int = (ART_DP * activity.resources.displayMetrics.density).toInt()
 

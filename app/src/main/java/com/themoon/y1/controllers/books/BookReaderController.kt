@@ -28,7 +28,7 @@ import com.themoon.y1.managers.LanguageManager
 import com.themoon.y1.navigation.NavigationManager
 import com.themoon.y1.navigation.ScreenState
 import com.themoon.y1.navigation.WheelKind
-import com.themoon.y1.views.ClassicMenuStyle
+import com.themoon.y1.views.ClassyMetrics
 import java.io.File
 
 /**
@@ -97,7 +97,7 @@ class BookReaderController(
     override fun onEnter(state: ScreenState) {
         val file = (state as? ScreenState.BookReader)?.file ?: return
         rootView.visibility = View.VISIBLE
-        rootView.setPadding(0, (ClassicMenuStyle.STATUS_HEIGHT_DP * activity.resources.displayMetrics.density).toInt(), 0, 0)
+        rootView.setPadding(0, (ClassyMetrics.STATUS_BAR_HEIGHT * activity.resources.displayMetrics.density).toInt(), 0, 0)
         shown = true
         lastInputMs = SystemClock.uptimeMillis()
         handler.removeCallbacks(holdTask)

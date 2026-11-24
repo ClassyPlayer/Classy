@@ -7,7 +7,6 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.PixelFormat
 import android.graphics.drawable.Drawable
-import android.text.TextUtils
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
@@ -16,61 +15,39 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import com.themoon.y1.R
 import com.themoon.y1.ThemeManager
-import java.util.Collections
-import java.util.WeakHashMap
 
 /** List rows in the Classy layout (see [ClassyLayout]). */
 object ClassyLists {
-    // Recycled list rows can come back with another height; this set tells which titles to put back.
-    private val centred: MutableSet<TextView> = Collections.newSetFromMap(WeakHashMap())
-
-    /** Called by [ClassicMenuStyle.apply] for each Classic list row. */
-    fun styleClassicRow(row: LinearLayout, title: TextView, heightDp: Int) {
-        val d = row.resources.displayMetrics.density
-        row.setPadding(px(ClassyMetrics.ROW_PADDING_LEFT, d), 0, px(ClassyMetrics.ROW_PADDING_RIGHT, d), 0)
-        title.setTextSize(TypedValue.COMPLEX_UNIT_PX, ClassyMetrics.LIST_TEXT_SP * d)
-        // Rows with cover art (64 dp) or thumbnails stack two lines of text; only one-line rows are centred.
-        if (heightDp == ClassicMenuStyle.ROW_HEIGHT_DP) {
-            centreInRow(title, heightDp * d)
-        } else if (centred.remove(title)) {
-            uncentre(title)
-        }
-    }
-
     /**
-     * Called at the end of the ListItemViewFactory row builders. [row] can be the title itself (a Button).
-     * The row gets the Classy row metrics and cap-centred text.
+     * The metrics of a list row, for all row builders ([ListItemViewFactory], [com.themoon.y1.lists.ArtRow]): the
+     * height [heightDp], the side padding, and the [title] in the bold list text. In a one-line row the capitals of
+     * the [title] and of the [value] on the right are on the centre line of the row. A taller row (cover art, two
+     * lines of text) keeps its text block centred by the row gravity.
      */
-    fun styleListRow(row: View, title: TextView, value: TextView?) {
+    fun styleRow(row: LinearLayout, title: TextView, value: TextView? = null, heightDp: Int = ClassyMetrics.ROW_HEIGHT) {
         val d = row.resources.displayMetrics.density
-        val rowHeight = px(ClassyMetrics.ROW_HEIGHT, d)
+        val height = px(heightDp, d)
         val textSize = ClassyMetrics.LIST_TEXT_SP * d
-        val padLeft = px(ClassyMetrics.ROW_PADDING_LEFT, d)
-        val padRight = px(ClassyMetrics.ROW_PADDING_RIGHT, d)
+        row.gravity = Gravity.CENTER_VERTICAL
+        row.setPadding(px(ClassyMetrics.ROW_PADDING_LEFT, d), 0, px(ClassyMetrics.ROW_PADDING_RIGHT, d), 0)
+        row.minimumHeight = height
         row.layoutParams?.let {
-            it.height = rowHeight
+            it.height = height
             row.layoutParams = it
         }
         title.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize)
         title.typeface = ThemeManager.getCustomFontBold()
         title.includeFontPadding = false
-        if (row === title) {
-            title.gravity = ClassyLayout.horizontalGravity(title) or Gravity.TOP
-            title.setPadding(padLeft, ClassyLayout.capCentredPaddingTop(title, rowHeight.toFloat()), padRight, 0)
-            return
-        }
-        row.setPadding(padLeft, 0, padRight, 0)
-        title.isSingleLine = true
-        title.ellipsize = TextUtils.TruncateAt.END
-        centreInRow(title, rowHeight.toFloat())
+        if (heightDp != ClassyMetrics.ROW_HEIGHT) return
+        centreInRow(title, height.toFloat())
         if (value != null) {
             value.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize)
-            centreInRow(value, rowHeight.toFloat())
+            centreInRow(value, height.toFloat())
         }
     }
 
+    /** [tv] as tall as the row, with its capitals on the centre line of the row (gravity TOP and a top padding). */
     private fun centreInRow(tv: TextView, rowHeight: Float) {
-        centred.add(tv)
         tv.includeFontPadding = false
         val lp = tv.layoutParams
         if (lp != null && lp.height != ViewGroup.LayoutParams.MATCH_PARENT) {
@@ -79,16 +56,6 @@ object ClassyLists {
         }
         tv.gravity = ClassyLayout.horizontalGravity(tv) or Gravity.TOP
         tv.setPadding(tv.paddingLeft, ClassyLayout.capCentredPaddingTop(tv, rowHeight), tv.paddingRight, 0)
-    }
-
-    private fun uncentre(tv: TextView) {
-        val lp = tv.layoutParams
-        if (lp != null) {
-            lp.height = ViewGroup.LayoutParams.WRAP_CONTENT
-            tv.layoutParams = lp
-        }
-        tv.gravity = ClassyLayout.horizontalGravity(tv) or Gravity.CENTER_VERTICAL
-        tv.setPadding(tv.paddingLeft, 0, tv.paddingRight, 0)
     }
 
     /**
@@ -150,6 +117,3 @@ class ClassyChevronDrawable(color: Int, strokeWidth: Float) : Drawable() {
     @Deprecated("Deprecated in Java")
     override fun getOpacity(): Int = PixelFormat.TRANSLUCENT
 }
-
-/** Backward compatibility aliases. */
-typealias IpodClassicLists = ClassyLists

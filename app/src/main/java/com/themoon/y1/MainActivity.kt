@@ -747,8 +747,6 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
             state is ScreenState.Settings && state.subMode is SettingsSubMode.Jellyfin -> ScreenState.Jellyfin()
             else -> state
         }
-        if (::browserController.isInitialized) browserController.endLetterJump()
-        if (::booksController.isInitialized) booksController.endLetterJump()
         tvFastScrollLetter?.animate()?.cancel()
         tvFastScrollLetter?.visibility = View.GONE
         syncCurrentScreenState(targetState)
@@ -1082,17 +1080,6 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     }
 
     /**
-     * Shows the letter box in the middle of the screen with the letter of letter mode (BrowserController.jumpLetter).
-     * Rows call this when they get focus; when the wheel steps row by row there is no jump letter, and nothing shows.
-     */
-    @Suppress("UNUSED_PARAMETER")
-    fun showFastScrollLetter(rawText: String) {
-        if (currentScreenState != STATE_BROWSER || !::browserController.isInitialized) return
-        val letter = browserController.jumpLetter ?: return
-        showJumpLetter(letter)
-    }
-
-    /**
      * Shows [letter] in the letter box. It stays until [hideFastScrollLetter]: the screen hides it at the end of
      * letter mode ([LetterJump.Mode]). The box gets its theme colours when it comes on; after that, only a new
      * letter changes it.
@@ -1273,9 +1260,10 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     }
 
     private fun updateStatusBarTitle() {
-        tvStatusBarTitle?.text = NavigationManager.getInstance().activeController?.title() ?: when (currentScreenState) {
+        val tv = tvStatusBarTitle ?: return
+        val title = NavigationManager.getInstance().activeController?.title() ?: when (currentScreenState) {
             STATE_MENU -> t("Classy")
-            STATE_BROWSER -> if (::browserController.isInitialized) browserController.getCurrentBrowserTitle() else t("Music")
+            STATE_BROWSER -> if (isAudiobookLibraryMode) t("Audiobooks") else t("Music")
             STATE_PLAYER -> t("Now Playing")
             STATE_SETTINGS -> t("Settings")
             STATE_BLUETOOTH -> t("Bluetooth")
@@ -1285,7 +1273,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
             STATE_STORAGE -> t("About")
             STATE_WEBSERVER -> t("Upload")
             STATE_QUIZ -> t("Music Quiz")
-            STATE_VIDEOS -> if (::videoBrowserController.isInitialized) videoBrowserController.getCurrentTitle() else t("Videos")
+            STATE_VIDEOS -> t("Videos")
             STATE_COVERFLOW -> {
                 val total = uniqueAlbumList.size
                 if (total > 0 && ::coverFlowController.isInitialized) {
@@ -1301,6 +1289,8 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
             STATE_PHOTOS -> t("Photos")
             else -> t("Classy")
         }
+        // A list calls this at each change of its rows: a new text only when the title changed (no new layout)
+        if (tv.text?.toString() != title) tv.text = title
     }
 
     fun updateStatusBarClock() {
@@ -1317,21 +1307,6 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
         updateStatusBarClock()
     }
 
-    fun isPaneBasedScreen(): Boolean {
-        return when (currentScreenState) {
-            STATE_MENU -> true
-            STATE_BROWSER -> ::browserController.isInitialized && browserController.isCoverPaneActive()
-            STATE_VIDEOS -> ::videoBrowserController.isInitialized && videoBrowserController.isCoverPaneActive()
-            STATE_PHOTOS -> ::photosController.isInitialized && photosController.isPaneShown
-            STATE_SETTINGS -> ::settingsController.isInitialized && settingsController.isPaneShown
-            else -> false
-        }
-    }
-
-    fun updateStatusBarWidth() {
-        findViewById<View>(R.id.layout_status_bar)?.let { com.themoon.y1.lists.Pane.fitStatusBar(it, isPaneBasedScreen()) }
-    }
-
     fun showUsbStorageDialog() = usbStorageManager.showUsbStorageDialog()
 
     fun startUsbStorage() = usbStorageManager.startUsbStorage()
@@ -1342,20 +1317,8 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
 
     fun hideUsbStorageOverlay() = usbStorageManager.hideUsbStorageOverlay()
 
-    fun createButtonBackground(color: Int): GradientDrawable =
-        ListItemViewFactory.createButtonBackground(this, color)
-
-    fun createFocusedButtonBackground(): GradientDrawable =
-        ListItemViewFactory.createFocusedButtonBackground(this)
-
-    fun createListButtonWithIcon(iconUnicode: String, textLabel: String, customColor: Int = 0): View =
-        ListItemViewFactory.createListButtonWithIcon(this, iconUnicode, textLabel, customColor) { showFastScrollLetter(it) }
-
-    fun setupAudiobookProgress(btn: View, pos: Int, dur: Int) {
-        ListItemViewFactory.setupAudiobookProgress(this, btn, pos, dur) { showFastScrollLetter(it) }
-    }
-
-    internal fun createListButton(text: String, color: Int? = null): View = createListButtonWithIcon("", text, color ?: 0)
+    internal fun createListButton(text: String, color: Int? = null): View =
+        ListItemViewFactory.createListButtonWithIcon(this, "", text, color ?: 0)
 
     private val systemStatusReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {

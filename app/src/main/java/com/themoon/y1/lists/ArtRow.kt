@@ -4,7 +4,6 @@ import android.content.Context
 import android.graphics.Typeface
 import android.text.TextUtils
 import android.util.TypedValue
-import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.widget.AbsListView
@@ -12,10 +11,8 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import com.themoon.y1.ThemeManager
-import com.themoon.y1.views.ClassicMenuStyle
 import com.themoon.y1.views.ClassyLists
 import com.themoon.y1.views.FocusLook
-import com.themoon.y1.views.ListItemViewFactory
 
 /**
  * The [RowLook.ART] row: a 52 dp cover at the left, the title and a second line, and the chevron on the focused row.
@@ -29,11 +26,9 @@ class ArtRow private constructor(context: Context, inListView: Boolean) {
 
     val view = LinearLayout(context).apply {
         orientation = LinearLayout.HORIZONTAL
-        gravity = Gravity.CENTER_VERTICAL
         isFocusable = true
         isClickable = true
         isSoundEffectsEnabled = false
-        setPadding(dp(8), dp(6), dp(10), dp(6))
         layoutParams = if (inListView) {
             AbsListView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
         } else {
@@ -47,8 +42,6 @@ class ArtRow private constructor(context: Context, inListView: Boolean) {
     }
 
     val title = TextView(context).apply {
-        setTextSize(TypedValue.COMPLEX_UNIT_PX, ListItemViewFactory.LIST_TEXT_SIZE * density)
-        typeface = ThemeManager.getCustomFontBold()
         isSingleLine = true
         ellipsize = TextUtils.TruncateAt.MARQUEE
         marqueeRepeatLimit = -1
@@ -92,7 +85,7 @@ class ArtRow private constructor(context: Context, inListView: Boolean) {
         view.addView(text)
         view.addView(trailing)
         view.addView(arrow)
-        ClassicMenuStyle.apply(view, title, HEIGHT_DP)
+        ClassyLists.styleRow(view, title, heightDp = HEIGHT_DP)
         view.tag = this
     }
 
@@ -144,7 +137,7 @@ class ArtRow private constructor(context: Context, inListView: Boolean) {
     private fun dp(value: Int): Int = (value * density).toInt()
 
     companion object {
-        /** Row height in the Classic themes. */
+        /** Row height. */
         const val HEIGHT_DP = 64
 
         /** The row of [convertView] if it is an ART row, else a new row (for a ListView when [inListView]). */

@@ -15,7 +15,6 @@ import android.widget.BaseAdapter
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ListView
-import com.themoon.y1.MainActivity
 import com.themoon.y1.Prefs
 import com.themoon.y1.R
 import com.themoon.y1.StoragePaths
@@ -30,7 +29,6 @@ import com.themoon.y1.controllers.ScreenController
 import com.themoon.y1.controllers.settings.SettingRows
 import com.themoon.y1.lists.ArtRow
 import com.themoon.y1.lists.Focus
-import com.themoon.y1.lists.LetterBox
 import com.themoon.y1.lists.ListScreen
 import com.themoon.y1.lists.ListSpec
 import com.themoon.y1.lists.Pane
@@ -41,11 +39,9 @@ import com.themoon.y1.navigation.BooksLevel
 import com.themoon.y1.navigation.InputRouter
 import com.themoon.y1.navigation.NavigationManager
 import com.themoon.y1.navigation.ScreenState
-import com.themoon.y1.navigation.WheelKind
 import com.themoon.y1.navigation.isFolderLevel
-import com.themoon.y1.views.ClassicMenuStyle
+import com.themoon.y1.views.ClassyMetrics
 import com.themoon.y1.views.EdgeFadeListView
-import com.themoon.y1.views.ListItemViewFactory
 import com.themoon.y1.views.Notice
 import com.themoon.y1.views.TablerIcons
 import java.io.File
@@ -81,6 +77,8 @@ class BooksController(
     }
     private val paneImage: ImageView = rootView.findViewById(R.id.iv_books_cover)
     private val pane = Pane(activity, listPane, rootView.findViewById(R.id.frame_books_cover), paneImage)
+    override val listScreen: ListScreen get() = screen
+
     private val screen: ListScreen
 
     private var level: BooksLevel = BooksLevel.Root
@@ -106,12 +104,9 @@ class BooksController(
     private val library = BookLibrary(File(activity.filesDir, "books")) { Xml.newPullParser() }
 
     init {
-        listPane.setPadding(0, (ClassicMenuStyle.STATUS_HEIGHT_DP * activity.resources.displayMetrics.density).toInt(), 0, 0)
+        listPane.setPadding(0, (ClassyMetrics.STATUS_BAR_HEIGHT * activity.resources.displayMetrics.density).toInt(), 0, 0)
         listPane.addView(listView, (rowViews.parent as View).layoutParams)
-        screen = ListScreen(rowViews, listView, clickFeedback, letterBox = object : LetterBox {
-            override fun show(letter: String) { MainActivity.instance?.showJumpLetter(letter) }
-            override fun hide() { MainActivity.instance?.hideFastScrollLetter() }
-        })
+        screen = ListScreen(rowViews, listView, clickFeedback)
         rootView.viewTreeObserver.addOnGlobalFocusChangeListener { _, now -> if (isShown()) onFocus(now) }
     }
 
@@ -159,14 +154,6 @@ class BooksController(
         if (isShown()) refresh()
     }
 
-    override fun onWheel(delta: Int, event: KeyEvent): Boolean = screen.wheel(delta, event.eventTime)
-
-    override fun wheelKind(): WheelKind = screen.wheelKind
-
-    override fun onWheelTouch(isTouching: Boolean, timeMs: Long) = screen.wheelTouch(isTouching, timeMs)
-
-    override fun dispatchKeyEvent(event: KeyEvent): Boolean = screen.key(event)
-
     /** Back held in Folders (the first key repeat): out of all folder levels at once. */
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
         val router = InputRouter.getInstance()
@@ -177,7 +164,6 @@ class BooksController(
         return true
     }
 
-    fun endLetterJump() = screen.endLetters()
 
     /** The books on the card may have changed (a USB share): the next visit scans again, or now if Books shows. */
     fun forget() {
@@ -227,10 +213,7 @@ class BooksController(
     // --- Lists ---
 
     private fun show() {
-        val s = spec()
-        screen.show(s)
-        // A folder opens at its first folder or book, not at ".." (as Music → Folders)
-        if (level is BooksLevel.Folder) s.rows.firstOrNull { it.key != KEY_UP && it.look != RowLook.INFO }?.let { screen.select(it.key) }
+        screen.show(spec())
     }
 
     /** The list again, the selected row kept (a scan step, a value change). */
@@ -273,8 +256,7 @@ class BooksController(
                 localize("No books found.\nCopy EPUB or TXT books into the \"Books\" folder on your SD card, then select Rescan Books."),
                 RowLook.INFO
             )
-            val rescan = ListItemViewFactory.createTablerListButton(activity, TablerIcons.REFRESH, localize("Rescan Books"))
-            rows += RowSpec(localize("Rescan Books"), RowLook.CUSTOM, view = rescan, key = KEY_RESCAN, onClick = { scan(); refresh() })
+            rows += RowSpec(localize("Rescan Books"), RowLook.ICON, icon = TablerIcons.REFRESH, key = KEY_RESCAN, onClick = { scan(); refresh() })
         }
         paneDefault = last ?: books?.firstOrNull()?.file
         rowBooks = rows.map { null }
@@ -319,7 +301,8 @@ class BooksController(
             isBooksRoot && roots.size > 1 -> null
             else -> folder.parentFile
         }
-        rows += RowSpec("..", key = KEY_UP, onClick = { changeScreen(ScreenState.Books(BooksLevel.Folder(up))) })
+        // A folder opens at its first folder or book, not at ".." (as Music → Folders)
+        rows += RowSpec("..", key = KEY_UP, lead = true, onClick = { changeScreen(ScreenState.Books(BooksLevel.Folder(up))) })
         bookOfRow += null
         val files = folder.listFiles()?.filter { !it.name.startsWith(".") }.orEmpty()
         val dirs = files.filter { it.isDirectory }.sortedBy { it.name.lowercase() }
@@ -338,11 +321,8 @@ class BooksController(
             id = "books_folder:" + folder.absolutePath)
     }
 
-    private fun folderRow(dir: File, label: String): RowSpec {
-        val view = ListItemViewFactory.createTablerListButton(activity, TablerIcons.FOLDER, label)
-        return RowSpec(label, RowLook.CUSTOM, view = view, key = dir.absolutePath,
-            onClick = { changeScreen(ScreenState.Books(BooksLevel.Folder(dir))) })
-    }
+    private fun folderRow(dir: File, label: String) = RowSpec(label, RowLook.ICON, icon = TablerIcons.FOLDER, key = dir.absolutePath,
+        onClick = { changeScreen(ScreenState.Books(BooksLevel.Folder(dir))) })
 
     private fun artRow(item: BookItem, label: String = item.title) = RowSpec(label, RowLook.ART, value = subtitle(item), key = item.path,
         image = { iv -> bindThumb(iv, item) }, onClick = { openBook(item.file) })

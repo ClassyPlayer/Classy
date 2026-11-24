@@ -1,7 +1,6 @@
 package com.themoon.y1.controllers.playlists
 
 import android.app.Activity
-import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
@@ -48,6 +47,8 @@ class PlaylistController(
     private val localize: (String) -> String
 ) : ScreenController {
 
+    override val listScreen: ListScreen get() = screen
+
     private val screen = ListScreen(rootView.findViewById(R.id.container_browser_items), listVirtualSongs, clickFeedback)
 
     var currentM3uFile: File? = null
@@ -81,10 +82,6 @@ class PlaylistController(
     override fun onThemeChanged() {
         com.themoon.y1.navigation.NavigationManager.getInstance().currentState?.let { onEnter(it) }
     }
-
-    override fun onWheel(delta: Int, event: KeyEvent): Boolean = screen.wheel(delta)
-
-    override fun title(): String? = screen.title
 
     /** The M3U files of each Playlists folder, A to Z. */
     private fun playlistFiles(): List<File> {

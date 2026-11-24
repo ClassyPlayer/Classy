@@ -5,7 +5,6 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.media.MediaMetadataRetriever
 import android.util.LruCache
-import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
@@ -47,12 +46,13 @@ class VideoBrowserController(
     private val onVideoSelected: (file: File) -> Unit,
     private val onNavigateToMode: (VideoMode) -> Unit,
     private val clickFeedback: () -> Unit,
-    private val localize: (String) -> String,
-    private val updateHeaderTitle: (String) -> Unit
+    private val localize: (String) -> String
 ) : ScreenController {
 
     private val layoutVideos: LinearLayout = rootView.findViewById(R.id.layout_videos_mode)
     private val ivVideoCover: ImageView? = rootView.findViewById(R.id.iv_video_cover)
+    override val listScreen: ListScreen get() = screen
+
     private val screen = ListScreen(rootView.findViewById(R.id.container_video_items), clickFeedback = clickFeedback)
 
     /** The art pane of the root menu. */
@@ -68,12 +68,6 @@ class VideoBrowserController(
     fun clearThumbCache() {
         thumbCache.evictAll()
     }
-
-    fun isCoverPaneActive(): Boolean = pane?.isShown == true
-
-    fun getCurrentTitle(): String = screen.title ?: localize("Videos")
-
-    override fun title(): String? = screen.title
 
     private val videoExtensions = setOf("mp4", "mkv", "avi", "mov", "m4v", "webm", "3gp", "ts", "wmv")
 
@@ -94,8 +88,6 @@ class VideoBrowserController(
         buildCurrentModeUI()
     }
 
-    override fun onWheel(delta: Int, event: KeyEvent): Boolean = screen.wheel(delta, event.eventTime)
-
     fun buildCurrentModeUI() {
         layoutVideos.setBackgroundColor(ThemeManager.getOverlayBackgroundColor())
 
@@ -115,15 +107,10 @@ class VideoBrowserController(
         }
     }
 
-    private fun show(spec: ListSpec) {
-        screen.show(spec)
-        updateHeaderTitle(spec.title.orEmpty())
-    }
-
     /** Movies, TV Series, By Directory, with the art of the last video at the right. */
     private fun buildRootVideoMenu() {
         val initialDir = StoragePaths.getMoviesDir().parentFile ?: StoragePaths.getMoviesDir()
-        show(ListSpec(localize("Videos"), listOf(
+        screen.show(ListSpec(localize("Videos"), listOf(
             RowSpec(localize("Movies"), onClick = { onNavigateToMode(VideoMode.Movies) }),
             RowSpec(localize("TV Series"), onClick = { onNavigateToMode(VideoMode.TvShows) }),
             RowSpec(localize("By Directory"), onClick = { onNavigateToMode(VideoMode.Directory(initialDir)) })
@@ -131,7 +118,7 @@ class VideoBrowserController(
     }
 
     private fun buildMoviesListUI() {
-        show(ListSpec(localize("Movies"), movieVideosProvider().map { videoRow(it) }, empty = localize("No movies found.")))
+        screen.show(ListSpec(localize("Movies"), movieVideosProvider().map { videoRow(it) }, empty = localize("No movies found.")))
     }
 
     private fun buildTvShowsListUI() {
@@ -150,7 +137,7 @@ class VideoBrowserController(
                 },
                 onClick = { onNavigateToMode(VideoMode.TvSeasons(series.name)) })
         }
-        show(ListSpec(localize("TV Series"), rows, empty = localize("No TV series found.")))
+        screen.show(ListSpec(localize("TV Series"), rows, empty = localize("No TV series found.")))
     }
 
     private fun buildTvSeasonsListUI(seriesName: String) {
@@ -160,13 +147,13 @@ class VideoBrowserController(
             RowSpec(season.seasonTitle, RowLook.ART, value = "${season.episodes.size} $epWord",
                 onClick = { onNavigateToMode(VideoMode.TvEpisodes(seriesName, season.seasonNumber)) })
         }
-        show(ListSpec(seriesName, rows, empty = localize("No TV series found.")))
+        screen.show(ListSpec(seriesName, rows, empty = localize("No TV series found.")))
     }
 
     private fun buildTvEpisodesListUI(seriesName: String, seasonNumber: Int) {
         val series = tvSeriesProvider().firstOrNull { it.name.equals(seriesName, ignoreCase = true) }
         val season = series?.seasons?.firstOrNull { it.seasonNumber == seasonNumber }
-        show(ListSpec("$seriesName - ${localize("Season")} $seasonNumber", (season?.episodes ?: emptyList()).map { videoRow(it) },
+        screen.show(ListSpec("$seriesName - ${localize("Season")} $seasonNumber", (season?.episodes ?: emptyList()).map { videoRow(it) },
             empty = localize("No TV series found.")))
     }
 
@@ -196,7 +183,7 @@ class VideoBrowserController(
                 }
                 rows += RowSpec(label, key = r.absolutePath, onClick = { onNavigateToMode(VideoMode.Directory(r)) })
             }
-            show(ListSpec(title, rows))
+            screen.show(ListSpec(title, rows))
             return
         }
 
@@ -223,7 +210,7 @@ class VideoBrowserController(
             rows += RowSpec(sf.name, key = sf.absolutePath, onClick = { onNavigateToMode(VideoMode.Directory(sf)) })
         }
         for (vf in videoFiles) rows += videoRow(VideoItem(file = vf, title = vf.nameWithoutExtension))
-        show(ListSpec(title, rows, empty = localize("No videos found in this folder.")))
+        screen.show(ListSpec(title, rows, empty = localize("No videos found in this folder.")))
     }
 
     /** A movie, an episode or a video file: its cover (or a frame of the video) and its title. */

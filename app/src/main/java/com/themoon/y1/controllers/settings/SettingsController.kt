@@ -33,7 +33,6 @@ import com.themoon.y1.managers.LanguageManager
 import com.themoon.y1.managers.LastFmScrobbler
 import com.themoon.y1.managers.PowerMenu
 import com.themoon.y1.managers.RadioSwitch
-import com.themoon.y1.core.extensions.onOff
 import com.themoon.y1.managers.UpdateChannel
 import com.themoon.y1.managers.UsbDrive
 import com.themoon.y1.lists.Focus
@@ -87,6 +86,8 @@ class SettingsController(
     private val containerSettingsItems: LinearLayout = rootView.findViewById(R.id.container_settings_items)
     private val prefs = activity.getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
     private val mainActivity: MainActivity? get() = activity as? MainActivity
+    override val listScreen: ListScreen get() = screen
+
     private val screen = ListScreen(containerSettingsItems, clickFeedback = clickFeedback)
 
     /** The cover pane at the right of the top level, as in the main menu and Music. The group pages are full width. */
@@ -95,8 +96,6 @@ class SettingsController(
         rootView.findViewById(R.id.iv_settings_cover), onShowPane
     )
 
-    /** True while the top level shows with its cover pane. */
-    val isPaneShown: Boolean get() = isUiActive && pane.isShown
     private val rows = SettingRows(prefs, localize) { refresh() }
 
     private var isUiActive = false
@@ -360,8 +359,6 @@ class SettingsController(
         if (nav.previousState() == state) nav.popBackStack() else mainActivity?.changeScreen(state)
     }
 
-    override fun title(): String? = screen.title
-
     override fun onExit() {
         // A picked-up row of Main Menu Items or Music Menu Items goes down, and the order is saved
         screen.drop()
@@ -459,11 +456,11 @@ class SettingsController(
      */
     private fun buildPowerUI() {
         val radios = listOf(
-            ActionScreens.Action(localize("Wi-Fi"), closes = false, value = radioValue(RadioSwitch.wifiState(activity))) {
+            ActionScreens.Action(localize("Wi-Fi"), closes = false, value = RadioSwitch.valueText(RadioSwitch.wifiState(activity), localize)) {
                 val on = RadioSwitch.wifiState(activity)
                 radioRequested(if (on == null) RadioSwitch.Request.BUSY else RadioSwitch.setWifi(activity, !on))
             },
-            ActionScreens.Action(localize("Bluetooth"), closes = false, value = radioValue(RadioSwitch.bluetoothState())) {
+            ActionScreens.Action(localize("Bluetooth"), closes = false, value = RadioSwitch.valueText(RadioSwitch.bluetoothState(), localize)) {
                 val on = RadioSwitch.bluetoothState()
                 // enable() comes later: when it is refused, the switch shows what the radio is
                 radioRequested(if (on == null) RadioSwitch.Request.BUSY else RadioSwitch.setBluetooth({ activity.runOnUiThread(it) }, !on) {
@@ -488,19 +485,13 @@ class SettingsController(
         buildActionUI(SettingsSubMode.Power, spec)
     }
 
-    private fun radioValue(on: Boolean?): String = if (on == null) localize("Wait...") else onOff(on, localize)
-
     /** A radio starts, stops or fails to (MainActivity: the Wi-Fi and Bluetooth state broadcasts): an open Power screen shows it. */
     fun onRadioStateChanged() {
         if (actionPage == SettingsSubMode.Power) buildPowerUI()
     }
 
     private fun radioRequested(request: RadioSwitch.Request) {
-        when (request) {
-            RadioSwitch.Request.DONE -> onRadioStateChanged()
-            RadioSwitch.Request.BUSY -> Notice.show(activity, localize("Please wait a moment..."))
-            RadioSwitch.Request.FAILED -> Notice.error(activity, localize("Failed"))
-        }
+        if (RadioSwitch.tell(activity, request, localize)) onRadioStateChanged()
     }
 
     /**
@@ -518,7 +509,6 @@ class SettingsController(
         }
         val list = ActionScreens.list(spec) { onNavigateBack() }
         if (again) screen.update(list) else screen.show(list)
-        mainActivity?.tvStatusBarTitle?.text = spec.title
     }
 
     // --- The screens that the rows open ---
@@ -764,16 +754,12 @@ class SettingsController(
     /** System Update: the version, a divider, and Check for Updates (selected). */
     private fun updateSpec(): ListSpec {
         val version = versionName()
-        // Made in a vertical list, as in the Settings list: the full width
-        val divider = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
-            .also { ListItemViewFactory.createCategoryHeader(activity, it, "━━━━━━━━━━━━━━") }.getChildAt(0)
-        val check = ListItemViewFactory.createTablerListButton(activity, TablerIcons.REFRESH, localize("Check for Updates"))
         return ListSpec(localize("System Update"), listOf(
             RowSpec(localize("Current Version"), RowLook.VALUE, value = if (version.startsWith("v")) version else "v$version"),
             RowSpec(localize("Update Channel"), RowLook.VALUE, value = localize(UpdateChannel.label(updateChannel())),
                 opens = true, onClick = { openPage("UpdateChannel") }),
-            RowSpec("divider", RowLook.CUSTOM, view = divider),
-            RowSpec(localize("Check for Updates"), RowLook.CUSTOM, view = check, checked = true, onClick = { onOpenUpdateCheck() })
+            RowSpec("", RowLook.HEADER, key = "divider"),
+            RowSpec(localize("Check for Updates"), RowLook.ICON, icon = TablerIcons.REFRESH, checked = true, onClick = { onOpenUpdateCheck() })
         ), focus = Focus.CHECKED)
     }
 

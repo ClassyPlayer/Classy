@@ -323,7 +323,6 @@ class EqualizerController(
     private fun buildProfileSelectorUI() {
         isProfileSelectorOpen = true
         screen.show(profilesSpec())
-        screen.select(currentEqProfile)
     }
 
     private fun profilesSpec(): ListSpec {
@@ -343,7 +342,7 @@ class EqualizerController(
             for (name in customList.split(",")) if (name.isNotBlank()) profile("custom_$name", name)
         }
         rows += RowSpec(localize("Back"), onClick = { buildEqualizerSettingsUI(back = true) })
-        return ListSpec(localize("Equalizer"), rows, id = "eq-profiles")
+        return ListSpec(localize("Equalizer"), rows, focus = Focus.CHECKED, id = "eq-profiles")
     }
 
     /** Asks before the 10-band EQ (it uses the CPU), on an action screen; Back cancels. */

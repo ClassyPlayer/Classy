@@ -3,7 +3,6 @@ package com.themoon.y1.controllers.games
 import android.app.Activity
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
@@ -18,7 +17,6 @@ import com.themoon.y1.lists.ListSpec
 import com.themoon.y1.lists.RowLook
 import com.themoon.y1.lists.RowSpec
 import com.themoon.y1.navigation.ScreenState
-import com.themoon.y1.views.ListItemViewFactory
 import com.themoon.y1.views.TablerIcons
 import java.io.File
 
@@ -37,6 +35,8 @@ class GamesController(
 ) : ScreenController {
 
     private val rowViews: LinearLayout = rootView.findViewById(R.id.container_game_items)
+    override val listScreen: ListScreen get() = screen
+
     private val screen = ListScreen(rowViews, clickFeedback = clickFeedback)
 
     private var games: List<GameItem>? = null
@@ -62,8 +62,6 @@ class GamesController(
     override fun onThemeChanged() {
         show()
     }
-
-    override fun onWheel(delta: Int, event: KeyEvent): Boolean = screen.wheel(delta, event.eventTime)
 
     private fun isShown(): Boolean = rootView.visibility == View.VISIBLE
 
@@ -119,8 +117,7 @@ class GamesController(
                 localize("No games found.\nCopy iPod games (.ipg files or game folders) into the \"Games\" folder on your SD card, then select Rescan Games."),
                 RowLook.INFO
             )
-            val rescan = ListItemViewFactory.createTablerListButton(activity, TablerIcons.REFRESH, localize("Rescan Games"))
-            rows += RowSpec(localize("Rescan Games"), RowLook.CUSTOM, view = rescan, key = KEY_RESCAN, onClick = { scan() })
+            rows += RowSpec(localize("Rescan Games"), RowLook.ICON, icon = TablerIcons.REFRESH, key = KEY_RESCAN, onClick = { scan() })
         }
         val spec = ListSpec(localize("Games"), rows)
         // Keep the selected row while the list grows; with no row selected yet (on entry, or the progress row only),

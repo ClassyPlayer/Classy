@@ -93,14 +93,14 @@ class ClassyPlayStateView(context: Context) : View(context) {
 
 /**
  * The 1 px dark line at the bottom of the status bar. It hides itself when the status bar has a
- * transparent background (video player). Before each frame it also keeps the status bar at the full
- * width ([ClassyLayout.keepStatusBarFull]).
+ * transparent background (video player). Before each frame it also keeps the status bar opaque in Cover Flow
+ * ([ClassyLayout.keepStatusBarOpaque]).
  */
 class ClassyStatusRuleView(context: Context) : View(context) {
     private val preDraw = ViewTreeObserver.OnPreDrawListener {
         val bar = parent as? View
         // A changed bar is drawn in the next frame, so this frame is skipped.
-        if (ClassyLayout.keepStatusBarFull(bar)) return@OnPreDrawListener false
+        if (ClassyLayout.keepStatusBarOpaque(bar)) return@OnPreDrawListener false
         val transparent = ClassyLayout.isTransparent(bar?.background)
         val vis = if (transparent) INVISIBLE else VISIBLE
         if (visibility != vis) visibility = vis

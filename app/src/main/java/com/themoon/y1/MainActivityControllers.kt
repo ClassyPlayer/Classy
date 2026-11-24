@@ -9,7 +9,6 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ListView
-import android.widget.TextView
 import com.themoon.y1.controllers.browser.BrowserController
 import com.themoon.y1.controllers.connectivity.BluetoothController
 import com.themoon.y1.controllers.connectivity.WebServerController
@@ -27,7 +26,7 @@ import com.themoon.y1.controllers.quiz.MusicQuizController
 import com.themoon.y1.controllers.radio.FmRadioController
 import com.themoon.y1.controllers.settings.BrightnessController
 import com.themoon.y1.controllers.settings.EqualizerController
-import com.themoon.y1.views.ClassicMenuStyle
+import com.themoon.y1.views.ClassyMetrics
 import com.themoon.y1.controllers.settings.SettingsController
 import com.themoon.y1.controllers.storage.StorageController
 import com.themoon.y1.controllers.sync.JellyfinUiController
@@ -41,7 +40,6 @@ import com.themoon.y1.navigation.BrowserMode
 import com.themoon.y1.navigation.KeyboardTarget
 import com.themoon.y1.navigation.NavigationManager
 import com.themoon.y1.navigation.ScreenState
-import com.themoon.y1.navigation.SettingsSubMode
 import com.themoon.y1.navigation.VideoMode
 import com.themoon.y1.podcasts.PodcastDownloadManager
 import com.themoon.y1.podcasts.PodcastRepository
@@ -52,7 +50,6 @@ import com.themoon.y1.views.Notice
 internal fun MainActivity.initControllers() {
     val rootContent = findViewById<ViewGroup>(android.R.id.content)
     val containerBrowserItems = findViewById<LinearLayout>(R.id.container_browser_items)
-    val tvBrowserPath = findViewById<TextView>(R.id.tv_browser_path)
 
     val listContainer = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
@@ -76,7 +73,7 @@ internal fun MainActivity.initControllers() {
     val scrollViewBrowser = containerBrowserItems.parent as View
     val browserParent = scrollViewBrowser.parent as ViewGroup
     val density = resources.displayMetrics.density
-    browserParent.setPadding(0, (ClassicMenuStyle.STATUS_HEIGHT_DP * density).toInt(), 0, 0)
+    browserParent.setPadding(0, (ClassyMetrics.STATUS_BAR_HEIGHT * density).toInt(), 0, 0)
     browserParent.addView(listContainer, scrollViewBrowser.layoutParams)
 
     mainMenuController = MainMenuController(
@@ -264,10 +261,7 @@ internal fun MainActivity.initControllers() {
             changeScreen(ScreenState.Videos(mode))
         },
         clickFeedback = { clickFeedback() },
-        localize = { t(it) },
-        updateHeaderTitle = { title ->
-            tvStatusBarTitle?.text = title
-        }
+        localize = { t(it) }
     )
 
     videoPlayerController = VideoPlayerController(
@@ -591,20 +585,17 @@ internal fun MainActivity.showNowPlaying() {
 
 internal fun MainActivity.handleMainMenuAction(action: String) {
     when (action) {
-        "OPEN_BROWSER", "MUSIC" -> {
+        "OPEN_BROWSER" -> {
             this.isAudiobookLibraryMode = false
             changeScreen(ScreenState.Browser(BrowserMode.Root))
         }
-        "OPEN_VIDEOS", "VIDEOS" -> {
+        "OPEN_VIDEOS" -> {
             changeScreen(ScreenState.Videos(VideoMode.Root))
         }
-        "OPEN_COVER_FLOW", "PHOTOS" -> {
-            changeScreen(MainActivity.STATE_COVERFLOW)
-        }
-        "OPEN_PODCASTS", "PODCASTS" -> {
+        "OPEN_PODCASTS" -> {
             changeScreen(ScreenState.Podcasts)
         }
-        "OPEN_MUSIC_QUIZ", "EXTRAS" -> {
+        "OPEN_MUSIC_QUIZ" -> {
             changeScreen(MainActivity.STATE_QUIZ)
             musicQuizController.showStartHub()
         }
@@ -617,19 +608,19 @@ internal fun MainActivity.handleMainMenuAction(action: String) {
         "OPEN_BOOKS" -> {
             changeScreen(ScreenState.Books())
         }
-        "OPEN_SETTINGS", "SETTINGS" -> {
+        "OPEN_SETTINGS" -> {
             changeScreen(MainActivity.STATE_SETTINGS)
         }
-        "OPEN_RADIO", "RADIO" -> {
+        "OPEN_RADIO" -> {
             changeScreen(ScreenState.FmRadio)
         }
-        "OPEN_WEBSERVER", "WEBSERVER" -> {
+        "OPEN_WEBSERVER" -> {
             changeScreen(MainActivity.STATE_WEBSERVER)
         }
-        "OPEN_BLUETOOTH", "BLUETOOTH" -> {
+        "OPEN_BLUETOOTH" -> {
             changeScreen(MainActivity.STATE_BLUETOOTH)
         }
-        "OPEN_WIFI", "WIFI" -> {
+        "OPEN_WIFI" -> {
             changeScreen(MainActivity.STATE_WIFI)
         }
         "OPEN_PLAY_ON" -> {
@@ -638,9 +629,6 @@ internal fun MainActivity.handleMainMenuAction(action: String) {
         "OPEN_AUDIOBOOKS" -> {
             this.isAudiobookLibraryMode = true
             changeScreen(ScreenState.Browser(BrowserMode.Audiobooks, audiobooks = true))
-        }
-        "OPEN_THEME_SETTINGS" -> {
-            changeScreen(ScreenState.Settings(SettingsSubMode.Page("Theme")))
         }
         "OPEN_PLAYER" -> {
             if (currentPlaylist.isEmpty()) {

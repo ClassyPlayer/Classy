@@ -20,6 +20,7 @@ import com.themoon.y1.R
 import com.themoon.y1.ThemeManager
 import com.themoon.y1.controllers.ScreenController
 import com.themoon.y1.core.extensions.onOff
+import com.themoon.y1.lists.Focus
 import com.themoon.y1.lists.ListScreen
 import com.themoon.y1.lists.ListSpec
 import com.themoon.y1.lists.RowLook
@@ -94,9 +95,7 @@ class FmRadioController(
             }
             Page.MENU -> screen.show(menuSpec())
             Page.SAVED -> {
-                // The channel that is tuned is selected (else the first)
                 screen.show(savedSpec())
-                screen.select(channelKey(fmManager.currentFreq))
             }
         }
     }
@@ -543,8 +542,10 @@ class FmRadioController(
         RowSpec(localize(title), RowLook.VALUE, value = value, opens = opens, key = title, onClick = onClick)
 
     /** The saved channels: the centre button plays a channel, a held centre button deletes it. */
+    /** The saved channels; the channel that is tuned is selected (else the first). */
     private fun savedSpec(): ListSpec = ListSpec(localize("Saved Channels"), savedRadioStations.mapIndexed { i, freq ->
         RowSpec("CH ${i + 1} :  " + String.format(Locale.US, "%.1f MHz", freq), key = channelKey(freq),
+            checked = channelKey(freq) == channelKey(fmManager.currentFreq),
             onClick = { playSavedChannel(freq) },
             onHold = {
                 ActionScreens.open(confirmScreen(
@@ -557,7 +558,7 @@ class FmRadioController(
                     refresh()
                 })
             })
-    }, empty = localize("No saved channels."))
+    }, empty = localize("No saved channels."), focus = Focus.CHECKED)
 
     private fun channelKey(freq: Float): String = String.format(Locale.US, "%.1f", Math.round(freq * 10.0f) / 10.0f)
 

@@ -11,6 +11,7 @@ import android.widget.LinearLayout
 import android.widget.ListView
 import android.widget.ScrollView
 import android.widget.TextView
+import com.themoon.y1.MainActivity
 import com.themoon.y1.ThemeManager
 import com.themoon.y1.navigation.LetterJump
 import com.themoon.y1.navigation.PadWheel
@@ -30,9 +31,11 @@ import com.themoon.y1.views.ListItemViewFactory
  * - [wheel]: one step ([RowFocus]: Wheel Loop Scroll, rows that cannot take the focus are skipped,
  *   List Edges fade in the ListView), with the click feedback.
  * - Rows: one click feedback, then the row's action; a hold (long press) does the row's hold action.
+ * - [ListSpec.title]: the status bar title ([MainActivity.refreshStatusBarTitle]), at each [show] and [update].
  * - [ListSpec.pane]: the split screen shows with the list, and goes when a list without it shows or the screen exits.
  * - [ListSpec.letters]: the iPod letter jump ([LetterJump.Mode], Settings → Controls → Letter Jump) in [wheel], with
- *   the letter in [letterBox]; the screen gives its keys to [key] (a centre press ends letter mode).
+ *   the letter in the letter box of the screen ([MainActivity.showJumpLetter]); the screen gives its keys to [key]
+ *   (a centre press ends letter mode).
  * - [ListSpec.reorder]: a hold on a row picks it up, [wheel] moves it, and a push or [drop] (Back) puts it down.
  */
 class ListScreen(
@@ -40,11 +43,10 @@ class ListScreen(
     private val list: ListView? = null,
     private val clickFeedback: () -> Unit,
     /** Told the key ([RowSpec.key]) of each focused [RowLook.MENU] row. */
-    private val onRowFocus: ((String) -> Unit)? = null,
-    /** Shows the letter of the letter jump ([ListSpec.letters]). */
-    private val letterBox: LetterBox? = null
+    private val onRowFocus: ((String) -> Unit)? = null
 ) {
     private val context = rows.context
+    private val main = context as? MainActivity
     private val scroll: View? = rows.parent as? View
 
     /** The list that shows now, or null before the first [show]. */
@@ -76,8 +78,7 @@ class ListScreen(
     private var longIndex = -1
 
     /** The letter in the letter box during letter mode; null when the wheel steps row by row. */
-    var jumpLetter: String? = null
-        private set
+    private var jumpLetter: String? = null
 
     val title: String? get() = spec?.title
 
@@ -99,7 +100,7 @@ class ListScreen(
             return
         }
         val last = lastKeys[spec.id]
-        val i = ListModel.firstRow(shown.map { it.key }, spec.focus, last, shown.indexOfFirst { it.checked }, ::selectable)
+        val i = ListModel.firstRow(shown.map { it.key }, spec.focus, last, shown.indexOfFirst { it.checked }, ::selectable) { shown[it].lead }
         if (i < 0) return
         val row = rows.getChildAt(i)
         focusNowAndAfter(row)
@@ -258,7 +259,7 @@ class ListScreen(
         letterMode.end()
         if (jumpLetter == null) return
         jumpLetter = null
-        letterBox?.hide()
+        main?.hideFastScrollLetter()
     }
 
     /**
@@ -277,7 +278,7 @@ class ListScreen(
             letters
         }
         if (step == LetterJump.Step.ROW) return false
-        jumpLetter = letters?.getOrNull(letterMode.row) // before the focus moves: the focused row can show the box
+        jumpLetter = letters?.getOrNull(letterMode.row)
         if (step == LetterJump.Step.LETTER) {
             if (s.isLong) {
                 list?.let { RowFocus.showRow(it, letterMode.row) }
@@ -287,7 +288,7 @@ class ListScreen(
             }
             clickFeedback()
         }
-        jumpLetter?.let { letterBox?.show(it) }
+        jumpLetter?.let { main?.showJumpLetter(it) }
         scheduleLetterEnd(timeMs)
         return true
     }
@@ -330,6 +331,8 @@ class ListScreen(
         val long = spec.isLong
         scroll?.visibility = if (long) View.GONE else View.VISIBLE
         list?.visibility = if (long) View.VISIBLE else View.GONE
+        // The status bar shows the title of the new list (also without a screen change: a library scan, an action screen)
+        main?.refreshStatusBarTitle()
         if (long) {
             list?.adapter = spec.adapter
             shown = ArrayList()
@@ -343,7 +346,7 @@ class ListScreen(
         val view = when (row.look) {
             RowLook.MENU -> {
                 val color = if (row.key == ListModel.EMPTY_KEY) ThemeManager.getTextColorSecondary() else row.color
-                val focus = onRowFocus?.let { told -> { _: String -> told(row.key) } }
+                val focus = onRowFocus?.let { told -> { told(row.key) } }
                 ListItemViewFactory.createListButtonWithIcon(context, "", row.label, color, focus)
             }
             RowLook.VALUE -> ListItemViewFactory.createSettingRow(context, row.label, row.value, row.opens)
@@ -351,6 +354,7 @@ class ListScreen(
                 if (row.glyphs.isEmpty()) ListItemViewFactory.createCheckListButton(context, row.label, row.checked)
                 else ListItemViewFactory.createChoiceRowWithRightIcons(context, row.label, row.checked, row.glyphs)
             RowLook.SHOWN -> ListItemViewFactory.createShownRow(context, row.label, row.checked)
+            RowLook.ICON -> ListItemViewFactory.createTablerListButton(context, row.icon, row.label, row.color)
             RowLook.ART -> ArtRow.of(null, context, inListView = false).also { art ->
                 art.bind(row.label, row.value)
                 val image = row.image
