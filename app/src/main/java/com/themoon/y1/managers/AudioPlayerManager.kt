@@ -685,9 +685,13 @@ class AudioPlayerManager private constructor() {
         val main = MainActivity.instance ?: return
         if (main.currentPlaylist.isEmpty()) return
 
-        // Previous Restarts Song: back to the start of this song (gapless queue or not), playing or paused as it was
+        // Previous Restarts Song: back to the start of this song (gapless queue or not), playing or paused as it was.
+        // Only when the player holds the queue entry: after a missing file the one before stays loaded while a skip
+        // waits, and the path below cancels that skip.
         val current = exoPlayer
-        if (current != null && current.playbackState != Player.STATE_IDLE &&
+        val entry = main.currentPlaylist.getOrNull(main.currentIndex)
+        if (current != null && current.playbackState != Player.STATE_IDLE && entry != null &&
+            current.currentMediaItem?.playbackProperties?.uri == Uri.fromFile(entry) &&
             PreviousButton.restarts(Prefs.PREVIOUS_RESTARTS.get(main.prefs), getCurrentPosition().toLong())
         ) {
             current.seekTo(0)
