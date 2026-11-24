@@ -887,5 +887,7 @@
   "Cannot save the sync record": "Nie można zapisać rejestru synchronizacji",
   "This Folder": "Ten folder",
   "Sync cancelled": "Synchronizacja anulowana",
-  "Sort by Year": "Sortuj według roku"
+  "Sort by Year": "Sortuj według roku",
+  "No Duplicates in Playlists": "Bez duplikatów w playlistach",
+  "Already in Playlist": "Już jest na playliście"
 }

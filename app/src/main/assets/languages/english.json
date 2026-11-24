@@ -887,5 +887,7 @@
   "Cannot save the sync record": "Cannot save the sync record",
   "This Folder": "This Folder",
   "Sync cancelled": "Sync cancelled",
-  "Sort by Year": "Sort by Year"
+  "Sort by Year": "Sort by Year",
+  "No Duplicates in Playlists": "No Duplicates in Playlists",
+  "Already in Playlist": "Already in Playlist"
 }
