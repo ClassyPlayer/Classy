@@ -91,10 +91,11 @@ object SyncPlan {
                 val item = ledger[e.href]
                 val recorded = item?.localPath?.takeIf { it.isNotEmpty() }?.let { File(it) }
                 val here = recorded?.path == target.path && exists(target)
-                // Synced before a Save To change: the same file on the other storage. Move Synced Files moves it,
-                // so the sync does not get it again
+                // Synced before a Save To change: the same file on the other storage, at the path that this href has
+                // there (the other storage has the other name rule: FAT names on the SD card). Move Synced Files moves
+                // it, so the sync does not get it again
                 val onOtherStorage = recorded != null && recorded.path != target.path && otherRoot != null &&
-                    movedPath(recorded.path, otherRoot, destRoot, safeNames)?.path == target.path && exists(recorded)
+                    localFileFor(e.href, baseHref, otherRoot, !safeNames)?.path == recorded.path && exists(recorded)
                 if (item == null || !(here || onOtherStorage) || changed(e, item)) {
                     // The new copy replaces the recorded one: that one must not stay on the player untracked
                     val replaces = recorded?.takeIf { it.path != target.path }

@@ -301,6 +301,11 @@ class WebDavSync private constructor(context: Context) {
             loadLedger()
             ledger.getAllItems().values.filter { movedPath(it.localPath, from, to, onSd) != null }
         }
+        // The target of each file comes from its href, as for a sync: a FAT name ("Why_.mp3") gets its own name back
+        // on internal storage ("Why?.mp3"), so the next sync finds it there and does not download it again
+        val base = WebDavSyncProvider.getInstance(ctx).rootHref()
+        fun target(item: SyncLedger.LedgerItem): File =
+            base?.let { localFileFor(item.jellyfinId, it, to, onSd) } ?: movedPath(item.localPath, from, to, onSd)!!
         val total = items.sumOf { File(it.localPath!!).length() }
         to.mkdirs()
         requireFreeSpace(total, if (to.exists()) to else to.parentFile!!)
@@ -312,7 +317,7 @@ class WebDavSync private constructor(context: Context) {
             for ((i, item) in items.withIndex()) {
                 checkCancel()
                 val src = File(item.localPath!!)
-                val dst = movedPath(item.localPath, from, to, onSd)!!
+                val dst = target(item)
                 if (src.exists()) {
                     if (player.isFileCurrentlyPlaying(src)) continue
                     progress(l, "${i + 1}/${items.size} ${src.name}", done, total)

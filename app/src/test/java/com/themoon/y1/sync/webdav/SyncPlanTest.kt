@@ -117,6 +117,16 @@ class SyncPlanTest {
     }
 
     @Test
+    fun aFatNamedCopyOnTheSdCardIsLeftToMoveWhenSaveToIsInternalAgain() {
+        // Synced to the SD card as "02 What_.mp3"; the internal target is "02 What?.mp3": the same file, not a new one
+        val h = "/music/Rock/02%20What%3F.mp3"
+        val onSd = led(h, rock).also { it.localPath = "/sd/Music/Rock/02 What_.mp3" }
+        val p = SyncPlan.build(mapOf(rock to listOf(file(h))), mapOf(h to onSd), setOf(rock), File("/internal/Music"), base,
+            safeNames = false, otherRoot = File("/sd/Music")) { true }
+        assertTrue(p.downloads.isEmpty())
+    }
+
+    @Test
     fun aChangedCopyOnTheOtherStorageDownloadsAndReplacesIt() {
         val h = "/music/Rock/a.flac"
         val onInternal = led(h, rock).also { it.localPath = "/internal/Music/Rock/a.flac" }
