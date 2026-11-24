@@ -366,13 +366,15 @@ class ListScreen(
             if (view is ViewGroup) for (i in 0 until view.childCount) view.getChildAt(i).alpha = DISABLED_ALPHA
         }
         val click = row.onClick
-        if (click != null) {
+        // A row of a list with reorder takes the push also with no action: the push puts a picked-up row down
+        if (click != null || spec.reorder != null) {
             view.setOnClickListener {
                 if (moving != null) {
                     clickFeedback()
                     drop()
                     return@setOnClickListener
                 }
+                if (click == null) return@setOnClickListener
                 if (!row.feedbackAfter) clickFeedback()
                 lastKeys[spec.id] = row.key
                 click()
