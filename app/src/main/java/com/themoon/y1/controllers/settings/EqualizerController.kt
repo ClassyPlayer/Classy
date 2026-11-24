@@ -113,7 +113,7 @@ class EqualizerController(
 
     private fun settingsSpec(focus: Focus = Focus.FIRST): ListSpec {
         val rows = ArrayList<RowSpec>()
-        rows += RowSpec("10-Band Software EQ", RowLook.VALUE, value = onOff(isSoftwareEqEnabled, localize), onClick = {
+        rows += RowSpec(localize("10-Band Software EQ"), RowLook.VALUE, value = onOff(isSoftwareEqEnabled, localize), onClick = {
             if (isSoftwareEqEnabled) {
                 isSoftwareEqEnabled = false
                 currentEqProfile = "preset_0"
@@ -134,20 +134,20 @@ class EqualizerController(
         } else {
             activeName = currentEqProfile.removePrefix("custom_")
         }
-        rows += RowSpec("EQ Profile / Preset", RowLook.VALUE, value = activeName, opens = true, onClick = { buildProfileSelectorUI() })
+        rows += RowSpec(localize("EQ Profile / Preset"), RowLook.VALUE, value = activeName, opens = true, onClick = { buildProfileSelectorUI() })
 
         val steps = arrayOf("Off", "Weak", "Normal", "Strong")
-        rows += RowSpec("Bass Boost", RowLook.VALUE, value = localize(steps[currentBassBoostStep % 4]), onClick = {
+        rows += RowSpec(localize("Bass Boost"), RowLook.VALUE, value = localize(steps[currentBassBoostStep % 4]), onClick = {
             currentBassBoostStep = (currentBassBoostStep + 1) % 4
             AudioEffectManager.getInstance().applyAudioEffects()
             screen.update(settingsSpec())
         })
-        rows += RowSpec("Virtualizer", RowLook.VALUE, value = localize(steps[currentVirtualizerStep % 4]), onClick = {
+        rows += RowSpec(localize("Virtualizer"), RowLook.VALUE, value = localize(steps[currentVirtualizerStep % 4]), onClick = {
             currentVirtualizerStep = (currentVirtualizerStep + 1) % 4
             AudioEffectManager.getInstance().applyAudioEffects()
             screen.update(settingsSpec())
         })
-        rows += RowSpec("Crossfeed", RowLook.VALUE, value = localize(steps[currentCrossfeedStep % 4]), onClick = {
+        rows += RowSpec(localize("Crossfeed"), RowLook.VALUE, value = localize(steps[currentCrossfeedStep % 4]), onClick = {
             currentCrossfeedStep = (currentCrossfeedStep + 1) % 4
             AudioPlayerManager.getInstance().crossfeedProcessor.setIntensity(currentCrossfeedStep)
             screen.update(settingsSpec())
@@ -185,7 +185,7 @@ class EqualizerController(
         })
 
         rows += RowSpec(localize("GRAPHIC EQUALIZER"), RowLook.HEADER)
-        rows += RowSpec("Graphic Equalizer", RowLook.VALUE, value = localize("Open Editor"), opens = true, onClick = {
+        rows += RowSpec(localize("Graphic Equalizer"), RowLook.VALUE, value = localize("Open Editor"), opens = true, onClick = {
             if (currentEqProfile.startsWith("preset_")) {
                 Notice.show(activity, localize("Please create a Custom Profile to edit!"), long = true)
             } else {
