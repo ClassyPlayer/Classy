@@ -41,7 +41,6 @@ import com.themoon.y1.navigation.BooksLevel
 import com.themoon.y1.navigation.InputRouter
 import com.themoon.y1.navigation.NavigationManager
 import com.themoon.y1.navigation.ScreenState
-import com.themoon.y1.navigation.WheelKind
 import com.themoon.y1.navigation.isFolderLevel
 import com.themoon.y1.views.ClassyMetrics
 import com.themoon.y1.views.EdgeFadeListView
@@ -81,6 +80,8 @@ class BooksController(
     }
     private val paneImage: ImageView = rootView.findViewById(R.id.iv_books_cover)
     private val pane = Pane(activity, listPane, rootView.findViewById(R.id.frame_books_cover), paneImage)
+    override val listScreen: ListScreen get() = screen
+
     private val screen: ListScreen
 
     private var level: BooksLevel = BooksLevel.Root
@@ -158,14 +159,6 @@ class BooksController(
     override fun onRefreshUI() {
         if (isShown()) refresh()
     }
-
-    override fun onWheel(delta: Int, event: KeyEvent): Boolean = screen.wheel(delta, event.eventTime)
-
-    override fun wheelKind(): WheelKind = screen.wheelKind
-
-    override fun onWheelTouch(isTouching: Boolean, timeMs: Long) = screen.wheelTouch(isTouching, timeMs)
-
-    override fun dispatchKeyEvent(event: KeyEvent): Boolean = screen.key(event)
 
     /** Back held in Folders (the first key repeat): out of all folder levels at once. */
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {

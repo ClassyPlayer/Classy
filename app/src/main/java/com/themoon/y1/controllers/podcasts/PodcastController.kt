@@ -1,7 +1,6 @@
 package com.themoon.y1.controllers.podcasts
 
 import android.app.Activity
-import android.view.KeyEvent
 import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.ListView
@@ -48,6 +47,8 @@ class PodcastController(
     private val onHideLoadingPopup: () -> Unit = {}
 ) : ScreenController {
 
+    override val listScreen: ListScreen get() = screen
+
     private val screen = ListScreen(containerBrowserItems, listVirtualSongs, clickFeedback)
 
     /** The list that shows. */
@@ -93,10 +94,6 @@ class PodcastController(
     override fun onThemeChanged() {
         shown?.let { onEnter(it) }
     }
-
-    override fun onWheel(delta: Int, event: KeyEvent): Boolean = screen.wheel(delta)
-
-    override fun title(): String? = screen.title
 
     private fun open(state: ScreenState) {
         (activity as? MainActivity)?.changeScreen(state)

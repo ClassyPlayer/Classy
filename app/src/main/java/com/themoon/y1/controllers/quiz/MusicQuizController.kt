@@ -103,6 +103,8 @@ class MusicQuizController(
         isFillViewport = true
         addView(menuRows, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
     }
+    override val listScreen: ListScreen get() = screen
+
     private val screen = ListScreen(menuRows, null, clickFeedback)
 
     /** Makes the menu that shows (for a theme change); null while a question shows. */
@@ -125,7 +127,7 @@ class MusicQuizController(
         layoutQuiz.visibility = View.GONE
     }
 
-    override fun onWheel(delta: Int, event: KeyEvent): Boolean = menu != null && screen.wheel(delta)
+    override fun onWheel(delta: Int, event: KeyEvent): Boolean = menu != null && screen.wheel(delta, event.eventTime)
 
     override fun onThemeChanged() {
         menuScroll.setBackgroundColor(ThemeManager.getOverlayBackgroundColor())

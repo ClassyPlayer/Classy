@@ -5,7 +5,6 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.media.MediaMetadataRetriever
 import android.util.LruCache
-import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
@@ -53,6 +52,8 @@ class VideoBrowserController(
 
     private val layoutVideos: LinearLayout = rootView.findViewById(R.id.layout_videos_mode)
     private val ivVideoCover: ImageView? = rootView.findViewById(R.id.iv_video_cover)
+    override val listScreen: ListScreen get() = screen
+
     private val screen = ListScreen(rootView.findViewById(R.id.container_video_items), clickFeedback = clickFeedback)
 
     /** The art pane of the root menu. */
@@ -73,8 +74,6 @@ class VideoBrowserController(
 
     fun getCurrentTitle(): String = screen.title ?: localize("Videos")
 
-    override fun title(): String? = screen.title
-
     private val videoExtensions = setOf("mp4", "mkv", "avi", "mov", "m4v", "webm", "3gp", "ts", "wmv")
 
     override fun onEnter(state: ScreenState) {
@@ -93,8 +92,6 @@ class VideoBrowserController(
     override fun onThemeChanged() {
         buildCurrentModeUI()
     }
-
-    override fun onWheel(delta: Int, event: KeyEvent): Boolean = screen.wheel(delta, event.eventTime)
 
     fun buildCurrentModeUI() {
         layoutVideos.setBackgroundColor(ThemeManager.getOverlayBackgroundColor())

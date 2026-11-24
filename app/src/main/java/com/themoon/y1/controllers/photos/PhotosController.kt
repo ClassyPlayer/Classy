@@ -24,7 +24,6 @@ import com.themoon.y1.navigation.NavigationManager
 import com.themoon.y1.navigation.PhotosLevel
 import com.themoon.y1.navigation.RowFocus
 import com.themoon.y1.navigation.ScreenState
-import com.themoon.y1.navigation.WheelKind
 import com.themoon.y1.photos.PhotoDecoder
 import com.themoon.y1.photos.PhotoIndex
 import com.themoon.y1.photos.PhotoItem
@@ -60,6 +59,8 @@ class PhotosController(
     private val listPane: ViewGroup = (rowViews.parent as View).parent as ViewGroup
     private val paneImage: ImageView = rootView.findViewById(R.id.iv_photos_cover)
     private val pane = Pane(activity, listPane, rootView.findViewById(R.id.frame_photos_cover), paneImage)
+    override val listScreen: ListScreen get() = screen
+
     private val screen = ListScreen(rowViews, clickFeedback = clickFeedback)
     private val grid = PhotoGridView(activity)
 
@@ -364,10 +365,6 @@ class PhotosController(
         }
         return screen.wheel(delta, event.eventTime)
     }
-
-    override fun wheelKind(): WheelKind = screen.wheelKind
-
-    override fun onWheelTouch(isTouching: Boolean, timeMs: Long) = screen.wheelTouch(isTouching, timeMs)
 
     /** Back held in Folders (the first key repeat): out of all folder levels at once, as Music → Folders. */
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {

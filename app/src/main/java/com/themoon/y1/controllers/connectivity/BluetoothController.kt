@@ -14,7 +14,6 @@ import android.graphics.RectF
 import android.os.Looper
 import android.util.TypedValue
 import android.view.Gravity
-import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
@@ -54,6 +53,8 @@ class BluetoothController(
     private val layoutBluetoothMode: LinearLayout = rootView.findViewById(R.id.layout_bluetooth_mode)
     private val btnScanBt: Button = rootView.findViewById(R.id.btn_scan_bt)
     private val containerBtItems: LinearLayout = rootView.findViewById(R.id.container_bt_items)
+
+    override val listScreen: ListScreen get() = screen
 
     private val screen = ListScreen(containerBtItems, clickFeedback = clickFeedback)
 
@@ -133,10 +134,6 @@ class BluetoothController(
         updateScanButtonFocus()
         startBluetoothScan()
     }
-
-    override fun onWheel(delta: Int, event: KeyEvent): Boolean = screen.wheel(delta)
-
-    override fun title(): String? = screen.title
 
     fun setGlobalA2dpProxy(proxy: BluetoothProfile?) {
         globalA2dp = proxy

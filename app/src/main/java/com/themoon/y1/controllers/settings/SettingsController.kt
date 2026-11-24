@@ -87,6 +87,8 @@ class SettingsController(
     private val containerSettingsItems: LinearLayout = rootView.findViewById(R.id.container_settings_items)
     private val prefs = activity.getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
     private val mainActivity: MainActivity? get() = activity as? MainActivity
+    override val listScreen: ListScreen get() = screen
+
     private val screen = ListScreen(containerSettingsItems, clickFeedback = clickFeedback)
 
     /** The cover pane at the right of the top level, as in the main menu and Music. The group pages are full width. */
@@ -359,8 +361,6 @@ class SettingsController(
         val nav = NavigationManager.getInstance()
         if (nav.previousState() == state) nav.popBackStack() else mainActivity?.changeScreen(state)
     }
-
-    override fun title(): String? = screen.title
 
     override fun onExit() {
         // A picked-up row of Main Menu Items or Music Menu Items goes down, and the order is saved

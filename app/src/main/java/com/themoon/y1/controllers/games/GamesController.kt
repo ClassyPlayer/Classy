@@ -3,7 +3,6 @@ package com.themoon.y1.controllers.games
 import android.app.Activity
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
@@ -37,6 +36,8 @@ class GamesController(
 ) : ScreenController {
 
     private val rowViews: LinearLayout = rootView.findViewById(R.id.container_game_items)
+    override val listScreen: ListScreen get() = screen
+
     private val screen = ListScreen(rowViews, clickFeedback = clickFeedback)
 
     private var games: List<GameItem>? = null
@@ -62,8 +63,6 @@ class GamesController(
     override fun onThemeChanged() {
         show()
     }
-
-    override fun onWheel(delta: Int, event: KeyEvent): Boolean = screen.wheel(delta, event.eventTime)
 
     private fun isShown(): Boolean = rootView.visibility == View.VISIBLE
 

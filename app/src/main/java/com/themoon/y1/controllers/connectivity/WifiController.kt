@@ -3,7 +3,6 @@ package com.themoon.y1.controllers.connectivity
 import android.app.Activity
 import android.net.wifi.ScanResult
 import android.net.wifi.WifiManager
-import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
@@ -38,6 +37,8 @@ class WifiController(
     private val layoutWifiMode: LinearLayout = rootView.findViewById(R.id.layout_wifi_mode)
     private val btnScanWifi: Button = rootView.findViewById(R.id.btn_scan_wifi)
     private val containerWifiItems: LinearLayout = rootView.findViewById(R.id.container_wifi_items)
+
+    override val listScreen: ListScreen get() = screen
 
     private val screen = ListScreen(containerWifiItems, clickFeedback = clickFeedback)
 
@@ -153,10 +154,6 @@ class WifiController(
             onOpenWifiKeyboard(ssid, isOpen)
         }
     }
-
-    override fun onWheel(delta: Int, event: KeyEvent): Boolean = screen.wheel(delta)
-
-    override fun title(): String? = screen.title
 
     companion object {
         private val WIFI_POWER_ROW_ID = R.id.wifi_power_row

@@ -2,7 +2,6 @@ package com.themoon.y1.controllers.menu
 
 import android.app.Activity
 import android.content.Context
-import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
@@ -49,6 +48,8 @@ class MainMenuController(
     /** The key of the row that was selected last: the menu opens at it again. */
     private var lastKey: String? = null
 
+    override val listScreen: ListScreen get() = screen
+
     private val screen = ListScreen(rows, null, clickFeedback, onRowFocus = { key ->
         lastKey = key
         photos.visibility = if (key == MainMenuItems.PHOTOS) View.VISIBLE else View.GONE
@@ -71,8 +72,6 @@ class MainMenuController(
     }
 
     override fun onRefreshUI() = screen.update(spec())
-
-    override fun onWheel(delta: Int, event: KeyEvent): Boolean = screen.wheel(delta, event.eventTime)
 
     // Back on the main menu stays here (the router gives the click)
     override fun onBackPressed(): Boolean = true
