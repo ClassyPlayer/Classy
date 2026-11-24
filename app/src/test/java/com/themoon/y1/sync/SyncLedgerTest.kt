@@ -100,7 +100,11 @@ class SyncLedgerTest {
                 assertTrue(save()) // over an existing file
             }
             assertTrue(file.renameTo(java.io.File(dir, "ledger.json.old")))
-            assertNotNull(SyncLedger(file).apply { load() }.getItem("a"))
+            val again = SyncLedger(file).apply { load() }
+            assertNotNull(again.getItem("a"))
+            // The next save writes the file and deletes the old one, so a ledger deleted by hand later stays empty
+            assertTrue(again.save())
+            assertFalse(java.io.File(dir, "ledger.json.old").exists())
         } finally {
             dir.deleteRecursively()
         }

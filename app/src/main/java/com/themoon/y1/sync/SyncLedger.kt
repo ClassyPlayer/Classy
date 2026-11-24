@@ -258,9 +258,12 @@ class SyncLedger @JvmOverloads constructor(private val ledgerFile: File? = null)
             if (tempFile.exists() && tempFile.length() > 0) {
                 // One rename replaces the old file at once. Where that is not possible (FAT), the old file moves aside
                 // first, and back if the new one cannot move in: a failed save never loses the old ledger
-                if (tempFile.renameTo(file)) return true
+                val old = File(parent, "${file.name}.old")
+                if (tempFile.renameTo(file)) {
+                    old.delete() // left by a save that stopped between its renames: load must not find it later
+                    return true
+                }
                 if (file.exists()) {
-                    val old = File(parent, "${file.name}.old")
                     old.delete()
                     if (file.renameTo(old)) {
                         if (tempFile.renameTo(file)) {
