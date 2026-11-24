@@ -107,6 +107,16 @@ class SyncPlanTest {
     }
 
     @Test
+    fun aCopyOnInternalWithANameThatFatChangesIsLeftToMove() {
+        // To the SD card: the target has the FAT name, and Move gives the copy that same name
+        val h = "/music/Rock/02%20What%3F.mp3"
+        val onInternal = led(h, rock).also { it.localPath = "/internal/Music/Rock/02 What?.mp3" }
+        val p = SyncPlan.build(mapOf(rock to listOf(file(h))), mapOf(h to onInternal), setOf(rock), File("/sd/Music"), base,
+            safeNames = true, otherRoot = File("/internal/Music")) { true }
+        assertTrue(p.downloads.isEmpty())
+    }
+
+    @Test
     fun aChangedCopyOnTheOtherStorageDownloadsAndReplacesIt() {
         val h = "/music/Rock/a.flac"
         val onInternal = led(h, rock).also { it.localPath = "/internal/Music/Rock/a.flac" }
