@@ -9,11 +9,7 @@ import android.bluetooth.BluetoothProfile
 import android.content.Context
 import android.os.Build
 import android.os.Handler
-import android.graphics.Path
-import android.graphics.RectF
 import android.os.Looper
-import android.util.TypedValue
-import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
@@ -243,38 +239,8 @@ class BluetoothController(
     private fun discoverableRow(): View {
         val discoverable = BluetoothDiscoverableManager.isDiscoverable()
         val row = ListItemViewFactory.createSettingRow(activity, localize("Discoverable"), onOff(discoverable, localize))
-        val value = row.getChildAt(1) as? TextView
-        // The time left goes on the left of the value (of the switch), in the same text style.
-        val time = TextView(activity).apply {
-            if (value != null) {
-                setTextSize(TypedValue.COMPLEX_UNIT_PX, value.textSize)
-                typeface = value.typeface
-                setTextColor(value.currentTextColor)
-            }
-            includeFontPadding = false
-            val padRight = (8 * activity.resources.displayMetrics.density).toInt()
-            val rowHeight = row.layoutParams?.height ?: 0
-            if (rowHeight > 0) {
-                // Put the centre of the digits on the centre line of the row, like the row title and the switch,
-                // in all themes: full row height, gravity TOP, and a top padding from the font (cap height of "H").
-                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT)
-                gravity = Gravity.TOP or Gravity.END
-                val path = Path()
-                paint.getTextPath("H", 0, 1, 0f, 0f, path)
-                val bounds = RectF()
-                path.computeBounds(bounds, true)
-                val top = BluetoothDiscoverableLogic.capCentredPaddingTop(rowHeight, paint.fontMetricsInt.ascent, -bounds.top)
-                setPadding(0, top, padRight, 0)
-            } else {
-                setPadding(0, 0, padRight, 0)
-            }
-            visibility = View.GONE
-        }
-        row.addView(time, 1)
-        // The row changes the value colour when it gets or loses the focus: give the same colour to the time.
-        FocusLook.of(row).onFocus { if (value != null) time.setTextColor(value.currentTextColor) }
-        discoverableValue = value
-        discoverableTime = time
+        discoverableValue = row.getChildAt(1) as? TextView
+        discoverableTime = ListItemViewFactory.addValueNote(row)
         discoverableShown = discoverable
         return row
     }

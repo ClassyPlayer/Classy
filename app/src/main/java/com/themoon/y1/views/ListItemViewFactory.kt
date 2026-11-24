@@ -231,6 +231,30 @@ object ListItemViewFactory {
         return row
     }
 
+    /**
+     * A text on the left of the value of a setting row ([createSettingRow]; the time left of Bluetooth → Discoverable),
+     * in the text style and colour of the value, with its capitals on the centre line of the row. GONE until the caller
+     * gives it a text.
+     */
+    fun addValueNote(row: LinearLayout): TextView {
+        val value = row.getChildAt(1) as TextView
+        val note = TextView(row.context).apply {
+            setTextSize(TypedValue.COMPLEX_UNIT_PX, value.textSize)
+            typeface = value.typeface
+            setTextColor(value.currentTextColor)
+            includeFontPadding = false
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT)
+            gravity = Gravity.TOP or Gravity.END
+            setPadding(0, ClassyLayout.capCentredPaddingTop(this, row.layoutParams.height.toFloat()),
+                (8 * row.resources.displayMetrics.density).toInt(), 0)
+            visibility = View.GONE
+        }
+        row.addView(note, 1)
+        // The row changes the value colour when it gets or loses the focus: the note gets the same colour
+        FocusLook.of(row).onFocus { note.setTextColor(value.currentTextColor) }
+        return note
+    }
+
     fun createCategoryHeader(context: Context, container: LinearLayout, title: String) {
         val tv = TextView(context).apply {
             text = title
