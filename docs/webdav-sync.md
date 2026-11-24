@@ -147,6 +147,8 @@ videos too; WebDAV Sync copies the folder tree of the server as it is, keyed by 
 
 - `list(href)`: `PROPFIND` with `Depth: 1` and a small property body. Sub-folders are walked one request each, with
   a visited set and a `MAX_FOLDERS` (20 000) cap, so a server that links back to itself ends in an error.
+- A download never takes more bytes than the listing or the `Content-Length` gave (else the free space), and asks for
+  no gzip, so a server cannot fill the storage. `replaceFile` never moves a folder aside.
 - `download(href, target, size, cancelled, mayReplace, progress)`: `GET` into a new hidden `.partial-*.part` file next to the target (exclusive create, so never a synced file), check the length, ask
   `mayReplace` (the sync says no while the target plays: `TargetBusy`, and the file waits for the next sync), then
   `replaceFile`: one rename over the old file. On FAT, which cannot rename over a file, the old file moves aside to
@@ -159,10 +161,13 @@ at the start of the next run, in the folders that the run writes to.
   host. A relative href must be a path starting with `/`. An absolute href of this server is turned into its path when the listing
   is read, so the ledger key and the folder hrefs are always paths.
 - hrefs are compared percent-encoded; `decodeHref` decodes each segment as UTF-8 (`+` stays `+`).
-- A PROPFIND answer is read into memory (at most 32 MB) and refused if its bytes have `<!DOCTYPE`, so the XML parser
+- A PROPFIND answer is read into memory (at most 8 MB, checked before each write; a listing takes at most 120 s in
+  all, and a sync can cancel it) and refused if its bytes have `<!DOCTYPE`, so the XML parser
   never reads an entity or a URL from the server. Android's parser ignores the `disallow-doctype-decl` feature. An
   answer whose root is not `DAV:multistatus` (a gateway or login page with HTTP 200) is an error, not an empty folder.
-  A failed status inside the 207 (for a resource, or for all its `propstat` blocks) is an error too (`DavHttpException`).
+  A failed status inside the 207 (for a resource, or for all its `propstat` blocks) is an error too: for the folder
+  itself its `DavHttpException` (404 = the folder is gone), for an entry in it `DavEntryRefused` (the sync stops, and
+  nothing is marked as deleted).
   Properties are read only from `propstat` blocks with a 2xx status (a 404 for one property is normal).
 - Timeouts: 10 s connect, 30 s read.
 
@@ -209,7 +214,8 @@ stays, untracked. A target is
 If a sync fails or is cancelled after it downloaded or deleted files, the UI still asks for a library rescan
 (`WebDavSync.changedByRun`).
 
-`deleteTracked` removes only the record when another record keeps the same file (two server names that became one
+`deleteTracked`, and the delete of a replaced copy, touch only files below the Music folders (canonical paths): the
+ledger is on shared storage. `deleteTracked` removes only the record when another record keeps the same file (two server names that became one
 FAT name). It skips a file that is playing (`AudioPlayerManager.isFileCurrentlyPlaying`) or that cannot be deleted:
 it stays in the ledger and goes in the next sync. After a delete it calls `pruneEmptyDirs`, which removes the empty
 folders above the file, up to the `Music` roots of both storages (`File.delete()` fails on a folder that has files, so
@@ -284,7 +290,13 @@ The limit: no auto sync while the app process is not running. A `JobScheduler` w
 
 - One way only: no upload, no two-way merge.
 - The check for a changed file is the server's `etag` and `lastModified`, not a hash.
-- Basic auth only, and the password is stored as plain text in the private prefs.
+- Basic auth only, and the password is stored as plain text in the private prefs (`adb backup` can copy them; the
+  app allows backups). A Server URL with `user:password@` is refused.
+- With `http://`, the password goes in clear text with every request, also from Auto Sync on any Wi-Fi network that
+  the player joins. Use `https://` where the server has it.
+- A certificate that changes after Trust shows the same Trust step as the first one: compare the fingerprint again.
+- The ledger file is not flushed to the disk before its rename: after a power loss it can be lost (nothing is deleted
+  then, but the synced files are no longer tracked).
 - A file name that is the same after `fatSafe` shares one file.
 - No partial resume: a cancelled download starts again.
 - Music only: the ledger item type is `music`; Jellyfin Sync is the one with other kinds.

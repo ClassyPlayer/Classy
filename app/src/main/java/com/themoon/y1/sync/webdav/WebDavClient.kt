@@ -20,6 +20,12 @@ import javax.xml.parsers.DocumentBuilderFactory
 
 class DavHttpException(val code: Int) : IOException("HTTP $code")
 
+/**
+ * A 207 listing in which the server refused one entry (a broken link on the NAS, for example). Not a [DavHttpException]:
+ * the folder is not gone, so the sync stops with this error and marks nothing as deleted.
+ */
+class DavEntryRefused(val code: Int, name: String) : IOException("HTTP $code: $name")
+
 /** A download did not replace its target: [WebDavClient.download]'s mayReplace said no (the target plays). */
 class TargetBusy : IOException("Target in use")
 
@@ -28,6 +34,8 @@ class TargetBusy : IOException("Target in use")
  * file moved aside first, and back if the new one cannot be moved. A failure leaves [part] where it is.
  */
 internal fun replaceFile(part: File, target: File) {
+    // A folder at the target (the user's, or a folder of the server with this name) is never moved aside
+    if (target.exists() && !target.isFile) throw IOException("${target.name} is a folder")
     if (part.renameTo(target)) return
     if (!target.exists()) throw IOException("Cannot write ${target.name}")
     // A file system that cannot rename over a file (FAT): move the old file aside, and put it back if the new one fails
@@ -79,6 +87,8 @@ fun serverUri(url: String): URI? {
     }
     val scheme = u.scheme?.lowercase()
     if (scheme != "http" && scheme != "https") return null
+    // No "user:password@" in the URL: the password goes in its own field, and the URL shows on the screen
+    if (u.rawUserInfo != null) return null
     // A host: java.net.URI has none for a name like "my_nas" (only an authority), so OkHttp, which sends the requests, decides
     if (u.rawAuthority.isNullOrEmpty() || HttpUrl.parse(u.toString())?.host().isNullOrEmpty()) return null
     return u
@@ -129,7 +139,7 @@ object Propfind {
     private const val DAV = "DAV:"
 
     /** A PROPFIND answer larger than this is refused (a folder of some 100 000 files). */
-    private const val MAX_BYTES = 32 * 1024 * 1024
+    private const val MAX_BYTES = 8 * 1024 * 1024
 
     fun parse(xml: InputStream, requestHref: String): List<DavEntry> {
         // A WebDAV answer has no DOCTYPE: refuse one, so a server cannot make the parser read files or URLs. Checked in
@@ -154,17 +164,21 @@ object Propfind {
         for (i in 0 until responses.length) {
             val r = responses.item(i) as Element
             val href = text(r, "href")?.trim()?.takeIf { it.isNotEmpty() } ?: continue
-            // A 207 can hold a failure for one resource (RFC 4918): that is an error, not a folder or file that is gone
-            child(r, "status")?.let { st -> statusCode(st.textContent).takeIf { it !in 200..299 }?.let { throw DavHttpException(it) } }
+            val isSelf = decodeHref(pathOf(href)).trimEnd('/') == self
+            // A 207 can hold a failure for one resource (RFC 4918). For the folder itself: its HTTP error (404 = gone).
+            // For an entry in it: an error of the listing, not a file that is gone
+            fun refused(code: Int): Nothing =
+                if (isSelf) throw DavHttpException(code) else throw DavEntryRefused(code, decodeHref(href).trimEnd('/').substringAfterLast('/'))
+            child(r, "status")?.let { st -> statusCode(st.textContent).takeIf { it !in 200..299 }?.let { refused(it) } }
             // The properties of the propstat blocks with a 2xx status only: a 404 for one property (no etag on a
             // folder, for example) is normal. No block with 2xx: nothing of this resource can be read
             val propstats = children(r, "propstat")
             val props = propstats.filter { ps -> child(ps, "status")?.let { statusCode(it.textContent) in 200..299 } ?: true }
                 .mapNotNull { child(it, "prop") }
             if (propstats.isNotEmpty() && props.isEmpty()) {
-                throw DavHttpException(propstats.firstNotNullOfOrNull { ps -> child(ps, "status")?.let { statusCode(it.textContent) } } ?: 500)
+                refused(propstats.firstNotNullOfOrNull { ps -> child(ps, "status")?.let { statusCode(it.textContent) } } ?: 500)
             }
-            if (decodeHref(pathOf(href)).trimEnd('/') == self) continue
+            if (isSelf) continue
             fun prop(name: String) = props.firstNotNullOfOrNull { text(it, name) }
             out.add(
                 DavEntry(
@@ -195,14 +209,16 @@ object Propfind {
 
     private fun child(parent: Element, name: String): Element? = children(parent, name).firstOrNull()
 
-    private fun readLimited(input: InputStream): ByteArray {
+    /** Reads [input] up to [MAX_BYTES] (checked before each write, so memory never holds more). */
+    internal fun readLimited(input: InputStream, cancelled: () -> Boolean = { false }): ByteArray {
         val out = ByteArrayOutputStream()
         val buf = ByteArray(64 * 1024)
         while (true) {
+            if (cancelled()) throw CancellationException("Sync cancelled")
             val n = input.read(buf)
             if (n < 0) return out.toByteArray()
+            if (out.size() + n > MAX_BYTES) throw IOException("The server answer is too large")
             out.write(buf, 0, n)
-            if (out.size() > MAX_BYTES) throw IOException("The server answer is too large")
         }
     }
 
@@ -285,14 +301,17 @@ class WebDavClient(
         return URI(href).rawPath ?: "/"
     }
 
-    fun list(href: String): List<DavEntry> {
+    /** PROPFIND Depth 1 of [href]. At most [LIST_TIMEOUT_S] seconds in all (a server that sends one byte at a time). */
+    fun list(href: String, cancelled: () -> Boolean = { false }): List<DavEntry> {
         val body = RequestBody.create(MediaType.parse("application/xml; charset=utf-8"), PROPFIND_BODY)
         val req = Request.Builder().url(urlFor(href)).method("PROPFIND", body)
             .header("Depth", "1").header("Authorization", auth).build()
-        http.newCall(req).execute().use { resp ->
+        val call = http.newCall(req).apply { timeout().timeout(LIST_TIMEOUT_S, TimeUnit.SECONDS) }
+        call.execute().use { resp ->
             if (resp.code() != 207 && !resp.isSuccessful) throw DavHttpException(resp.code())
             val stream = resp.body()?.byteStream() ?: throw IOException("Empty PROPFIND response")
-            return Propfind.parse(stream, href).map { it.copy(href = pathHref(it.href)) }
+            val bytes = Propfind.readLimited(stream, cancelled)
+            return Propfind.parse(bytes.inputStream(), href).map { it.copy(href = pathHref(it.href)) }
         }
     }
 
@@ -311,10 +330,19 @@ class WebDavClient(
         target.parentFile?.mkdirs()
         val part = newPartFile(target)
         try {
-            val req = Request.Builder().url(urlFor(href)).header("Authorization", auth).build()
+            // No gzip: the bytes that come are the bytes of the file, so the size checks below hold
+            val req = Request.Builder().url(urlFor(href)).header("Authorization", auth).header("Accept-Encoding", "identity").build()
             http.newCall(req).execute().use { resp ->
                 if (!resp.isSuccessful) throw DavHttpException(resp.code())
-                val input = resp.body()?.byteStream() ?: throw IOException("Empty body")
+                val body = resp.body() ?: throw IOException("Empty body")
+                val input = body.byteStream()
+                // Never more than the server said (the listing, else the Content-Length), nor more than the free space:
+                // a server cannot fill the storage
+                val limit = when {
+                    expectedSize >= 0 -> expectedSize
+                    body.contentLength() >= 0 -> body.contentLength()
+                    else -> (target.parentFile ?: part.parentFile)?.usableSpace ?: Long.MAX_VALUE
+                }
                 var total = 0L
                 part.outputStream().use { out ->
                     val buf = ByteArray(64 * 1024)
@@ -322,6 +350,7 @@ class WebDavClient(
                         if (cancelled()) throw CancellationException("Sync cancelled")
                         val n = input.read(buf)
                         if (n < 0) break
+                        if (total + n > limit) throw IOException("The server sent more than $limit bytes")
                         out.write(buf, 0, n)
                         total += n
                         progress(total)
@@ -340,6 +369,7 @@ class WebDavClient(
     }
 
     private companion object {
+        const val LIST_TIMEOUT_S = 120L
         val PROPFIND_BODY = """<?xml version="1.0" encoding="utf-8"?>
 <D:propfind xmlns:D="DAV:"><D:prop><D:resourcetype/><D:getcontentlength/><D:getetag/><D:getlastmodified/></D:prop></D:propfind>"""
     }

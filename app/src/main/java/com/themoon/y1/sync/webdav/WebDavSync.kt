@@ -234,7 +234,7 @@ class WebDavSync private constructor(context: Context) {
                         // Checked again: the user can start the old copy while the new one downloads. A playing file is never
                         // deleted, nor one that another record keeps (two names that became one FAT name)
                         val shared = synchronized(ledger) { keptByOther(d.entry.href, old.path) }
-                        if (old.exists() && !shared && !player.isFileCurrentlyPlaying(old) && old.delete()) pruneEmptyDirs(old, listOf(destRoot(true), destRoot(false)))
+                        if (old.exists() && !shared && insideMusic(old) && !player.isFileCurrentlyPlaying(old) && old.delete()) pruneEmptyDirs(old, listOf(destRoot(true), destRoot(false)))
                         else if (old.exists()) Log.w(TAG, "Old copy kept (playing, or cannot be deleted): ${old.path}")
                     }
                 } catch (_: TargetBusy) {
@@ -283,7 +283,7 @@ class WebDavSync private constructor(context: Context) {
             if (!visited.add(decodeHref(href).trimEnd('/'))) continue // decoded: one folder can come with two spellings
             if (visited.size > MAX_FOLDERS) throw IOException("Too many folders (a loop on the server?)")
             val list = try {
-                client.list(href)
+                client.list(href) { cancelled }
             } catch (e: DavHttpException) {
                 if (e.code == 404 && href != folder) continue // a sub-folder that went: only its own files are gone
                 throw e
@@ -409,6 +409,14 @@ class WebDavSync private constructor(context: Context) {
         this[key] = (this[key] ?: 0) + n
     }
 
+    /** True when [f] is below one of the Music folders (after "..", links and the like are resolved). */
+    private fun insideMusic(f: File): Boolean = try {
+        val path = f.canonicalPath
+        listOf(destRoot(true), destRoot(false)).any { path.startsWith(it.canonicalPath.trimEnd('/') + "/") }
+    } catch (_: IOException) {
+        false
+    }
+
     /** The key of a local path: FAT (the SD card) does not tell "A" from "a". */
     private fun pathKey(path: String): String = if (path.startsWith(destRoot(true).path + "/")) path.lowercase() else path
 
@@ -503,6 +511,8 @@ class WebDavSync private constructor(context: Context) {
             if (onlyOrphans && !item.orphaned) continue
             if (item.localPath?.let(::pathKey) in kept) { ledger.removeItem(href); gone++; continue } // only the record goes
             val f = item.localPath?.takeIf { it.isNotEmpty() }?.let { File(it) }
+            // The ledger is a file on shared storage: a path outside the Music folders is not deleted, only its record
+            if (f != null && !insideMusic(f)) { ledger.removeItem(href); gone++; continue }
             if (f != null && f.exists() && (player.isFileCurrentlyPlaying(f) || !f.delete())) continue
             if (f != null) pruneEmptyDirs(f, listOf(destRoot(true), destRoot(false)))
             ledger.removeItem(href)

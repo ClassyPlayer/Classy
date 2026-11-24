@@ -306,6 +306,7 @@ class WebDavClientTest {
         assertNull(serverUri("https://nas/100%"))
         assertNull(serverUri("ftp://nas/music"))
         assertNull(serverUri("nas:5006"))
+        assertNull(serverUri("https://user:secret@nas/music")) // no password in the URL: it shows on the screen
         assertEquals("my_nas", serverHost("http://my_nas:5005/dav")) // java.net.URI has no host for it; OkHttp has
         assertEquals("nas", serverHost("HTTPS://NAS:5006/dav"))
         assertEquals("/", rootHrefOf(serverUri("https://nas:5006")!!))
@@ -369,7 +370,8 @@ class WebDavClientTest {
         val forbidden = ms("<D:response><D:href>/music/Rock/</D:href><D:propstat><D:prop><D:resourcetype/></D:prop><D:status>HTTP/1.1 403 Forbidden</D:status></D:propstat></D:response>")
         try { Propfind.parse(forbidden.byteInputStream(), "/music/Rock/"); fail("expected 403") } catch (e: DavHttpException) { assertEquals(403, e.code) }
         val resourceStatus = ms("<D:response><D:href>/music/Rock/a.flac</D:href><D:status>HTTP/1.1 423 Locked</D:status></D:response>")
-        try { Propfind.parse(resourceStatus.byteInputStream(), "/music/Rock/"); fail("expected 423") } catch (e: DavHttpException) { assertEquals(423, e.code) }
+        // An entry of the folder is refused: an error of the listing, not a folder that is gone (not a DavHttpException)
+        try { Propfind.parse(resourceStatus.byteInputStream(), "/music/Rock/"); fail("expected 423") } catch (e: DavEntryRefused) { assertEquals(423, e.code) }
     }
 
     @Test
@@ -388,5 +390,37 @@ class WebDavClientTest {
         assertEquals("/music/", rootHrefOf(serverUri("https://nas/music/./")!!))
         assertEquals("/music/", rootHrefOf(serverUri("https://nas/music/Rock/..")!!))
         assertEquals("/M%C3%BAsica/", rootHrefOf(serverUri("https://nas/Música")!!))
+    }
+
+    @Test
+    fun aDownloadStopsAtTheSizeThatTheServerGave() {
+        // The listing said 5 bytes; the server sends more: refused, no file, no temporary file
+        val base = serve("hello world".toByteArray())
+        val target = File(tmp.root, "big/song.flac")
+        try {
+            WebDavClient(base, "u", "p", null).download("/music/song.flac", target, 5, { false }, progress = {})
+            fail("expected an error")
+        } catch (_: java.io.IOException) {
+        }
+        assertFalse(target.exists())
+        assertNoPartFile(target)
+    }
+
+    @Test
+    fun aFolderAtTheTargetIsNotMovedAside() {
+        val dir = File(tmp.root, "Music/Foo").apply { mkdirs(); File(this, "mine.mp3").writeText("x") }
+        val part = File(tmp.root, "Music/.partial-1.part").apply { writeText("new") }
+        try { replaceFile(part, dir); fail("expected an error") } catch (_: java.io.IOException) {}
+        assertTrue(File(dir, "mine.mp3").exists())
+        assertFalse(File(tmp.root, "Music/Foo.old").exists())
+    }
+
+    @Test
+    fun aListingLargerThanTheCapIsRefusedBeforeItIsInMemory() {
+        val big = object : java.io.InputStream() {
+            var n = 0L
+            override fun read(): Int = if (n++ < 20L * 1024 * 1024) 'a'.code else -1
+        }
+        try { Propfind.readLimited(big); fail("expected an error") } catch (e: java.io.IOException) { assertTrue(e.message!!.contains("too large")) }
     }
 }
