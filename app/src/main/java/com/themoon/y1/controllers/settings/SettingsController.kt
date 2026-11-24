@@ -33,7 +33,6 @@ import com.themoon.y1.managers.LanguageManager
 import com.themoon.y1.managers.LastFmScrobbler
 import com.themoon.y1.managers.PowerMenu
 import com.themoon.y1.managers.RadioSwitch
-import com.themoon.y1.core.extensions.onOff
 import com.themoon.y1.managers.UpdateChannel
 import com.themoon.y1.managers.UsbDrive
 import com.themoon.y1.lists.Focus
@@ -459,11 +458,11 @@ class SettingsController(
      */
     private fun buildPowerUI() {
         val radios = listOf(
-            ActionScreens.Action(localize("Wi-Fi"), closes = false, value = radioValue(RadioSwitch.wifiState(activity))) {
+            ActionScreens.Action(localize("Wi-Fi"), closes = false, value = RadioSwitch.valueText(RadioSwitch.wifiState(activity), localize)) {
                 val on = RadioSwitch.wifiState(activity)
                 radioRequested(if (on == null) RadioSwitch.Request.BUSY else RadioSwitch.setWifi(activity, !on))
             },
-            ActionScreens.Action(localize("Bluetooth"), closes = false, value = radioValue(RadioSwitch.bluetoothState())) {
+            ActionScreens.Action(localize("Bluetooth"), closes = false, value = RadioSwitch.valueText(RadioSwitch.bluetoothState(), localize)) {
                 val on = RadioSwitch.bluetoothState()
                 // enable() comes later: when it is refused, the switch shows what the radio is
                 radioRequested(if (on == null) RadioSwitch.Request.BUSY else RadioSwitch.setBluetooth({ activity.runOnUiThread(it) }, !on) {
@@ -488,19 +487,13 @@ class SettingsController(
         buildActionUI(SettingsSubMode.Power, spec)
     }
 
-    private fun radioValue(on: Boolean?): String = if (on == null) localize("Wait...") else onOff(on, localize)
-
     /** A radio starts, stops or fails to (MainActivity: the Wi-Fi and Bluetooth state broadcasts): an open Power screen shows it. */
     fun onRadioStateChanged() {
         if (actionPage == SettingsSubMode.Power) buildPowerUI()
     }
 
     private fun radioRequested(request: RadioSwitch.Request) {
-        when (request) {
-            RadioSwitch.Request.DONE -> onRadioStateChanged()
-            RadioSwitch.Request.BUSY -> Notice.show(activity, localize("Please wait a moment..."))
-            RadioSwitch.Request.FAILED -> Notice.error(activity, localize("Failed"))
-        }
+        if (RadioSwitch.tell(activity, request, localize)) onRadioStateChanged()
     }
 
     /**

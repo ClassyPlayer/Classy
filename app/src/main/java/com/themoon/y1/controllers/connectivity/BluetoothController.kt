@@ -189,7 +189,7 @@ class BluetoothController(
         // "Wait..." also while the Y2 Bluetooth service starts (RadioSwitch), as on the Power screen
         val shown = RadioSwitch.bluetoothState()
         val rows = ArrayList<RowSpec>()
-        rows += RowSpec(localize("Bluetooth Power"), RowLook.VALUE, value = if (shown == null) localize("Wait...") else onOff(isOn, localize),
+        rows += RowSpec(localize("Bluetooth Power"), RowLook.VALUE, value = RadioSwitch.valueText(shown, localize),
             key = POWER_KEY, onClick = { togglePower(ba) })
         val scanRow = RowSpec(btnScanBt.text.toString(), RowLook.CUSTOM, view = btnScanBt, key = SCAN_KEY,
             onClick = { startBluetoothScan(userAction = true) })
@@ -233,13 +233,9 @@ class BluetoothController(
             screen.valueView(POWER_KEY)?.text = onOff(false, localize)
             Notice.error(activity, localize("Failed"))
         }
-        when (request) {
-            RadioSwitch.Request.BUSY -> Notice.show(activity, localize("Please wait a moment..."))
-            RadioSwitch.Request.FAILED -> Notice.error(activity, localize("Failed"))
-            RadioSwitch.Request.DONE -> {
-                if (!turnOn) targetDeviceForAudio = null
-                screen.valueView(POWER_KEY)?.text = localize("Wait...")
-            }
+        if (RadioSwitch.tell(activity, request, localize)) {
+            if (!turnOn) targetDeviceForAudio = null
+            screen.valueView(POWER_KEY)?.text = RadioSwitch.valueText(null, localize)
         }
     }
 

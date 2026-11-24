@@ -10,7 +10,6 @@ import android.widget.LinearLayout
 import com.themoon.y1.R
 import com.themoon.y1.ThemeManager
 import com.themoon.y1.controllers.ScreenController
-import com.themoon.y1.core.extensions.onOff
 import com.themoon.y1.lists.ListScreen
 import com.themoon.y1.lists.ListSpec
 import com.themoon.y1.lists.RowLook
@@ -97,7 +96,7 @@ class WifiController(
         val shown = RadioSwitch.wifiState(activity)
         val isOn = shown == true
         val rows = ArrayList<RowSpec>()
-        rows += RowSpec(localize("Wi-Fi Power"), RowLook.VALUE, value = if (shown == null) localize("Wait...") else onOff(isOn, localize),
+        rows += RowSpec(localize("Wi-Fi Power"), RowLook.VALUE, value = RadioSwitch.valueText(shown, localize),
             id = WIFI_POWER_ROW_ID, key = POWER_KEY, onClick = { togglePower() })
         rows += RowSpec(btnScanWifi.text.toString(), RowLook.CUSTOM, view = btnScanWifi, key = SCAN_KEY, onClick = { startWifiScan() })
         if (!isOn) return ListSpec(localize("Wi-Fi"), rows)
@@ -115,13 +114,9 @@ class WifiController(
 
     private fun togglePower() {
         val on = RadioSwitch.wifiState(activity)?.not()
-        when (if (on == null) RadioSwitch.Request.BUSY else RadioSwitch.setWifi(activity, on)) {
-            RadioSwitch.Request.BUSY -> Notice.show(activity, localize("Please wait a moment..."))
-            RadioSwitch.Request.FAILED -> Notice.error(activity, localize("Failed"))
-            RadioSwitch.Request.DONE -> {
-                Notice.show(activity, localize(if (on == true) "Turning Wi-Fi on…" else "Turning Wi-Fi off…"))
-                screen.valueView(POWER_KEY)?.text = localize("Wait...")
-            }
+        if (RadioSwitch.tell(activity, if (on == null) RadioSwitch.Request.BUSY else RadioSwitch.setWifi(activity, on), localize)) {
+            Notice.show(activity, localize(if (on == true) "Turning Wi-Fi on…" else "Turning Wi-Fi off…"))
+            screen.valueView(POWER_KEY)?.text = RadioSwitch.valueText(null, localize)
         }
     }
 
