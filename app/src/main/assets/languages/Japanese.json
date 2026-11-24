@@ -889,5 +889,10 @@
   "Sync cancelled": "同期をキャンセルしました",
   "Sort by Year": "年で並べ替え",
   "No Duplicates in Playlists": "プレイリスト内の重複なし",
-  "Already in Playlist": "既にプレイリストにあります"
+  "Already in Playlist": "既にプレイリストにあります",
+  "Audiobook Series": "オーディオブックシリーズ",
+  "No Audiobooks Found": "オーディオブックが見つかりません",
+  "Series Cover Flow": "シリーズカバーフロー",
+  "Audiobook Series Cover Flow": "オーディオブックシリーズのカバーフロー",
+  "Audiobook Speed": "オーディオブックの再生速度"
 }

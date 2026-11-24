@@ -2,9 +2,14 @@ package com.themoon.y1.controllers.player
 
 import com.themoon.y1.MainActivity
 import com.themoon.y1.cast.PlayOnMenu
+import com.themoon.y1.StoragePaths
 import com.themoon.y1.controllers.settings.ActionScreens
+import com.themoon.y1.controllers.settings.SettingsController
+import com.themoon.y1.views.Notice
 import com.themoon.y1.managers.AudioPlayerManager
 import com.themoon.y1.managers.LibrarySongs
+import com.themoon.y1.managers.M4bChapterParser
+import com.themoon.y1.managers.SleepTimer
 import com.themoon.y1.models.ArtistNames
 import com.themoon.y1.models.SongItem
 import com.themoon.y1.navigation.NavigationManager
@@ -19,6 +24,7 @@ import java.io.File
  * - Add to On-The-Go playlist
  * - Add to Playlist
  * - Browse Album / Browse Artist
+ * - Audiobook Speed (audiobooks only: the speed that every audiobook plays at; music is not changed)
  * - Play On (the speaker list; with the speaker name while a speaker plays)
  * Only actions on the current song and Play On: the display options (Spectrum, Total Time) are in Settings.
  * A row closes the menu, then does its action (ActionScreens.choose), so Browse Album goes from Now Playing.
@@ -38,6 +44,11 @@ object NowPlayingContextMenu {
     ) {
         val rows = ArrayList<ActionScreens.Action>()
         val main = MainActivity.instance
+        // Audiobooks: only Speed, Chapters and Sleep Timer
+        if (main != null && StoragePaths.isUnderAudiobooks(songFile.absolutePath)) {
+            showAudiobookMenu(main, songFile)
+            return
+        }
         if (main != null && main.currentPlaylist.size > 1) {
             rows += ActionScreens.Action(localize("Queue"), opensList = true) { showQueue(main) }
         }
@@ -62,6 +73,89 @@ object NowPlayingContextMenu {
             rows += ActionScreens.Action(PlayOnMenu.rowLabel(main), opensList = true) { PlayOnMenu.open(main, fromNowPlaying = true) }
         }
         ActionScreens.open(ActionScreens.Spec(localize("Now Playing"), actions = rows))
+    }
+
+    private fun speedIndex(speed: Float): Int =
+        SettingsController.SPEED_VALUES.indexOfFirst { Math.abs(it - speed) < 0.01f }.coerceAtLeast(0)
+
+    /** The menu of an audiobook: the speed, the chapters and the sleep timer. */
+    private fun showAudiobookMenu(main: MainActivity, songFile: File) {
+        val label = SettingsController.SPEED_LABELS[speedIndex(AudioPlayerManager.getInstance().audiobookSpeed())]
+        val sleep = if (SleepTimer.isActive()) "${SleepTimer.minutesLeft()} min" else main.t("Off")
+        val rows = listOf(
+            ActionScreens.Action(main.t("Audiobook Speed") + ": " + main.t(label), opensList = true) {
+                showAudiobookSpeed(main)
+            },
+            ActionScreens.Action(main.t("Chapters"), opensList = true) { showChapters(main, songFile) },
+            ActionScreens.Action(main.t("Sleep Timer") + ": " + sleep, opensList = true) { showSleepTimer(main) }
+        )
+        ActionScreens.open(ActionScreens.Spec(main.t("Audiobooks"), actions = rows))
+    }
+
+    /** The chapter of [positionMs]: the last one that starts at or before it (0 when none). */
+    internal fun chapterIndexAt(starts: List<Int>, positionMs: Int): Int {
+        var found = 0
+        for (i in starts.indices) if (starts[i] <= positionMs) found = i else break
+        return found
+    }
+
+    /**
+     * The chapters: the chapters inside the .m4b that plays (a row seeks to it), else the files of the book
+     * (a row plays that file from its start).
+     */
+    private fun showChapters(main: MainActivity, songFile: File) {
+        val player = AudioPlayerManager.getInstance()
+        val embedded = M4bChapterParser.extractChapters(songFile)
+        val rows = ArrayList<ActionScreens.Action>()
+        if (embedded.timestamps.isNotEmpty()) {
+            val starts = embedded.timestamps.toList()
+            val current = chapterIndexAt(starts, player.getCurrentPosition())
+            for ((i, start) in starts.withIndex()) {
+                val title = (embedded.chaptersMap[start] ?: "").removePrefix("\uD83D\uDD16 ").ifBlank { "${i + 1}" }
+                rows += ActionScreens.Action(title, checked = i == current, key = "chapter$i") { player.seekToMs(start.toLong()) }
+            }
+        } else {
+            val files = main.currentPlaylist.toList()
+            for ((i, f) in files.withIndex()) {
+                rows += ActionScreens.Action(f.nameWithoutExtension, checked = i == main.currentIndex, key = "chapter$i") {
+                    player.jumpTo(i)
+                }
+            }
+        }
+        ActionScreens.open(
+            ActionScreens.Spec(main.t("Chapters"), info = if (rows.isEmpty()) listOf(main.t("No chapters found")) else emptyList(),
+                actions = rows, focusChecked = true)
+        )
+    }
+
+    /** The sleep timer: 5 minutes to 2 hours, and Off while one runs. */
+    private fun showSleepTimer(main: MainActivity) {
+        val rows = ArrayList<ActionScreens.Action>()
+        if (SleepTimer.isActive()) {
+            rows += ActionScreens.Action(main.t("Off")) {
+                SleepTimer.cancel()
+                Notice.show(main, main.t("Sleep timer cancelled"))
+            }
+        }
+        for (minutes in SleepTimer.CHOICES) {
+            rows += ActionScreens.Action("$minutes min") {
+                SleepTimer.start(main, minutes)
+                Notice.show(main, main.t("Sleep timer set for ") + "$minutes min")
+            }
+        }
+        ActionScreens.open(ActionScreens.Spec(main.t("Sleep Timer"), actions = rows))
+    }
+
+    /** The speeds of the audiobooks; the one that is set has the check mark, and a row sets it and goes back. */
+    private fun showAudiobookSpeed(main: MainActivity) {
+        val current = speedIndex(AudioPlayerManager.getInstance().audiobookSpeed())
+        val rows = SettingsController.SPEED_LABELS.indices.map { i ->
+            ActionScreens.Action(main.t(SettingsController.SPEED_LABELS[i]), checked = i == current) {
+                AudioPlayerManager.getInstance().setAudiobookSpeed(SettingsController.SPEED_VALUES[i])
+                Notice.show(main, main.t("Audiobook Speed") + ": " + main.t(SettingsController.SPEED_LABELS[i]))
+            }
+        }
+        ActionScreens.open(ActionScreens.Spec(main.t("Audiobook Speed"), actions = rows, focusChecked = true))
     }
 
     /** The rows of the Queue screen at most: a queue of thousands (Shuffle Songs) would make one view for each. */

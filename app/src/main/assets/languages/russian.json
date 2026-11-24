@@ -889,5 +889,10 @@
   "Sync cancelled": "Синхронизация отменена",
   "Sort by Year": "Сортировка по году",
   "No Duplicates in Playlists": "Без повторов в плейлистах",
-  "Already in Playlist": "Уже в плейлисте"
+  "Already in Playlist": "Уже в плейлисте",
+  "Audiobook Series": "Серии аудиокниг",
+  "No Audiobooks Found": "Аудиокниги не найдены",
+  "Series Cover Flow": "Cover Flow серий",
+  "Audiobook Series Cover Flow": "Cover Flow серий аудиокниг",
+  "Audiobook Speed": "Скорость аудиокниг"
 }

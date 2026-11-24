@@ -889,5 +889,10 @@
   "Sync cancelled": "동기화가 취소되었습니다",
   "Sort by Year": "연도순 정렬",
   "No Duplicates in Playlists": "재생목록 중복 없음",
-  "Already in Playlist": "이미 재생목록에 있음"
+  "Already in Playlist": "이미 재생목록에 있음",
+  "Audiobook Series": "오디오북 시리즈",
+  "No Audiobooks Found": "오디오북을 찾을 수 없습니다",
+  "Series Cover Flow": "시리즈 커버 플로우",
+  "Audiobook Series Cover Flow": "오디오북 시리즈 커버 플로우",
+  "Audiobook Speed": "오디오북 재생 속도"
 }

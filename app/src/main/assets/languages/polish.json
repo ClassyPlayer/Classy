@@ -889,5 +889,10 @@
   "Sync cancelled": "Synchronizacja anulowana",
   "Sort by Year": "Sortuj według roku",
   "No Duplicates in Playlists": "Bez duplikatów w playlistach",
-  "Already in Playlist": "Już jest na playliście"
+  "Already in Playlist": "Już jest na playliście",
+  "Audiobook Series": "Seria audiobooków",
+  "No Audiobooks Found": "Nie znaleziono audiobooków",
+  "Series Cover Flow": "Cover Flow serii",
+  "Audiobook Series Cover Flow": "Cover Flow serii audiobooków",
+  "Audiobook Speed": "Prędkość audiobooków"
 }

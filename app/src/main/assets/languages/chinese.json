@@ -889,5 +889,10 @@
   "Sync cancelled": "同步已取消",
   "Sort by Year": "按年份排序",
   "No Duplicates in Playlists": "播放列表中不重复",
-  "Already in Playlist": "已在播放列表中"
+  "Already in Playlist": "已在播放列表中",
+  "Audiobook Series": "有声书系列",
+  "No Audiobooks Found": "未找到有声书",
+  "Series Cover Flow": "系列封面流",
+  "Audiobook Series Cover Flow": "有声书系列封面流",
+  "Audiobook Speed": "有声书播放速度"
 }

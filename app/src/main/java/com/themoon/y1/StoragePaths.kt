@@ -345,11 +345,13 @@ object StoragePaths {
 
     fun isUnderAudiobooks(absolutePath: String?): Boolean {
         if (absolutePath == null) return false
-        if (absolutePath.startsWith("$PRIMARY_PATH/Audiobooks") ||
-            absolutePath.startsWith("$SECONDARY_PATH/Audiobooks") ||
-            absolutePath.startsWith("$PRIMARY_PATH/audiobooks") ||
-            absolutePath.startsWith("$SECONDARY_PATH/audiobooks")
-        ) return true
+        // The root itself or a path below it: "/Audiobooks2" is another folder and does not count
+        for (root in listOf(
+            "$PRIMARY_PATH/Audiobooks", "$SECONDARY_PATH/Audiobooks",
+            "$PRIMARY_PATH/audiobooks", "$SECONDARY_PATH/audiobooks"
+        )) {
+            if (absolutePath == root || absolutePath.startsWith("$root/")) return true
+        }
         for (dir in getAudiobooksDirs()) {
             val root = dir.absolutePath
             if (absolutePath == root || absolutePath.startsWith("$root/")) return true
