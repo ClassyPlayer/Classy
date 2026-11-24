@@ -1,10 +1,8 @@
 package com.themoon.y1.sync.webdav
 
 import android.content.Context
-import android.net.wifi.WifiManager
 import android.os.Handler
 import android.os.Looper
-import android.os.PowerManager
 import android.os.StatFs
 import android.os.SystemClock
 import android.util.Log
@@ -12,6 +10,7 @@ import com.themoon.y1.StoragePaths
 import com.themoon.y1.core.ApiCompat
 import com.themoon.y1.managers.AudioPlayerManager
 import com.themoon.y1.sync.SyncLedger
+import com.themoon.y1.sync.SyncLocks
 import java.io.File
 import java.io.IOException
 import java.util.concurrent.CancellationException
@@ -87,14 +86,8 @@ class WebDavSync private constructor(context: Context) {
         cancelled = false
         changedByRun = false
         executor.execute {
-            val wake = (ctx.getSystemService(Context.POWER_SERVICE) as? PowerManager)
-                ?.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Classy:WebDavSync")
-            val wifi = (ctx.getSystemService(Context.WIFI_SERVICE) as? WifiManager)
-                ?.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "Classy:WebDavSync")
             try {
-                wake?.acquire(WAKE_LOCK_MS)
-                wifi?.acquire()
-                val changed = work(listener)
+                val changed = SyncLocks.hold(ctx, "Classy:WebDavSync", WAKE_LOCK_MS) { work(listener) }
                 if (isSync) WebDavSyncProvider.getInstance(ctx).lastError = ""
                 main.post { listener.onDone(changed) }
             } catch (e: Throwable) {
@@ -104,8 +97,6 @@ class WebDavSync private constructor(context: Context) {
                 main.post { listener.onError(e, changed) }
             } finally {
                 isRunning = false
-                try { if (wifi?.isHeld == true) wifi.release() } catch (_: Exception) {}
-                try { if (wake?.isHeld == true) wake.release() } catch (_: Exception) {}
             }
         }
         return true

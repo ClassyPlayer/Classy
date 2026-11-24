@@ -107,8 +107,15 @@ On a FAT card (the SD card), characters that FAT does not take (`< > : " | ? * \
 | `sync/webdav/WebDavSync.kt` | Runs a sync or a move on one background thread. Owns the ledger. |
 | `sync/webdav/AutoSyncGate.kt`, `WebDavAutoSyncReceiver.kt` | When Auto Sync may start. |
 | `sync/webdav/WebDavErrors.kt` | `errorText`: the one-line message for an error. |
-| `sync/SyncLedger.kt` | The record of what was synced (shared with Jellyfin Sync). |
+| `sync/SyncLedger.kt`, `sync/SyncLocks.kt`, `sync/MediaSyncProvider.kt` | Shared with Jellyfin Sync: the record of what was synced, the wake and Wi-Fi locks of a run, the provider interface. |
 | `controllers/sync/WebDavUiController.kt` | The screens: settings, folder picker, Deleted on NAS, progress. |
+
+### What it shares with Jellyfin Sync
+
+The same `MediaSyncProvider` interface, `SyncLedger` file format, `SyncLocks`, playing-file rule (a file that plays is
+not replaced or deleted) and list model (Center opens, Hold ticks). The engine is its own (`WebDavSync`, not
+`SyncManager`): `SyncManager` makes paths from Jellyfin metadata (artist, album, track number) and syncs books and
+videos too; WebDAV Sync copies the folder tree of the server as it is, keyed by path.
 
 ### Data
 
@@ -188,7 +195,8 @@ nothing else is removed).
 `isRunning`, one single-thread executor and `launch` make sure there is only one sync at a time. `forgetAll(change)`
 (Log Out / Reset, another server) takes the same lock, refuses while a sync runs, and empties the ledger: the files stay
 on the player, untracked. `launch` holds a
-partial wake lock and a Wi-Fi lock (`Classy:WebDavSync`) for the run; the wake lock has a 6 hour cap.
+partial wake lock and a Wi-Fi lock (`Classy:WebDavSync`) for the run with `SyncLocks.hold`, as Jellyfin Sync does; the
+wake lock has a 6 hour cap.
 
 ### Paths
 
