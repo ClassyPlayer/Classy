@@ -185,7 +185,7 @@ class PodcastController(
 
     private fun manageSpec(): ListSpec {
         val rows = ArrayList<RowSpec>()
-        rows += RowSpec(localize("Back to Podcasts"), onClick = { NavigationManager.getInstance().popBackStack() })
+        rows += RowSpec(localize("Back to Podcasts"), lead = true, onClick = { NavigationManager.getInstance().popBackStack() })
         val channels = repository.getSubscriptions()
         if (channels.isEmpty()) rows += RowSpec("⚠️ " + localize("No subscriptions found."), RowLook.INFO)
         for (ch in channels) {
@@ -196,11 +196,7 @@ class PodcastController(
     }
 
     /** Manage Subscriptions: the first channel is selected (not the Back row). */
-    fun buildManageUI() {
-        val spec = manageSpec()
-        screen.show(spec)
-        spec.rows.getOrNull(1)?.let { screen.select(it.key) }
-    }
+    fun buildManageUI() = screen.show(manageSpec())
 
     private fun showDeleteConfirmDialog(channelName: String, rssUrl: String) {
         ActionScreens.open(confirmScreen(

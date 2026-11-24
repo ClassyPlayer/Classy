@@ -101,7 +101,7 @@ class ListScreen(
             return
         }
         val last = lastKeys[spec.id]
-        val i = ListModel.firstRow(shown.map { it.key }, spec.focus, last, shown.indexOfFirst { it.checked }, ::selectable)
+        val i = ListModel.firstRow(shown.map { it.key }, spec.focus, last, shown.indexOfFirst { it.checked }, ::selectable) { shown[it].lead }
         if (i < 0) return
         val row = rows.getChildAt(i)
         focusNowAndAfter(row)

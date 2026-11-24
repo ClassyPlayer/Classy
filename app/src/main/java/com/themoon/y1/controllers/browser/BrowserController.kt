@@ -590,8 +590,9 @@ class BrowserController(
         val canGoUp = !isTop && currentFolder.parentFile != null
 
         val rows = ArrayList<RowSpec>()
+        // A folder opens at its first folder or file, not at ".." or Play All; an empty folder at ".."
         if (canGoUp) {
-            rows += RowSpec("..", key = UP_KEY, onClick = { currentFolder.parentFile?.let { openParentFolder(it, addToBackStack = true) } })
+            rows += RowSpec("..", key = UP_KEY, lead = !files.isNullOrEmpty(), onClick = { currentFolder.parentFile?.let { openParentFolder(it, addToBackStack = true) } })
         }
 
         if (files == null || files.isEmpty()) {
@@ -655,7 +656,7 @@ class BrowserController(
         Collections.sort(apkFiles, fileSorter)
 
         if (!isTop && !StoragePaths.isAnyStorageRoot(currentFolder) && (audioFiles.isNotEmpty() || folders.isNotEmpty())) {
-            rows += RowSpec("▶ ${localize("Play All")}", key = PLAY_ALL_KEY, onClick = {
+            rows += RowSpec("▶ ${localize("Play All")}", key = PLAY_ALL_KEY, lead = true, onClick = {
                 val allAudio = ArrayList<File>()
                 showLoadingPopup()
                 Thread {
@@ -687,17 +688,13 @@ class BrowserController(
 
         screen.show(ListSpec(folderTitle, rows, letters = true))
 
-        // The file that plays, if it is in this folder; else the first folder, else the first file (not ".." or Play All)
+        // The file that plays, if it is in this folder
         val curPlaylist = MainActivity.instance?.currentPlaylist
         val curIndex = MainActivity.instance?.currentIndex ?: -1
         val playing = if (curPlaylist != null && curIndex in curPlaylist.indices) {
             rows.indexOfFirst { it.key == curPlaylist[curIndex].absolutePath }
         } else -1
-        if (playing >= 0) {
-            screen.select(playing)
-        } else {
-            rows.firstOrNull { it.key != UP_KEY && it.key != PLAY_ALL_KEY }?.let { screen.select(it.key) }
-        }
+        if (playing >= 0) screen.select(playing)
     }
 
     /** The text of the row of [folder] in a folder list; [isTop]: the list of the storage volumes. */

@@ -219,10 +219,7 @@ class BooksController(
     // --- Lists ---
 
     private fun show() {
-        val s = spec()
-        screen.show(s)
-        // A folder opens at its first folder or book, not at ".." (as Music → Folders)
-        if (level is BooksLevel.Folder) s.rows.firstOrNull { it.key != KEY_UP && it.look != RowLook.INFO }?.let { screen.select(it.key) }
+        screen.show(spec())
     }
 
     /** The list again, the selected row kept (a scan step, a value change). */
@@ -310,7 +307,8 @@ class BooksController(
             isBooksRoot && roots.size > 1 -> null
             else -> folder.parentFile
         }
-        rows += RowSpec("..", key = KEY_UP, onClick = { changeScreen(ScreenState.Books(BooksLevel.Folder(up))) })
+        // A folder opens at its first folder or book, not at ".." (as Music → Folders)
+        rows += RowSpec("..", key = KEY_UP, lead = true, onClick = { changeScreen(ScreenState.Books(BooksLevel.Folder(up))) })
         bookOfRow += null
         val files = folder.listFiles()?.filter { !it.name.startsWith(".") }.orEmpty()
         val dirs = files.filter { it.isDirectory }.sortedBy { it.name.lowercase() }

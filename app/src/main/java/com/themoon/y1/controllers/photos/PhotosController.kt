@@ -170,8 +170,6 @@ class PhotosController(
             screen.update(spec)
         } else {
             screen.show(spec)
-            // A folder opens at its first folder (or its Photos row), not at Slideshow: as Music → Folders and Play All
-            if (l is PhotosLevel.Folder) spec.rows.firstOrNull { it.key != KEY_SLIDESHOW && it.look != RowLook.INFO }?.let { screen.select(it.key) }
         }
         if (l == PhotosLevel.Root) showPanePhoto()
     }
@@ -247,7 +245,8 @@ class PhotosController(
         }
         val path = folder.absolutePath
         if (PhotoIndex.countUnder(photos, path) > 0) {
-            rows += RowSpec("▶ " + localize("Slideshow"), key = KEY_SLIDESHOW,
+            // A folder opens at its first folder (or its Photos row), not at Slideshow: as Music → Folders and Play All
+            rows += RowSpec("▶ " + localize("Slideshow"), key = KEY_SLIDESHOW, lead = true,
                 onClick = { changeScreen(ScreenState.PhotoViewer(PhotoIndex.underFolder(path), 0, slideshow = true)) })
         }
         for ((sub, _) in PhotoIndex.subfolders(photos, path)) {
