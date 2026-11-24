@@ -10,8 +10,6 @@ import com.themoon.y1.controllers.ScreenController
 import com.themoon.y1.controllers.settings.ActionScreens
 import com.themoon.y1.controllers.settings.confirmScreen
 import com.themoon.y1.core.extensions.onOff
-import com.themoon.y1.MainActivity
-import com.themoon.y1.lists.LetterBox
 import com.themoon.y1.lists.ListScreen
 import com.themoon.y1.lists.ListSpec
 import com.themoon.y1.lists.RowLook
@@ -49,10 +47,7 @@ class WebDavUiController(
     private val localize: (String) -> String
 ) : ScreenController {
 
-    private val screen = ListScreen(rootView.findViewById(R.id.container_settings_items), null, clickFeedback, letterBox = object : LetterBox {
-        override fun show(letter: String) { MainActivity.instance?.showJumpLetter(letter) }
-        override fun hide() { MainActivity.instance?.hideFastScrollLetter() }
-    })
+    private val screen = ListScreen(rootView.findViewById(R.id.container_settings_items), null, clickFeedback)
     private val provider: WebDavSyncProvider get() = WebDavSyncProvider.getInstance(activity)
     private val sync: WebDavSync get() = WebDavSync.getInstance(activity)
 
