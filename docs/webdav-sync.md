@@ -213,7 +213,8 @@ differ only in those characters end up as one file.
 the length, replace the target, then delete the source. A record whose source is missing (the SD card is out) is moved
 only if a complete file of the recorded size is already at the target; else it stays as it was. If the delete fails, the new copy is removed and the item stays
 where it was, so a move never leaves a file in two places, and a failure or cancel never loses one. The ledger is updated
-for each file. A file that is playing waits. The ledger is saved when the move ends, also after an error or a cancel.
+for each file, and `pruneEmptyDirs` removes the folders that a move leaves empty. A file that is playing waits. The
+ledger is saved when the move ends, also after an error or a cancel.
 
 ### Auto Sync
 

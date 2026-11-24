@@ -310,6 +310,7 @@ class WebDavSync private constructor(context: Context) {
                     copyChecked(src, dst)
                     done += src.length()
                     if (!src.delete()) { dst.delete(); continue } // keep one copy, tracked where it is
+                    pruneEmptyDirs(src, listOf(from, to)) // the album folders that the move left empty
                 } else if (!dst.exists() || dst.length() != item.fileSize) {
                     continue // the source is not there (an SD card that is out) and nothing complete is at the target: keep the record
                 }
