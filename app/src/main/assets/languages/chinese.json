@@ -851,8 +851,9 @@
   "Queue": "队列",
   "Earlier Tracks": "更早的曲目",
   "Later Tracks": "更后的曲目",
-  "Audiobook Series": "Audiobook Series",
-  "No Audiobooks Found": "No Audiobooks Found",
-  "Series Cover Flow": "Series Cover Flow",
-  "Audiobook Series Cover Flow": "Audiobook Series Cover Flow"
+  "Audiobook Series": "有声书系列",
+  "No Audiobooks Found": "未找到有声书",
+  "Series Cover Flow": "系列封面流",
+  "Audiobook Series Cover Flow": "有声书系列封面流",
+  "Audiobook Speed": "有声书播放速度"
 }

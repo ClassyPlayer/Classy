@@ -184,7 +184,7 @@ internal fun MainActivity.initControllers() {
         val prefs = AppPrefs.get(this)
         val library = MainActivity.audiobookLibrary
         val cacheKey = listOf(
-            route.seriesDirectory?.absolutePath, library.size, System.identityHashCode(library),
+            route.seriesDirectory?.absolutePath, library.size, MainActivity.audiobookLibraryVersion,
             prefs.getString("audiobook_series_last_played", null), prefs.getString("last_played_audiobook_path", null),
             route.seriesDirectory?.let { prefs.getString("audiobook_series_last_book_${it.absolutePath}", null) }
         ).joinToString("|")
@@ -228,12 +228,9 @@ internal fun MainActivity.initControllers() {
                 prefs.edit().putString("audiobook_series_last_played", entry.folder.absolutePath).apply()
                 changeScreen(ScreenState.AudiobookCoverFlow(entry.folder))
             } else {
-                val files = entry.audioFiles.sortedWith(Comparator { a, b ->
-                    val ta = MainActivity.trackNumberMap[a.absolutePath] ?: 0
-                    val tb = MainActivity.trackNumberMap[b.absolutePath] ?: 0
-                    if (ta > 0 && tb > 0 && ta != tb) ta.compareTo(tb)
-                    else a.name.compareTo(b.name, ignoreCase = true)
-                })
+                val files = AudiobookSeriesIndex.orderedFiles(entry.audioFiles, entry.folder) {
+                    MainActivity.trackNumberMap[it.absolutePath] ?: 0
+                }
                 if (files.isNotEmpty()) {
                     isAudiobookLibraryMode = true
                     val series = entry.seriesFolder
@@ -245,10 +242,9 @@ internal fun MainActivity.initControllers() {
                     if (series != null) {
                         prefs.edit().putString("audiobook_series_last_played", series.absolutePath).apply()
                     }
-                    val preferredPath = if (!resumePath.isNullOrEmpty() && files.any { it.absolutePath == resumePath }) {
-                        resumePath
-                    } else entry.representative.file.absolutePath
-                    val selected = files.indexOfFirst { it.absolutePath == preferredPath }.let { if (it < 0) 0 else it }
+                    // A saved place that is not one of this book's files (or none) starts at the first file in order
+                    val selected = if (resumePath.isNullOrEmpty()) 0
+                    else files.indexOfFirst { it.absolutePath == resumePath }.let { if (it < 0) 0 else it }
                     val offset = prefs.getInt("book_pos_${files[selected].absolutePath}", 0)
                     AudioPlayerManager.getInstance().playTrackListWithOffset(files, selected, offset)
                     changeScreen(ScreenState.Player)

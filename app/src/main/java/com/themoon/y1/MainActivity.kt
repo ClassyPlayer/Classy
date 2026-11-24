@@ -153,6 +153,8 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
 
         val customLibrary: ArrayList<SongItem> = ArrayList()
         val audiobookLibrary: ArrayList<SongItem> = ArrayList()
+        /** Changes each time a scan publishes the audiobook library: the audiobook Cover Flow index is built again. */
+        @Volatile var audiobookLibraryVersion: Int = 0
         val trackNumberMap: HashMap<String, Int> = HashMap()
     }
 

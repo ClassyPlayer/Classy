@@ -73,10 +73,10 @@ object AudiobookSeriesIndex {
                 if (bookNames.isNotEmpty()) {
                     val firstBook = bookNames.sortedWith(bookOrder()).first()
                     val inFirst = items.filter { it.first.startsWith(firstBook + SEP) }
-                    val first = sortedNatural(inFirst) { it.second.file.name }.first().second
+                    val first = sortedByPath(inFirst) { it.first.substring(firstBook.length + 1) }.first().second
                     result += Entry(directory.name, first, directory, items.map { it.second.file }, true, directory)
                 } else {
-                    val sorted = sortedNatural(items) { it.second.file.name }
+                    val sorted = sortedByPath(items) { it.first }
                     result += Entry(directory.name, sorted.first().second, directory,
                         sorted.map { it.second.file }, false, null)
                 }
@@ -108,22 +108,23 @@ object AudiobookSeriesIndex {
 
     fun bookEntries(library: List<SongItem>, series: File, lastBookPath: String?): List<Entry> {
         val seriesPath = dirPath(series)
-        val byChild = LinkedHashMap<String, MutableList<SongItem>>()
-        val direct = ArrayList<SongItem>()
+        // Book folder name -> (path below the book folder, song): a book is ordered by those paths
+        val byChild = LinkedHashMap<String, MutableList<Pair<String, SongItem>>>()
+        val direct = ArrayList<Pair<String, SongItem>>()
         for (song in library) {
             val rel = relative(seriesPath, song.file) ?: continue
             val cut = rel.indexOf(SEP)
-            if (cut < 0) direct.add(song)
-            else byChild.getOrPut(rel.substring(0, cut)) { ArrayList() }.add(song)
+            if (cut < 0) direct.add(song.file.name to song)
+            else byChild.getOrPut(rel.substring(0, cut)) { ArrayList() }.add(rel.substring(cut + 1) to song)
         }
         val result = ArrayList<Entry>()
         for ((name, items) in byChild) {
-            val sorted = sortedNatural(items) { it.file.name }
-            result += Entry(name, sorted.first(), File(series, name), sorted.map { it.file }, false, series)
+            val sorted = sortedByPath(items) { it.first }
+            result += Entry(name, sorted.first().second, File(series, name), sorted.map { it.second.file }, false, series)
         }
         if (direct.isNotEmpty()) {
-            val sorted = sortedNatural(direct) { it.file.name }
-            result += Entry("Other", sorted.first(), series, sorted.map { it.file }, false, series)
+            val sorted = sortedByPath(direct) { it.first }
+            result += Entry("Other", sorted.first().second, series, sorted.map { it.second.file }, false, series)
         }
         return result.sortedWith(compareBy<Entry> {
             if (!lastBookPath.isNullOrEmpty() && it.audioFiles.any { file -> file.absolutePath == lastBookPath }) 0 else 1
@@ -151,9 +152,36 @@ object AudiobookSeriesIndex {
 
     private fun leadingNumber(value: String): Int? = LEADING_NUMBER.find(value)?.groupValues?.get(1)?.toIntOrNull()
 
-    /** [items] sorted by the natural key of [name], each key made one time. */
-    private fun <T> sortedNatural(items: List<T>, name: (T) -> String): List<T> =
-        items.map { naturalKey(name(it)) to it }.sortedBy { it.first }.map { it.second }
+    /**
+     * One ordering key for every file of a book: its folder first (so Disc 2 follows Disc 1), then files with a
+     * track number (by number) before files without one, then the natural file name. Every pair compares by the
+     * same key, so the order is transitive.
+     */
+    private class OrderKey(val dir: String, val untagged: Int, val track: Int, val name: String)
+
+    private val ORDER: Comparator<OrderKey> =
+        compareBy<OrderKey>({ it.dir }, { it.untagged }, { it.track }, { it.name })
+
+    private fun orderKey(relativePath: String, track: Int): OrderKey {
+        val cut = relativePath.lastIndexOf(SEP)
+        val dir = if (cut < 0) "" else naturalKey(relativePath.substring(0, cut))
+        return OrderKey(dir, if (track > 0) 0 else 1, if (track > 0) track else 0, naturalKey(relativePath.substring(cut + 1)))
+    }
+
+    /** [items] in book order by the path that [path] gives (relative to the book folder), each key made one time. */
+    private fun <T> sortedByPath(items: List<T>, path: (T) -> String): List<T> =
+        items.map { orderKey(path(it), 0) to it }.sortedWith { a, b -> ORDER.compare(a.first, b.first) }.map { it.second }
+
+    /**
+     * [files] of the book folder [base] in play order: the order of the index, plus the track numbers that
+     * [trackNumber] gives (0 = none), so the queue keeps the folder-aware sequence.
+     */
+    fun orderedFiles(files: List<File>, base: File?, trackNumber: (File) -> Int): List<File> {
+        val basePath = base?.let { dirPath(it) }
+        return files.map { f ->
+            orderKey((basePath?.let { relative(it, f) }) ?: f.name, trackNumber(f)) to f
+        }.sortedWith { a, b -> ORDER.compare(a.first, b.first) }.map { it.second }
+    }
 
     private fun naturalKey(value: String): String = value.lowercase(Locale.US).replace(DIGITS) { m ->
         m.value.toLongOrNull()?.let { String.format(Locale.US, "%012d", it) } ?: m.value

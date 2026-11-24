@@ -851,8 +851,9 @@
   "Queue": "キュー",
   "Earlier Tracks": "前のトラック",
   "Later Tracks": "次のトラック",
-  "Audiobook Series": "Audiobook Series",
-  "No Audiobooks Found": "No Audiobooks Found",
-  "Series Cover Flow": "Series Cover Flow",
-  "Audiobook Series Cover Flow": "Audiobook Series Cover Flow"
+  "Audiobook Series": "オーディオブックシリーズ",
+  "No Audiobooks Found": "オーディオブックが見つかりません",
+  "Series Cover Flow": "シリーズカバーフロー",
+  "Audiobook Series Cover Flow": "オーディオブックシリーズのカバーフロー",
+  "Audiobook Speed": "オーディオブックの再生速度"
 }

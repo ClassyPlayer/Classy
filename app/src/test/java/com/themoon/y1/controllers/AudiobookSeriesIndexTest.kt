@@ -58,6 +58,16 @@ class AudiobookSeriesIndexTest {
         assertEquals("Saga", entries.first().title)
     }
 
+    @Test fun orderedFilesKeepDiscOrderAndPutUntaggedAfterNumbered() {
+        val book = Files.createTempDirectory("book").toFile()
+        val d1 = File(book, "Disc 1").apply { mkdirs() }
+        val d2 = File(book, "Disc 2").apply { mkdirs() }
+        val a = File(d1, "b.mp3"); val b = File(d1, "a.mp3"); val c = File(d2, "a.mp3"); val d = File(d1, "c.mp3")
+        val tracks = mapOf(a to 2, b to 0, c to 1, d to 1)
+        val ordered = AudiobookSeriesIndex.orderedFiles(listOf(c, b, a, d), book) { tracks[it] ?: 0 }
+        assertEquals(listOf(d, a, b, c), ordered)
+    }
+
     @Test fun foldersAboveListsSeriesThenBookFolder() {
         val root = Files.createTempDirectory("audiobooks").toFile()
         val book = File(File(root, "Saga"), "Book 1").apply { mkdirs() }

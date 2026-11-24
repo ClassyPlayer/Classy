@@ -851,8 +851,9 @@
   "Queue": "Очередь",
   "Earlier Tracks": "Предыдущие треки",
   "Later Tracks": "Следующие треки",
-  "Audiobook Series": "Audiobook Series",
-  "No Audiobooks Found": "No Audiobooks Found",
-  "Series Cover Flow": "Series Cover Flow",
-  "Audiobook Series Cover Flow": "Audiobook Series Cover Flow"
+  "Audiobook Series": "Серии аудиокниг",
+  "No Audiobooks Found": "Аудиокниги не найдены",
+  "Series Cover Flow": "Cover Flow серий",
+  "Audiobook Series Cover Flow": "Cover Flow серий аудиокниг",
+  "Audiobook Speed": "Скорость аудиокниг"
 }

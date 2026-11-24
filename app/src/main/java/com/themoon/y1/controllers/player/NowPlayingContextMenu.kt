@@ -2,7 +2,10 @@ package com.themoon.y1.controllers.player
 
 import com.themoon.y1.MainActivity
 import com.themoon.y1.cast.PlayOnMenu
+import com.themoon.y1.StoragePaths
 import com.themoon.y1.controllers.settings.ActionScreens
+import com.themoon.y1.controllers.settings.SettingsController
+import com.themoon.y1.views.Notice
 import com.themoon.y1.managers.AudioPlayerManager
 import com.themoon.y1.managers.LibrarySongs
 import com.themoon.y1.models.ArtistNames
@@ -19,6 +22,7 @@ import java.io.File
  * - Add to On-The-Go playlist
  * - Add to Playlist
  * - Browse Album / Browse Artist
+ * - Audiobook Speed (audiobooks only: the speed that every audiobook plays at; music is not changed)
  * - Play On (the speaker list; with the speaker name while a speaker plays)
  * Only actions on the current song and Play On: the display options (Spectrum, Total Time) are in Settings.
  * A row closes the menu, then does its action (ActionScreens.choose), so Browse Album goes from Now Playing.
@@ -41,6 +45,13 @@ object NowPlayingContextMenu {
         if (main != null && main.currentPlaylist.size > 1) {
             rows += ActionScreens.Action(localize("Queue"), opensList = true) { showQueue(main) }
         }
+        // Audiobooks only: the speed that every audiobook plays at (music is not changed)
+        if (main != null && StoragePaths.isUnderAudiobooks(songFile.absolutePath)) {
+            val label = SettingsController.SPEED_LABELS[speedIndex(AudioPlayerManager.getInstance().audiobookSpeed())]
+            rows += ActionScreens.Action(localize("Audiobook Speed") + ": " + localize(label), opensList = true) {
+                showAudiobookSpeed(main)
+            }
+        }
         rows += ActionScreens.Action(if (isFavorite) localize("Remove from Favorites") else localize("Add to Favorites")) {
             onToggleFavorite()
         }
@@ -62,6 +73,21 @@ object NowPlayingContextMenu {
             rows += ActionScreens.Action(PlayOnMenu.rowLabel(main), opensList = true) { PlayOnMenu.open(main, fromNowPlaying = true) }
         }
         ActionScreens.open(ActionScreens.Spec(localize("Now Playing"), actions = rows))
+    }
+
+    private fun speedIndex(speed: Float): Int =
+        SettingsController.SPEED_VALUES.indexOfFirst { Math.abs(it - speed) < 0.01f }.coerceAtLeast(0)
+
+    /** The speeds of the audiobooks; the one that is set has the check mark, and a row sets it and goes back. */
+    private fun showAudiobookSpeed(main: MainActivity) {
+        val current = speedIndex(AudioPlayerManager.getInstance().audiobookSpeed())
+        val rows = SettingsController.SPEED_LABELS.indices.map { i ->
+            ActionScreens.Action(main.t(SettingsController.SPEED_LABELS[i]), checked = i == current) {
+                AudioPlayerManager.getInstance().setAudiobookSpeed(SettingsController.SPEED_VALUES[i])
+                Notice.show(main, main.t("Audiobook Speed") + ": " + main.t(SettingsController.SPEED_LABELS[i]))
+            }
+        }
+        ActionScreens.open(ActionScreens.Spec(main.t("Audiobook Speed"), actions = rows, focusChecked = true))
     }
 
     /** The rows of the Queue screen at most: a queue of thousands (Shuffle Songs) would make one view for each. */

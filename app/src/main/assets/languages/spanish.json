@@ -851,8 +851,9 @@
   "Queue": "Cola",
   "Earlier Tracks": "Pistas anteriores",
   "Later Tracks": "Pistas siguientes",
-  "Audiobook Series": "Audiobook Series",
-  "No Audiobooks Found": "No Audiobooks Found",
-  "Series Cover Flow": "Series Cover Flow",
-  "Audiobook Series Cover Flow": "Audiobook Series Cover Flow"
+  "Audiobook Series": "Series de audiolibros",
+  "No Audiobooks Found": "No se encontraron audiolibros",
+  "Series Cover Flow": "Cover Flow de series",
+  "Audiobook Series Cover Flow": "Cover Flow de series de audiolibros",
+  "Audiobook Speed": "Velocidad de audiolibros"
 }
