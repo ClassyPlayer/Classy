@@ -23,6 +23,7 @@ import com.themoon.y1.managers.AlbumCoverManager
 import com.themoon.y1.managers.AudioPlayerManager
 import com.themoon.y1.managers.LibrarySongs
 import com.themoon.y1.models.AlbumKey
+import com.themoon.y1.models.AlbumTrackOrder
 import com.themoon.y1.models.SongItem
 import com.themoon.y1.navigation.BrowserMode
 import com.themoon.y1.views.ClassicMenuStyle
@@ -325,9 +326,10 @@ class CategoryListAdapter(
         return row
     }
 
-    private fun inTrackOrder(tracks: List<File>): ArrayList<File> = inTrackOrder(tracks, MainActivity.trackNumberMap) {
-        LibrarySongs.byPath(it.absolutePath)?.title ?: it.name
-    }
+    /** The album in the order of its screen. */
+    private fun inTrackOrder(tracks: List<File>): ArrayList<File> = ArrayList(tracks.sortedWith(
+        AlbumTrackOrder.files(MainActivity.trackNumberMap) { LibrarySongs.byPath(it.absolutePath)?.title ?: it.name }
+    ))
 
     /**
      * Loads the covers of the rows near [position] on the cover worker, so that a row that comes into the list
@@ -414,10 +416,3 @@ class CategoryListAdapter(
         private const val PREFETCH_ROWS = 3
     }
 }
-
-/** An album in track order, as opening it lists it: by track number, tracks with the same number (or none) by title. */
-internal fun inTrackOrder(tracks: List<File>, trackNumbers: Map<String, Int>, titleOf: (File) -> String): ArrayList<File> =
-    ArrayList(tracks.sortedWith(
-        compareBy<File> { trackNumbers[it.absolutePath] ?: 0 }
-            .thenComparator { a, b -> titleOf(a).compareTo(titleOf(b), ignoreCase = true) }
-    ))

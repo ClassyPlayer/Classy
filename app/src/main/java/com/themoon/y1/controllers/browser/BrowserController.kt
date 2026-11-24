@@ -26,6 +26,7 @@ import com.themoon.y1.lists.RowSpec
 import com.themoon.y1.managers.AudioPlayerManager
 import com.themoon.y1.managers.AudiobookManager
 import com.themoon.y1.models.AlbumKey
+import com.themoon.y1.models.AlbumTrackOrder
 import com.themoon.y1.models.SongItem
 import com.themoon.y1.navigation.BrowserMode
 import com.themoon.y1.navigation.InputRouter
@@ -531,17 +532,10 @@ class BrowserController(
             }
         }
 
-        Collections.sort(targetSongs) { s1, s2 ->
-            if ("ALBUM" == virtualQueryType || "COVER_FLOW_ALBUM" == virtualQueryType || "GENRE_ALBUM_SONGS" == virtualQueryType ||
-                "COMPILATION_ALBUM" == virtualQueryType) {
-                val t1 = MainActivity.trackNumberMap[s1.file.absolutePath] ?: 0
-                val t2 = MainActivity.trackNumberMap[s2.file.absolutePath] ?: 0
-                if (t1 != t2) {
-                    return@sort t1.compareTo(t2)
-                }
-            }
-            s1.title.compareTo(s2.title, ignoreCase = true)
-        }
+        val albumQuery = virtualQueryType == "ALBUM" || virtualQueryType == "COVER_FLOW_ALBUM" || virtualQueryType == "GENRE_ALBUM_SONGS" ||
+            virtualQueryType == "COMPILATION_ALBUM"
+        Collections.sort(targetSongs, if (albumQuery) AlbumTrackOrder.songs(MainActivity.trackNumberMap)
+            else Comparator { s1, s2 -> s1.title.compareTo(s2.title, ignoreCase = true) })
 
         main?.virtualSongList?.clear()
         val displaySongs = ArrayList<SongItem>()
