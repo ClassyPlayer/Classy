@@ -61,6 +61,10 @@ class WebDavSync private constructor(context: Context) {
     var isRunning = false
         private set
 
+    /** Runs on the main thread after each run, after its own listener: the settings screen refreshes (also for Auto Sync). */
+    @Volatile
+    var onRunEnded: (() -> Unit)? = null
+
     @Volatile
     private var cancelled = false
 
@@ -98,7 +102,10 @@ class WebDavSync private constructor(context: Context) {
                 result = { listener.onError(e, changed) }
             } finally {
                 isRunning = false
-                main.post(result) // after isRunning: the screen that the callback refreshes sees the run as ended
+                main.post { // after isRunning: the screen that the callback refreshes sees the run as ended
+                    result()
+                    onRunEnded?.invoke()
+                }
             }
         }
         return true

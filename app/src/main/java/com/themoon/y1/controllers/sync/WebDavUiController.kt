@@ -80,12 +80,14 @@ class WebDavUiController(
             provider.importConfigIfPresent()?.let { Notice.error(activity, it) }
         }
         dropListingsOfOtherServer()
+        sync.onRunEnded = { refresh() } // an Auto Sync that ends now changes Last Synced and the counts
         screen.show(spec(level))
         // Show the last listing at once (Back keeps its row), then list again so NAS changes show up
         if (level is WebDavLevel.Folders && folders[level.href] != null) loadFolder(level.href)
     }
 
     override fun onExit() {
+        sync.onRunEnded = null
         screen.clear()
     }
 
@@ -213,18 +215,21 @@ class WebDavUiController(
         return ListSpec(localize("WebDAV Sync"), rows)
     }
 
-    /** The certificate to trust, or the one-line error of [e]. */
-    private fun showError(e: Throwable, url: String = provider.url) {
-        if (!handleCert(e, url)) Notice.error(activity, errorText(e, localize))
+    /**
+     * The certificate to trust, or the one-line error of [e]. [asked]: the user started this request (Test Connection,
+     * a sync), so a certificate notice shows again; a folder listing in the background tells it once.
+     */
+    private fun showError(e: Throwable, url: String = provider.url, asked: Boolean = false) {
+        if (!handleCert(e, url, asked)) Notice.error(activity, errorText(e, localize))
     }
 
     /** Remembers a certificate to trust and shows it on the settings; true when [e] was that. */
-    private fun handleCert(e: Throwable, url: String): Boolean {
+    private fun handleCert(e: Throwable, url: String, asked: Boolean): Boolean {
         val cert = findCertNotTrusted(e) ?: return false
         // The fingerprint is of the server that [url] named when the request began: a URL that changed meanwhile is another server
         if (url != provider.url) return true
         // Told already (for example the parent folder that lists again after Back): one notice is enough
-        if (pendingFingerprint == cert.fingerprint && pendingFor == url) return true
+        if (!asked && pendingFingerprint == cert.fingerprint && pendingFor == url) return true
         pendingFingerprint = cert.fingerprint
         pendingFor = url
         Notice.error(activity, localize("Check the certificate fingerprint, then Trust Certificate."))
@@ -250,7 +255,7 @@ class WebDavUiController(
                 if (provider.url != url) return@runOnUiThread // the URL changed meanwhile: this answer is of another server
                 when {
                     error == null -> Notice.show(activity, localize("Connected"))
-                    else -> showError(error, url)
+                    else -> showError(error, url, asked = true)
                 }
             }
         }.start()
@@ -427,7 +432,7 @@ class WebDavUiController(
                 ActionScreens.close(key)
                 if (changed) onSyncFinished() // files were downloaded, deleted or moved before it stopped
                 refresh() // also after a cancel: the counts and Last Synced can have changed
-                if (e !is CancellationException) showError(e, syncUrl)
+                if (e !is CancellationException) showError(e, syncUrl, asked = true)
             }
         }
         val started = if (move) sync.startMove(listener) else sync.start(listener, removeAll)
