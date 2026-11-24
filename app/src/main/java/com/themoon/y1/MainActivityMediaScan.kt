@@ -1,14 +1,12 @@
 package com.themoon.y1
 
 import com.themoon.y1.managers.MediaLibraryManager
-import com.themoon.y1.models.AlbumKey
 import com.themoon.y1.models.TvSeason
 import com.themoon.y1.models.TvSeries
 import com.themoon.y1.models.VideoItem
 import com.themoon.y1.navigation.NavigationManager
 import com.themoon.y1.navigation.ScreenState
 import java.io.File
-import java.util.HashSet
 import java.util.Locale
 import java.util.regex.Pattern
 
@@ -112,13 +110,9 @@ internal fun MainActivity.rebuildUniqueAlbumListInternal() {
     // Runs after each library load, scan and sync: find the compilation albums once, not at each browse.
     com.themoon.y1.models.Compilations.mark(MainActivity.customLibrary)
     uniqueAlbumList.clear()
-    val seenAlbums = HashSet<String>()
-    for (song in MainActivity.customLibrary) {
-        val album = song.album
-        if (!album.isNullOrBlank() && seenAlbums.add(AlbumKey.of(song))) {
-            uniqueAlbumList.add(song)
-        }
-    }
+    // One song per album, without the singles and EPs that Settings → Cover Flow hides
+    val filter = com.themoon.y1.controllers.coverflow.CoverFlowAlbums.Filter.of(AppPrefs.get(this))
+    uniqueAlbumList.addAll(com.themoon.y1.controllers.coverflow.CoverFlowAlbums.select(MainActivity.customLibrary, filter))
     com.themoon.y1.controllers.coverflow.CoverFlowOrder.sort(uniqueAlbumList)
     // The first Cover Flow entry after a load is then as fast as the next ones.
     if (isCoverFlowControllerInitialized()) coverFlowController.prepareSoon()

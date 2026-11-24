@@ -886,5 +886,15 @@
   "Last sync failed": "마지막 동기화 실패",
   "Cannot save the sync record": "동기화 기록을 저장할 수 없습니다",
   "This Folder": "이 폴더",
-  "Sync cancelled": "동기화가 취소되었습니다"
+  "Sync cancelled": "동기화가 취소되었습니다",
+  "Show Singles": "싱글 보기",
+  "Show EPs": "EP 보기",
+  "Untagged Singles": "태그 없는 싱글",
+  "1 Track": "1곡",
+  "Up to 3 Tracks": "최대 3곡",
+  "Up to 5 Tracks": "최대 5곡",
+  "All Albums": "모든 앨범",
+  "No Singles": "싱글 제외",
+  "No EPs": "EP 제외",
+  "Albums Only": "앨범만"
 }

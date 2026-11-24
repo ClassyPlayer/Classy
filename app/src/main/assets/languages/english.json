@@ -886,5 +886,15 @@
   "Last sync failed": "Last sync failed",
   "Cannot save the sync record": "Cannot save the sync record",
   "This Folder": "This Folder",
-  "Sync cancelled": "Sync cancelled"
+  "Sync cancelled": "Sync cancelled",
+  "Show Singles": "Show Singles",
+  "Show EPs": "Show EPs",
+  "Untagged Singles": "Untagged Singles",
+  "1 Track": "1 Track",
+  "Up to 3 Tracks": "Up to 3 Tracks",
+  "Up to 5 Tracks": "Up to 5 Tracks",
+  "All Albums": "All Albums",
+  "No Singles": "No Singles",
+  "No EPs": "No EPs",
+  "Albums Only": "Albums Only"
 }

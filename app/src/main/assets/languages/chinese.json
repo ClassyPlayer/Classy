@@ -886,5 +886,15 @@
   "Last sync failed": "上次同步失败",
   "Cannot save the sync record": "无法保存同步记录",
   "This Folder": "此文件夹",
-  "Sync cancelled": "同步已取消"
+  "Sync cancelled": "同步已取消",
+  "Show Singles": "显示单曲",
+  "Show EPs": "显示 EP",
+  "Untagged Singles": "无标签单曲",
+  "1 Track": "1 首",
+  "Up to 3 Tracks": "最多 3 首",
+  "Up to 5 Tracks": "最多 5 首",
+  "All Albums": "全部专辑",
+  "No Singles": "不含单曲",
+  "No EPs": "不含 EP",
+  "Albums Only": "仅专辑"
 }

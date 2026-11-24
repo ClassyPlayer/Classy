@@ -69,6 +69,12 @@ class SongItem {
     /** True if the song is on a compilation album. [Compilations.mark] sets it for all tracks of the album. */
     var isCompilation: Boolean = false
 
+    /**
+     * The release type tag ("single", "album;live"), as [ReleaseTypes.normalize] gives it; empty when the file has
+     * none. The library cache keeps it.
+     */
+    var releaseType: String = ""
+
     /** Last modification time of the file in milliseconds for incremental change detection. */
     var dateModified: Long = 0L
 

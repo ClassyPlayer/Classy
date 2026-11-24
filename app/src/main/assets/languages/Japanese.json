@@ -886,5 +886,15 @@
   "Last sync failed": "前回の同期に失敗しました",
   "Cannot save the sync record": "同期記録を保存できません",
   "This Folder": "このフォルダ",
-  "Sync cancelled": "同期をキャンセルしました"
+  "Sync cancelled": "同期をキャンセルしました",
+  "Show Singles": "シングルを表示",
+  "Show EPs": "EPを表示",
+  "Untagged Singles": "タグなしのシングル",
+  "1 Track": "1曲",
+  "Up to 3 Tracks": "3曲まで",
+  "Up to 5 Tracks": "5曲まで",
+  "All Albums": "すべてのアルバム",
+  "No Singles": "シングルなし",
+  "No EPs": "EPなし",
+  "Albums Only": "アルバムのみ"
 }

@@ -53,7 +53,7 @@ class SettingsSpecTest {
                 "Books" to listOf("Page Colours", "Font Size", "Line Spacing", "Font", "Wheel", "Wheel Clicks per Page", "Keep Screen On"),
                 "Status Bar" to listOf("Clock", "Battery Icon", "Battery Percentage"),
                 "Appearance" to listOf("Theme", "Toggle Style", "List Edges", "Menu Cover Motion", "Fill Video Screen"),
-                "Menus" to listOf("Main Menu Items", "Music Menu Items", "Group Albums"),
+                "Menus" to listOf("Main Menu Items", "Music Menu Items", "Group Albums", "Cover Flow"),
                 "Controls" to listOf(
                     "Button Sound", "Click Volume", "Button Vibration", "Vibration Strength", "Wheel Mode", "Wheel Loop Scroll",
                     "List Glide", "Letter Jump", "Letter Jump Sensitivity", "Screen-Off Control", "Double-Click to Favorite", "Hold Back for Now Playing"

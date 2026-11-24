@@ -19,6 +19,7 @@ import com.themoon.y1.changeTheme
 import com.themoon.y1.FeatureVisibility
 import com.themoon.y1.ThemeManager
 import com.themoon.y1.controllers.ScreenController
+import com.themoon.y1.controllers.coverflow.CoverFlowAlbums
 import com.themoon.y1.controllers.menu.MainMenuItems
 import com.themoon.y1.controllers.menu.MenuItem
 import com.themoon.y1.controllers.menu.MenuItems
@@ -211,6 +212,10 @@ class SettingsController(
             toggle("Group Albums", Prefs.GROUP_ALBUMS_BY_ARTIST, { localize(if (it) "By Title and Artist" else "By Title") }) {
                 applyAlbumGrouping()
             },
+            // Which albums Cover Flow shows: without the singles and EPs (issue #140). Albums and Artists keep them
+            action("Cover Flow", { localize(CoverFlowAlbums.summary(CoverFlowAlbums.Filter.of(prefs))) }, opens = true) {
+                openPage("CoverFlow")
+            },
         )),
         // The rows that change the click sound or vibration give the click after the change: it plays the new value
         SettingsGroup("Controls", listOf(
@@ -331,6 +336,7 @@ class SettingsController(
                 "UpdateChannel" -> return updateChannelList()
                 "MainMenuItems" -> return mainMenuItemsSpec()
                 "MusicMenuItems" -> return musicMenuItemsSpec()
+                "CoverFlow" -> return ListSpec(localize("Cover Flow"), coverFlowRows.filter { it.visible() }.map { it.make() })
                 BATTERY_USAGE -> return batteryUsageSpec()
             }
         }
@@ -838,6 +844,17 @@ class SettingsController(
             menu.saveOrder(prefs, ids)
             Notice.show(activity, localize("Menu order saved!"))
         })
+
+    /**
+     * Settings → Menus → Cover Flow: the albums with the release type Single or EP show or not (ReleaseTypes). Untagged
+     * Singles counts an album with no type and few tracks as a single; it is grey while the singles show.
+     */
+    private val coverFlowRows: List<SettingRow> by lazy { with(rows) { listOf(
+        toggle("Show Singles", Prefs.COVER_FLOW_SINGLES) { mainActivity?.rebuildUniqueAlbumList() },
+        toggle("Show EPs", Prefs.COVER_FLOW_EPS) { mainActivity?.rebuildUniqueAlbumList() },
+        cycle("Untagged Singles", Prefs.COVER_FLOW_UNTAGGED_SINGLES, CoverFlowAlbums.UNTAGGED_SINGLE_LABELS, CoverFlowAlbums::validUntaggedStep,
+            enabled = { !Prefs.COVER_FLOW_SINGLES.get(prefs) }) { mainActivity?.rebuildUniqueAlbumList() },
+    ) } }
 
     /** Reads Group Albums and rebuilds the album lists, so the next Albums or Cover Flow screen uses it. */
     private fun applyAlbumGrouping() {

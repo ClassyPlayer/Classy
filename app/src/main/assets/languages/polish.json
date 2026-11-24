@@ -886,5 +886,15 @@
   "Last sync failed": "Ostatnia synchronizacja nie powiodła się",
   "Cannot save the sync record": "Nie można zapisać rejestru synchronizacji",
   "This Folder": "Ten folder",
-  "Sync cancelled": "Synchronizacja anulowana"
+  "Sync cancelled": "Synchronizacja anulowana",
+  "Show Singles": "Pokaż single",
+  "Show EPs": "Pokaż EP-ki",
+  "Untagged Singles": "Single bez tagu",
+  "1 Track": "1 utwór",
+  "Up to 3 Tracks": "Do 3 utworów",
+  "Up to 5 Tracks": "Do 5 utworów",
+  "All Albums": "Wszystkie albumy",
+  "No Singles": "Bez singli",
+  "No EPs": "Bez EP-ek",
+  "Albums Only": "Tylko albumy"
 }
