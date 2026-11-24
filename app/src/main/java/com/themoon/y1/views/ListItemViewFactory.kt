@@ -209,7 +209,8 @@ object ListItemViewFactory {
         return btn
     }
 
-    fun createSettingRow(context: Context, title: String, value: String): LinearLayout {
+    /** A Settings row: the title, the value on the right and, for a row that [opens] a page, the arrow on the selected row. */
+    fun createSettingRow(context: Context, title: String, value: String, opens: Boolean = false): LinearLayout {
         val d = context.resources.displayMetrics.density
         val rowHeight = (ClassicMenuStyle.ROW_HEIGHT_DP * d).toInt()
         val padX = (8 * d).toInt()
@@ -231,24 +232,18 @@ object ListItemViewFactory {
         }
         row.addView(tvTitle)
 
-        val displayVal = value.replace("〉", "›")
         // Shows an on/off value as a switch when Settings → Toggle Style is Switch.
         val tvVal = SettingValueView(context).apply {
             stateKey = title
-            text = displayVal
+            text = value
             setTextSize(TypedValue.COMPLEX_UNIT_PX, 21f * d)
             typeface = ThemeManager.getCustomFont()
             includeFontPadding = false
         }
         row.addView(tvVal)
-        // A row that opens a deeper screen: the arrow of the other lists in place of the "〉" text, only on the
-        // selected row (the value keeps its place).
+        // A row that opens a deeper screen: the arrow of the other lists, only on the selected row (the value keeps its place)
         val look = FocusLook.of(row).text(tvTitle).text(tvVal) { ThemeManager.getTextColorSecondary() }
-        val (valueText, opens) = ClassyLists.splitArrow(displayVal)
-        if (opens) {
-            tvVal.text = valueText
-            look.arrow = ClassyLists.arrow(context, ARROW_MARGIN_DP).also { row.addView(it) }
-        }
+        if (opens) look.arrow = ClassyLists.arrow(context, ARROW_MARGIN_DP).also { row.addView(it) }
         look.refresh()
         ClassyLists.styleListRow(row, tvTitle, tvVal)
         return row

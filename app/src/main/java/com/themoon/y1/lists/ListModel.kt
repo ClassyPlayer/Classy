@@ -47,6 +47,8 @@ class RowSpec(
     val look: RowLook = RowLook.MENU,
     /** [RowLook.VALUE]: the value on the right. [RowLook.ART]: the second line (none when empty). */
     val value: String = "",
+    /** [RowLook.VALUE]: the row opens a page; the arrow shows after the value on the selected row. */
+    val opens: Boolean = false,
     val checked: Boolean = false,
     val glyphs: List<RowGlyphs.Slot> = emptyList(),
     /** Text colour of a [RowLook.MENU] row; 0 = the theme colour. */

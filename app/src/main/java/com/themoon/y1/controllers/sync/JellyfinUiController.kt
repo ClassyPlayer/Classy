@@ -173,8 +173,8 @@ class JellyfinUiController(
     /** A grey line that the wheel skips. */
     private fun info(text: String, key: String = "\u0000info $text") = RowSpec(text, RowLook.INFO, key = key)
 
-    private fun value(label: String, value: String, onClick: (() -> Unit)? = null) =
-        RowSpec(label, RowLook.VALUE, value = value, onClick = onClick)
+    private fun value(label: String, value: String, opens: Boolean = false, onClick: (() -> Unit)? = null) =
+        RowSpec(label, RowLook.VALUE, value = value, opens = opens, onClick = onClick)
 
     private fun action(label: String, run: () -> Unit) = RowSpec(label, RowLook.MENU, onClick = run)
 
@@ -231,7 +231,7 @@ class JellyfinUiController(
         } else {
             for (lib in cachedLibs) {
                 val mode = ledger.getLibrarySyncMode(lib.id, JellyfinLabels.defaultMode(lib.collectionType))
-                rows += RowSpec(lib.name, RowLook.VALUE, value = localize(JellyfinLabels.modeLabel(mode)) + " 〉", key = "\u0000library ${lib.id}",
+                rows += RowSpec(lib.name, RowLook.VALUE, value = localize(JellyfinLabels.modeLabel(mode)), opens = true, key = "\u0000library ${lib.id}",
                     onClick = { open(JellyfinLevel.Library(lib.id)) })
             }
         }
@@ -254,7 +254,7 @@ class JellyfinUiController(
         rows += value(localize("Last Synced"),
             if (lastSync > 0) SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(java.util.Date(lastSync)) else localize("Never"))
         rows += action(localize("Sync Now")) { launchSync() }
-        rows += value(localize("Log Out / Reset"), "〉 ") {
+        rows += value(localize("Log Out / Reset"), "", opens = true) {
             val server = listOf(provider.username.takeIf { it.isNotEmpty() }?.let { "@$it" }, provider.serverUrl.takeIf { it.isNotEmpty() })
             ActionScreens.open(ActionScreens.Spec(
                 localize("Jellyfin Sync"),
@@ -285,7 +285,7 @@ class JellyfinUiController(
         }
         if ("manual".equals(mode, ignoreCase = true)) {
             rows += header("━━━━━━━━━━━━━━")
-            rows += value(localize("Browse & Select"), "〉 ") { open(JellyfinLevel.Browse(library.id)) }
+            rows += value(localize("Browse & Select"), "", opens = true) { open(JellyfinLevel.Browse(library.id)) }
             rows += value(localize("Selected"), ledger.getLibrarySelections(library.id).size.toString())
         }
         return ListSpec(library.name, rows)
@@ -400,7 +400,7 @@ class JellyfinUiController(
     /** A row that opens a deeper list: the selected count; a hold selects all its items, or none. */
     private fun groupRow(lib: MediaSyncProvider.LibraryInfo, node: Node, selections: Set<String>, level: JellyfinLevel): RowSpec {
         val count = "${JellyfinSyncHierarchy.countSelected(node.ids, selections)}/${node.ids.size}"
-        return RowSpec(node.name, RowLook.VALUE, value = "$count 〉", key = level.toString(),
+        return RowSpec(node.name, RowLook.VALUE, value = count, opens = true, key = level.toString(),
             onClick = { open(level) }, onHold = { toggle(lib, node.ids) })
     }
 

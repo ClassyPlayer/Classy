@@ -107,8 +107,8 @@ class ActionScreenTest {
         assertEquals("Play On", list.title)
         assertEquals(listOf(RowLook.INFO, RowLook.CHOICE, RowLook.CHOICE, RowLook.VALUE, RowLook.VALUE), list.rows.map { it.look })
         assertEquals(listOf(true, false), list.rows.subList(1, 3).map { it.checked })
-        // A chevron only on the row that opens a list
-        assertEquals(listOf("〉", ""), list.rows.subList(3, 5).map { it.value })
+        // The arrow only on the row that opens a list
+        assertEquals(listOf(true, false), list.rows.subList(3, 5).map { it.opens })
         assertEquals(Focus.FIRST, list.focus)
         list.rows[4].onClick!!()
         list.rows[3].onClick!!()

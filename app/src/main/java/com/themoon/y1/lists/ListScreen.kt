@@ -289,7 +289,7 @@ class ListScreen(
                 val focus = onRowFocus?.let { told -> { _: String -> told(row.key) } }
                 ListItemViewFactory.createListButtonWithIcon(context, "", row.label, color, focus)
             }
-            RowLook.VALUE -> ListItemViewFactory.createSettingRow(context, row.label, row.value)
+            RowLook.VALUE -> ListItemViewFactory.createSettingRow(context, row.label, row.value, row.opens)
             RowLook.CHOICE ->
                 if (row.glyphs.isEmpty()) ListItemViewFactory.createCheckListButton(context, row.label, row.checked)
                 else ListItemViewFactory.createChoiceRowWithRightIcons(context, row.label, row.checked, row.glyphs)

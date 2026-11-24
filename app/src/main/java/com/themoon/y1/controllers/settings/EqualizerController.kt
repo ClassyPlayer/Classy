@@ -134,7 +134,7 @@ class EqualizerController(
         } else {
             activeName = currentEqProfile.removePrefix("custom_")
         }
-        rows += RowSpec("EQ Profile / Preset", RowLook.VALUE, value = "$activeName 〉", onClick = { buildProfileSelectorUI() })
+        rows += RowSpec("EQ Profile / Preset", RowLook.VALUE, value = activeName, opens = true, onClick = { buildProfileSelectorUI() })
 
         val steps = arrayOf("Off", "Weak", "Normal", "Strong")
         rows += RowSpec("Bass Boost", RowLook.VALUE, value = localize(steps[currentBassBoostStep % 4]), onClick = {
@@ -185,7 +185,7 @@ class EqualizerController(
         })
 
         rows += RowSpec(localize("GRAPHIC EQUALIZER"), RowLook.HEADER)
-        rows += RowSpec("Graphic Equalizer", RowLook.VALUE, value = localize("Open Editor") + " 〉", onClick = {
+        rows += RowSpec("Graphic Equalizer", RowLook.VALUE, value = localize("Open Editor"), opens = true, onClick = {
             if (currentEqProfile.startsWith("preset_")) {
                 Notice.show(activity, localize("Please create a Custom Profile to edit!"), long = true)
             } else {

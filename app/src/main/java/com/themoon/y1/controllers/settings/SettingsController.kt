@@ -172,11 +172,11 @@ class SettingsController(
         SettingsGroup("Playback", listOf(
             toggle("Shuffle", { Prefs.SHUFFLE.get(prefs) }, setShuffle),
             cycle("Repeat", { Prefs.REPEAT_MODE.get(prefs).let { if (it in 0..2) it else 0 } }, setRepeatMode, arrayOf("Off", "One", "All")),
-            action("EQ", { eqName() + " 〉" }) { onOpenEqualizer() },
+            action("EQ", { eqName() }, opens = true) { onOpenEqualizer() },
             toggle("Sound Check", Prefs.SOUND_CHECK) { AudioEffectManager.getInstance().applySoundCheck() },
             // Left and right mixed on both channels, for one earbud
             toggle("Mono Audio", Prefs.MONO_AUDIO) { AudioEffectManager.getInstance().applyAudioEffects() },
-            choice("Volume Limit", { volumeLimitText() + " 〉" }) { openPage("VolumeLimit") },
+            choice("Volume Limit", { volumeLimitText() }, opens = true) { openPage("VolumeLimit") },
             cycle("Playback Speed", { speedIndex() }, { setSpeed(it) }, SPEED_LABELS),
         )),
         SettingsGroup("Display", listOf(
@@ -217,8 +217,8 @@ class SettingsController(
             toggle("Fill Video Screen", Prefs.VIDEO_FILL),
         )),
         SettingsGroup("Menus", listOf(
-            action("Main Menu Items", { localize("Edit") + " 〉" }) { openPage("MainMenuItems") },
-            action("Music Menu Items", { localize("Edit") + " 〉" }) { openPage("MusicMenuItems") },
+            action("Main Menu Items", { localize("Edit") }, opens = true) { openPage("MainMenuItems") },
+            action("Music Menu Items", { localize("Edit") }, opens = true) { openPage("MusicMenuItems") },
             toggle("Group Albums", Prefs.GROUP_ALBUMS_BY_ARTIST, { localize(if (it) "By Title and Artist" else "By Title") }) {
                 applyAlbumGrouping()
             },
@@ -265,7 +265,7 @@ class SettingsController(
         // Battery level, charging, screen on and screen off playing of the last 24 hours or 10 days (BatteryUsageView):
         // on the top level, as Settings → Battery of iOS and macOS (macOS: after the connections)
         SettingsGroup("Battery", listOf(
-            action("Battery", { "〉" }) { openPage(BATTERY_USAGE) },
+            action("Battery") { openPage(BATTERY_USAGE) },
         ), direct = true),
         SettingsGroup("Library", listOf(
             action("Clear Album Art & Info") {
@@ -280,7 +280,7 @@ class SettingsController(
             action("Last.fm Account", { lastFmAccountText() }) { openLastFmAccount() },
         )),
         SettingsGroup("Date & Time", listOf(
-            action("Date & Time", { "〉" }) {
+            action("Date & Time") {
                 readClock()
                 openPage("DateTime")
             },

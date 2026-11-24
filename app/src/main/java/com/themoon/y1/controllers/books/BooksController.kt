@@ -505,8 +505,9 @@ class BooksController(
         NavigationManager.getInstance().popBackStackTo { it is ScreenState.BookReader }
     }
 
-    private fun value(label: String, value: String = SettingRows.CHEVRON, enabled: Boolean = true, onClick: () -> Unit) =
-        RowSpec(localize(label), RowLook.VALUE, value = value, enabled = enabled, key = label, onClick = onClick)
+    /** A row of the reader menu. With no [value], the arrow shows on the selected row (the row opens a list). */
+    private fun value(label: String, value: String? = null, opens: Boolean = value == null, enabled: Boolean = true, onClick: () -> Unit) =
+        RowSpec(localize(label), RowLook.VALUE, value = value.orEmpty(), opens = opens, enabled = enabled, key = label, onClick = onClick)
 
     private fun readerMenuSpec(file: File): ListSpec {
         val rows = ArrayList<RowSpec>()
@@ -523,7 +524,7 @@ class BooksController(
             reader.jumpToChapter(prev)
             backToPage()
         }
-        rows += value("Go to Position", Progress.percentText(reader.permille()) + " " + SettingRows.CHEVRON) {
+        rows += value("Go to Position", Progress.percentText(reader.permille()), opens = true) {
             changeScreen(ScreenState.Books(BooksLevel.GoTo(file)))
         }
         rows += value("Add Bookmark", "") {
@@ -531,7 +532,7 @@ class BooksController(
             backToPage()
         }
         val marks = reader.bookmarks().size
-        rows += value("Bookmarks", (if (marks > 0) "$marks " else "") + SettingRows.CHEVRON) {
+        rows += value("Bookmarks", if (marks > 0) "$marks" else "", opens = true) {
             changeScreen(ScreenState.Books(BooksLevel.Bookmarks(file)))
         }
         rows += value("Book Info") { changeScreen(ScreenState.Books(BooksLevel.Info(file))) }
