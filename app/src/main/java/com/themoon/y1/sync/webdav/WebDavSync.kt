@@ -205,7 +205,9 @@ class WebDavSync private constructor(context: Context) {
                     if (player.isFileCurrentlyPlaying(d.target) || d.replaces?.let { player.isFileCurrentlyPlaying(it) } == true) return@execute
                     var last = 0L
                     var lastPost = 0L
-                    client.download(d.entry.href, d.target, d.entry.size, { cancelled || failure.get() != null }) { n ->
+                    // Checked again at the end: the user can start the old file while the new one downloads
+                    client.download(d.entry.href, d.target, d.entry.size, { cancelled || failure.get() != null },
+                        { !player.isFileCurrentlyPlaying(d.target) }) { n ->
                         val all = got.addAndGet(n - last)
                         last = n
                         // At most ten posts a second for each file, not one for every 64 KB chunk
@@ -226,6 +228,8 @@ class WebDavSync private constructor(context: Context) {
                         if (old.exists() && !player.isFileCurrentlyPlaying(old) && old.delete()) pruneEmptyDirs(old, listOf(destRoot(true), destRoot(false)))
                         else if (old.exists()) Log.w(TAG, "Old copy kept (playing, or cannot be deleted): ${old.path}")
                     }
+                } catch (_: TargetBusy) {
+                    main.post { l.onFile(d.target.path, -1, 0) } // replaced on the next sync, as a file that played at the start
                 } catch (e: Throwable) {
                     failure.compareAndSet(null, e)
                 }
@@ -316,17 +320,30 @@ class WebDavSync private constructor(context: Context) {
         val player = AudioPlayerManager.getInstance()
         var done = 0L
         var moved = 0
+        var saved = false
         try {
             for ((i, item) in items.withIndex()) {
                 checkCancel()
                 val src = File(item.localPath!!)
                 val dst = target(item)
                 if (src.exists()) {
-                    if (player.isFileCurrentlyPlaying(src)) continue
-                    progress(l, "${i + 1}/${items.size} ${src.name}", done, total)
-                    copyChecked(src, dst)
+                    // A playing file is never replaced or deleted: the source, or a file already at the target
+                    if (player.isFileCurrentlyPlaying(src) || player.isFileCurrentlyPlaying(dst)) continue
+                    val dstWasThere = dst.exists()
+                    if (dstWasThere) {
+                        // Never overwrite a file at the target: only one with the same bytes is this file (a move
+                        // that stopped after its copy), and then the source can go
+                        if (!sameContent(src, dst)) continue
+                    } else {
+                        progress(l, "${i + 1}/${items.size} ${src.name}", done, total)
+                        copyChecked(src, dst)
+                    }
                     done += src.length()
-                    if (!src.delete()) { dst.delete(); continue } // keep one copy, tracked where it is
+                    // Checked again: the user can start the source during the copy
+                    if (player.isFileCurrentlyPlaying(src) || !src.delete()) {
+                        if (!dstWasThere) dst.delete() // keep one copy, tracked where it is
+                        continue
+                    }
                     pruneEmptyDirs(src, listOf(from, to)) // the album folders that the move left empty
                 } else if (!dst.exists() || dst.length() != item.fileSize) {
                     continue // the source is not there (an SD card that is out) and nothing complete is at the target: keep the record
@@ -339,10 +356,34 @@ class WebDavSync private constructor(context: Context) {
                 }
             }
         } finally {
-            synchronized(ledger) { saveLedger() } // also after an error or a cancel: the moved files stay tracked where they are
+            saved = synchronized(ledger) { saveLedger() } // also after an error or a cancel: the moved files stay tracked where they are
             if (moved > 0) changedByRun = true
         }
+        if (!saved) throw LedgerNotSaved() // the new paths are in memory only (the next save writes them)
         return moved > 0
+    }
+
+    /** True when [a] and [b] have the same bytes. */
+    private fun sameContent(a: File, b: File): Boolean {
+        if (a.length() != b.length()) return false
+        a.inputStream().buffered().use { x ->
+            b.inputStream().buffered().use { y ->
+                val bx = ByteArray(64 * 1024)
+                val by = ByteArray(64 * 1024)
+                while (true) {
+                    checkCancel()
+                    val n = x.read(bx)
+                    if (n < 0) return true
+                    var off = 0
+                    while (off < n) {
+                        val m = y.read(by, off, n - off)
+                        if (m < 0) return false
+                        off += m
+                    }
+                    for (k in 0 until n) if (bx[k] != by[k]) return false
+                }
+            }
+        }
     }
 
     /** Copies into `dst.part`, checks the length, then replaces [dst]. On failure [dst] is as it was. */

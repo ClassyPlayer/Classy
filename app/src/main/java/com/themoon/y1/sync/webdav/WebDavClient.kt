@@ -20,6 +20,9 @@ import javax.xml.parsers.DocumentBuilderFactory
 
 class DavHttpException(val code: Int) : IOException("HTTP $code")
 
+/** A download did not replace its target: [WebDavClient.download]'s mayReplace said no (the target plays). */
+class TargetBusy : IOException("Target in use")
+
 /**
  * Moves [part] over [target]. One rename replaces the old file at once; a file system that cannot (FAT) gets the old
  * file moved aside first, and back if the new one cannot be moved. A failure leaves [part] where it is.
@@ -214,8 +217,18 @@ class WebDavClient(
         }
     }
 
-    /** GET into `target.part`, check the length, then replace [target]. A failed or cancelled download leaves [target] as it was. */
-    fun download(href: String, target: File, expectedSize: Long, cancelled: () -> Boolean, progress: (Long) -> Unit) {
+    /**
+     * GET into `target.part`, check the length, then replace [target] if [mayReplace] says yes (else [TargetBusy]).
+     * A failed or cancelled download leaves [target] as it was.
+     */
+    fun download(
+        href: String,
+        target: File,
+        expectedSize: Long,
+        cancelled: () -> Boolean,
+        mayReplace: () -> Boolean = { true },
+        progress: (Long) -> Unit
+    ) {
         val part = File(target.path + ".part")
         target.parentFile?.mkdirs()
         try {
@@ -239,6 +252,7 @@ class WebDavClient(
                     throw IOException("Short download: $total of $expectedSize bytes")
                 }
             }
+            if (!mayReplace()) throw TargetBusy()
             replaceFile(part, target)
         } catch (e: Throwable) {
             part.delete()

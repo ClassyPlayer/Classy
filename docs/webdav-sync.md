@@ -141,7 +141,8 @@ videos too; WebDAV Sync copies the folder tree of the server as it is, keyed by 
 
 - `list(href)`: `PROPFIND` with `Depth: 1` and a small property body. Sub-folders are walked one request each, with
   a visited set and a `MAX_FOLDERS` (20 000) cap, so a server that links back to itself ends in an error.
-- `download(href, target, size, cancelled, progress)`: `GET` into `target.part`, check the length, then
+- `download(href, target, size, cancelled, mayReplace, progress)`: `GET` into `target.part`, check the length, ask
+  `mayReplace` (the sync says no while the target plays: `TargetBusy`, and the file waits for the next sync), then
   `replaceFile`: one rename over the old file. On FAT, which cannot rename over a file, the old file moves aside to
   `<name>.old` (or `.old1`, ...), the new one moves in, and the old one is deleted; if the new one cannot move in, the
   old one moves back. A failed or cancelled download leaves the target as it was.
@@ -221,7 +222,10 @@ the length, replace the target, then delete the source. The target is the path o
 plan finds a copy on the other storage the same way. A record whose source is missing (the SD card is out) is moved
 only if a complete file of the recorded size is already at the target; else it stays as it was. If the delete fails, the new copy is removed and the item stays
 where it was, so a move never leaves a file in two places, and a failure or cancel never loses one. The ledger is updated
-for each file, and `pruneEmptyDirs` removes the folders that a move leaves empty. A file that is playing waits. The
+for each file, and `pruneEmptyDirs` removes the folders that a move leaves empty. A file that is playing waits: the
+source, or a file at the target, checked before the copy and again before the source is deleted. A file that is at the
+target already is never overwritten: if it has the same bytes as the source (a move that stopped after its copy), the
+source is deleted and the record moves; else the item stays where it is. The
 ledger is saved when the move ends, also after an error or a cancel.
 
 ### Auto Sync

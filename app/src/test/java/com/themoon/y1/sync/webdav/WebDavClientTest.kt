@@ -119,8 +119,22 @@ class WebDavClientTest {
     fun downloadRenamesPartOnSuccess() {
         val base = serve("hello".toByteArray())
         val target = File(tmp.root, "a/song.flac")
-        WebDavClient(base, "u", "p", null).download("/music/song.flac", target, 5, { false }, {})
+        WebDavClient(base, "u", "p", null).download("/music/song.flac", target, 5, { false }, progress = {})
         assertEquals("hello", target.readText())
+        assertFalse(File(target.path + ".part").exists())
+    }
+
+    @Test
+    fun aTargetThatMayNotBeReplacedStaysAsItWas() {
+        // The file started to play during the download: the old file stays, and no part file is left
+        val base = serve("hello".toByteArray())
+        val target = File(tmp.root, "a/song.flac").apply { parentFile!!.mkdirs(); writeText("old") }
+        try {
+            WebDavClient(base, "u", "p", null).download("/music/song.flac", target, 5, { false }, { false }, {})
+            fail("expected TargetBusy")
+        } catch (_: TargetBusy) {
+        }
+        assertEquals("old", target.readText())
         assertFalse(File(target.path + ".part").exists())
     }
 
@@ -129,7 +143,7 @@ class WebDavClientTest {
         val base = serve("hel".toByteArray())
         val target = tmp.newFile("song.flac").apply { writeText("old") }
         try {
-            WebDavClient(base, "u", "p", null).download("/music/song.flac", target, 5, { false }, {})
+            WebDavClient(base, "u", "p", null).download("/music/song.flac", target, 5, { false }, progress = {})
             fail("expected an exception for a short download")
         } catch (_: java.io.IOException) {
         }
@@ -142,7 +156,7 @@ class WebDavClientTest {
         val base = serve(ByteArray(200_000) { 1 })
         val target = File(tmp.root, "song.flac")
         try {
-            WebDavClient(base, "u", "p", null).download("/music/song.flac", target, 200_000, { true }, {})
+            WebDavClient(base, "u", "p", null).download("/music/song.flac", target, 200_000, { true }, progress = {})
             fail("expected cancel")
         } catch (_: CancellationException) {
         }
