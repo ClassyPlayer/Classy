@@ -357,7 +357,8 @@ object ListItemViewFactory {
         row.addView(tv)
         tick?.textView = tv
 
-        val rightIconSize = (16f * d).toInt()
+        // As tall as the row text: the eye and the cross of the menu editors fill a 24 dp box only in part
+        val rightIconSize = (24f * d).toInt()
         var ivRight: ImageView? = null
         if (rightIconPaths != null) {
             ivRight = ImageView(context).apply {
