@@ -22,8 +22,9 @@ class SyncPlanTest {
         remote: Map<String, List<DavEntry>>,
         ledger: List<SyncLedger.LedgerItem> = emptyList(),
         ticked: Set<String> = remote.keys,
-        exists: (File) -> Boolean = { true }
-    ) = SyncPlan.build(remote, ledger.associateBy { it.jellyfinId }, ticked, root, base, exists = exists)
+        exists: (File) -> Boolean = { true },
+        otherRoot: File? = null
+    ) = SyncPlan.build(remote, ledger.associateBy { it.jellyfinId }, ticked, root, base, otherRoot = otherRoot, exists = exists)
 
     @Test
     fun tickedSubfolderKeepsItsFullPath() {
@@ -91,7 +92,43 @@ class SyncPlanTest {
         // The files were synced to the other storage: the version recorded is not of the copy at this target
         val h = "/music/Rock/a.flac"
         val other = led(h, rock).also { it.localPath = "/internal/Music/WebDAV/Rock/a.flac" }
-        assertEquals(1, build(mapOf(rock to listOf(file(h))), listOf(other)).downloads.size)
+        // Not the same tree on the other storage: download here, and the old copy goes when the new one is complete
+        assertEquals(File(other.localPath!!), build(mapOf(rock to listOf(file(h))), listOf(other)).downloads.single().replaces)
+    }
+
+    @Test
+    fun aCopyOnTheOtherStorageIsLeftToMove() {
+        // Save To changed: the file is on the other storage, same tree. Move Synced Files moves it; no second copy
+        val h = "/music/Rock/a.flac"
+        val onInternal = led(h, rock).also { it.localPath = "/internal/Music/Rock/a.flac" }
+        val p = SyncPlan.build(mapOf(rock to listOf(file(h))), mapOf(h to onInternal), setOf(rock), File("/sd/Music"), base,
+            otherRoot = File("/internal/Music")) { true }
+        assertTrue(p.downloads.isEmpty())
+    }
+
+    @Test
+    fun aChangedCopyOnTheOtherStorageDownloadsAndReplacesIt() {
+        val h = "/music/Rock/a.flac"
+        val onInternal = led(h, rock).also { it.localPath = "/internal/Music/Rock/a.flac" }
+        val p = SyncPlan.build(mapOf(rock to listOf(file(h, etag = "\"e2\""))), mapOf(h to onInternal), setOf(rock), File("/sd/Music"), base,
+            otherRoot = File("/internal/Music")) { true }
+        assertEquals(File("/internal/Music/Rock/a.flac"), p.downloads.single().replaces)
+    }
+
+    @Test
+    fun aMissingCopyOnTheOtherStorageDownloads() {
+        // The SD card with the old copies is out: get the file again here, and drop the record of the old one
+        val h = "/music/Rock/a.flac"
+        val onSd = led(h, rock).also { it.localPath = "/sd/Music/Rock/a.flac" }
+        val p = SyncPlan.build(mapOf(rock to listOf(file(h))), mapOf(h to onSd), setOf(rock), File("/internal/Music"), base,
+            otherRoot = File("/sd/Music")) { !it.path.startsWith("/sd/") }
+        assertEquals(File("/sd/Music/Rock/a.flac"), p.downloads.single().replaces)
+    }
+
+    @Test
+    fun aDownloadToItsOwnPathReplacesNothing() {
+        val h = "/music/Rock/a.flac"
+        assertNull(build(mapOf(rock to listOf(file(h, etag = "\"e2\""))), listOf(led(h, rock))).downloads.single().replaces)
     }
 
     @Test

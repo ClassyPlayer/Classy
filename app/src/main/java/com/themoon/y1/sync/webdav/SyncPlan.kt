@@ -3,7 +3,8 @@ package com.themoon.y1.sync.webdav
 import com.themoon.y1.sync.SyncLedger
 import java.io.File
 
-data class Download(val entry: DavEntry, val folderHref: String, val target: File)
+/** [replaces]: the copy that the ledger has at another path; the sync deletes it when [target] is complete. */
+data class Download(val entry: DavEntry, val folderHref: String, val target: File, val replaces: File? = null)
 
 /**
  * [orphan], [unorphan] and [remove] are ledger keys (hrefs). [orphan]: deleted on the NAS, the user decides.
@@ -67,6 +68,8 @@ object SyncPlan {
         destRoot: File,
         baseHref: String,
         safeNames: Boolean = false,
+        /** The Music folder of the other storage (Save To): a copy there is left to Move Synced Files. */
+        otherRoot: File? = null,
         exists: (File) -> Boolean
     ): Plan {
         val downloads = ArrayList<Download>()
@@ -83,9 +86,16 @@ object SyncPlan {
                 val key = if (safeNames) target.path.lowercase() else target.path // FAT does not tell Track.flac from track.flac
                 targets.add(key)
                 val item = ledger[e.href]
-                // A recorded path that is not this target (the storage changed): the version is of another copy
-                if (item == null || item.localPath != target.path || !exists(target) || changed(e, item)) {
-                    if (planned.add(key)) downloads.add(Download(e, folder, target))
+                val recorded = item?.localPath?.takeIf { it.isNotEmpty() }?.let { File(it) }
+                val here = recorded?.path == target.path && exists(target)
+                // Synced before a Save To change: the same file on the other storage. Move Synced Files moves it,
+                // so the sync does not get it again
+                val onOtherStorage = recorded != null && recorded.path != target.path && otherRoot != null &&
+                    movedPath(recorded.path, otherRoot, destRoot, safeNames)?.path == target.path && exists(recorded)
+                if (item == null || !(here || onOtherStorage) || changed(e, item)) {
+                    // The new copy replaces the recorded one: that one must not stay on the player untracked
+                    val replaces = recorded?.takeIf { it.path != target.path }
+                    if (planned.add(key)) downloads.add(Download(e, folder, target, replaces))
                 } else if (item.orphaned) {
                     unorphan.add(e.href)
                 }

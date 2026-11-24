@@ -144,7 +144,8 @@ class WebDavSync private constructor(context: Context) {
 
         val dest = destRoot()
         val plan = synchronized(ledger) {
-            SyncPlan.build(remote, ledger.getAllItems(), ticked, dest, client.rootHref, safeNames = provider.onSdCard) { it.exists() }
+            SyncPlan.build(remote, ledger.getAllItems(), ticked, dest, client.rootHref, safeNames = provider.onSdCard,
+                otherRoot = destRoot(!provider.onSdCard)) { it.exists() }
         }
         dest.mkdirs()
         requireFreeSpace(plan.bytes, if (dest.exists()) dest else File(StoragePaths.PRIMARY_PATH))
@@ -189,6 +190,10 @@ class WebDavSync private constructor(context: Context) {
                     synchronized(ledger) {
                         ledger.putItem(SyncLedger.LedgerItem(d.entry.href, d.folderHref, "music", d.target.path, d.target.length(), versionOf(d.entry), false))
                         if (finished.incrementAndGet() % 20 == 0) saveLedger() // keep progress if the device dies mid-sync
+                    }
+                    // The old copy (other storage or path): the record now names the new one. A playing one stays
+                    d.replaces?.let { old ->
+                        if (old.exists() && !player.isFileCurrentlyPlaying(old) && old.delete()) pruneEmptyDirs(old, listOf(destRoot(true), destRoot(false)))
                     }
                 } catch (e: Throwable) {
                     failure.compareAndSet(null, e)
