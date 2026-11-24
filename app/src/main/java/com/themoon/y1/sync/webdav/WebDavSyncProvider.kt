@@ -9,7 +9,8 @@ import java.io.File
 /** WebDAV server settings and folder selection, kept in private prefs. */
 class WebDavSyncProvider private constructor(context: Context) : MediaSyncProvider {
 
-    private val prefs: SharedPreferences = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    private val app = context.applicationContext
+    private val prefs: SharedPreferences = app.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
     var url: String
         get() = prefs.getString("url", "") ?: ""
@@ -60,20 +61,55 @@ class WebDavSyncProvider private constructor(context: Context) : MediaSyncProvid
     fun client(url: String = this.url, user: String = this.user, password: String = this.password, pin: String? = this.pin): WebDavClient =
         WebDavClient(url, user, password, if (url.startsWith("https://")) PinningTrustManager(pin) else null)
 
-    /** Imports [WebDavConfigFile.FILE_NAME] from primary storage if present. Returns an error text, or null. */
+    /**
+     * Sets the Server URL. The same server (scheme, host and port) keeps the pin, the ticked folders and the synced
+     * files. Another server starts again: no pin, no ticked folders, and the synced files are forgotten (they stay on
+     * the player; see [WebDavSync.forgetAll]). False while a sync runs: then nothing changes.
+     */
+    fun changeUrl(newUrl: String): Boolean {
+        val sync = WebDavSync.getInstance(app)
+        synchronized(sync) { // the lock of WebDavSync.start: no sync starts while the URL changes
+            val v = newUrl.trim()
+            if (v == url) return true
+            if (sync.isRunning) return false
+            val old = serverUri(url)
+            val new = serverUri(v)
+            if (old != null && new != null && sameServer(old, new)) {
+                url = v
+                return true
+            }
+            return sync.forgetAll {
+                pin = null
+                ticked = emptySet()
+                lastSync = 0L
+                url = v
+            }
+        }
+    }
+
+    /** Log Out / Reset: forgets all the settings and the synced files (they stay on the player). False while a sync runs. */
+    fun reset(): Boolean = WebDavSync.getInstance(app).forgetAll { clearConfiguration() }
+
+    /**
+     * Imports [WebDavConfigFile.FILE_NAME] from primary storage if present. Returns an error text, or null.
+     * Not while a sync runs: the file stays, and the next visit of the screen imports it.
+     */
     fun importConfigIfPresent(): String? {
         val f = File(StoragePaths.PRIMARY_PATH, WebDavConfigFile.FILE_NAME)
         if (!f.exists()) return null
-        return WebDavConfigFile.importFrom(f).fold(
-            onSuccess = { c ->
-                if (c.url != url) pin = null
-                url = c.url
-                user = c.user
-                password = c.password
-                null
-            },
-            onFailure = { "${WebDavConfigFile.FILE_NAME}: " + if (it is ConfigFileStays) "cannot delete it, delete it by hand" else "invalid" }
-        )
+        val sync = WebDavSync.getInstance(app)
+        synchronized(sync) { // no sync starts between the check and the import, so changeUrl cannot refuse
+            if (sync.isRunning) return null
+            return WebDavConfigFile.importFrom(f).fold(
+                onSuccess = { c ->
+                    changeUrl(c.url)
+                    user = c.user
+                    password = c.password
+                    null
+                },
+                onFailure = { "${WebDavConfigFile.FILE_NAME}: " + if (it is ConfigFileStays) "cannot delete it, delete it by hand" else "invalid" }
+            )
+        }
     }
 
     override fun getId(): String = "webdav"

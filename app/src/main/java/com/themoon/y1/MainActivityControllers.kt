@@ -399,9 +399,8 @@ internal fun MainActivity.initControllers() {
             NavigationManager.getInstance().popBackStack()
         },
         onSubmitWebDavUrl = { url ->
-            val provider = com.themoon.y1.sync.webdav.WebDavSyncProvider.getInstance(this)
-            if (url != provider.url) provider.pin = null // a new server must be trusted again
-            provider.url = url
+            // Another server must be trusted again, and starts with no folders; a sync that started meanwhile keeps the old URL
+            if (!com.themoon.y1.sync.webdav.WebDavSyncProvider.getInstance(this).changeUrl(url)) Notice.show(this, t("Syncing..."))
             NavigationManager.getInstance().popBackStack()
         },
         onSubmitWebDavUser = { user ->

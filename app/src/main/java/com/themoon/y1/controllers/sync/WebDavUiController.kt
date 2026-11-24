@@ -135,7 +135,10 @@ class WebDavUiController(
         val p = provider
         val rows = ArrayList<RowSpec>()
         rows += header("━ " + localize("Server") + " ━")
-        rows += value(localize("Server URL"), p.url.ifEmpty { notSet }) { onOpenKeyboard(KeyboardTarget.WebDavUrl) }
+        rows += value(localize("Server URL"), p.url.ifEmpty { notSet }) {
+            // Another server forgets the synced files: not while a sync uses them
+            if (sync.isRunning) Notice.show(activity, localize("Syncing...")) else onOpenKeyboard(KeyboardTarget.WebDavUrl)
+        }
         rows += value(localize("Username"), p.user.ifEmpty { notSet }) { onOpenKeyboard(KeyboardTarget.WebDavUser) }
         rows += value(localize("Password"), if (p.password.isEmpty()) notSet else "••••••••") {
             onOpenKeyboard(KeyboardTarget.WebDavPassword(p.user))
@@ -197,7 +200,7 @@ class WebDavUiController(
                 localize("WebDAV Sync"),
                 listOfNotNull(p.user.takeIf { it.isNotEmpty() }?.let { "@$it" }, p.url.takeIf { it.isNotEmpty() }),
                 listOf(ActionScreens.Action(localize("Log Out / Reset")) {
-                    p.clearConfiguration()
+                    if (!p.reset()) return@Action Notice.show(activity, localize("Syncing..."))
                     pendingFingerprint = null
                     folders.clear()
                     refresh()

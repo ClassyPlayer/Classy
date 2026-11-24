@@ -47,7 +47,8 @@ Folders you tick are what the player keeps. A folder you untick is removed from 
 - **Sync Now** lists the ticked folders, downloads new and changed files, and deletes the files of folders you
   unticked. A screen shows the folder or file that is in progress and the speed, and it can be cancelled.
 - Files go to `Music` on **Save To**: Internal, or the SD Card. **Move Synced Files** shows up when you change Save To
-  and moves the files already synced (nothing is downloaded again).
+  and moves the files already synced (nothing is downloaded again). Until you move them, a sync leaves them where they
+  are; only a file that changed on the server downloads to the new place, and its old copy is deleted.
 - When the sync downloaded or deleted files, the library scans again, so the songs show up.
 - **Parallel Downloads** (1 to 4): files that download at the same time. 1 is the gentlest for a weak Wi-Fi or NAS.
 - **Last Synced** shows the time of the last sync.
@@ -68,7 +69,12 @@ NAS**, and you choose: delete one, or Delete All. Your copy is kept until you do
 
 ### Log Out / Reset
 
-Forgets the address, login and certificate, and the ticked folders. The songs stay on the player.
+Forgets the address, login and certificate, and the ticked folders. The songs stay on the player: Classy forgets that
+it synced them, so no later sync deletes them. Delete them with a file manager if you do not want them.
+
+A **Server URL** of another server (another host, port, or `http`/`https`) does the same: no ticked folders, no
+certificate, and the songs of the old server stay. A sync of the same folders downloads them again over the old copies.
+Another path on the same server keeps everything.
 
 ### If something goes wrong
 
@@ -136,7 +142,8 @@ On a FAT card (the SD card), characters that FAT does not take (`< > : " | ? * \
 
 `https://` uses `PinningTrustManager(pin)`. With no pin, or another certificate, `checkServerTrusted` throws
 `CertNotTrusted(fingerprint)`. `findCertNotTrusted` finds it in the cause chain, `WebDavUiController.handleCert` keeps the
-fingerprint and shows it, and Trust Certificate saves it as the pin. Importing a config file with another URL clears the pin. `http://` is allowed and has no protection.
+fingerprint and shows it, and Trust Certificate saves it as the pin. A Server URL of another server clears the pin
+(`WebDavSyncProvider.changeUrl`, also for the config file). `http://` is allowed and has no protection.
 
 ### A sync (`WebDavSync.run`)
 
@@ -145,9 +152,11 @@ fingerprint and shows it, and Trust Certificate saves it as the pin. Importing a
    removed on the server); a 404 on a sub-folder skips only that sub-folder; another error stops the sync. A folder that did not list is **not** in `remote`, so its ledger
    items are left alone: a failed listing never means deleted.
 3. `SyncPlan.build(remote, ledger, ticked, dest, baseHref, safeNames, exists)` returns a `Plan`:
-   - **downloads**: a file that is not in the ledger, whose ledger path is not this target (the storage changed), whose
-     local file is gone, or whose `etag|lastModified` changed. A target is planned once: two names that share a FAT file
-     are not written at the same time.
+   - **downloads**: a file that is not in the ledger, whose local file is gone, or whose `etag|lastModified` changed. A
+     ledger path that is not this target also downloads, except the same file on the other storage (`otherRoot`, after
+     a Save To change): Move Synced Files moves that one. A download whose ledger path is another file has it in
+     `replaces`; the sync deletes that copy when the new one is complete, so no copy stays untracked. A target is
+     planned once: two names that share a FAT file are not written at the same time.
    - **unorphan**: a file that is back on the server.
    - **orphan**: a ledger item that is gone from the server but whose folder is ticked and was listed.
    - **remove**: a ledger item that no ticked folder covers any more (the user unticked it), unless the local file is
@@ -170,7 +179,9 @@ it stays in the ledger and goes in the next sync. After a delete it calls `prune
 folders above the file, up to the `Music` roots of both storages (`File.delete()` fails on a folder that has files, so
 nothing else is removed).
 
-`isRunning`, one single-thread executor and `launch` make sure there is only one sync at a time. `launch` holds a
+`isRunning`, one single-thread executor and `launch` make sure there is only one sync at a time. `forgetAll(change)`
+(Log Out / Reset, another server) takes the same lock, refuses while a sync runs, and empties the ledger: the files stay
+on the player, untracked. `launch` holds a
 partial wake lock and a Wi-Fi lock (`Classy:WebDavSync`) for the run; the wake lock has a 6 hour cap.
 
 ### Paths
@@ -206,7 +217,8 @@ The limit: no auto sync while the app process is not running. A `JobScheduler` w
 
 `WebDavUiController` builds three `ListSpec`s from a `WebDavLevel`: `Root` (settings), `Folders(href)` and `Orphans`.
 
-- Sub-folders load on demand, one `PROPFIND` for each, and are cached in `folders` (cleared on Log Out). A refresh of a
+- Sub-folders load on demand, one `PROPFIND` for each, and are cached in `folders` (cleared on Log Out and when the
+  Server URL changes). A refresh of a
   loaded folder keeps the old list on screen if it fails.
 - A folder row is `RowLook.CHOICE`. Center opens (`onClick`), Hold ticks (`onHold`, a long click through the list).
   A folder under a ticked parent shows ticked and has no `onHold`; a ticked folder is not under itself, so its own Hold

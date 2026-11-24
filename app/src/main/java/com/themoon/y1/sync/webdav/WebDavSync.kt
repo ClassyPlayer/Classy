@@ -112,6 +112,23 @@ class WebDavSync private constructor(context: Context) {
         cancelled = true
     }
 
+    /**
+     * Runs [change] (a reset, or another server) and forgets every synced file: the files stay on the player, but no
+     * later sync deletes them as the files of an unticked folder. False, and nothing changes, while a sync runs.
+     */
+    @Synchronized
+    fun forgetAll(change: () -> Unit): Boolean {
+        if (isRunning) return false
+        change()
+        synchronized(ledger) {
+            loadLedger()
+            for (href in ledger.getAllItems().keys) ledger.removeItem(href)
+            ledger.setLastSyncTime(0)
+            saveLedger()
+        }
+        return true
+    }
+
     private fun progress(l: Listener, text: String, done: Long, total: Long) = main.post { l.onProgress(text, done, total) }
 
     private fun checkCancel() {
