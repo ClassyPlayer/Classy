@@ -34,6 +34,7 @@ import com.themoon.y1.lists.ListSpec
 import com.themoon.y1.lists.RowLook
 import com.themoon.y1.lists.RowSpec
 import com.themoon.y1.navigation.ScreenState
+import com.themoon.y1.views.FocusLook
 import com.themoon.y1.views.ListItemViewFactory
 import com.themoon.y1.views.Notice
 import com.themoon.y1.views.RowGlyphs
@@ -97,30 +98,22 @@ class BluetoothController(
         }
     }
 
-    private fun updateScanButtonFocus(hasFocus: Boolean) {
-        if (hasFocus) {
-            btnScanBt.background = ListItemViewFactory.createFocusedButtonBackground(activity)
-            btnScanBt.setTextColor(ThemeManager.getListButtonFocusedTextColor())
-        } else {
-            btnScanBt.background = ListItemViewFactory.createButtonBackground(activity, ThemeManager.getListButtonNormalBg())
-            btnScanBt.setTextColor(ThemeManager.getTextColorPrimary())
-        }
+    /** The look of the Scan button, again for the theme of now. */
+    private fun updateScanButtonFocus() {
+        FocusLook.ofButton(btnScanBt).refresh()
         btnScanBt.typeface = ThemeManager.getCustomFontBold()
     }
 
     init {
         btnScanBt.isSoundEffectsEnabled = false
-        updateScanButtonFocus(btnScanBt.hasFocus())
-        btnScanBt.setOnFocusChangeListener { _, hasFocus ->
-            updateScanButtonFocus(hasFocus)
-        }
+        updateScanButtonFocus()
         BluetoothDiscoverableManager.init(activity)
         AudioOutputLossManager.init(activity)
     }
 
     override fun onEnter(state: ScreenState) {
         layoutBluetoothMode.visibility = View.VISIBLE
-        updateScanButtonFocus(btnScanBt.hasFocus())
+        updateScanButtonFocus()
         expanded.clear()
         startBluetoothScan(opens = true)
         BluetoothDiscoverableManager.listener = { updateDiscoverableValue() }
@@ -137,7 +130,7 @@ class BluetoothController(
     }
 
     override fun onRefreshUI() {
-        updateScanButtonFocus(btnScanBt.hasFocus())
+        updateScanButtonFocus()
         startBluetoothScan()
     }
 
@@ -286,11 +279,7 @@ class BluetoothController(
         }
         row.addView(time, 1)
         // The row changes the value colour when it gets or loses the focus: give the same colour to the time.
-        val rowFocusListener = row.onFocusChangeListener
-        row.setOnFocusChangeListener { v, hasFocus ->
-            rowFocusListener?.onFocusChange(v, hasFocus)
-            if (value != null) time.setTextColor(value.currentTextColor)
-        }
+        FocusLook.of(row).onFocus { if (value != null) time.setTextColor(value.currentTextColor) }
         discoverableValue = value
         discoverableTime = time
         discoverableShown = discoverable

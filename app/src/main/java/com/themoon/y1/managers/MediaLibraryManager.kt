@@ -317,7 +317,7 @@ class MediaLibraryManager private constructor() {
                 }
                 // Android 4.4 gives no year for an ID3v2.4 tag (TDRC), so read it from the file. After the retriever
                 // is released, so nothing here costs the file its other tags
-                if (y.isNullOrBlank() && lower.endsWith(".mp3")) y = Id3Year.read(f)
+                if (y.isNullOrBlank() && lower.endsWith(".mp3")) y = Id3.year(f)
             }
 
             if (!t.isNullOrBlank()) title = t
@@ -832,7 +832,7 @@ class MediaLibraryManager private constructor() {
          * Version of the library cache file (`"v"`). Increase it when the scan reads a new tag, and in
          * [parseLibraryCache] mark the cached files that have this tag as changed, so that the next scan reads them again.
          * Keep `tools/build_library_cache.py` at the same value.
-         * 1: no `"v"` key. 2: MOOD tags of FLAC, Ogg and Opus files. 3: year of MP3 files from ID3v2.3/2.4 (Id3Year).
+         * 1: no `"v"` key. 2: MOOD tags of FLAC, Ogg and Opus files. 3: year of MP3 files from ID3v2.3/2.4 (Id3.year).
          */
         internal const val CACHE_VERSION = 3
 

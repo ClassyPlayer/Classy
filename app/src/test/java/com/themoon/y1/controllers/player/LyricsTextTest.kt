@@ -1,5 +1,6 @@
 package com.themoon.y1.controllers.player
 
+import com.themoon.y1.managers.Id3
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -13,7 +14,7 @@ class LyricsTextTest {
         // "I've Been Lost" (You Can't Win, Charlie Brown) and "Star Wars" (John Williams) on the Y2:
         // USLT frame = encoding 3 (UTF-8), language "XXX", empty description, text = one NUL
         val frame = byteArrayOf(3, 'X'.code.toByte(), 'X'.code.toByte(), 'X'.code.toByte(), 0, 0)
-        val text = String(frame, 5, 1, Charsets.UTF_8).trim() // as extractEmbeddedLyrics reads it
+        val text = Id3.strings(frame, skip = 3, limit = 2)[1] // as Id3.lyrics reads it
         assertEquals("\u0000", text)
         assertNull(LyricsText.plain(text))
     }

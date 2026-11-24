@@ -18,6 +18,7 @@ import com.themoon.y1.lists.RowLook
 import com.themoon.y1.lists.RowSpec
 import com.themoon.y1.managers.RadioSwitch
 import com.themoon.y1.navigation.ScreenState
+import com.themoon.y1.views.FocusLook
 import com.themoon.y1.views.ListItemViewFactory
 import com.themoon.y1.views.Notice
 import com.themoon.y1.views.RowGlyphs
@@ -43,28 +44,20 @@ class WifiController(
     /** The results of the last scan. */
     private var scan: List<ScanResult> = emptyList()
 
-    private fun updateScanButtonFocus(hasFocus: Boolean) {
-        if (hasFocus) {
-            btnScanWifi.background = ListItemViewFactory.createFocusedButtonBackground(activity)
-            btnScanWifi.setTextColor(ThemeManager.getListButtonFocusedTextColor())
-        } else {
-            btnScanWifi.background = ListItemViewFactory.createButtonBackground(activity, ThemeManager.getListButtonNormalBg())
-            btnScanWifi.setTextColor(ThemeManager.getTextColorPrimary())
-        }
+    /** The look of the Scan button, again for the theme of now. */
+    private fun updateScanButtonFocus() {
+        FocusLook.ofButton(btnScanWifi).refresh()
         btnScanWifi.typeface = ThemeManager.getCustomFontBold()
     }
 
     init {
         btnScanWifi.isSoundEffectsEnabled = false
-        updateScanButtonFocus(btnScanWifi.hasFocus())
-        btnScanWifi.setOnFocusChangeListener { _, hasFocus ->
-            updateScanButtonFocus(hasFocus)
-        }
+        updateScanButtonFocus()
     }
 
     override fun onEnter(state: ScreenState) {
         layoutWifiMode.visibility = View.VISIBLE
-        updateScanButtonFocus(btnScanWifi.hasFocus())
+        updateScanButtonFocus()
         startWifiScan()
     }
 
@@ -73,7 +66,7 @@ class WifiController(
     }
 
     override fun onRefreshUI() {
-        updateScanButtonFocus(btnScanWifi.hasFocus())
+        updateScanButtonFocus()
         startWifiScan()
     }
 

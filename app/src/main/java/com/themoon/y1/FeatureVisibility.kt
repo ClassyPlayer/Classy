@@ -25,8 +25,8 @@ object FeatureVisibility {
         if (context == null) return false
         return try {
             val prefs = context.getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
-            val ids = MainMenuItems.ITEMS.filter { it.action.equals(action, ignoreCase = true) }.map { it.id }
-            isHidden(ids) { prefs.getBoolean(Prefs.MAIN_MENU_HIDDEN.key(it), false) }
+            val ids = MainMenuItems.items.filter { it.action.equals(action, ignoreCase = true) }.map { it.id }
+            isHidden(ids) { MainMenuItems.isHidden(prefs, it) }
         } catch (e: Exception) {
             false
         }

@@ -1,17 +1,14 @@
 package com.themoon.y1.controllers.settings
 
 import com.themoon.y1.lists.ListScreen
-import com.themoon.y1.navigation.RowFocus
 import android.app.Activity
 import android.content.Context
-import android.graphics.Typeface
 import android.provider.Settings
 import android.view.Gravity
 import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
-import android.widget.ScrollView
 import android.widget.TextView
 import com.themoon.y1.Prefs
 import com.themoon.y1.battery.BatteryUsageView
@@ -22,9 +19,10 @@ import com.themoon.y1.changeTheme
 import com.themoon.y1.FeatureVisibility
 import com.themoon.y1.ThemeManager
 import com.themoon.y1.controllers.ScreenController
-import com.themoon.y1.controllers.browser.MusicMenuItems
 import com.themoon.y1.controllers.menu.MainMenuItems
-import com.themoon.y1.controllers.menu.MenuOrder
+import com.themoon.y1.controllers.menu.MenuItem
+import com.themoon.y1.controllers.menu.MenuItems
+import com.themoon.y1.controllers.menu.MusicMenuItems
 import com.themoon.y1.managers.AudioEffectManager
 import com.themoon.y1.managers.AudioPlayerManager
 import com.themoon.y1.managers.AutoThemeManager
@@ -40,6 +38,7 @@ import com.themoon.y1.managers.UpdateChannel
 import com.themoon.y1.managers.UsbDrive
 import com.themoon.y1.lists.Focus
 import com.themoon.y1.lists.ListSpec
+import com.themoon.y1.lists.Pane
 import com.themoon.y1.lists.RowLook
 import com.themoon.y1.lists.RowSpec
 import com.themoon.y1.models.AlbumKey
@@ -68,8 +67,6 @@ class SettingsController(
     private val activity: Activity,
     override val rootView: ViewGroup,
     private val eqPresetNames: List<String>,
-    private val createSettingRow: (title: String, value: String) -> LinearLayout,
-    private val createTablerListButton: (icon: Array<String>?, text: String, normalColor: Int, focusedColor: Int) -> View,
     private val clickFeedback: () -> Unit,
     private val onNavigateBack: () -> Unit,
     private val onNavigateToScreen: (Int) -> Unit,
@@ -82,21 +79,30 @@ class SettingsController(
     private val applyAlbumTiltSetting: () -> Unit,
     private val setShuffle: (Boolean) -> Unit,
     private val setRepeatMode: (Int) -> Unit,
-    private val localize: (String) -> String
+    private val localize: (String) -> String,
+    /** Puts the art into the cover pane of the top level (each time it shows). */
+    onShowPane: () -> Unit
 ) : ScreenController {
 
     private val containerSettingsItems: LinearLayout = rootView.findViewById(R.id.container_settings_items)
     private val prefs = activity.getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
     private val mainActivity: MainActivity? get() = activity as? MainActivity
     private val screen = ListScreen(containerSettingsItems, clickFeedback = clickFeedback)
+
+    /** The cover pane at the right of the top level, as in the main menu and Music. The group pages are full width. */
+    private val pane = Pane(
+        activity, rootView.findViewById(R.id.layout_settings_list_pane), rootView.findViewById(R.id.frame_settings_cover),
+        rootView.findViewById(R.id.iv_settings_cover), onShowPane
+    )
+
+    /** True while the top level shows with its cover pane. */
+    val isPaneShown: Boolean get() = isUiActive && pane.isShown
     private val rows = SettingRows(prefs, localize) { refresh() }
 
     private var isUiActive = false
     /** The open action screen (Power, or a screen in place of a dialog: ActionScreen.kt), or null. Back goes to the screen before it. */
     private var actionPage: SettingsSubMode? = null
     private val isActionScreen: Boolean get() = actionPage != null
-    /** The status bar title of the list that shows. */
-    private var shownTitle: String? = null
 
     // The values of the Date & Time rows (Year...Minute): read from the clock when Date & Time opens and after a change
     var dtYear: Int = 2026
@@ -104,11 +110,6 @@ class SettingsController(
     var dtDay: Int = 1
     var dtHour: Int = 0
     var dtMinute: Int = 0
-
-    // Reorder state for main menu visibility
-    var isMenuReorderMode: Boolean = false
-    private var currentReorderRow: View? = null
-    private var materialIconFont: Typeface? = null
 
     companion object {
         /** The page of Settings → Battery. */
@@ -160,11 +161,11 @@ class SettingsController(
         SettingsGroup("Playback", listOf(
             toggle("Shuffle", { Prefs.SHUFFLE.get(prefs) }, setShuffle),
             cycle("Repeat", { Prefs.REPEAT_MODE.get(prefs).let { if (it in 0..2) it else 0 } }, setRepeatMode, arrayOf("Off", "One", "All")),
-            action("EQ", { eqName() + " 〉" }) { onOpenEqualizer() },
+            action("EQ", { eqName() }, opens = true) { onOpenEqualizer() },
             toggle("Sound Check", Prefs.SOUND_CHECK) { AudioEffectManager.getInstance().applySoundCheck() },
             // Left and right mixed on both channels, for one earbud
             toggle("Mono Audio", Prefs.MONO_AUDIO) { AudioEffectManager.getInstance().applyAudioEffects() },
-            choice("Volume Limit", { volumeLimitText() + " 〉" }) { openPage("VolumeLimit") },
+            action("Volume Limit", { volumeLimitText() }, opens = true) { openPage("VolumeLimit") },
             cycle("Playback Speed", { speedIndex() }, { setSpeed(it) }, SPEED_LABELS),
         )),
         SettingsGroup("Display", listOf(
@@ -197,7 +198,7 @@ class SettingsController(
             },
         )),
         SettingsGroup("Appearance", listOf(
-            choice("Theme", { AutoThemeManager.settingsRowValue(prefs, localize) }) { openPage("Theme") },
+            action("Theme", { AutoThemeManager.settingsRowValue(prefs, localize) }, opens = true) { openPage("Theme") },
             toggle("Toggle Style", { ToggleStyle.isSwitch(activity) }, { ToggleStyle.setSwitch(activity, it) }, { ToggleStyle.label(it, localize) }),
             toggle("List Edges", { ListEdges.isFade(activity) }, { ListEdges.setFade(activity, it) }, { localize(if (it) "Fade" else "Cut") }),
             // Slow pan and zoom of the art in the split screens (main menu, Music, Audiobooks, Videos), as on the iPod
@@ -205,8 +206,8 @@ class SettingsController(
             toggle("Fill Video Screen", Prefs.VIDEO_FILL),
         )),
         SettingsGroup("Menus", listOf(
-            action("Main Menu Items", { localize("Edit") + " 〉" }) { openPage("MainMenuItems") },
-            action("Music Menu Items", { localize("Edit") + " 〉" }) { openPage("MusicMenuItems") },
+            action("Main Menu Items", { localize("Edit") }, opens = true) { openPage("MainMenuItems") },
+            action("Music Menu Items", { localize("Edit") }, opens = true) { openPage("MusicMenuItems") },
             toggle("Group Albums", Prefs.GROUP_ALBUMS_BY_ARTIST, { localize(if (it) "By Title and Artist" else "By Title") }) {
                 applyAlbumGrouping()
             },
@@ -244,7 +245,7 @@ class SettingsController(
             action("Wi-Fi") { onNavigateToScreen(MainActivity.STATE_WIFI) },
             action("Web Server") { onNavigateToScreen(MainActivity.STATE_WEBSERVER) },
             // What a cable plug to a computer does with the microSD card: the question, a USB drive at once, or nothing
-            choice("USB Drive", { localize(UsbDrive.LABELS[usbDrive()]) }) { openPage("UsbDrive") },
+            action("USB Drive", { localize(UsbDrive.LABELS[usbDrive()]) }, opens = true) { openPage("UsbDrive") },
             // Only while a computer is connected (without a card, the share gives the notice No microSD card.)
             action("Use as USB Drive", visible = { mainActivity?.usbStorageManager?.isComputerConnected == true }) {
                 mainActivity?.startUsbStorage()
@@ -253,7 +254,7 @@ class SettingsController(
         // Battery level, charging, screen on and screen off playing of the last 24 hours or 10 days (BatteryUsageView):
         // on the top level, as Settings → Battery of iOS and macOS (macOS: after the connections)
         SettingsGroup("Battery", listOf(
-            action("Battery", { "〉" }) { openPage(BATTERY_USAGE) },
+            action("Battery") { openPage(BATTERY_USAGE) },
         ), direct = true),
         SettingsGroup("Library", listOf(
             toggle("Audiobook Series Cover Flow", Prefs.AUDIOBOOK_SERIES_COVER_FLOW),
@@ -264,20 +265,20 @@ class SettingsController(
                     localize("Clear")
                 ) { onClearCacheConfirmed() })
             },
-            action("Jellyfin Sync", { JellyfinSyncProvider.getInstance(activity).getStatusSummary() }) { onOpenJellyfin() },
+            action("Jellyfin Sync", { JellyfinSyncProvider.getInstance(activity).getStatusSummary() }, opens = true) { onOpenJellyfin() },
             toggle("Sync Scrobbles to Last.fm", { scrobbler().isEnabled() }, { scrobbler().setEnabled(it) }),
-            action("Last.fm Account", { lastFmAccountText() }) { openLastFmAccount() },
+            action("Last.fm Account", { lastFmAccountText() }, opens = true) { openLastFmAccount() },
         )),
         SettingsGroup("Date & Time", listOf(
-            action("Date & Time", { "〉" }) {
+            action("Date & Time") {
                 readClock()
                 openPage("DateTime")
             },
         ), direct = true),
         SettingsGroup("General", listOf(
             action("About") { onNavigateToScreen(MainActivity.STATE_STORAGE) },
-            choice("Language", { LanguageManager.getInstance(activity).currentLangFileName.replace(".json", "") }) { openPage("Language") },
-            action("System Update", { "v" + versionName() }) { openPage("Update") },
+            action("Language", { LanguageManager.getInstance(activity).currentLangFileName.replace(".json", "") }, opens = true) { openPage("Language") },
+            action("System Update", { "v" + versionName() }, opens = true) { openPage("Update") },
             action("Legal") { openPage("Legal") },
             action("Export Settings") { SettingsBackupUi.exportSettings(activity, localize) },
             action("Import Settings") { SettingsBackupUi.confirmImport(activity, localize) },
@@ -298,20 +299,14 @@ class SettingsController(
 
     /** Builds the list of [state]: when it opens going down, and when Back comes back to it (NavigationManager). */
     override fun onEnter(state: ScreenState) {
-        endMenuReorder()
         page = (state as? ScreenState.Settings)?.subMode ?: SettingsSubMode.Root
         isUiActive = true
         actionPage = null
         when (val shown = page) {
             is SettingsSubMode.Power -> buildPowerUI()
             is SettingsSubMode.Action -> buildActionUI(shown, ActionScreens.spec(shown.key))
-            else -> show(pageSpec(shown))
+            else -> screen.show(pageSpec(shown))
         }
-    }
-
-    private fun show(spec: ListSpec) {
-        shownTitle = spec.title
-        screen.show(spec)
     }
 
     /** The list of a route key. A key that this build has no list for (an old group) shows the top level. */
@@ -342,20 +337,21 @@ class SettingsController(
         return topLevelSpec()
     }
 
-    /** The top level: one row for each group that has rows in this build (a direct group: its row itself). */
+    /**
+     * The top level: one menu row for each group that has rows in this build (a direct group: the row that opens its
+     * screen), with the cover pane, as the main menu.
+     */
     private fun topLevelSpec(): ListSpec = ListSpec(localize("Settings"), groups.filter { it.rows.isNotEmpty() }.map { group ->
-        if (group.direct) group.rows.first().make()
-        else RowSpec(localize(group.title), RowLook.VALUE, value = SettingRows.CHEVRON, onClick = {
+        if (group.direct) group.rows.first().make().let { RowSpec(it.label, onClick = it.onClick) }
+        else RowSpec(localize(group.title), onClick = {
             mainActivity?.changeScreen(ScreenState.Settings(SettingsSubMode.Group(group.title)))
         })
-    })
+    }, pane = pane)
 
     /** A value changed: the list that shows is made again, and the selected row stays. */
     private fun refresh() {
         if (!isUiActive || isActionScreen) return
-        val spec = pageSpec(page)
-        shownTitle = spec.title
-        screen.update(spec)
+        screen.update(pageSpec(page))
     }
 
     /** Opens the screen of a row. When it is the list under this one (a value was chosen), Back goes to it. */
@@ -365,10 +361,13 @@ class SettingsController(
         if (nav.previousState() == state) nav.popBackStack() else mainActivity?.changeScreen(state)
     }
 
-    override fun title(): String? = shownTitle
+    override fun title(): String? = screen.title
 
     override fun onExit() {
-        endMenuReorder()
+        // A picked-up row of Main Menu Items or Music Menu Items goes down, and the order is saved
+        screen.drop()
+        // The Settings layout is also the screen of Equalizer, FM Radio and Jellyfin: full width for them
+        pane.hide()
         isUiActive = false
         actionPage = null
         containerSettingsItems.isFocusable = false
@@ -395,75 +394,18 @@ class SettingsController(
             ActionScreens.cancel((actionPage as? SettingsSubMode.Action)?.let { ActionScreens.spec(it.key) }) { onNavigateBack() }
             return true
         }
-        if (isMenuReorderMode) {
-            toggleMenuReorderMode()
-            return true
-        }
+        if (screen.drop()) return true
         onNavigateBack()
         return true
     }
 
-    private val isMainMenuItems: Boolean get() = page == SettingsSubMode.Page("MainMenuItems")
-
     override fun onWheel(delta: Int, event: KeyEvent): Boolean {
-        if (isMainMenuItems && isMenuReorderMode && currentReorderRow != null) {
-            val idx = containerSettingsItems.indexOfChild(currentReorderRow)
-            if (delta < 0) {
-                if (idx > 0) {
-                    containerSettingsItems.removeViewAt(idx)
-                    containerSettingsItems.addView(currentReorderRow, idx - 1)
-                    currentReorderRow?.requestFocus()
-                    clickFeedback()
-                    val p = containerSettingsItems.parent
-                    if (p is ScrollView) {
-                        p.requestChildFocus(containerSettingsItems, currentReorderRow)
-                    }
-                }
-            } else {
-                if (idx < containerSettingsItems.childCount - 1) {
-                    containerSettingsItems.removeViewAt(idx)
-                    containerSettingsItems.addView(currentReorderRow, idx + 1)
-                    currentReorderRow?.requestFocus()
-                    clickFeedback()
-                    val p = containerSettingsItems.parent
-                    if (p is ScrollView) {
-                        p.requestChildFocus(containerSettingsItems, currentReorderRow)
-                    }
-                }
-            }
-            return true
-        }
-
         if (page == SettingsSubMode.Page(BATTERY_USAGE)) {
             // The wheel changes the range: down = Last 10 Days, up = Last 24 Hours
             if (batteryUsageView?.step(delta) == true) clickFeedback()
             return true
         }
-        RowFocus.step(containerSettingsItems, delta) ?: return false
-        clickFeedback()
-        return true
-    }
-
-    override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
-        if (isMenuReorderMode && (keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER) &&
-            (event.flags and KeyEvent.FLAG_CANCELED_LONG_PRESS) == 0
-        ) {
-            toggleMenuReorderMode()
-            clickFeedback()
-            return true
-        }
-        return false
-    }
-
-    override fun onKeyLongPress(keyCode: Int, event: KeyEvent): Boolean {
-        if (isMainMenuItems && (keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER)) {
-            if (!isMenuReorderMode) {
-                toggleMenuReorderMode()
-                clickFeedback()
-            }
-            return true
-        }
-        return false
+        return screen.wheel(delta, event.eventTime)
     }
 
     // --- Values and effects of the rows ---
@@ -577,7 +519,6 @@ class SettingsController(
         }
         val list = ActionScreens.list(spec) { onNavigateBack() }
         if (again) screen.update(list) else screen.show(list)
-        shownTitle = spec.title
         mainActivity?.tvStatusBarTitle?.text = spec.title
     }
 
@@ -663,11 +604,12 @@ class SettingsController(
             mainActivity?.onClockSettingsChanged()
             refresh()
         })
-        list += RowSpec(localize("Time Zone"), RowLook.VALUE, value = timeZoneCityName(TimeZone.getDefault().id), onClick = { openPage("TimeZone") })
+        list += RowSpec(localize("Time Zone"), RowLook.VALUE, value = timeZoneCityName(TimeZone.getDefault().id), opens = true,
+            onClick = { openPage("TimeZone") })
         for ((type, label) in listOf("Year" to "Year", "Month" to "Month", "Day" to "Day", "Hour" to "Hour (24H)", "Minute" to "Minute")) {
             val value = dateTimeValue(type)
             list += RowSpec(localize(label), RowLook.VALUE, value = if (type == "Year") value.toString() else twoDigits(value),
-                onClick = { openPage("DateTime", type) })
+                opens = true, onClick = { openPage("DateTime", type) })
         }
         list += syncTimeRow()
         return ListSpec(localize("Date & Time"), list)
@@ -826,12 +768,11 @@ class SettingsController(
         // Made in a vertical list, as in the Settings list: the full width
         val divider = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
             .also { ListItemViewFactory.createCategoryHeader(activity, it, "━━━━━━━━━━━━━━") }.getChildAt(0)
-        val check = createTablerListButton(TablerIcons.REFRESH, localize("Check for Updates"),
-            ThemeManager.getTextColorPrimary(), ThemeManager.getListButtonFocusedTextColor())
+        val check = ListItemViewFactory.createTablerListButton(activity, TablerIcons.REFRESH, localize("Check for Updates"))
         return ListSpec(localize("System Update"), listOf(
             RowSpec(localize("Current Version"), RowLook.VALUE, value = if (version.startsWith("v")) version else "v$version"),
             RowSpec(localize("Update Channel"), RowLook.VALUE, value = localize(UpdateChannel.label(updateChannel())),
-                onClick = { openPage("UpdateChannel") }),
+                opens = true, onClick = { openPage("UpdateChannel") }),
             RowSpec("divider", RowLook.CUSTOM, view = divider),
             RowSpec(localize("Check for Updates"), RowLook.CUSTOM, view = check, checked = true, onClick = { onOpenUpdateCheck() })
         ), focus = Focus.CHECKED)
@@ -887,141 +828,29 @@ class SettingsController(
 
     // --- Main Menu Items and Music Menu Items ---
 
-    private fun mainMenuItemsSpec(): ListSpec = ListSpec(localize("Main Menu Items"), MainMenuItems.ordered(prefs).map { item ->
-        val key = Prefs.MAIN_MENU_HIDDEN.key(item.id)
-        val row = visibilityRow(item.label, { prefs.getBoolean(key, false) }, reorderable = true) { hidden ->
-            prefs.edit().putBoolean(key, hidden).commit()
-            FeatureVisibility.onMenuButtonToggled(activity, item.action, hidden)
-        }
-        row.tag = item.id
-        RowSpec(item.label, RowLook.CUSTOM, view = row)
-    })
+    private fun mainMenuItemsSpec(): ListSpec = menuItemsSpec("Main Menu Items", MainMenuItems) { item, hidden ->
+        FeatureVisibility.onMenuButtonToggled(activity, item.action, hidden)
+    }
 
-    private fun musicMenuItemsSpec(): ListSpec = ListSpec(localize("Music Menu Items"), MusicMenuItems.ITEMS.map { item ->
-        val label = localize(item.label)
-        val row = visibilityRow(label, { MusicMenuItems.isHidden(prefs, item.id) }, reorderable = false) { hidden ->
-            prefs.edit().putBoolean(Prefs.MUSIC_MENU_HIDDEN.key(item.id), hidden).commit()
-        }
-        RowSpec(label, RowLook.CUSTOM, view = row)
-    })
+    private fun musicMenuItemsSpec(): ListSpec = menuItemsSpec("Music Menu Items", MusicMenuItems)
 
     /**
-     * A row of Main Menu Items or Music Menu Items: an eye (shown) or a cross (hidden) on the right; a push changes it.
-     * [reorderable] (Main Menu Items): a hold starts the reorder, and the eye keeps the row colour until the row
-     * was selected once (as before: Music Menu Items colours it at once).
+     * Main Menu Items or Music Menu Items: the items of [menu] in their order. A push shows or hides an item (an eye or a
+     * cross on the right); a hold picks it up, the wheel moves it, and a push or Back puts it down ([ListSpec.reorder]).
      */
-    private fun visibilityRow(label: String, isHidden: () -> Boolean, reorderable: Boolean, setHidden: (Boolean) -> Unit): View {
-        if (materialIconFont == null) {
-            try {
-                materialIconFont = Typeface.createFromAsset(activity.assets, "fonts/MaterialIcons-Regular.ttf")
-            } catch (_: Exception) {}
-        }
-        fun icon(hidden: Boolean) = if (hidden) "" else ""
-        val row = createSettingRow(label, icon(isHidden()))
-        row.isFocusable = true
-        val tvRight = row.getChildAt(1) as? TextView
-        if (materialIconFont != null) {
-            tvRight?.typeface = materialIconFont
-            tvRight?.textSize = 22f
-            tvRight?.let { centreIconInRow(it) }
-        }
-        fun colourIcon(hidden: Boolean, focused: Boolean = row.hasFocus()) {
-            tvRight?.setTextColor(when {
-                focused -> ThemeManager.getListButtonFocusedTextColor()
-                hidden -> ThemeManager.getTextColorSecondary()
-                else -> ThemeManager.getTextColorPrimary()
+    private fun menuItemsSpec(title: String, menu: MenuItems, onHiddenChanged: (MenuItem, Boolean) -> Unit = { _, _ -> }): ListSpec =
+        ListSpec(localize(title), menu.ordered(prefs).map { item ->
+            val label = localize(item.label)
+            RowSpec(label, RowLook.SHOWN, checked = !menu.isHidden(prefs, item.id), key = item.id, onClick = {
+                val hidden = !menu.isHidden(prefs, item.id)
+                menu.setHidden(prefs, item.id, hidden)
+                onHiddenChanged(item, hidden)
+                refresh()
             })
-        }
-        if (!reorderable) colourIcon(isHidden())
-        // Keep the row highlight of createSettingRow: this listener replaces its listener.
-        val rowHighlight = row.onFocusChangeListener
-        row.setOnFocusChangeListener { v, hasFocus ->
-            if (reorderable && isMenuReorderMode) return@setOnFocusChangeListener
-            rowHighlight?.onFocusChange(v, hasFocus)
-            colourIcon(isHidden(), hasFocus)
-        }
-        if (reorderable) {
-            row.setOnLongClickListener {
-                clickFeedback()
-                if (!isMenuReorderMode) toggleMenuReorderMode()
-                true
-            }
-        }
-        row.setOnClickListener {
-            clickFeedback()
-            if (reorderable && isMenuReorderMode) {
-                toggleMenuReorderMode()
-                return@setOnClickListener
-            }
-            val hidden = !isHidden()
-            setHidden(hidden)
-            tvRight?.text = icon(hidden)
-            colourIcon(hidden)
-        }
-        return row
-    }
-
-    /**
-     * The icon glyphs fill the em box of the icon font (no descent), so a box of one line without font
-     * padding, centred in the row, centres the icons. A list style can have set a top padding for text.
-     */
-    private fun centreIconInRow(tv: TextView) {
-        tv.includeFontPadding = false
-        tv.gravity = Gravity.CENTER_VERTICAL
-        tv.setPadding(tv.paddingLeft, 0, tv.paddingRight, 0)
-        (tv.layoutParams as? LinearLayout.LayoutParams)?.let {
-            it.height = ViewGroup.LayoutParams.WRAP_CONTENT
-            it.gravity = Gravity.CENTER_VERTICAL
-            tv.layoutParams = it
-        }
-    }
-
-    /**
-     * New rows replace the Main Menu Items rows (another page, Power, a theme change): end the reorder and save
-     * the order first. Later, the moved row is not in the list, and a save would read the rows of the other page.
-     */
-    private fun endMenuReorder() {
-        if (isMenuReorderMode) toggleMenuReorderMode()
-    }
-
-    fun toggleMenuReorderMode() {
-        // Material icon "swap_vert", from the same font as the eye icon. The font has no "↕" (and no space),
-        // so a fallback glyph sat on the icon baseline, below the row centre.
-        val reorderMark = ""
-        if (!isMenuReorderMode) {
-            val focused = activity.currentFocus
-            if (focused != null && focused.parent == containerSettingsItems) {
-                isMenuReorderMode = true
-                currentReorderRow = focused
-                currentReorderRow?.setBackgroundColor(0xFFD32F2F.toInt())
-                val tvRight = (currentReorderRow as? LinearLayout)?.getChildAt(1) as? TextView
-                val currentIcon = tvRight?.text?.toString()?.replace(reorderMark, "") ?: ""
-                tvRight?.text = currentIcon + reorderMark
-                tvRight?.setTextColor(0xFFFFFFFF.toInt())
-            }
-        } else {
-            isMenuReorderMode = false
-            if (currentReorderRow != null) {
-                // Replace the red reorder background with the normal row highlight.
-                currentReorderRow?.let { it.onFocusChangeListener?.onFocusChange(it, it.hasFocus()) }
-                val tvRight = (currentReorderRow as? LinearLayout)?.getChildAt(1) as? TextView
-                val currentIcon = tvRight?.text?.toString()?.replace(reorderMark, "") ?: ""
-                tvRight?.text = currentIcon
-                tvRight?.setTextColor(ThemeManager.getListButtonFocusedTextColor())
-                currentReorderRow = null
-            }
-            val sb = StringBuilder()
-            for (i in 0 until containerSettingsItems.childCount) {
-                val child = containerSettingsItems.getChildAt(i)
-                val tagStr = child.tag as? String
-                if (!tagStr.isNullOrEmpty()) {
-                    sb.append(tagStr).append(",")
-                }
-            }
-            MenuOrder.save(prefs, sb.toString())
+        }, reorder = { ids ->
+            menu.saveOrder(prefs, ids)
             Notice.show(activity, localize("Menu order saved!"))
-        }
-    }
+        })
 
     /** Reads Group Albums and rebuilds the album lists, so the next Albums or Cover Flow screen uses it. */
     private fun applyAlbumGrouping() {

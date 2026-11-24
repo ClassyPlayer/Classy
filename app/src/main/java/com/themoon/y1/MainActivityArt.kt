@@ -331,12 +331,6 @@ internal fun MainActivity.applyThemeInternal() {
         updateStatusBarPlayOn()
 
         try {
-            (layoutSettingsMode as? android.view.ViewGroup)?.let { vg ->
-                (vg.getChildAt(0) as? android.widget.TextView)?.apply {
-                    text = t("Settings")
-                    setTextColor(primary)
-                }
-            }
             (layoutBluetoothMode as? android.view.ViewGroup)?.let { vg ->
                 (vg.getChildAt(0) as? android.widget.TextView)?.apply {
                     text = t("Bluetooth")
@@ -373,28 +367,10 @@ internal fun MainActivity.applyThemeInternal() {
             }
         } catch (_: Exception) {}
 
-        val btnScanBt = findViewById<android.widget.Button>(R.id.btn_scan_bt)
-        if (btnScanBt != null) {
-            if (btnScanBt.hasFocus()) {
-                btnScanBt.background = createFocusedButtonBackground()
-                btnScanBt.setTextColor(ThemeManager.getListButtonFocusedTextColor())
-            } else {
-                btnScanBt.background = createButtonBackground(ThemeManager.getListButtonNormalBg())
-                btnScanBt.setTextColor(primary)
-            }
-            btnScanBt.typeface = ThemeManager.getCustomFontBold()
-        }
-
-        val btnScanWifi = findViewById<android.widget.Button>(R.id.btn_scan_wifi)
-        if (btnScanWifi != null) {
-            if (btnScanWifi.hasFocus()) {
-                btnScanWifi.background = createFocusedButtonBackground()
-                btnScanWifi.setTextColor(ThemeManager.getListButtonFocusedTextColor())
-            } else {
-                btnScanWifi.background = createButtonBackground(ThemeManager.getListButtonNormalBg())
-                btnScanWifi.setTextColor(primary)
-            }
-            btnScanWifi.typeface = ThemeManager.getCustomFontBold()
+        for (id in intArrayOf(R.id.btn_scan_bt, R.id.btn_scan_wifi)) {
+            val scan = findViewById<android.widget.Button>(id) ?: continue
+            com.themoon.y1.views.FocusLook.ofButton(scan).refresh()
+            scan.typeface = ThemeManager.getCustomFontBold()
         }
 
         val btnServerToggle = findViewById<android.widget.Button>(R.id.btn_server_toggle)

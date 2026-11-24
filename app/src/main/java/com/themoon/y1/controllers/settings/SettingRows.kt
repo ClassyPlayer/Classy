@@ -75,22 +75,20 @@ class SettingRows(
             })
     }
 
-    /** A row that opens the list of its values ([valueList]): the chosen value shows on the right. */
-    fun choice(label: String, value: () -> String, open: () -> Unit): SettingRow =
-        SettingRow(label) { RowSpec(localize(label), RowLook.VALUE, value = value(), onClick = open) }
-
     /**
-     * A row that opens a screen (the chevron) or does an action. [value]: a status on the right in place of the chevron.
-     * [visible]: false hides the row.
+     * A row that opens a screen (also the list of its values, [valueList]) or does an action. With no [value], the
+     * arrow shows on the selected row; [value]: a status or the chosen value on the right, with the arrow after it when
+     * [opens]. [visible]: false hides the row.
      */
     fun action(
-        label: String, value: () -> String = { CHEVRON }, enabled: () -> Boolean = { true }, visible: () -> Boolean = { true },
-        run: () -> Unit
-    ): SettingRow =
-        SettingRow(label, visible) { RowSpec(localize(label), RowLook.VALUE, value = value(), enabled = enabled(), onClick = run) }
+        label: String, value: (() -> String)? = null, opens: Boolean = value == null, enabled: () -> Boolean = { true },
+        visible: () -> Boolean = { true }, run: () -> Unit
+    ): SettingRow = SettingRow(label, visible) {
+        RowSpec(localize(label), RowLook.VALUE, value = value?.invoke().orEmpty(), opens = opens, enabled = enabled(), onClick = run)
+    }
 
     /**
-     * The list of a [choice] row: one row for each value, and it opens at the chosen value (the iPod rule for a value list).
+     * The list that a value row opens ([action] with [opens]): one row for each value, and it opens at the chosen value (the iPod rule for a value list).
      * The rows are tick rows, or the views of [view] (the centred numbers of Volume Limit and Date & Time).
      */
     fun valueList(title: String, values: List<SettingValue>, focus: Focus = Focus.CHECKED, view: ((String) -> View)? = null): ListSpec =
@@ -98,9 +96,4 @@ class SettingRows(
             if (view == null) RowSpec(v.label, RowLook.CHOICE, checked = v.checked, onClick = v.choose)
             else RowSpec(v.label, RowLook.CUSTOM, checked = v.checked, view = view(v.label), onClick = v.choose)
         }, focus = focus)
-
-    companion object {
-        /** The value of a row that opens a screen: a chevron (ChevronView). */
-        const val CHEVRON = "〉 "
-    }
 }

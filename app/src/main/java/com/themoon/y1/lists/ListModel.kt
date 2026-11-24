@@ -22,6 +22,9 @@ enum class RowLook {
     /** Tick column, label and status glyphs on the right (Wi-Fi networks, Bluetooth devices). */
     CHOICE,
 
+    /** Label and an eye on the right; a grey cross when [RowSpec.checked] is false (the hidden items of a menu editor). */
+    SHOWN,
+
     /**
      * Cover art (or a thumbnail), a title and a second line ([RowSpec.value]); the chevron on the focused row
      * ([ArtRow]: album rows, videos).
@@ -47,6 +50,8 @@ class RowSpec(
     val look: RowLook = RowLook.MENU,
     /** [RowLook.VALUE]: the value on the right. [RowLook.ART]: the second line (none when empty). */
     val value: String = "",
+    /** [RowLook.VALUE]: the row opens a page; the arrow shows after the value on the selected row. */
+    val opens: Boolean = false,
     val checked: Boolean = false,
     val glyphs: List<RowGlyphs.Slot> = emptyList(),
     /** Text colour of a [RowLook.MENU] row; 0 = the theme colour. */
@@ -100,7 +105,12 @@ class ListSpec(
      * An A–Z list: a fast wheel turn starts the iPod letter jump ([com.themoon.y1.navigation.LetterJump]). Rows give
      * their letter by their label; an [adapter] gives it with [RowTexts]. Rows that are not in A–Z order step one by one.
      */
-    val letters: Boolean = false
+    val letters: Boolean = false,
+    /**
+     * The rows can change their order (a short list only): a hold on a row picks it up, the wheel moves it, and a push
+     * or Back puts it down. Then [reorder] gets the keys of the rows in the new order.
+     */
+    val reorder: ((List<String>) -> Unit)? = null
 ) {
     val isLong: Boolean get() = adapter != null && adapter.count > 0
 }

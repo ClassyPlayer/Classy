@@ -1,6 +1,6 @@
 package com.themoon.y1.migrations
 
-import com.themoon.y1.controllers.menu.MenuOrder
+import com.themoon.y1.Prefs
 
 /**
  * Migration 008: the main menu has a new row *Play On* (after *Wi-Fi*). A saved order (Settings → Menus → Main
@@ -20,9 +20,9 @@ class Migration008PlayOnMenuItem : Migration {
     @Throws(Exception::class)
     override fun migrate(context: MigrationContext) {
         val prefs = context.settingsPrefs ?: return
-        val order = prefs.getString(MenuOrder.KEY, null) ?: return
+        val order = Prefs.MENU_ORDER.get(prefs)
         val updated = withPlayOn(order)
-        if (updated != order) MenuOrder.save(prefs, updated)
+        if (updated != order) Prefs.MENU_ORDER.set(prefs, updated)
     }
 
     companion object {

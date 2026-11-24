@@ -95,6 +95,7 @@ internal fun MainActivity.initControllers() {
         ivMainMenuCover = findViewById(R.id.iv_main_menu_cover),
         ivBrowserCover = findViewById(R.id.iv_browser_cover),
         frameBrowserCover = findViewById(R.id.frame_browser_cover),
+        ivSettingsCover = findViewById(R.id.iv_settings_cover),
         fetchRandomIdleCoverAsync = { fetchRandomIdleCoverAsync() },
         isAudiobookMode = {
             isAudiobookLibraryMode || (isBrowserControllerInitialized() && (browserController.isAudiobookLibraryMode || browserController.currentBrowserMode is BrowserMode.Audiobooks))
@@ -304,7 +305,7 @@ internal fun MainActivity.initControllers() {
             val container = findViewById<LinearLayout>(R.id.container_settings_items)
             if (container != null) ListItemViewFactory.createCategoryHeader(this, container, title)
         },
-        createListButton = { icon, text -> createListButton(text, icon) },
+        createListButton = { text -> createListButton(text) },
         clickFeedback = { clickFeedback() },
         rebootAudioEngine = { rebootAudioEngine() },
         onNavigateBack = { NavigationManager.getInstance().popBackStack() },
@@ -594,16 +595,6 @@ internal fun MainActivity.initControllers() {
         activity = this,
         rootView = layoutSettingsMode as ViewGroup,
         eqPresetNames = eqPresetNames,
-        createSettingRow = { title, value -> ListItemViewFactory.createSettingRow(this, title, value) },
-        createTablerListButton = { icon, text, normalColor, focusedColor ->
-            // Settings makes rows with a tick or with no icon only for single-choice lists (Language, Theme...):
-            // keep a tick column on each row, so the text does not move, and the normal colours (no green).
-            if (icon == null || icon === com.themoon.y1.views.TablerIcons.CHECK) {
-                ListItemViewFactory.createCheckListButton(this, text, icon != null)
-            } else {
-                ListItemViewFactory.createTablerListButton(this, icon, text, normalColor, focusedColor)
-            }
-        },
         clickFeedback = { clickFeedback() },
         onNavigateBack = { NavigationManager.getInstance().popBackStack() },
         onNavigateToScreen = { screenId ->
@@ -639,7 +630,8 @@ internal fun MainActivity.initControllers() {
             AudioPlayerManager.getInstance().setRepeatMode(mode)
             updatePlayerUI()
         },
-        localize = { t(it) }
+        localize = { t(it) },
+        onShowPane = { homeWidgetsController?.refreshWidgets() }
     )
 
     NavigationManager.getInstance().apply {

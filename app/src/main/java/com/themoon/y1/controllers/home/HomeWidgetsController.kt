@@ -15,14 +15,15 @@ import java.io.File
 import java.io.FileInputStream
 
 /**
- * The art of the split screens: the cover pane of the main menu and of the Music and Audiobooks menus (the art of the
- * song that plays, else a random cover, else the default art).
+ * The art of the split screens: the cover pane of the main menu, of the Settings top level and of the Music and
+ * Audiobooks menus (the art of the song that plays, else a random cover, else the default art).
  */
 class HomeWidgetsController(
     private val context: Context,
     private val ivMainMenuCover: ImageView?,
     private val ivBrowserCover: ImageView?,
     private val frameBrowserCover: View?,
+    private val ivSettingsCover: ImageView?,
     private val fetchRandomIdleCoverAsync: () -> Unit,
     private val isAudiobookMode: () -> Boolean = { false }
 ) {
@@ -69,21 +70,13 @@ class HomeWidgetsController(
     var idleRandomCoverBitmap: Bitmap? = null
 
     fun refreshWidgets() {
-        // The main menu cover pane
-        val animCover = ivMainMenuCover
-        if (animCover != null) {
-            val bmp = cachedAlbumArtBitmap ?: lastAlbumArtBytes?.takeIf { it.isNotEmpty() }?.let {
-                try { decodeAlbumArtSmart(it) } catch (_: Exception) { null }
-            }
-            if (bmp != null) {
-                animCover.setImageBitmap(bmp)
-            } else if (idleRandomCoverBitmap != null) {
-                animCover.setImageBitmap(idleRandomCoverBitmap)
-            } else {
-                animCover.setImageResource(R.drawable.default_album)
-                fetchRandomIdleCoverAsync()
-            }
+        val songArt = cachedAlbumArtBitmap ?: lastAlbumArtBytes?.takeIf { it.isNotEmpty() }?.let {
+            try { decodeAlbumArtSmart(it) } catch (_: Exception) { null }
         }
+        // The main menu cover pane, and the Settings one while it shows
+        val covers = ArrayList<ImageView>(3)
+        ivMainMenuCover?.let { covers.add(it) }
+        ivSettingsCover?.takeIf { (it.parent as? View)?.visibility == View.VISIBLE }?.let { covers.add(it) }
 
         // The Music / Audiobooks menu cover pane
         if (ivBrowserCover != null && frameBrowserCover != null && frameBrowserCover.visibility == View.VISIBLE) {
@@ -98,19 +91,20 @@ class HomeWidgetsController(
                     }
                 }
             } else {
-                val bmp = cachedAlbumArtBitmap ?: lastAlbumArtBytes?.takeIf { it.isNotEmpty() }?.let {
-                    try { decodeAlbumArtSmart(it) } catch (_: Exception) { null }
-                }
-                if (bmp != null) {
-                    ivBrowserCover.setImageBitmap(bmp)
-                } else if (idleRandomCoverBitmap != null) {
-                    ivBrowserCover.setImageBitmap(idleRandomCoverBitmap)
-                } else {
-                    ivBrowserCover.setImageResource(R.drawable.default_album)
-                    fetchRandomIdleCoverAsync()
-                }
+                covers.add(ivBrowserCover)
             }
         }
+
+        // The art of the song that plays, else a random cover, else the default art (and a random cover is on the way)
+        val idle = idleRandomCoverBitmap
+        for (cover in covers) {
+            when {
+                songArt != null -> cover.setImageBitmap(songArt)
+                idle != null -> cover.setImageBitmap(idle)
+                else -> cover.setImageResource(R.drawable.default_album)
+            }
+        }
+        if (songArt == null && idle == null && covers.isNotEmpty()) fetchRandomIdleCoverAsync()
     }
 
     @Volatile

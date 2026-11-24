@@ -174,21 +174,41 @@
         </FrameLayout>
     </LinearLayout>
 
+    <!-- Settings (also Equalizer, FM Radio, Jellyfin): the list pane, and the cover pane of the Settings top level (lists/Pane.kt) -->
     <LinearLayout
         android:id="@+id/layout_settings_mode"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:orientation="vertical"
-        android:paddingTop="26dp"
-        android:paddingBottom="0dp"
-        android:paddingLeft="0dp"
-        android:paddingRight="0dp"
+        android:orientation="horizontal"
         android:background="#66000000"
         android:visibility="gone">
-        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="SETTINGS" android:textColor="#BBFFFFFF" android:textSize="16sp" android:textStyle="bold" android:singleLine="true" android:visibility="gone"/>
-        <com.themoon.y1.views.EdgeFadeScrollView android:layout_width="match_parent" android:layout_height="match_parent" android:fillViewport="true">
-            <LinearLayout android:id="@+id/container_settings_items" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" />
-        </com.themoon.y1.views.EdgeFadeScrollView>
+
+        <LinearLayout
+            android:id="@+id/layout_settings_list_pane"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:paddingTop="26dp">
+            <com.themoon.y1.views.EdgeFadeScrollView android:layout_width="match_parent" android:layout_height="match_parent" android:fillViewport="true">
+                <LinearLayout android:id="@+id/container_settings_items" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" />
+            </com.themoon.y1.views.EdgeFadeScrollView>
+        </LinearLayout>
+
+        <FrameLayout
+            android:id="@+id/frame_settings_cover"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:visibility="gone">
+
+            <com.themoon.y1.views.CoverArtView
+                android:id="@+id/iv_settings_cover"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="centerCrop"
+                android:src="@drawable/default_album" />
+        </FrameLayout>
     </LinearLayout>
 
     <LinearLayout

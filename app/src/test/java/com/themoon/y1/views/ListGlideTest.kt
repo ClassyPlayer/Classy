@@ -72,4 +72,42 @@ class ListGlideTest {
         assertEquals(-1, ListGlide.pickPicture(w, h, bytes, 480, 64, canResize = false))
         assertEquals(-1, ListGlide.pickPicture(w, h, bytes, 480, 120, canResize = true))
     }
+
+    @Test
+    fun arrowTop_onTheRow_isTheTopInTheRow() {
+        assertEquals(12, ListGlide.arrowTop(12, 16, 40, 40))
+        assertEquals(0, ListGlide.arrowTop(0, 40, 40, 40))
+    }
+
+    @Test
+    fun arrowTop_keepsTheCentreInAnotherHeight() {
+        // A centred arrow stays centred: (60 - 16) / 2
+        assertEquals(22, ListGlide.arrowTop(12, 16, 40, 60))
+        // An arrow as high as the row: its centre is the centre of the highlight
+        assertEquals(10, ListGlide.arrowTop(0, 40, 40, 60))
+    }
+
+    @Test
+    fun arrowTop_noRowHeight_isTheTopInTheRow() {
+        assertEquals(12, ListGlide.arrowTop(12, 16, 0, 60))
+    }
+
+    @Test
+    fun arrowAlpha_fullOnRowsWithAnArrow() {
+        assertEquals(255, ListGlide.arrowAlpha(40, 40))
+        // A highlight between two rows that both have an arrow
+        assertEquals(255, ListGlide.arrowAlpha(15 + 25, 15 + 25))
+    }
+
+    @Test
+    fun arrowAlpha_fadesBetweenARowWithAndARowWithout() {
+        assertEquals(64, ListGlide.arrowAlpha(10, 40))
+        assertEquals(128, ListGlide.arrowAlpha(20, 40))
+        assertEquals(0, ListGlide.arrowAlpha(0, 40))
+    }
+
+    @Test
+    fun arrowAlpha_noRowWithAPicture_isZero() {
+        assertEquals(0, ListGlide.arrowAlpha(0, 0))
+    }
 }

@@ -2,7 +2,6 @@ package com.themoon.y1.views
 
 import android.util.TypedValue
 import android.view.Gravity
-import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -13,7 +12,7 @@ object ClassicMenuStyle {
     const val ROW_HEIGHT_DP: Int = ClassyMetrics.ROW_HEIGHT
     const val STATUS_HEIGHT_DP: Int = ClassyMetrics.STATUS_BAR_HEIGHT
     const val PANE_WIDTH_DP: Int = ClassyMetrics.PANE_WIDTH
-    fun apply(row: LinearLayout, title: TextView, arrow: TextView?, heightDp: Int) {
+    fun apply(row: LinearLayout, title: TextView, heightDp: Int) {
         val density = row.resources.displayMetrics.density
         row.gravity = Gravity.CENTER_VERTICAL
         row.setPadding((8 * density).toInt(), 0, (8 * density).toInt(), 0)
@@ -29,13 +28,6 @@ object ClassicMenuStyle {
         title.includeFontPadding = false
         title.setTextSize(TypedValue.COMPLEX_UNIT_PX, 21 * density)
         title.typeface = ThemeManager.getCustomFontBold()
-        if (arrow != null) {
-            arrow.text = "›"
-            arrow.includeFontPadding = false
-            arrow.setTextSize(TypedValue.COMPLEX_UNIT_PX, 21 * density)
-            arrow.setTextColor(ThemeManager.getListButtonFocusedTextColor())
-            arrow.visibility = if (row.isFocused) View.VISIBLE else View.GONE
-        }
-        ClassyLists.styleClassicRow(row, title, arrow, heightDp)
+        ClassyLists.styleClassicRow(row, title, heightDp)
     }
 }

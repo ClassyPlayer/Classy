@@ -68,11 +68,14 @@ class SettingRowsTest {
     @Test
     fun choiceAndActionRowsShowTheirValueAndOpenWithoutAChange() {
         var opened = 0
-        val choice = rows.choice("Volume Limit", { "Off 〉" }) { opened++ }.make()
-        assertEquals("Off 〉", choice.value)
+        val choice = rows.action("Volume Limit", { "Off" }, opens = true) { opened++ }.make()
+        assertEquals("Off", choice.value)
+        assertTrue(choice.opens)
         choice.onClick!!()
         val action = rows.action("Legal") { opened++ }.make()
-        assertEquals(SettingRows.CHEVRON, action.value)
+        assertEquals("", action.value)
+        assertTrue("an action row with no value opens a page", action.opens)
+        assertFalse(rows.action("System Update", { "v1.0" }) {}.make().opens)
         action.onClick!!()
         assertEquals(2, opened)
         assertEquals("rows that open a screen do not make the list again", 0, refreshes)

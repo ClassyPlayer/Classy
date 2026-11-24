@@ -20,12 +20,12 @@ import com.themoon.y1.MainActivity
 import com.themoon.y1.R
 import com.themoon.y1.ThemeManager
 import com.themoon.y1.managers.AudioPlayerManager
+import com.themoon.y1.managers.Id3
 import com.themoon.y1.managers.M4bChapterParser
 import java.io.BufferedReader
 import java.io.File
 import java.io.FileInputStream
 import java.io.InputStreamReader
-import java.io.RandomAccessFile
 import java.util.ArrayList
 import java.util.Collections
 import java.util.TreeMap
@@ -401,7 +401,7 @@ class LyricsOverlayController(
                 plain = flacTags[7] as? String
             }
         } else {
-            plain = extractEmbeddedLyrics(audioFile)
+            plain = Id3.lyrics(audioFile)
         }
 
         // A tag with no visible text (an empty ID3 USLT frame has only a NUL) is no lyrics: no blank lyrics view
@@ -438,83 +438,6 @@ class LyricsOverlayController(
             data.plain = plain
         }
         return data
-    }
-
-    private fun extractEmbeddedLyrics(file: File): String? {
-        try {
-            val raf = RandomAccessFile(file, "r")
-            val header = ByteArray(10)
-            raf.readFully(header)
-
-            if (header[0] == 'I'.code.toByte() && header[1] == 'D'.code.toByte() && header[2] == '3'.code.toByte()) {
-                val majorVersion = header[3].toInt()
-                val tagSize = ((header[6].toInt() and 0x7F) shl 21) or
-                        ((header[7].toInt() and 0x7F) shl 14) or
-                        ((header[8].toInt() and 0x7F) shl 7) or
-                        (header[9].toInt() and 0x7F)
-
-                val readSize = Math.min(tagSize, 512 * 1024)
-                val tagData = ByteArray(readSize)
-                val actualRead = raf.read(tagData)
-                raf.close()
-
-                var pos = 0
-                while (pos < actualRead - 10) {
-                    val frameId = String(tagData, pos, 4)
-                    val frameSize: Int = if (majorVersion == 4) {
-                        ((tagData[pos + 4].toInt() and 0x7F) shl 21) or
-                                ((tagData[pos + 5].toInt() and 0x7F) shl 14) or
-                                ((tagData[pos + 6].toInt() and 0x7F) shl 7) or
-                                (tagData[pos + 7].toInt() and 0x7F)
-                    } else {
-                        ((tagData[pos + 4].toInt() and 0xFF) shl 24) or
-                                ((tagData[pos + 5].toInt() and 0xFF) shl 16) or
-                                ((tagData[pos + 6].toInt() and 0xFF) shl 8) or
-                                (tagData[pos + 7].toInt() and 0xFF)
-                    }
-
-                    if (frameSize <= 0 || frameSize > actualRead - pos - 10) break
-
-                    if (frameId == "USLT") {
-                        val encoding = tagData[pos + 10].toInt()
-                        var textPos = pos + 14
-
-                        if (encoding == 1 || encoding == 2) {
-                            while (textPos < pos + 10 + frameSize - 1) {
-                                if (tagData[textPos].toInt() == 0 && tagData[textPos + 1].toInt() == 0) {
-                                    textPos += 2
-                                    break
-                                }
-                                textPos++
-                            }
-                        } else {
-                            while (textPos < pos + 10 + frameSize) {
-                                if (tagData[textPos].toInt() == 0) {
-                                    textPos += 1
-                                    break
-                                }
-                                textPos++
-                            }
-                        }
-
-                        val lyricsLength = (pos + 10 + frameSize) - textPos
-                        if (lyricsLength > 0) {
-                            val charset = when (encoding) {
-                                0 -> "ISO-8859-1"
-                                1 -> "UTF-16"
-                                2 -> "UTF-16BE"
-                                else -> "UTF-8"
-                            }
-                            return String(tagData, textPos, lyricsLength, charset(charset)).trim()
-                        }
-                    }
-                    pos += 10 + frameSize
-                }
-            } else {
-                raf.close()
-            }
-        } catch (ignored: Exception) {}
-        return null
     }
 
     fun updateProgress(currentPos: Int, duration: Int, playing: Boolean) {

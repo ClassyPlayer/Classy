@@ -3,6 +3,8 @@ package com.themoon.y1.views
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.PorterDuff
 import android.graphics.Rect
 import android.graphics.Region
 import android.graphics.drawable.Drawable
@@ -13,6 +15,7 @@ import android.widget.ListView
 import android.widget.ScrollView
 import com.themoon.y1.AppPrefs
 import com.themoon.y1.Prefs
+import com.themoon.y1.R
 import kotlin.math.abs
 import kotlin.math.exp
 import kotlin.math.min
@@ -24,8 +27,9 @@ import kotlin.math.min
  *
  * The rows have their own look for the focus (background and text colours), so the list draws the moving highlight
  * itself ([RowGlide]): a copy of the focused row's background, with pictures of the focused text of the rows under it,
- * and a picture of the plain look of the new row (taken before the focus moves) around it. Region clips need Android 4.3 (API 18) with hardware drawing:
- * not on the Y1 (Android 4.2).
+ * and a picture of the plain look of the new row (taken before the focus moves) around it. The disclosure arrow
+ * ([arrowOf]) is not in the pictures of the text: one picture of it moves with the highlight. Region clips need
+ * Android 4.3 (API 18) with hardware drawing: not on the Y1 (Android 4.2).
  */
 object ListGlide {
     val isSupported: Boolean get() = Build.VERSION.SDK_INT >= 18
@@ -39,6 +43,11 @@ object ListGlide {
     fun beforeStep(rows: ViewGroup, from: Int, to: Int) {
         val glide = (rows as? EdgeFadeListView)?.glide ?: (rows.parent as? EdgeFadeScrollView)?.glide ?: return
         glide.beforeStep(from, to)
+    }
+
+    /** Ends a glide in [rows] at once: the rows change their places (a row that the wheel moves). */
+    fun cancel(rows: ViewGroup) {
+        ((rows as? EdgeFadeListView)?.glide ?: (rows.parent as? EdgeFadeScrollView)?.glide)?.cancel()
     }
 
     /** Rates of the approach to the target: about 95 % of the way in 3 / rate seconds. */
@@ -62,6 +71,30 @@ object ListGlide {
 
     /** A highlight move longer than this many rows (a loop to the other end) goes at once. */
     const val MAX_BAR_JUMP_ROWS = 2f
+
+    /**
+     * The disclosure arrow of a row that shows now ([R.id.list_arrow], [ClassyLists.arrow]), or null: a row with no
+     * arrow, or a row that shows it only with the focus.
+     */
+    fun arrowOf(row: View): View? =
+        row.findViewById<View>(R.id.list_arrow)?.takeIf { it.visibility == View.VISIBLE && it.width > 0 && it.height > 0 }
+
+    /**
+     * Top of the arrow below the top of the highlight, for an arrow at [top] in a row of [rowHeight] (both with
+     * [arrowHeight]) and a highlight of [barHeight]: its centre keeps its place in the height. With the highlight
+     * on the row, it is where the row draws it.
+     */
+    fun arrowTop(top: Int, arrowHeight: Int, rowHeight: Int, barHeight: Int): Int {
+        if (rowHeight <= 0 || barHeight == rowHeight) return top
+        return Math.round((top + arrowHeight / 2f) * barHeight / rowHeight - arrowHeight / 2f)
+    }
+
+    /**
+     * Alpha of the arrow on the highlight: the part of the highlight on rows with an arrow ([arrowPx]) of the part on
+     * rows with a picture ([knownPx]). Between a row with an arrow and a row without one, the arrow fades.
+     */
+    fun arrowAlpha(arrowPx: Int, knownPx: Int): Int =
+        if (knownPx <= 0) 0 else ((255 * arrowPx + knownPx / 2) / knownPx).coerceIn(0, 255)
 
     /** [value] after [dt] seconds on its way to [target] at [rate]; it ends at the target when less than 0.5 px away. */
     fun approach(value: Float, target: Float, rate: Float, dt: Float): Float {
@@ -148,6 +181,30 @@ object ListGlide {
             }
         }
 
+        /** A picture of the part [r] of [src] (null: no memory); [r] of [src] is then transparent. */
+        fun cut(src: Bitmap, r: Rect): Bitmap? {
+            val w = r.width()
+            val h = r.height()
+            if (w <= 0 || h <= 0) return null
+            val b = take(w, h) ?: try {
+                Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+            } catch (_: OutOfMemoryError) {
+                null
+            }
+            if (b != null) {
+                b.eraseColor(0)
+                canvas.setBitmap(b)
+                canvas.drawBitmap(src, -r.left.toFloat(), -r.top.toFloat(), null)
+            }
+            canvas.setBitmap(src)
+            canvas.save()
+            canvas.clipRect(r)
+            canvas.drawColor(0, PorterDuff.Mode.CLEAR)
+            canvas.restore()
+            canvas.setBitmap(null)
+            return b
+        }
+
         fun give(b: Bitmap) {
             if (free.size >= MAX_FREE) free.removeAt(0) // the oldest goes: the list in use keeps its pictures
             free.add(b)
@@ -184,6 +241,17 @@ internal class RowGlide(private val host: ViewGroup) {
     private val focusedText = LinkedHashMap<Int, Bitmap>()
     /** When each picture of [focusedText] was taken ([System.nanoTime]). */
     private val focusedTextAt = HashMap<Int, Long>()
+    /** The rows of [focusedText] that have an arrow ([ListGlide.arrowOf]) in their focused look. */
+    private val withArrow = HashSet<Int>()
+    /**
+     * The arrow in its focused look, from the last focused row with one; it moves with the highlight, at its place
+     * in that row ([arrowLeft], [arrowTop] in a row of [arrowRowHeight]).
+     */
+    private var arrowLook: Bitmap? = null
+    private var arrowLeft = 0
+    private var arrowTop = 0
+    private var arrowRowHeight = 0
+    private val arrowPaint = Paint()
     /** The plain look of the [target] row, with its background. */
     private var targetLook: Bitmap? = null
     /**
@@ -258,15 +326,41 @@ internal class RowGlide(private val host: ViewGroup) {
 
     private fun keepText(index: Int, view: View) {
         focusedText.remove(index)?.let { ListGlide.Pool.give(it) }
-        ListGlide.Pool.picture(view, withBackground = false)?.let {
-            focusedText[index] = it
+        withArrow.remove(index)
+        val arrow = ListGlide.arrowOf(view)
+        val text = ListGlide.Pool.picture(view, withBackground = false)
+        // The arrow moves with the highlight: its own picture, cut out of the picture of the text. The row does not
+        // change: this can run in a draw, and on Android 4.4 an arrow made INVISIBLE for the picture lost its
+        // display list, and the row then drew no arrow until the next step.
+        if (text != null && arrow != null) keepArrow(view, arrow, text)
+        if (text != null) {
+            focusedText[index] = text
             focusedTextAt[index] = System.nanoTime()
+            if (arrow != null) withArrow.add(index)
         }
         while (focusedText.size > 4) {
             val oldest = focusedText.keys.first()
             focusedText.remove(oldest)?.let { ListGlide.Pool.give(it) }
             focusedTextAt.remove(oldest)
+            withArrow.remove(oldest)
         }
+    }
+
+    private fun keepArrow(row: View, arrow: View, text: Bitmap) {
+        var x = 0
+        var y = 0
+        var v = arrow
+        while (v !== row) {
+            x += v.left
+            y += v.top
+            v = v.parent as? View ?: break
+        }
+        arrowLeft = x
+        arrowTop = y
+        arrowRowHeight = row.height
+        clip.set(x, y, x + arrow.width, y + arrow.height)
+        arrowLook?.let { ListGlide.Pool.give(it) }
+        arrowLook = ListGlide.Pool.cut(text, clip)
     }
 
     /** Ends the glide: everything shows at its place at the next frame. */
@@ -279,6 +373,9 @@ internal class RowGlide(private val host: ViewGroup) {
         for (b in focusedText.values) ListGlide.Pool.give(b)
         focusedText.clear()
         focusedTextAt.clear()
+        withArrow.clear()
+        arrowLook?.let { ListGlide.Pool.give(it) }
+        arrowLook = null
         targetLook?.let { ListGlide.Pool.give(it) }
         targetLook = null
         edgeLook?.let { ListGlide.Pool.give(it) }
@@ -365,14 +462,27 @@ internal class RowGlide(private val host: ViewGroup) {
             if (barB < tBottom) drawPart(canvas, look, left, tTop, left, maxOf(barB, tTop), right, tBottom)
             barDrawable.setBounds(left, barT, right, barB)
             barDrawable.draw(canvas)
-            // The focused text of each row under the highlight
+            // The focused text of each row under the highlight, and how much of the highlight is on rows with an arrow
+            var arrowPx = 0
+            var knownPx = 0
             for (r in rows) {
                 val top = r.top + dy + sy
                 val bottom = top + r.view.height
                 if (barT >= bottom || barB <= top) continue
                 val text = focusedText[r.index] ?: continue
                 val rl = r.left + sx
-                drawPart(canvas, text, rl, top, rl, maxOf(barT, top), rl + r.view.width, min(barB, bottom))
+                val partTop = maxOf(barT, top)
+                val partBottom = min(barB, bottom)
+                drawPart(canvas, text, rl, top, rl, partTop, rl + r.view.width, partBottom)
+                knownPx += partBottom - partTop
+                if (r.index in withArrow) arrowPx += partBottom - partTop
+            }
+            // One whole arrow at the right of the highlight, at its place in a row
+            val arrow = arrowLook
+            if (arrow != null && arrowPx > 0) {
+                arrowPaint.alpha = ListGlide.arrowAlpha(arrowPx, knownPx)
+                val y = barT + ListGlide.arrowTop(arrowTop, arrow.height, arrowRowHeight, barB - barT)
+                canvas.drawBitmap(arrow, (left + arrowLeft).toFloat(), y.toFloat(), arrowPaint)
             }
         }
         canvas.restore()

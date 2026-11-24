@@ -40,7 +40,7 @@ class EqualizerController(
     override val rootView: ViewGroup,
     private val eqPresetNames: List<String>,
     private val createCategoryHeader: (title: String) -> Unit,
-    private val createListButton: (icon: String, text: String) -> View,
+    private val createListButton: (text: String) -> View,
     private val clickFeedback: () -> Unit,
     private val rebootAudioEngine: () -> Unit,
     private val onNavigateBack: () -> Unit,
@@ -134,7 +134,7 @@ class EqualizerController(
         } else {
             activeName = currentEqProfile.removePrefix("custom_")
         }
-        rows += RowSpec("EQ Profile / Preset", RowLook.VALUE, value = "$activeName 〉", onClick = { buildProfileSelectorUI() })
+        rows += RowSpec("EQ Profile / Preset", RowLook.VALUE, value = activeName, opens = true, onClick = { buildProfileSelectorUI() })
 
         val steps = arrayOf("Off", "Weak", "Normal", "Strong")
         rows += RowSpec("Bass Boost", RowLook.VALUE, value = localize(steps[currentBassBoostStep % 4]), onClick = {
@@ -185,7 +185,7 @@ class EqualizerController(
         })
 
         rows += RowSpec(localize("GRAPHIC EQUALIZER"), RowLook.HEADER)
-        rows += RowSpec("Graphic Equalizer", RowLook.VALUE, value = localize("Open Editor") + " 〉", onClick = {
+        rows += RowSpec("Graphic Equalizer", RowLook.VALUE, value = localize("Open Editor"), opens = true, onClick = {
             if (currentEqProfile.startsWith("preset_")) {
                 Notice.show(activity, localize("Please create a Custom Profile to edit!"), long = true)
             } else {
@@ -299,7 +299,7 @@ class EqualizerController(
         hsv.addView(eqContainer)
         containerSettingsItems.addView(hsv)
 
-        val btnBack = createListButton("\uE5C4", localize("Back to EQ Settings"))
+        val btnBack = createListButton(localize("Back to EQ Settings"))
         btnBack.setOnClickListener {
             clickFeedback()
             buildEqualizerSettingsUI(back = true)

@@ -18,6 +18,7 @@ import com.themoon.y1.ThemeManager
 import com.themoon.y1.adapters.CategoryListAdapter
 import com.themoon.y1.adapters.SongListAdapter
 import com.themoon.y1.controllers.ScreenController
+import com.themoon.y1.controllers.menu.MusicMenuItems
 import com.themoon.y1.lists.LetterBox
 import com.themoon.y1.lists.ListScreen
 import com.themoon.y1.lists.ListSpec
@@ -27,6 +28,7 @@ import com.themoon.y1.lists.RowSpec
 import com.themoon.y1.managers.AudioPlayerManager
 import com.themoon.y1.managers.AudiobookManager
 import com.themoon.y1.models.AlbumKey
+import com.themoon.y1.models.AlbumTrackOrder
 import com.themoon.y1.models.SongItem
 import com.themoon.y1.navigation.BrowserMode
 import com.themoon.y1.navigation.InputRouter
@@ -266,8 +268,7 @@ class BrowserController(
         val audiobooks = isAudiobookLibraryMode || currentBrowserMode is BrowserMode.Audiobooks
         val rows = ArrayList<RowSpec>()
         if (!audiobooks) {
-            for (item in MusicMenuItems.ITEMS) {
-                if (isMusicMenuItemHidden(item.id)) continue
+            for (item in MusicMenuItems.shown(AppPrefs.get(activity))) {
                 rows += RowSpec(localize(item.label), key = item.id, onClick = { openMusicMenuItem(item.id) })
             }
         } else {
@@ -541,17 +542,10 @@ class BrowserController(
             }
         }
 
-        Collections.sort(targetSongs) { s1, s2 ->
-            if ("ALBUM" == virtualQueryType || "COVER_FLOW_ALBUM" == virtualQueryType || "GENRE_ALBUM_SONGS" == virtualQueryType ||
-                "COMPILATION_ALBUM" == virtualQueryType) {
-                val t1 = MainActivity.trackNumberMap[s1.file.absolutePath] ?: 0
-                val t2 = MainActivity.trackNumberMap[s2.file.absolutePath] ?: 0
-                if (t1 != t2) {
-                    return@sort t1.compareTo(t2)
-                }
-            }
-            s1.title.compareTo(s2.title, ignoreCase = true)
-        }
+        val albumQuery = virtualQueryType == "ALBUM" || virtualQueryType == "COVER_FLOW_ALBUM" || virtualQueryType == "GENRE_ALBUM_SONGS" ||
+            virtualQueryType == "COMPILATION_ALBUM"
+        Collections.sort(targetSongs, if (albumQuery) AlbumTrackOrder.songs(MainActivity.trackNumberMap)
+            else Comparator { s1, s2 -> s1.title.compareTo(s2.title, ignoreCase = true) })
 
         main?.virtualSongList?.clear()
         val displaySongs = ArrayList<SongItem>()
@@ -809,7 +803,7 @@ class BrowserController(
         }
     }
 
-    /** The action of a Music menu item (MusicMenuItems.ITEMS). */
+    /** The action of a Music menu item ([MusicMenuItems]). */
     private fun openMusicMenuItem(id: String) {
         when (id) {
             "coverflow" -> onCoverFlowRequested()
@@ -831,10 +825,7 @@ class BrowserController(
         }
     }
 
-    private fun isMusicMenuItemHidden(id: String): Boolean {
-        // Settings > Music Menu Items writes these keys to AppPrefs.
-        return MusicMenuItems.isHidden(activity.getSharedPreferences("AppPrefs", Activity.MODE_PRIVATE), id)
-    }
+    private fun isMusicMenuItemHidden(id: String): Boolean = MusicMenuItems.isHidden(AppPrefs.get(activity), id)
 
     /** True when Compilations is in the Music menu: then Artists does not show the compilation tracks (as on the iPod). */
     fun artistsHideCompilations(): Boolean = !isAudiobookLibraryMode && !isMusicMenuItemHidden("compilations")

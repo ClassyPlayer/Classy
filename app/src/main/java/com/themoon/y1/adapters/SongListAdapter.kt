@@ -5,7 +5,6 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.AbsListView
 import android.widget.BaseAdapter
-import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
 import com.themoon.y1.MainActivity
@@ -22,6 +21,7 @@ import com.themoon.y1.models.ArtistNames
 import com.themoon.y1.models.SongItem
 import com.themoon.y1.podcasts.PodcastDownloadManager
 import com.themoon.y1.views.ClassicMenuStyle
+import com.themoon.y1.views.ListItemViewFactory
 import com.themoon.y1.views.TablerIcons
 import java.io.File
 import java.text.SimpleDateFormat
@@ -74,7 +74,6 @@ class SongListAdapter(
 
         val main = MainActivity.instance
         if (artRows && main != null) return getArtRowView(main, convertView, song, position, songPosition)
-        var iconCode = if (main != null && main.isAudiobookLibraryMode) "\uE310" else "\uE405"
         var displayTitle = song.title
         var customColor = 0
 
@@ -145,7 +144,7 @@ class SongListAdapter(
             convertView.getChildAt(0) is TextView
 
         val btn: View = if (!isSongRowValid || main == null) {
-            main?.createListButtonWithIcon(iconCode, displayTitle, customColor)?.apply {
+            main?.createListButtonWithIcon("", displayTitle, customColor)?.apply {
                 tag = "song_row"
                 val rowHeight = (ClassicMenuStyle.ROW_HEIGHT_DP * main.resources.displayMetrics.density).toInt()
                 layoutParams = AbsListView.LayoutParams(
@@ -155,15 +154,7 @@ class SongListAdapter(
             } ?: View(parent?.context)
         } else {
             val layout = convertView as LinearLayout
-            val tvIcon = layout.getChildAt(0) as TextView
-            val tvText = layout.getChildAt(1) as TextView
-            tvIcon.text = iconCode
-            tvText.text = displayTitle
-            val applyColor = if (customColor != 0) customColor else ThemeManager.getTextColorPrimary()
-            if (!convertView.hasFocus()) {
-                tvIcon.setTextColor(applyColor)
-                tvText.setTextColor(applyColor)
-            }
+            (layout.getChildAt(1) as TextView).text = displayTitle
             convertView
         }
 
@@ -197,8 +188,14 @@ class SongListAdapter(
             }
         }
 
-        if (!hasProgress) {
-            applyDefaultFocusListener(btn, position, song.title, customColor)
+        if (!hasProgress && main != null && btn is LinearLayout) {
+            val normalColor = if (customColor != 0) customColor else ThemeManager.getTextColorPrimary()
+            ListItemViewFactory.menuRowLook(btn, normalColor) { focused ->
+                if (focused) {
+                    main.virtualListSelectedIndex = position
+                    main.showFastScrollLetter(song.title)
+                }
+            }
         }
 
         btn.setOnClickListener {
@@ -371,53 +368,6 @@ class SongListAdapter(
             if (p == position || p !in 0 until count) continue
             val song = getItem(p) as? SongItem ?: continue
             covers.loadCoverAsync(song, null)
-        }
-    }
-
-    private fun applyDefaultFocusListener(btn: View, position: Int, title: String, customColor: Int) {
-        val main = MainActivity.instance ?: return
-        val normalColor = if (customColor != 0) customColor else ThemeManager.getTextColorPrimary()
-
-        val listener = View.OnFocusChangeListener { v, hasFocus ->
-            if (hasFocus) {
-                main.virtualListSelectedIndex = position
-                btn.background = main.createFocusedButtonBackground()
-
-                if (v is LinearLayout) {
-                    if (v.childCount > 1) {
-                        (v.getChildAt(0) as? TextView)?.setTextColor(ThemeManager.getListButtonFocusedTextColor())
-                        val tvText = v.getChildAt(1) as? TextView
-                        tvText?.setTextColor(ThemeManager.getListButtonFocusedTextColor())
-                        if (v.childCount > 2) v.getChildAt(2).visibility = View.VISIBLE
-                        tvText?.isSelected = true
-                    }
-                } else if (v is Button) {
-                    v.setTextColor(ThemeManager.getListButtonFocusedTextColor())
-                    v.isSelected = true
-                }
-
-                main.showFastScrollLetter(title)
-            } else {
-                btn.background = main.createButtonBackground(ThemeManager.getListButtonNormalBg())
-
-                if (v is LinearLayout) {
-                    if (v.childCount > 1) {
-                        (v.getChildAt(0) as? TextView)?.setTextColor(normalColor)
-                        val tvText = v.getChildAt(1) as? TextView
-                        tvText?.setTextColor(normalColor)
-                        if (v.childCount > 2) v.getChildAt(2).visibility = View.GONE
-                        tvText?.isSelected = false
-                    }
-                } else if (v is Button) {
-                    v.setTextColor(normalColor)
-                    v.isSelected = false
-                }
-            }
-        }
-
-        btn.onFocusChangeListener = listener
-        if (btn.isFocused) {
-            listener.onFocusChange(btn, true)
         }
     }
 

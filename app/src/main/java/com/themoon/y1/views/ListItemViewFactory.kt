@@ -20,6 +20,9 @@ object ListItemViewFactory {
     /** The text size of a list row in dp. The Classy row style ([ClassicMenuStyle], [ClassyLists]) can set its own size. */
     const val LIST_TEXT_SIZE = 21f
 
+    /** Space between the text (or the value) of a row and its arrow ([ClassyLists.arrow]). */
+    private const val ARROW_MARGIN_DP = 10
+
     @Suppress("UNUSED_PARAMETER")
     fun createButtonBackground(context: Context, color: Int): GradientDrawable =
         GradientDrawable().apply { setColor(color) }
@@ -45,7 +48,6 @@ object ListItemViewFactory {
             isFocusable = true
             isClickable = true
             isSoundEffectsEnabled = false
-            background = createButtonBackground(context, ThemeManager.getListButtonNormalBg())
 
             val padLeft = (8 * d).toInt()
             val padTopBottom = (4 * d).toInt()
@@ -62,7 +64,6 @@ object ListItemViewFactory {
         val tvIcon = TextView(context).apply {
             text = iconUnicode
             textSize = 21f
-            setTextColor(normalColor)
             val iconLp = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
             ).apply {
@@ -75,7 +76,6 @@ object ListItemViewFactory {
         val tvText = TextView(context).apply {
             text = textLabel
             setTextSize(TypedValue.COMPLEX_UNIT_PX, LIST_TEXT_SIZE * d)
-            setTextColor(normalColor)
             typeface = ThemeManager.getCustomFontBold()
             isSingleLine = true
             ellipsize = TextUtils.TruncateAt.MARQUEE
@@ -84,44 +84,35 @@ object ListItemViewFactory {
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
         }
 
-        val tvArrow = TextView(context).apply {
-            text = "〉"
-            setTextSize(TypedValue.COMPLEX_UNIT_PX, 20f * d)
-            setTextColor(0xFFFFFFFF.toInt())
-            visibility = View.GONE
-            val arrowLp = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
-            ).apply {
-                leftMargin = (10 * d).toInt()
-            }
-            layoutParams = arrowLp
-        }
+        val tvArrow = ClassyLists.arrow(context, ARROW_MARGIN_DP)
 
         rowButton.addView(tvIcon)
         rowButton.addView(tvText)
         rowButton.addView(tvArrow)
-        ClassicMenuStyle.apply(rowButton, tvText, tvArrow, ClassicMenuStyle.ROW_HEIGHT_DP)
-
-        rowButton.setOnFocusChangeListener { _, hasFocus ->
-            if (hasFocus) {
-                rowButton.background = createFocusedButtonBackground(context)
-                tvIcon.setTextColor(ThemeManager.getListButtonFocusedTextColor())
-                tvText.setTextColor(ThemeManager.getListButtonFocusedTextColor())
-                tvText.isSelected = true
-                tvArrow.visibility = View.VISIBLE
-                onFastScrollLetter?.invoke(tvText.text.toString())
-            } else {
-                rowButton.background = createButtonBackground(context, ThemeManager.getListButtonNormalBg())
-                tvIcon.setTextColor(normalColor)
-                tvText.setTextColor(normalColor)
-                tvArrow.visibility = View.GONE
-                tvText.isSelected = false
-            }
-        }
-
+        ClassicMenuStyle.apply(rowButton, tvText, ClassicMenuStyle.ROW_HEIGHT_DP)
+        menuRowLook(rowButton, normalColor) { if (it) onFastScrollLetter?.invoke(tvText.text.toString()) }
         return rowButton
     }
 
+    /**
+     * The focus look of a [createListButtonWithIcon] row: the icon and the text in [normalColor], the arrow on the
+     * selected row. Also for a recycled row with another colour or other actions ([onFocus]).
+     */
+    fun menuRowLook(row: LinearLayout, normalColor: Int, onFocus: ((Boolean) -> Unit)? = null): FocusLook {
+        val text = row.getChildAt(1) as TextView
+        val look = FocusLook.of(row).reset()
+            .text(row.getChildAt(0) as TextView) { normalColor }
+            .text(text) { normalColor }
+        look.marquee = text
+        look.arrow = row.getChildAt(2)
+        if (onFocus != null) look.onFocus(onFocus)
+        return look.refresh()
+    }
+
+    /**
+     * An audiobook or podcast row with a saved position: the background shows the progress (the row keeps its
+     * texts; no arrow).
+     */
     fun setupAudiobookProgress(
         context: Context,
         btn: View,
@@ -129,30 +120,17 @@ object ListItemViewFactory {
         dur: Int,
         onFastScrollLetter: ((String) -> Unit)? = null
     ) {
-        applyProgressBackground(context, btn, pos, dur, btn.hasFocus())
-        btn.setOnFocusChangeListener { v, hasFocus ->
-            if (hasFocus) {
-                if (v is Button) {
-                    v.setTextColor(ThemeManager.getListButtonFocusedTextColor())
-                    onFastScrollLetter?.invoke(v.text.toString())
-                } else if (v is LinearLayout && v.childCount > 1) {
-                    (v.getChildAt(0) as? TextView)?.setTextColor(ThemeManager.getListButtonFocusedTextColor())
-                    (v.getChildAt(1) as? TextView)?.apply {
-                        setTextColor(ThemeManager.getListButtonFocusedTextColor())
-                        onFastScrollLetter?.invoke(text.toString())
-                    }
-                }
-                applyProgressBackground(context, btn, pos, dur, true)
-            } else {
-                if (v is Button) {
-                    v.setTextColor(ThemeManager.getTextColorPrimary())
-                } else if (v is LinearLayout && v.childCount > 1) {
-                    (v.getChildAt(0) as? TextView)?.setTextColor(ThemeManager.getTextColorPrimary())
-                    (v.getChildAt(1) as? TextView)?.setTextColor(ThemeManager.getTextColorPrimary())
-                }
-                applyProgressBackground(context, btn, pos, dur, false)
-            }
+        if (pos <= 0 || dur <= 0) return
+        val look = FocusLook.of(btn).reset()
+        val texts = when {
+            btn is TextView -> listOf(btn)
+            btn is LinearLayout && btn.childCount > 1 -> listOfNotNull(btn.getChildAt(0) as? TextView, btn.getChildAt(1) as? TextView)
+            else -> emptyList()
         }
+        for (tv in texts) look.text(tv)
+        look.progress = intArrayOf(pos, dur)
+        look.onFocus { if (it) texts.lastOrNull()?.let { tv -> onFastScrollLetter?.invoke(tv.text.toString()) } }
+        look.refresh()
     }
 
     fun applyProgressBackground(
@@ -192,7 +170,6 @@ object ListItemViewFactory {
         val padX = (8 * d).toInt()
         val btn = Button(context).apply {
             this.text = text
-            setTextColor(ThemeManager.getTextColorPrimary())
             setTextSize(TypedValue.COMPLEX_UNIT_PX, 21f * d)
             typeface = ThemeManager.getCustomFontBold()
             includeFontPadding = false
@@ -202,19 +179,7 @@ object ListItemViewFactory {
             isClickable = true
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, rowHeight)
         }
-
-        fun updateBg(focused: Boolean) {
-            btn.background = if (focused) {
-                btn.setTextColor(ThemeManager.getListButtonFocusedTextColor())
-                createFocusedButtonBackground(context)
-            } else {
-                btn.setTextColor(ThemeManager.getTextColorPrimary())
-                createButtonBackground(context, ThemeManager.getListButtonNormalBg())
-            }
-        }
-
-        updateBg(false)
-        btn.setOnFocusChangeListener { _, hasFocus -> updateBg(hasFocus) }
+        FocusLook.ofButton(btn).refresh()
         ClassyLists.styleListRow(btn, btn, null)
         return btn
     }
@@ -240,27 +205,12 @@ object ListItemViewFactory {
             }
         }
 
-        fun updateBg(focused: Boolean) {
-            val bg = if (focused) {
-                btn.setTextColor(ThemeManager.getListButtonFocusedTextColor())
-                val grad = createFocusedButtonBackground(context)
-                grad.cornerRadius = cornerRad
-                grad
-            } else {
-                btn.setTextColor(ThemeManager.getTextColorPrimary())
-                val shape = createButtonBackground(context, ThemeManager.getListButtonNormalBg())
-                shape.cornerRadius = cornerRad
-                shape
-            }
-            btn.background = bg
-        }
-
-        updateBg(false)
-        btn.setOnFocusChangeListener { _, hasFocus -> updateBg(hasFocus) }
+        FocusLook.ofButton(btn).apply { corners = cornerRad }.refresh()
         return btn
     }
 
-    fun createSettingRow(context: Context, title: String, value: String): LinearLayout {
+    /** A Settings row: the title, the value on the right and, for a row that [opens] a page, the arrow on the selected row. */
+    fun createSettingRow(context: Context, title: String, value: String, opens: Boolean = false): LinearLayout {
         val d = context.resources.displayMetrics.density
         val rowHeight = (ClassicMenuStyle.ROW_HEIGHT_DP * d).toInt()
         val padX = (8 * d).toInt()
@@ -275,7 +225,6 @@ object ListItemViewFactory {
 
         val tvTitle = TextView(context).apply {
             text = title
-            setTextColor(ThemeManager.getTextColorPrimary())
             setTextSize(TypedValue.COMPLEX_UNIT_PX, 21f * d)
             typeface = ThemeManager.getCustomFontBold()
             includeFontPadding = false
@@ -283,38 +232,19 @@ object ListItemViewFactory {
         }
         row.addView(tvTitle)
 
-        val displayVal = value.replace("〉", "›")
         // Shows an on/off value as a switch when Settings → Toggle Style is Switch.
         val tvVal = SettingValueView(context).apply {
             stateKey = title
-            text = displayVal
-            setTextColor(ThemeManager.getTextColorSecondary())
+            text = value
             setTextSize(TypedValue.COMPLEX_UNIT_PX, 21f * d)
             typeface = ThemeManager.getCustomFont()
             includeFontPadding = false
         }
         row.addView(tvVal)
-        // A row that opens a deeper screen: a drawn chevron (ChevronView) in place of the small "〉" text.
-        val (valueText, hasChevron) = DisclosureChevron.split(displayVal)
-        if (hasChevron) {
-            tvVal.text = valueText
-            row.addView(ChevronView(context, tvTitle))
-        }
-
-        fun updateBg(focused: Boolean) {
-            row.background = if (focused) {
-                tvTitle.setTextColor(ThemeManager.getListButtonFocusedTextColor())
-                tvVal.setTextColor(ThemeManager.getListButtonFocusedTextColor())
-                createFocusedButtonBackground(context)
-            } else {
-                tvTitle.setTextColor(ThemeManager.getTextColorPrimary())
-                tvVal.setTextColor(ThemeManager.getTextColorSecondary())
-                createButtonBackground(context, ThemeManager.getListButtonNormalBg())
-            }
-        }
-
-        updateBg(false)
-        row.setOnFocusChangeListener { _, hasFocus -> updateBg(hasFocus) }
+        // A row that opens a deeper screen: the arrow of the other lists, only on the selected row (the value keeps its place)
+        val look = FocusLook.of(row).text(tvTitle).text(tvVal) { ThemeManager.getTextColorSecondary() }
+        if (opens) look.arrow = ClassyLists.arrow(context, ARROW_MARGIN_DP).also { row.addView(it) }
+        look.refresh()
         ClassyLists.styleListRow(row, tvTitle, tvVal)
         return row
     }
@@ -359,6 +289,14 @@ object ListItemViewFactory {
         return row
     }
 
+    /**
+     * A row of a menu editor (Settings → Menus → Main Menu Items): the label and an eye ([shown]) or a grey cross on
+     * the right.
+     */
+    fun createShownRow(context: Context, text: String, shown: Boolean): View =
+        createTablerListButtonWithRightIcon(context, null, text, if (shown) TablerIcons.EYE else TablerIcons.X,
+            rightIconColor = if (shown) ThemeManager.getTextColorPrimary() else 0)
+
     fun createTablerListButtonWithRightIcon(
         context: Context,
         iconPaths: Array<String>?,
@@ -367,7 +305,9 @@ object ListItemViewFactory {
         iconColor: Int = 0,
         textColor: Int = 0,
         focusedTextColor: Int = 0,
-        focusedIconColor: Int = 0
+        focusedIconColor: Int = 0,
+        /** The colour of the right icon on a row that is not selected; 0 = the secondary text colour. */
+        rightIconColor: Int = 0
     ): View {
         val d = context.resources.displayMetrics.density
         val rowHeight = (ClassicMenuStyle.ROW_HEIGHT_DP * d).toInt()
@@ -385,6 +325,7 @@ object ListItemViewFactory {
         val actualTextColor = if (textColor != 0) textColor else ThemeManager.getTextColorPrimary()
         val actualFocusedTextColor = if (focusedTextColor != 0) focusedTextColor else ThemeManager.getListButtonFocusedTextColor()
         val actualFocusedIconColor = if (focusedIconColor != 0) focusedIconColor else ThemeManager.getListButtonFocusedTextColor()
+        val actualRightIconColor = if (rightIconColor != 0) rightIconColor else ThemeManager.getTextColorSecondary()
 
         val iconSize = (18f * d).toInt()
         var ivLeft: ImageView? = null
@@ -404,7 +345,6 @@ object ListItemViewFactory {
 
         val tv = TextView(context).apply {
             this.text = text
-            setTextColor(actualTextColor)
             setTextSize(TypedValue.COMPLEX_UNIT_PX, LIST_TEXT_SIZE * d)
             typeface = ThemeManager.getCustomFontBold()
             includeFontPadding = false
@@ -417,38 +357,28 @@ object ListItemViewFactory {
         row.addView(tv)
         tick?.textView = tv
 
-        val rightIconSize = (16f * d).toInt()
+        // As tall as the row text: the eye and the cross of the menu editors fill a 24 dp box only in part
+        val rightIconSize = (24f * d).toInt()
         var ivRight: ImageView? = null
         if (rightIconPaths != null) {
             ivRight = ImageView(context).apply {
                 layoutParams = LinearLayout.LayoutParams(rightIconSize, rightIconSize).apply {
                     leftMargin = (8f * d).toInt()
                 }
-                setImageBitmap(TablerIcons.render(rightIconPaths, rightIconSize, ThemeManager.getTextColorSecondary()))
+                setImageBitmap(TablerIcons.render(rightIconPaths, rightIconSize, actualRightIconColor))
             }
             row.addView(ivRight)
         }
 
-        fun updateBg(focused: Boolean) {
-            row.background = if (focused) {
-                tv.setTextColor(actualFocusedTextColor)
-                tv.isSelected = true
-                tick?.color = actualFocusedIconColor
-                if (iconPaths != null) ivLeft?.setImageBitmap(TablerIcons.render(iconPaths, iconSize, actualFocusedIconColor))
-                if (rightIconPaths != null) ivRight?.setImageBitmap(TablerIcons.render(rightIconPaths, rightIconSize, actualFocusedIconColor))
-                createFocusedButtonBackground(context)
-            } else {
-                tv.setTextColor(actualTextColor)
-                tv.isSelected = false
-                tick?.color = actualIconColor
-                if (iconPaths != null) ivLeft?.setImageBitmap(TablerIcons.render(iconPaths, iconSize, actualIconColor))
-                if (rightIconPaths != null) ivRight?.setImageBitmap(TablerIcons.render(rightIconPaths, rightIconSize, ThemeManager.getTextColorSecondary()))
-                createButtonBackground(context, ThemeManager.getListButtonNormalBg())
-            }
-        }
-
-        updateBg(false)
-        row.setOnFocusChangeListener { _, hasFocus -> updateBg(hasFocus) }
+        val look = FocusLook.of(row).text(tv) { actualTextColor }
+        look.focusedColor = { actualFocusedTextColor }
+        look.marquee = tv
+        look.onFocus { focused ->
+            tick?.color = if (focused) actualFocusedIconColor else actualIconColor
+            if (iconPaths != null) ivLeft?.setImageBitmap(TablerIcons.render(iconPaths, iconSize, if (focused) actualFocusedIconColor else actualIconColor))
+            if (rightIconPaths != null) ivRight?.setImageBitmap(TablerIcons.render(rightIconPaths, rightIconSize,
+                if (focused) actualFocusedIconColor else actualRightIconColor))
+        }.refresh()
         ClassyLists.styleListRow(row, tv, null)
         return row
     }
@@ -474,12 +404,7 @@ object ListItemViewFactory {
             color = ThemeManager.getTextColorPrimary()
         }
         row.addView(glyphs)
-
-        val rowFocusListener = row.onFocusChangeListener
-        row.setOnFocusChangeListener { v, hasFocus ->
-            rowFocusListener?.onFocusChange(v, hasFocus)
-            glyphs.color = if (hasFocus) ThemeManager.getListButtonFocusedTextColor() else ThemeManager.getTextColorPrimary()
-        }
+        FocusLook.of(row).onFocus { glyphs.color = if (it) ThemeManager.getListButtonFocusedTextColor() else ThemeManager.getTextColorPrimary() }
         return row
     }
 }
