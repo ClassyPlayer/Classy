@@ -109,15 +109,20 @@ fun decodeHref(href: String): String {
 object Propfind {
     private const val DAV = "DAV:"
 
+    /** A PROPFIND answer larger than this is refused (a folder of some 100 000 files). */
+    private const val MAX_BYTES = 32 * 1024 * 1024
+
     fun parse(xml: InputStream, requestHref: String): List<DavEntry> {
+        // A WebDAV answer has no DOCTYPE: refuse one, so a server cannot make the parser read files or URLs. Checked in
+        // the bytes, because Android's DocumentBuilderFactory does not take the feature below (and ignores it)
+        val bytes = readLimited(xml)
+        if (hasDoctype(bytes)) throw IOException("The server answer has a DOCTYPE")
         val f = DocumentBuilderFactory.newInstance().apply {
             isNamespaceAware = true
             isExpandEntityReferences = false
-            // A WebDAV answer has no DOCTYPE: refuse one, so a server cannot make the parser read files or URLs.
-            // A parser that does not know this feature keeps its default.
             try { setFeature("http://apache.org/xml/features/disallow-doctype-decl", true) } catch (_: Exception) {}
         }
-        val doc = f.newDocumentBuilder().parse(xml)
+        val doc = f.newDocumentBuilder().parse(java.io.ByteArrayInputStream(bytes))
         // Decoded: the URL that the user typed ("/Música") and the server's href ("/M%C3%BAsica/") name one folder
         val self = decodeHref(pathOf(requestHref)).trimEnd('/')
         val out = ArrayList<DavEntry>()
@@ -138,6 +143,30 @@ object Propfind {
             )
         }
         return out
+    }
+
+    private fun readLimited(input: InputStream): ByteArray {
+        val out = ByteArrayOutputStream()
+        val buf = ByteArray(64 * 1024)
+        while (true) {
+            val n = input.read(buf)
+            if (n < 0) return out.toByteArray()
+            out.write(buf, 0, n)
+            if (out.size() > MAX_BYTES) throw IOException("The server answer is too large")
+        }
+    }
+
+    /** True when the bytes have "<!DOCTYPE" (any case; zero bytes are skipped, so UTF-16 is found too). */
+    internal fun hasDoctype(bytes: ByteArray): Boolean {
+        val word = "<!DOCTYPE"
+        var matched = 0
+        for (b in bytes) {
+            if (b.toInt() == 0) continue
+            val c = (b.toInt() and 0xFF).toChar().uppercaseChar()
+            matched = if (c == word[matched]) matched + 1 else if (c == '<') 1 else 0
+            if (matched == word.length) return true
+        }
+        return false
     }
 
     /** Some servers return absolute URLs in href; compare by path only. */

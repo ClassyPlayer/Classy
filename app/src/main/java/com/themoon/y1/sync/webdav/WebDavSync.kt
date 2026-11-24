@@ -438,10 +438,16 @@ class WebDavSync private constructor(context: Context) {
     fun deleteTracked(hrefs: Collection<String>): Int = synchronized(ledger) {
         loadUnlessRunning()
         val player = AudioPlayerManager.getInstance()
+        // The files that other records keep: two server names that became one FAT name share a file
+        val sd = destRoot(true).path + "/"
+        fun key(path: String) = if (path.startsWith(sd)) path.lowercase() else path // FAT does not tell A from a
+        val removing = hrefs.toSet()
+        val kept = ledger.getAllItems().values.filter { it.jellyfinId !in removing }.mapNotNull { it.localPath?.let(::key) }.toSet()
         var gone = 0
         for (href in hrefs) {
             val item = ledger.getItem(href)
             if (item == null) { gone++; continue }
+            if (item.localPath?.let(::key) in kept) { ledger.removeItem(href); gone++; continue } // only the record goes
             val f = item.localPath?.takeIf { it.isNotEmpty() }?.let { File(it) }
             if (f != null && f.exists() && (player.isFileCurrentlyPlaying(f) || !f.delete())) continue
             if (f != null) pruneEmptyDirs(f, listOf(destRoot(true), destRoot(false)))

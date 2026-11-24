@@ -285,4 +285,12 @@ class WebDavClientTest {
         // The typed URL has the raw name; the server sends it encoded, here in lower case
         assertEquals(listOf("/M%C3%BAsica/Rock/"), Propfind.parse(xml.byteInputStream(), "/Música/").map { it.href })
     }
+
+    @Test
+    fun aDoctypeIsFoundInTheBytes() {
+        assertTrue(Propfind.hasDoctype("<?xml version=\"1.0\"?><!doctype x [<!ENTITY e SYSTEM \"file:///x\">]>".toByteArray()))
+        assertTrue(Propfind.hasDoctype("<<!DOCTYPE x>".toByteArray()))
+        assertTrue(Propfind.hasDoctype("<!DOCTYPE x>".toByteArray(Charsets.UTF_16LE)))
+        assertFalse(Propfind.hasDoctype("<D:multistatus xmlns:D=\"DAV:\"><D:href>/a/DOCTYPE.flac</D:href></D:multistatus>".toByteArray()))
+    }
 }
