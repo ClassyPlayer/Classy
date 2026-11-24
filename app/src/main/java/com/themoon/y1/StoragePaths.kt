@@ -6,7 +6,7 @@ import java.util.Locale
 
 /**
  * Resolves Y1/Y2 storage roots while keeping Y1 paths as the default.
- * - Y1 / primary: /storage/sdcard0 - browser defaults, app data, web server
+ * - Y1 / primary: /storage/sdcard0 - browser defaults, app data
  * - Y2 microSD: /storage/sdcard1 - scanned when readable; never replaces Y1 defaults
  */
 object StoragePaths {
@@ -191,8 +191,7 @@ object StoragePaths {
      * Where new playlists go: Playlists on the microSD card (a computer can reach it as a USB drive), else Playlists
      * on internal storage. A card that cannot be written to (read-only, full of errors) uses internal storage too.
      */
-    fun getPlaylistsDir(): File =
-        choosePlaylistsDir(if (hasSecondaryStorage()) File(SECONDARY_PATH) else null, getPrimaryRoot())
+    fun getPlaylistsDir(): File = choosePlaylistsDir(getSecondaryRoot(), getPrimaryRoot())
 
     /** Playlists on [cardRoot] when that folder is there (made when missing) and can be written to, else on [primaryRoot]. */
     internal fun choosePlaylistsDir(cardRoot: File?, primaryRoot: File): File {
@@ -231,8 +230,8 @@ object StoragePaths {
 
     fun primaryFile(relativePath: String): File = File(getPrimaryRoot(), relativePath)
 
-    /** Web upload root stays on primary so URL paths are unchanged. */
-    fun getWebServerRoot(): File = getPrimaryRoot()
+    /** The root of the microSD card, or null when hasSecondaryStorage() is false. */
+    fun getSecondaryRoot(): File? = if (hasSecondaryStorage()) File(SECONDARY_PATH) else null
 
     fun isStorageVolumeName(name: String?): Boolean {
         if (name == null) return false
