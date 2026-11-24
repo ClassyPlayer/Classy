@@ -16,7 +16,7 @@ class NotEnoughSpace(val need: Long, val free: Long) : IOException("Need $need b
 /** The one-line message shown to the user for a sync or connection error; [localize] translates the fixed texts. */
 fun errorText(e: Throwable, localize: (String) -> String = { it }): String = when {
     findCertNotTrusted(e) != null -> localize("Certificate not trusted")
-    e is CancellationException -> "Sync cancelled"
+    e is CancellationException -> localize("Sync cancelled")
     e is UnknownHostException || e is ConnectException || e is SocketTimeoutException || e is NoRouteToHostException -> localize("Server unreachable")
     e is DavHttpException && (e.code == 401 || e.code == 403) -> localize("Check username/password")
     e is DavHttpException -> "HTTP ${e.code}"

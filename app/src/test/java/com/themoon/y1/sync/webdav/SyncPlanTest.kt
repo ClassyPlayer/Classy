@@ -40,6 +40,8 @@ class SyncPlanTest {
         assertEquals(File(to, "Rock/Live/a.flac"), movedPath("/storage/sdcard0/Music/Rock/Live/a.flac", from, to))
         assertNull(movedPath("/storage/sdcard1/Music/Rock/a.flac", from, to)) // already there
         assertNull(movedPath("/storage/sdcard0/Musical/a.flac", from, to)) // same prefix, other folder
+        assertNull(movedPath("/storage/sdcard0/Music/../../data/x", from, to)) // a ledger path must stay below Music
+        assertNull(movedPath("/storage/sdcard0/Music/./a.flac", from, to))
         assertNull(movedPath(null, from, to))
     }
 

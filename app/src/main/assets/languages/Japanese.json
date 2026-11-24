@@ -885,5 +885,6 @@
   "Not a valid URL": "無効なURLです",
   "Last sync failed": "前回の同期に失敗しました",
   "Cannot save the sync record": "同期記録を保存できません",
-  "This Folder": "このフォルダ"
+  "This Folder": "このフォルダ",
+  "Sync cancelled": "同期をキャンセルしました"
 }

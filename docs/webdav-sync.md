@@ -230,8 +230,8 @@ differ only in those characters end up as one file.
 `startMove` runs `move`: for each ledger item whose path is under the other storage's `Music`, copy to a new `.partial-*.part` file, check
 the length, replace the target, then delete the source. The target is the path of the item's href on this storage
 (`localFileFor`), as a sync makes it, so a FAT name on the SD card gets its own name back on internal storage. The sync
-plan finds a copy on the other storage the same way. A record whose source is missing (the SD card is out) is moved
-only if a complete file of the recorded size is already at the target; else it stays as it was. If the delete fails, the new copy is removed and the item stays
+plan finds a copy on the other storage the same way. A record whose source is missing (the SD card is out) stays as it
+was: a file of the same size at the target can be an older version. If the delete fails, the new copy is removed and the item stays
 where it was, so a move never leaves a file in two places, and a failure or cancel never loses one. The ledger is updated
 for each file, and `pruneEmptyDirs` removes the folders that a move leaves empty. A file that is playing waits: the
 source, or a file at the target, checked before the copy and again before the source is deleted. A file that is at the

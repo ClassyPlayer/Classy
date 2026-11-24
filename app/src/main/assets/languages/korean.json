@@ -885,5 +885,6 @@
   "Not a valid URL": "올바른 URL이 아닙니다",
   "Last sync failed": "마지막 동기화 실패",
   "Cannot save the sync record": "동기화 기록을 저장할 수 없습니다",
-  "This Folder": "이 폴더"
+  "This Folder": "이 폴더",
+  "Sync cancelled": "동기화가 취소되었습니다"
 }

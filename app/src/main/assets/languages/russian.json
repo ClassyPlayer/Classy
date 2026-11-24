@@ -885,5 +885,6 @@
   "Not a valid URL": "Недопустимый URL",
   "Last sync failed": "Последняя синхронизация не удалась",
   "Cannot save the sync record": "Не удаётся сохранить журнал синхронизации",
-  "This Folder": "Эта папка"
+  "This Folder": "Эта папка",
+  "Sync cancelled": "Синхронизация отменена"
 }

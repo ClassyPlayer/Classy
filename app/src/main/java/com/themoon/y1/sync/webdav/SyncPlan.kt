@@ -43,6 +43,8 @@ fun movedPath(localPath: String?, from: File, to: File, safeNames: Boolean = fal
     val prefix = from.path.trimEnd('/') + "/"
     if (localPath == null || !localPath.startsWith(prefix)) return null
     val rest = localPath.removePrefix(prefix)
+    // The ledger is a file on shared storage: a "." or ".." segment must not take a move outside the Music folders
+    if (rest.split('/').any { it == "." || it == ".." }) return null
     return File(to, if (safeNames) rest.split('/').joinToString("/") { fatSafe(it) } else rest)
 }
 

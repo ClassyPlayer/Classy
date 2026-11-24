@@ -194,7 +194,7 @@ class WebDavSync private constructor(context: Context) {
             if (deleteTracked(plan.remove) > 0) { changed = true; changedByRun = true }
         }
 
-        sweepPartFiles(plan.downloads.mapNotNull { it.target.parentFile })
+        sweepPartFiles(plan.downloads.mapNotNull { it.target.parentFile }, synchronized(ledger) { trackedKeys() })
         val player = AudioPlayerManager.getInstance()
         val got = AtomicLong(0) // bytes of all files so far, finished or not
         val finished = AtomicInteger(0)
@@ -324,7 +324,7 @@ class WebDavSync private constructor(context: Context) {
         val toCopy = items.filter { File(it.localPath!!).exists() && !target(it).exists() }.sumOf { File(it.localPath!!).length() }
         to.mkdirs()
         requireFreeSpace(toCopy, if (to.exists()) to else to.parentFile!!)
-        sweepPartFiles(items.mapNotNull { target(it).parentFile })
+        sweepPartFiles(items.mapNotNull { target(it).parentFile }, synchronized(ledger) { trackedKeys() })
         // How many records keep each file, counted once: a shared source (two names that became one FAT name) stays
         // until its last record moves
         val owners = synchronized(ledger) {
@@ -364,8 +364,10 @@ class WebDavSync private constructor(context: Context) {
                         }
                         pruneEmptyDirs(src, listOf(from, to)) // the album folders that the move left empty
                     }
-                } else if (!dst.exists() || dst.length() != item.fileSize) {
-                    continue // the source is not there (an SD card that is out) and nothing complete is at the target: keep the record
+                } else {
+                    // The source is not there (an SD card that is out): keep the record. A file of the same size at the
+                    // target can be an older version, so it is not taken as this one
+                    continue
                 }
                 moved++
                 owners.add(pathKey(src.path), -1)
@@ -388,11 +390,16 @@ class WebDavSync private constructor(context: Context) {
      * Deletes the temporary files ([newPartFile]) that a run which stopped (the app or the player went off) left in
      * [dirs], the folders that this run writes to. One run at a time, so no other run is writing them.
      */
-    private fun sweepPartFiles(dirs: Collection<File>) {
+    private fun sweepPartFiles(dirs: Collection<File>, tracked: Set<String>) {
         for (dir in dirs.toSet()) {
-            dir.listFiles { f -> f.isFile && f.name.startsWith(PART_PREFIX) && f.name.endsWith(PART_SUFFIX) }?.forEach { it.delete() }
+            dir.listFiles { f -> f.isFile && f.name.startsWith(PART_PREFIX) && f.name.endsWith(PART_SUFFIX) }
+                ?.filter { pathKey(it.path) !in tracked } // a synced server file with such a name stays
+                ?.forEach { it.delete() }
         }
     }
+
+    /** The [pathKey] of each file that the ledger records. Call it with the ledger lock. */
+    private fun trackedKeys(): Set<String> = ledger.getAllItems().values.mapNotNull { it.localPath?.let(::pathKey) }.toSet()
 
     /** Adds [n] to the count of [key] (HashMap.merge is API 24). */
     private fun HashMap<String, Int>.add(key: String, n: Int) {
