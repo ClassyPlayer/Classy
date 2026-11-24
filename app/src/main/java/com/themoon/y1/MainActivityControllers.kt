@@ -496,15 +496,6 @@ internal fun MainActivity.initControllers() {
         activity = this,
         rootView = layoutSettingsMode as ViewGroup,
         eqPresetNames = eqPresetNames,
-        createTablerListButton = { icon, text, normalColor, focusedColor ->
-            // Settings makes rows with a tick or with no icon only for single-choice lists (Language, Theme...):
-            // keep a tick column on each row, so the text does not move, and the normal colours (no green).
-            if (icon == null || icon === com.themoon.y1.views.TablerIcons.CHECK) {
-                ListItemViewFactory.createCheckListButton(this, text, icon != null)
-            } else {
-                ListItemViewFactory.createTablerListButton(this, icon, text, normalColor, focusedColor)
-            }
-        },
         clickFeedback = { clickFeedback() },
         onNavigateBack = { NavigationManager.getInstance().popBackStack() },
         onNavigateToScreen = { screenId ->

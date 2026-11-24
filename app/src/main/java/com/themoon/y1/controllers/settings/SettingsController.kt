@@ -67,7 +67,6 @@ class SettingsController(
     private val activity: Activity,
     override val rootView: ViewGroup,
     private val eqPresetNames: List<String>,
-    private val createTablerListButton: (icon: Array<String>?, text: String, normalColor: Int, focusedColor: Int) -> View,
     private val clickFeedback: () -> Unit,
     private val onNavigateBack: () -> Unit,
     private val onNavigateToScreen: (Int) -> Unit,
@@ -104,8 +103,6 @@ class SettingsController(
     /** The open action screen (Power, or a screen in place of a dialog: ActionScreen.kt), or null. Back goes to the screen before it. */
     private var actionPage: SettingsSubMode? = null
     private val isActionScreen: Boolean get() = actionPage != null
-    /** The status bar title of the list that shows. */
-    private var shownTitle: String? = null
 
     // The values of the Date & Time rows (Year...Minute): read from the clock when Date & Time opens and after a change
     var dtYear: Int = 2026
@@ -307,13 +304,8 @@ class SettingsController(
         when (val shown = page) {
             is SettingsSubMode.Power -> buildPowerUI()
             is SettingsSubMode.Action -> buildActionUI(shown, ActionScreens.spec(shown.key))
-            else -> show(pageSpec(shown))
+            else -> screen.show(pageSpec(shown))
         }
-    }
-
-    private fun show(spec: ListSpec) {
-        shownTitle = spec.title
-        screen.show(spec)
     }
 
     /** The list of a route key. A key that this build has no list for (an old group) shows the top level. */
@@ -358,9 +350,7 @@ class SettingsController(
     /** A value changed: the list that shows is made again, and the selected row stays. */
     private fun refresh() {
         if (!isUiActive || isActionScreen) return
-        val spec = pageSpec(page)
-        shownTitle = spec.title
-        screen.update(spec)
+        screen.update(pageSpec(page))
     }
 
     /** Opens the screen of a row. When it is the list under this one (a value was chosen), Back goes to it. */
@@ -370,7 +360,7 @@ class SettingsController(
         if (nav.previousState() == state) nav.popBackStack() else mainActivity?.changeScreen(state)
     }
 
-    override fun title(): String? = shownTitle
+    override fun title(): String? = screen.title
 
     override fun onExit() {
         // A picked-up row of Main Menu Items or Music Menu Items goes down, and the order is saved
@@ -528,7 +518,6 @@ class SettingsController(
         }
         val list = ActionScreens.list(spec) { onNavigateBack() }
         if (again) screen.update(list) else screen.show(list)
-        shownTitle = spec.title
         mainActivity?.tvStatusBarTitle?.text = spec.title
     }
 
@@ -777,8 +766,7 @@ class SettingsController(
         // Made in a vertical list, as in the Settings list: the full width
         val divider = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
             .also { ListItemViewFactory.createCategoryHeader(activity, it, "━━━━━━━━━━━━━━") }.getChildAt(0)
-        val check = createTablerListButton(TablerIcons.REFRESH, localize("Check for Updates"),
-            ThemeManager.getTextColorPrimary(), ThemeManager.getListButtonFocusedTextColor())
+        val check = ListItemViewFactory.createTablerListButton(activity, TablerIcons.REFRESH, localize("Check for Updates"))
         return ListSpec(localize("System Update"), listOf(
             RowSpec(localize("Current Version"), RowLook.VALUE, value = if (version.startsWith("v")) version else "v$version"),
             RowSpec(localize("Update Channel"), RowLook.VALUE, value = localize(UpdateChannel.label(updateChannel())),
