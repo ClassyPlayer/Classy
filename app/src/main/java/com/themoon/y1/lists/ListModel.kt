@@ -63,6 +63,8 @@ class RowSpec(
     val key: String = label,
     /** False: the row is grey and the wheel skips it (a setting that cannot be used now). */
     val enabled: Boolean = true,
+    /** [RowLook.INFO]: a progress bar under the text, 0 to 100; null = no bar. */
+    val progress: Int? = null,
     /** True: the click feedback comes after [onClick] (a row that changes the click sound or vibration plays the new one). */
     val feedbackAfter: Boolean = false,
     val onClick: (() -> Unit)? = null,

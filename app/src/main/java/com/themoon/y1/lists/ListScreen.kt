@@ -358,7 +358,7 @@ class ListScreen(
             }.view
             RowLook.CUSTOM -> row.view!!.also { (it.parent as? ViewGroup)?.removeView(it) }
             RowLook.HEADER -> headerRow(row.label)
-            RowLook.INFO -> infoRow(row.label)
+            RowLook.INFO -> infoRow(row.label, row.progress)
         }
         if (row.id != View.NO_ID) view.id = row.id
         if (!row.enabled) {
@@ -406,13 +406,13 @@ class ListScreen(
         isFocusable = false
     }
 
-    /** An info line; "text\u0001NN" (NN = 0 to 100) shows a progress bar under the text. */
-    private fun infoRow(line: String): View {
+    /** An info line, with a progress bar under the text when [progress] (0 to 100) is not null. */
+    private fun infoRow(line: String, progress: Int?): View {
         val d = context.resources.displayMetrics.density
         val padX = (8 * d).toInt()
-        val pct = if (line.contains('\u0001')) line.substringAfterLast('\u0001').toIntOrNull()?.coerceIn(0, 100) else null
+        val pct = progress?.coerceIn(0, 100)
         val label = TextView(context).apply {
-            text = if (pct == null) line else line.substringBeforeLast('\u0001')
+            text = line
             setTextColor(ThemeManager.getTextColorSecondary())
             setTextSize(TypedValue.COMPLEX_UNIT_PX, 19f * d)
             typeface = ThemeManager.getCustomFont()

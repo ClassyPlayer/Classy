@@ -415,7 +415,8 @@ class WebDavUiController(
                 lastDone = done
                 val pct = if (total > 0) "${done * 100 / total} %" else ""
                 val rate = if (total > 0 && speed >= 1024) " · " + (if (speed >= 1048576) String.format(java.util.Locale.US, "%.1f MB/s", speed / 1048576) else "${(speed / 1024).toInt()} KB/s") else ""
-                ActionScreens.update(key, listOf(text, pct + rate) + files.map { (path, p) -> File(path).name.let { n -> if (p < 0) n else "$n\u0001$p" } })
+                // A bar for each file in progress (none while its size is not known)
+                ActionScreens.update(key, listOf(text, pct + rate) + files.keys.map { File(it).name }, listOf(null, null) + files.values.map { p -> p.takeIf { it >= 0 } })
             }
 
             override fun onDone(changed: Boolean) {
