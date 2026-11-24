@@ -2,7 +2,6 @@ package com.themoon.y1.controllers.sync
 
 import android.app.Activity
 import android.os.SystemClock
-import android.view.KeyEvent
 import android.view.ViewGroup
 import com.themoon.y1.R
 import com.themoon.y1.StoragePaths
@@ -48,6 +47,8 @@ class WebDavUiController(
 ) : ScreenController {
 
     private val screen = ListScreen(rootView.findViewById(R.id.container_settings_items), null, clickFeedback)
+
+    override val listScreen: ListScreen get() = screen
     private val provider: WebDavSyncProvider get() = WebDavSyncProvider.getInstance(activity)
     private val sync: WebDavSync get() = WebDavSync.getInstance(activity)
 
@@ -90,12 +91,6 @@ class WebDavUiController(
     override fun onThemeChanged() {
         NavigationManager.getInstance().currentState?.let { onEnter(it) }
     }
-
-    override fun onWheel(delta: Int, event: KeyEvent): Boolean = screen.wheel(delta, event.eventTime)
-
-    override fun dispatchKeyEvent(event: KeyEvent): Boolean = screen.key(event)
-
-    override fun title(): String? = screen.title
 
     private val shownLevel: WebDavLevel?
         get() = (NavigationManager.getInstance().currentState as? ScreenState.WebDav)?.level
