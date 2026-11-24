@@ -442,7 +442,7 @@ internal fun MainActivity.initControllers() {
                 KeyboardTarget.JellyfinToken -> provider.accessToken
                 KeyboardTarget.WebDavUrl -> com.themoon.y1.sync.webdav.WebDavSyncProvider.getInstance(this).url
                 KeyboardTarget.WebDavUser -> com.themoon.y1.sync.webdav.WebDavSyncProvider.getInstance(this).user
-                is KeyboardTarget.WebDavPassword -> com.themoon.y1.sync.webdav.WebDavSyncProvider.getInstance(this).password
+                is KeyboardTarget.WebDavPassword -> "" // the keyboard does not mask: the saved password is not shown
                 else -> ""
             }
         },
