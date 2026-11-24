@@ -18,7 +18,7 @@ object WebDavConfigFile {
         val url = o.optString("url").trim()
         val user = o.optString("user")
         val password = o.optString("password")
-        require(url.startsWith("https://") || url.startsWith("http://")) { "url must start with http:// or https://" }
+        require(serverUri(url) != null) { "url must be http:// or https:// with a host" }
         require(user.isNotEmpty() && password.isNotEmpty()) { "user and password are required" }
         WebDavConfig(url, user, password)
     }.mapCatching { c ->

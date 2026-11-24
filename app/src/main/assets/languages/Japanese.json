@@ -881,5 +881,6 @@
   "Check username/password": "ユーザー名とパスワードを確認してください",
   "Certificate not trusted": "証明書が信頼されていません",
   "Not enough space": "空き容量が足りません",
-  "URL must start with http:// or https://": "URLは http:// または https:// で始まる必要があります"
+  "URL must start with http:// or https://": "URLは http:// または https:// で始まる必要があります",
+  "Not a valid URL": "無効なURLです"
 }

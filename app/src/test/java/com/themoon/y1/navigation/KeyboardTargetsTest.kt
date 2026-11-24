@@ -29,6 +29,8 @@ class KeyboardTargetsTest {
         assertEquals("Save", KeyboardTargets.actionLabel(KeyboardTarget.WebDavUrl, localize))
         assertEquals(KeyboardSubmit.Accepted("https://nas:5006/music"), KeyboardTargets.submit(KeyboardTarget.WebDavUrl, " https://nas:5006/music "))
         assertEquals(KeyboardSubmit.Rejected("URL must start with http:// or https://"), KeyboardTargets.submit(KeyboardTarget.WebDavUrl, "nas:5006"))
+        assertEquals(KeyboardSubmit.Rejected("Not a valid URL"), KeyboardTargets.submit(KeyboardTarget.WebDavUrl, "https://"))
+        assertEquals(KeyboardSubmit.Rejected("Not a valid URL"), KeyboardTargets.submit(KeyboardTarget.WebDavUrl, "https://nas/100%"))
         assertEquals(KeyboardSubmit.Accepted("eve", KeyboardTarget.WebDavPassword("eve")), KeyboardTargets.submit(KeyboardTarget.WebDavUser, " eve "))
         assertEquals(KeyboardSubmit.Accepted(" p w "), KeyboardTargets.submit(KeyboardTarget.WebDavPassword("eve"), " p w "))
         assertEquals("Login", KeyboardTargets.actionLabel(KeyboardTarget.WebDavPassword("eve"), localize))

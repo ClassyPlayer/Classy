@@ -56,7 +56,8 @@ class WebDavSyncProvider private constructor(context: Context) : MediaSyncProvid
         get() = prefs.getLong("last_auto_attempt", 0L)
         set(v) { prefs.edit().putLong("last_auto_attempt", v).apply() }
 
-    fun client(): WebDavClient =
+    /** Throws an IOException for a URL that [serverUri] does not take: call it where an error can show. */
+    fun client(url: String = this.url, user: String = this.user, password: String = this.password, pin: String? = this.pin): WebDavClient =
         WebDavClient(url, user, password, if (url.startsWith("https://")) PinningTrustManager(pin) else null)
 
     /** Imports [WebDavConfigFile.FILE_NAME] from primary storage if present. Returns an error text, or null. */

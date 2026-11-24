@@ -229,10 +229,11 @@ class WebDavUiController(
         if (!isNetworkConnected()) return onRequestWifi()
         val key = ActionScreens.open(ActionScreens.Spec(localize("Test Connection"), listOf(localize("Connecting..."))))
         val url = provider.url
-        val client = provider.client() // with the URL: both are of one configuration
+        val p = provider
+        val (user, password, pin) = Triple(p.user, p.password, p.pin) // with the URL: all are of one configuration
         Thread {
             val error = try {
-                client.let { it.list(it.rootHref) }
+                p.client(url, user, password, pin).let { it.list(it.rootHref) } // a URL that cannot be read is an error here, not a crash
                 null
             } catch (e: Exception) {
                 e
@@ -282,12 +283,13 @@ class WebDavUiController(
     private fun loadFolder(href: String) {
         dropListingsOfOtherServer()
         val url = provider.url
-        val client = provider.client()
+        val p = provider
+        val (user, password, pin) = Triple(p.user, p.password, p.pin)
         val shown = folders[href] != null
         if (!shown) folders[href] = null
         Thread {
             val result = try {
-                Result.success(client.list(href).sortedWith(compareBy({ !it.isDir }, { decodeHref(it.href).lowercase() })))
+                Result.success(p.client(url, user, password, pin).list(href).sortedWith(compareBy({ !it.isDir }, { decodeHref(it.href).lowercase() })))
             } catch (e: Exception) {
                 Result.failure(e)
             }

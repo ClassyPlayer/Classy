@@ -1,5 +1,7 @@
 package com.themoon.y1.navigation
 
+import com.themoon.y1.sync.webdav.serverUri
+
 /**
  * What the on-screen keyboard is open for. Each opening gives one, in [ScreenState.WifiKeyboard],
  * so nothing from an earlier opening is used again. The title, the hint, the submit key label and
@@ -90,8 +92,11 @@ object KeyboardTargets {
         is KeyboardTarget.LastFmPassword, is KeyboardTarget.JellyfinPassword, is KeyboardTarget.WebDavPassword ->
             required(text, "Please enter a password.") { KeyboardSubmit.Accepted(it) }
         KeyboardTarget.WebDavUrl -> text.trim().let {
-            if (it.startsWith("https://") || it.startsWith("http://")) KeyboardSubmit.Accepted(it)
-            else KeyboardSubmit.Rejected("URL must start with http:// or https://")
+            when {
+                !it.startsWith("https://") && !it.startsWith("http://") -> KeyboardSubmit.Rejected("URL must start with http:// or https://")
+                serverUri(it) == null -> KeyboardSubmit.Rejected("Not a valid URL") // no host, or a character a URL cannot have
+                else -> KeyboardSubmit.Accepted(it)
+            }
         }
         KeyboardTarget.WebDavUser ->
             required(text.trim(), "Please enter a username.") { KeyboardSubmit.Accepted(it, KeyboardTarget.WebDavPassword(it)) }

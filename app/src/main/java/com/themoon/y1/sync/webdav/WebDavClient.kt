@@ -45,6 +45,22 @@ internal fun sameServer(a: URI, b: URI): Boolean {
     return a.scheme.equals(b.scheme, ignoreCase = true) && a.host?.equals(b.host, ignoreCase = true) == true && port(a) == port(b)
 }
 
+/**
+ * [url] as a server URI: an http or https scheme and a host, else null. A space typed by hand becomes %20.
+ * The keyboard, the config file and [WebDavClient] use it, so a saved URL can always make a client.
+ */
+fun serverUri(url: String): URI? {
+    val text = url.trim()
+    val u = try {
+        URI(text)
+    } catch (_: URISyntaxException) {
+        try { URI(text.replace(" ", "%20")) } catch (_: URISyntaxException) { return null }
+    }
+    val scheme = u.scheme?.lowercase()
+    if (scheme != "http" && scheme != "https") return null
+    return u.takeIf { !it.host.isNullOrEmpty() }
+}
+
 /** Percent-decodes each path segment as UTF-8. '+' stays '+' (paths are not form-encoded). */
 fun decodeHref(href: String): String {
     val bytes = ByteArrayOutputStream()
@@ -130,12 +146,7 @@ class WebDavClient(
 ) {
     private val auth = Credentials.basic(user, password, Charsets.UTF_8)
 
-    /** A space in the URL is typed by hand more often than not: %20. */
-    private val baseUri: URI = try {
-        URI(baseUrl)
-    } catch (_: URISyntaxException) {
-        URI(baseUrl.replace(" ", "%20"))
-    }
+    private val baseUri: URI = serverUri(baseUrl) ?: throw IOException("Not a valid URL")
     private val origin: String = baseUri.scheme + "://" + baseUri.rawAuthority
 
     private val http: OkHttpClient = OkHttpClient.Builder()

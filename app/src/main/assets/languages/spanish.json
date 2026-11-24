@@ -881,5 +881,6 @@
   "Check username/password": "Revise usuario y contraseña",
   "Certificate not trusted": "Certificado no confiable",
   "Not enough space": "Espacio insuficiente",
-  "URL must start with http:// or https://": "La URL debe empezar por http:// o https://"
+  "URL must start with http:// or https://": "La URL debe empezar por http:// o https://",
+  "Not a valid URL": "URL no válida"
 }

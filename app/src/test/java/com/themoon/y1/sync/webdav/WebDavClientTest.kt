@@ -234,4 +234,20 @@ class WebDavClientTest {
         replaceFile(part, target)
         assertEquals("x", target.readText())
     }
+
+    @Test
+    fun serverUriNeedsSchemeAndHost() {
+        assertEquals("nas", serverUri(" https://nas:5006/music ")?.host)
+        assertEquals("/My Music", serverUri("http://nas/My Music")?.path) // a typed space becomes %20
+        assertNull(serverUri("https://"))
+        assertNull(serverUri("https:///music"))
+        assertNull(serverUri("https://nas/100%"))
+        assertNull(serverUri("ftp://nas/music"))
+        assertNull(serverUri("nas:5006"))
+    }
+
+    @Test(expected = java.io.IOException::class)
+    fun clientRefusesUrlWithNoHost() {
+        WebDavClient("https://", "u", "p", null)
+    }
 }
