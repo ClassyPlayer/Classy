@@ -24,6 +24,7 @@ import com.themoon.y1.lists.RowSpec
 import com.themoon.y1.managers.AudioEffectManager
 import com.themoon.y1.managers.AudioEffectPlan
 import com.themoon.y1.managers.AudioPlayerManager
+import com.themoon.y1.navigation.RowFocus
 import com.themoon.y1.navigation.ScreenState
 import com.themoon.y1.navigation.WheelKind
 import com.themoon.y1.views.EqSliderView
@@ -74,6 +75,8 @@ class EqualizerController(
     private var currentAdjustingBand: Short = -1
     /** The sliders of the open Graphic Equalizer, one for each band. */
     private val bandSliders = ArrayList<EqSliderView>()
+    /** The rows of the open Graphic Equalizer for the wheel: the bands, then the Back row. */
+    private val graphicEqRows = ArrayList<View>()
     private var isGraphicEqOpen = false
     private var isProfileSelectorOpen = false
 
@@ -234,6 +237,7 @@ class EqualizerController(
         // The saved levels are the levels that play (AudioEffectManager reads the same prefs)
         val profileName = currentEqProfile.removePrefix("custom_")
         bandSliders.clear()
+        graphicEqRows.clear()
 
         for (i in 0 until bands) {
             val bandIdx = i.toShort()
@@ -294,6 +298,7 @@ class EqualizerController(
             }
 
             eqContainer.addView(bandLayout)
+            graphicEqRows += bandLayout
         }
 
         hsv.addView(eqContainer)
@@ -305,6 +310,7 @@ class EqualizerController(
             buildEqualizerSettingsUI(back = true)
         }
         containerSettingsItems.addView(btnBack)
+        graphicEqRows += btnBack
 
         if (eqContainer.childCount > 0) {
             eqContainer.postDelayed({
@@ -361,7 +367,7 @@ class EqualizerController(
 
     override fun onWheel(delta: Int, event: KeyEvent): Boolean {
         if (!isGraphicEqOpen) return screen.wheel(delta)
-        if (currentAdjustingBand < 0) return false
+        if (currentAdjustingBand < 0) return stepGraphicEq(delta)
         val idx = currentAdjustingBand.toInt()
         if (idx in bandSliders.indices) {
             val name = currentEqProfile.removePrefix("custom_")
@@ -371,6 +377,15 @@ class EqualizerController(
             // Update the slider in place: a rebuild would end the band edit and move the focus to the first band
             bandSliders[idx].setLevel(level)
         }
+        clickFeedback()
+        return true
+    }
+
+    /** One wheel step in the Graphic Equalizer: from band to band, and from the last band to the Back row. */
+    private fun stepGraphicEq(delta: Int): Boolean {
+        val current = graphicEqRows.indexOfFirst { it.hasFocus() }
+        val i = RowFocus.next(graphicEqRows.size, current, delta, RowFocus.isLoopOn(activity)) { true } ?: return true
+        graphicEqRows[i].requestFocus()
         clickFeedback()
         return true
     }
