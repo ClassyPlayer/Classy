@@ -307,6 +307,7 @@ class WebDavClientTest {
         assertNull(serverUri("ftp://nas/music"))
         assertNull(serverUri("nas:5006"))
         assertNull(serverUri("https://user:secret@nas/music")) // no password in the URL: it shows on the screen
+        assertNull(serverUri("http://user:secret@my_nas/dav")) // also for a host that java.net.URI does not read
         assertEquals("my_nas", serverHost("http://my_nas:5005/dav")) // java.net.URI has no host for it; OkHttp has
         assertEquals("nas", serverHost("HTTPS://NAS:5006/dav"))
         assertEquals("/", rootHrefOf(serverUri("https://nas:5006")!!))

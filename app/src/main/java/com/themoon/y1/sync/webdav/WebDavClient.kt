@@ -87,8 +87,9 @@ fun serverUri(url: String): URI? {
     }
     val scheme = u.scheme?.lowercase()
     if (scheme != "http" && scheme != "https") return null
-    // No "user:password@" in the URL: the password goes in its own field, and the URL shows on the screen
-    if (u.rawUserInfo != null) return null
+    // No "user:password@" in the URL: the password goes in its own field, and the URL shows on the screen. Also for a
+    // host that java.net.URI does not read as a server ("my_nas"): then only the authority has the "@"
+    if (u.rawUserInfo != null || u.rawAuthority?.contains('@') == true) return null
     // A host: java.net.URI has none for a name like "my_nas" (only an authority), so OkHttp, which sends the requests, decides
     if (u.rawAuthority.isNullOrEmpty() || HttpUrl.parse(u.toString())?.host().isNullOrEmpty()) return null
     return u
@@ -141,10 +142,12 @@ object Propfind {
     /** A PROPFIND answer larger than this is refused (a folder of some 100 000 files). */
     private const val MAX_BYTES = 8 * 1024 * 1024
 
-    fun parse(xml: InputStream, requestHref: String): List<DavEntry> {
+    fun parse(xml: InputStream, requestHref: String): List<DavEntry> = parseBytes(readLimited(xml), requestHref)
+
+    /** [parse] of an answer that is in memory already (one copy, not two). */
+    fun parseBytes(bytes: ByteArray, requestHref: String): List<DavEntry> {
         // A WebDAV answer has no DOCTYPE: refuse one, so a server cannot make the parser read files or URLs. Checked in
         // the bytes, because Android's DocumentBuilderFactory does not take the feature below (and ignores it)
-        val bytes = readLimited(xml)
         if (hasDoctype(bytes)) throw IOException("The server answer has a DOCTYPE")
         val f = DocumentBuilderFactory.newInstance().apply {
             isNamespaceAware = true
@@ -311,7 +314,7 @@ class WebDavClient(
             if (resp.code() != 207 && !resp.isSuccessful) throw DavHttpException(resp.code())
             val stream = resp.body()?.byteStream() ?: throw IOException("Empty PROPFIND response")
             val bytes = Propfind.readLimited(stream, cancelled)
-            return Propfind.parse(bytes.inputStream(), href).map { it.copy(href = pathHref(it.href)) }
+            return Propfind.parseBytes(bytes, href).map { it.copy(href = pathHref(it.href)) }
         }
     }
 
@@ -341,7 +344,7 @@ class WebDavClient(
                 val limit = when {
                     expectedSize >= 0 -> expectedSize
                     body.contentLength() >= 0 -> body.contentLength()
-                    else -> (target.parentFile ?: part.parentFile)?.usableSpace ?: Long.MAX_VALUE
+                    else -> ((target.parentFile ?: part.parentFile)?.usableSpace ?: Long.MAX_VALUE) - FREE_RESERVE
                 }
                 var total = 0L
                 part.outputStream().use { out ->
@@ -370,6 +373,8 @@ class WebDavClient(
 
     private companion object {
         const val LIST_TIMEOUT_S = 120L
+        /** A download of unknown size leaves this much free space (the player needs some to work). */
+        const val FREE_RESERVE = 64L * 1024 * 1024
         val PROPFIND_BODY = """<?xml version="1.0" encoding="utf-8"?>
 <D:propfind xmlns:D="DAV:"><D:prop><D:resourcetype/><D:getcontentlength/><D:getetag/><D:getlastmodified/></D:prop></D:propfind>"""
     }

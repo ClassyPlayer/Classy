@@ -86,6 +86,7 @@ object SyncPlan {
         /** The Music folder of the other storage (Save To): a copy there is left to Move Synced Files. */
         otherRoot: File? = null,
         size: (File) -> Long = { it.length() },
+        isFile: (File) -> Boolean = { it.isFile },
         exists: (File) -> Boolean
     ): Plan {
         val downloads = ArrayList<Download>()
@@ -119,10 +120,18 @@ object SyncPlan {
                     // The new copy replaces the recorded one: that one must not stay on the player untracked
                     val replaces = recorded?.takeIf { it.path != target.path }
                     if (!planned.add(key)) continue
+                    // A local file where the server has a folder: the download cannot make its folder. Skip this file
+                    // only, not the whole sync
+                    if (generateSequence(target.parentFile) { it.parentFile }.takeWhile { it != destRoot }.any { isFile(it) }) {
+                        conflicts.add(e.href)
+                        continue
+                    }
                     if (key !in recordedPaths && exists(target)) {
                         // Not a file of this sync. With the server's size it is taken as this file (a sync after Log
-                        // Out / Reset, or a copy made by hand); else it is the user's own file and stays
-                        if (item == null && e.size >= 0 && size(target) == e.size) adopt.add(Download(e, folder, target))
+                        // Out / Reset, a copy made by hand, or a record whose own copy is gone after a crash); else it
+                        // is the user's own file (or a folder) and stays
+                        val recordGone = item == null || recorded == null || !exists(recorded)
+                        if (recordGone && isFile(target) && e.size >= 0 && size(target) == e.size) adopt.add(Download(e, folder, target))
                         else conflicts.add(e.href)
                         continue
                     }

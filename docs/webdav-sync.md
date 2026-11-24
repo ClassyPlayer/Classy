@@ -82,7 +82,9 @@ NAS**, and you choose: delete one, or Delete All. Your copy is kept until you do
 ### Log Out / Reset
 
 Forgets the address, login and certificate, and the ticked folders. The songs stay on the player: Classy forgets that
-it synced them, so no later sync deletes them. Delete them with a file manager if you do not want them.
+it synced them, so no later sync deletes them. Delete them with a file manager if you do not want them. If you set it
+up again and tick the same folders, a sync takes back each copy that has the server's size; from then on it is a
+synced file again (an untick deletes it).
 
 A new **Server URL** does the same: no ticked folders, no certificate, and the songs of the old URL stay. The local
 paths are below the folder of the URL. A sync never writes over an old copy at such a path: it takes the copy back if
@@ -147,8 +149,8 @@ videos too; WebDAV Sync copies the folder tree of the server as it is, keyed by 
 
 - `list(href)`: `PROPFIND` with `Depth: 1` and a small property body. Sub-folders are walked one request each, with
   a visited set and a `MAX_FOLDERS` (20 000) cap, so a server that links back to itself ends in an error.
-- A download never takes more bytes than the listing or the `Content-Length` gave (else the free space), and asks for
-  no gzip, so a server cannot fill the storage. `replaceFile` never moves a folder aside.
+- A download never takes more bytes than the listing or the `Content-Length` gave, and asks for no gzip. With no
+  size at all, it stops 64 MB before the storage is full (each parallel download alone). `replaceFile` never moves a folder aside.
 - `download(href, target, size, cancelled, mayReplace, progress)`: `GET` into a new hidden `.partial-*.part` file next to the target (exclusive create, so never a synced file), check the length, ask
   `mayReplace` (the sync says no while the target plays: `TargetBusy`, and the file waits for the next sync), then
   `replaceFile`: one rename over the old file. On FAT, which cannot rename over a file, the old file moves aside to
@@ -299,4 +301,8 @@ The limit: no auto sync while the app process is not running. A `JobScheduler` w
   then, but the synced files are no longer tracked).
 - A file name that is the same after `fatSafe` shares one file.
 - No partial resume: a cancelled download starts again.
+- A file that the sync skips (a file of the user at its place, of another size) shows only in the log, not on the
+  screen.
+- A download has no total time limit (a very slow server keeps a sync running; Sync Now can be cancelled, Auto Sync
+  not), and the number of entries over all folders has no limit (20 000 folders at most).
 - Music only: the ledger item type is `music`; Jellyfin Sync is the one with other kinds.

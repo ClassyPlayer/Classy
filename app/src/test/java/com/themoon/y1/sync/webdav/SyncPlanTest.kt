@@ -25,8 +25,9 @@ class SyncPlanTest {
         // As on the player: the files that the ledger records are there, and no other file
         exists: (File) -> Boolean = { f -> ledger.any { it.localPath == f.path } },
         otherRoot: File? = null,
-        size: (File) -> Long = { -1L }
-    ) = SyncPlan.build(remote, ledger.associateBy { it.jellyfinId }, ticked, root, base, otherRoot = otherRoot, size = size, exists = exists)
+        size: (File) -> Long = { -1L },
+        isFile: (File) -> Boolean = exists
+    ) = SyncPlan.build(remote, ledger.associateBy { it.jellyfinId }, ticked, root, base, otherRoot = otherRoot, size = size, isFile = isFile, exists = exists)
 
     @Test
     fun tickedSubfolderKeepsItsFullPath() {
@@ -314,7 +315,8 @@ class SyncPlanTest {
     fun aFileThatTheSyncDidNotMakeIsNeverOverwritten() {
         // The user's own file at the target, another size than on the server: skipped, not downloaded
         val h = "/music/Rock/a.flac"
-        val p = build(mapOf(rock to listOf(file(h, size = 10))), exists = { true }, size = { 99L })
+        val target = File(root, "Rock/a.flac").path
+        val p = build(mapOf(rock to listOf(file(h, size = 10))), exists = { it.path == target }, size = { 99L })
         assertTrue(p.downloads.isEmpty())
         assertEquals(listOf(h), p.conflicts)
         assertTrue(p.adopt.isEmpty())
@@ -324,9 +326,30 @@ class SyncPlanTest {
     fun aFileWithTheServerSizeIsTakenOverNotDownloaded() {
         // For example after Log Out / Reset: the copies are there, untracked, with the server's size
         val h = "/music/Rock/a.flac"
-        val p = build(mapOf(rock to listOf(file(h, size = 10))), exists = { true }, size = { 10L })
+        val target = File(root, "Rock/a.flac").path
+        val p = build(mapOf(rock to listOf(file(h, size = 10))), exists = { it.path == target }, size = { 10L })
         assertTrue(p.downloads.isEmpty())
         assertEquals(File(root, "Rock/a.flac"), p.adopt.single().target)
+    }
+
+    @Test
+    fun aFileWhoseRecordedCopyIsGoneIsTakenOver() {
+        // A crash after a move deleted the source and before the save: the record names the gone copy, the file is here
+        val h = "/music/Rock/a.flac"
+        val gone = led(h, rock).also { it.localPath = "/elsewhere/a.flac" }
+        val p = build(mapOf(rock to listOf(file(h, size = 10))), listOf(gone), exists = { it.path == File(root, "Rock/a.flac").path }, size = { 10L })
+        assertEquals(File(root, "Rock/a.flac"), p.adopt.single().target)
+    }
+
+    @Test
+    fun aFolderIsNeverTakenOverAndAFileInThePathSkipsOnlyThatFile() {
+        val h = "/music/Rock/a.flac"
+        // A folder at the target, of the right "size": not taken over
+        val p = build(mapOf(rock to listOf(file(h, size = 4096))), exists = { it.path == File(root, "Rock/a.flac").path }, size = { 4096L }, isFile = { false })
+        assertTrue(p.adopt.isEmpty() && p.downloads.isEmpty())
+        // A local file "Rock" where the server has a folder: only this file is skipped
+        val q = build(mapOf(rock to listOf(file(h))), exists = { it.path == File(root, "Rock").path }, isFile = { it.path == File(root, "Rock").path })
+        assertEquals(listOf(h), q.conflicts)
     }
 
     @Test
