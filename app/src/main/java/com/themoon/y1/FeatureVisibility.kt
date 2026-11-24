@@ -20,21 +20,16 @@ object FeatureVisibility {
 
     private const val TAG = "FeatureVisibility"
 
-    /** True when every main menu button that opens [action] is hidden. */
+    /** True when the main menu item that opens [action] is hidden (a feature without an item is not hidden). */
     fun isHidden(context: Context?, action: String): Boolean {
         if (context == null) return false
         return try {
-            val prefs = context.getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
-            val ids = MainMenuItems.items.filter { it.action.equals(action, ignoreCase = true) }.map { it.id }
-            isHidden(ids) { MainMenuItems.isHidden(prefs, it) }
+            val item = MainMenuItems.items.firstOrNull { it.action == action } ?: return false
+            MainMenuItems.isHidden(context.getSharedPreferences("AppPrefs", Context.MODE_PRIVATE), item.id)
         } catch (e: Exception) {
             false
         }
     }
-
-    /** A feature without a menu button stays as it is: hiding is a user choice in the menu settings. */
-    internal fun isHidden(buttonIds: List<String>, isButtonHidden: (String) -> Boolean): Boolean =
-        buttonIds.isNotEmpty() && buttonIds.all(isButtonHidden)
 
     /** The feature that a Jellyfin library type belongs to, or null for music and other libraries. */
     internal fun featureForLibrary(collectionType: String?): String? = when (collectionType?.lowercase(java.util.Locale.US)) {

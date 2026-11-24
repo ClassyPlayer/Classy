@@ -40,7 +40,6 @@ import com.themoon.y1.navigation.BrowserMode
 import com.themoon.y1.navigation.KeyboardTarget
 import com.themoon.y1.navigation.NavigationManager
 import com.themoon.y1.navigation.ScreenState
-import com.themoon.y1.navigation.SettingsSubMode
 import com.themoon.y1.navigation.VideoMode
 import com.themoon.y1.podcasts.PodcastDownloadManager
 import com.themoon.y1.podcasts.PodcastRepository
@@ -586,20 +585,17 @@ internal fun MainActivity.showNowPlaying() {
 
 internal fun MainActivity.handleMainMenuAction(action: String) {
     when (action) {
-        "OPEN_BROWSER", "MUSIC" -> {
+        "OPEN_BROWSER" -> {
             this.isAudiobookLibraryMode = false
             changeScreen(ScreenState.Browser(BrowserMode.Root))
         }
-        "OPEN_VIDEOS", "VIDEOS" -> {
+        "OPEN_VIDEOS" -> {
             changeScreen(ScreenState.Videos(VideoMode.Root))
         }
-        "OPEN_COVER_FLOW", "PHOTOS" -> {
-            changeScreen(MainActivity.STATE_COVERFLOW)
-        }
-        "OPEN_PODCASTS", "PODCASTS" -> {
+        "OPEN_PODCASTS" -> {
             changeScreen(ScreenState.Podcasts)
         }
-        "OPEN_MUSIC_QUIZ", "EXTRAS" -> {
+        "OPEN_MUSIC_QUIZ" -> {
             changeScreen(MainActivity.STATE_QUIZ)
             musicQuizController.showStartHub()
         }
@@ -612,19 +608,19 @@ internal fun MainActivity.handleMainMenuAction(action: String) {
         "OPEN_BOOKS" -> {
             changeScreen(ScreenState.Books())
         }
-        "OPEN_SETTINGS", "SETTINGS" -> {
+        "OPEN_SETTINGS" -> {
             changeScreen(MainActivity.STATE_SETTINGS)
         }
-        "OPEN_RADIO", "RADIO" -> {
+        "OPEN_RADIO" -> {
             changeScreen(ScreenState.FmRadio)
         }
-        "OPEN_WEBSERVER", "WEBSERVER" -> {
+        "OPEN_WEBSERVER" -> {
             changeScreen(MainActivity.STATE_WEBSERVER)
         }
-        "OPEN_BLUETOOTH", "BLUETOOTH" -> {
+        "OPEN_BLUETOOTH" -> {
             changeScreen(MainActivity.STATE_BLUETOOTH)
         }
-        "OPEN_WIFI", "WIFI" -> {
+        "OPEN_WIFI" -> {
             changeScreen(MainActivity.STATE_WIFI)
         }
         "OPEN_PLAY_ON" -> {
@@ -633,9 +629,6 @@ internal fun MainActivity.handleMainMenuAction(action: String) {
         "OPEN_AUDIOBOOKS" -> {
             this.isAudiobookLibraryMode = true
             changeScreen(ScreenState.Browser(BrowserMode.Audiobooks, audiobooks = true))
-        }
-        "OPEN_THEME_SETTINGS" -> {
-            changeScreen(ScreenState.Settings(SettingsSubMode.Page("Theme")))
         }
         "OPEN_PLAYER" -> {
             if (currentPlaylist.isEmpty()) {
