@@ -30,7 +30,7 @@ import com.themoon.y1.photos.PhotoIndex
 import com.themoon.y1.photos.PhotoItem
 import com.themoon.y1.photos.PhotoLibrary
 import com.themoon.y1.photos.PhotoThumbs
-import com.themoon.y1.views.ClassicMenuStyle
+import com.themoon.y1.views.ClassyMetrics
 import com.themoon.y1.views.Notice
 import java.io.File
 import java.util.Random
@@ -323,7 +323,7 @@ class PhotosController(
         screen.clear()
         lists.visibility = View.GONE
         grid.visibility = View.VISIBLE
-        grid.topInset = (ClassicMenuStyle.STATUS_HEIGHT_DP * activity.resources.displayMetrics.density).toInt()
+        grid.topInset = (ClassyMetrics.STATUS_BAR_HEIGHT * activity.resources.displayMetrics.density).toInt()
         grid.frameColor = ThemeManager.getListButtonFocusedBg()
         grid.emptyColor = (ThemeManager.getTextColorSecondary() and 0x00FFFFFF) or 0x33000000
         grid.setPhotos(PhotoLibrary.set(set), gridFocus[set] ?: 0)

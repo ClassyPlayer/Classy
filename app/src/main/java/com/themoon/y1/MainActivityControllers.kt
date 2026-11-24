@@ -27,7 +27,7 @@ import com.themoon.y1.controllers.quiz.MusicQuizController
 import com.themoon.y1.controllers.radio.FmRadioController
 import com.themoon.y1.controllers.settings.BrightnessController
 import com.themoon.y1.controllers.settings.EqualizerController
-import com.themoon.y1.views.ClassicMenuStyle
+import com.themoon.y1.views.ClassyMetrics
 import com.themoon.y1.controllers.settings.SettingsController
 import com.themoon.y1.controllers.storage.StorageController
 import com.themoon.y1.controllers.sync.JellyfinUiController
@@ -76,7 +76,7 @@ internal fun MainActivity.initControllers() {
     val scrollViewBrowser = containerBrowserItems.parent as View
     val browserParent = scrollViewBrowser.parent as ViewGroup
     val density = resources.displayMetrics.density
-    browserParent.setPadding(0, (ClassicMenuStyle.STATUS_HEIGHT_DP * density).toInt(), 0, 0)
+    browserParent.setPadding(0, (ClassyMetrics.STATUS_BAR_HEIGHT * density).toInt(), 0, 0)
     browserParent.addView(listContainer, scrollViewBrowser.layoutParams)
 
     mainMenuController = MainMenuController(

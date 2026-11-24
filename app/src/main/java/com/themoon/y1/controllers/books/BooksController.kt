@@ -43,7 +43,7 @@ import com.themoon.y1.navigation.NavigationManager
 import com.themoon.y1.navigation.ScreenState
 import com.themoon.y1.navigation.WheelKind
 import com.themoon.y1.navigation.isFolderLevel
-import com.themoon.y1.views.ClassicMenuStyle
+import com.themoon.y1.views.ClassyMetrics
 import com.themoon.y1.views.EdgeFadeListView
 import com.themoon.y1.views.ListItemViewFactory
 import com.themoon.y1.views.Notice
@@ -106,7 +106,7 @@ class BooksController(
     private val library = BookLibrary(File(activity.filesDir, "books")) { Xml.newPullParser() }
 
     init {
-        listPane.setPadding(0, (ClassicMenuStyle.STATUS_HEIGHT_DP * activity.resources.displayMetrics.density).toInt(), 0, 0)
+        listPane.setPadding(0, (ClassyMetrics.STATUS_BAR_HEIGHT * activity.resources.displayMetrics.density).toInt(), 0, 0)
         listPane.addView(listView, (rowViews.parent as View).layoutParams)
         screen = ListScreen(rowViews, listView, clickFeedback, letterBox = object : LetterBox {
             override fun show(letter: String) { MainActivity.instance?.showJumpLetter(letter) }

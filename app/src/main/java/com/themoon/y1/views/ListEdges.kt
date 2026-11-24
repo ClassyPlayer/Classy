@@ -127,7 +127,7 @@ object ListEdges {
                 }
             }
         }
-        val fallback = (ClassicMenuStyle.ROW_HEIGHT_DP * v.resources.displayMetrics.density).toInt()
+        val fallback = (ClassyMetrics.ROW_HEIGHT * v.resources.displayMetrics.density).toInt()
         val length = fadeLength(heights, fallback)
         if (v.verticalFadingEdgeLength != length) v.setFadingEdgeLength(length)
     }

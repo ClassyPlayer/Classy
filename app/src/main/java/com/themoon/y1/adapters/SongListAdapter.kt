@@ -20,7 +20,7 @@ import com.themoon.y1.managers.MediaLibraryManager
 import com.themoon.y1.models.ArtistNames
 import com.themoon.y1.models.SongItem
 import com.themoon.y1.podcasts.PodcastDownloadManager
-import com.themoon.y1.views.ClassicMenuStyle
+import com.themoon.y1.views.ClassyMetrics
 import com.themoon.y1.views.ListItemViewFactory
 import com.themoon.y1.views.TablerIcons
 import java.io.File
@@ -146,7 +146,7 @@ class SongListAdapter(
         val btn: View = if (!isSongRowValid || main == null) {
             main?.createListButtonWithIcon("", displayTitle, customColor)?.apply {
                 tag = "song_row"
-                val rowHeight = (ClassicMenuStyle.ROW_HEIGHT_DP * main.resources.displayMetrics.density).toInt()
+                val rowHeight = (ClassyMetrics.ROW_HEIGHT * main.resources.displayMetrics.density).toInt()
                 layoutParams = AbsListView.LayoutParams(
                     AbsListView.LayoutParams.MATCH_PARENT,
                     rowHeight

@@ -193,7 +193,7 @@ class LowBatteryWarningView private constructor(private val main: MainActivity) 
         val rowHeight = (ClassyMetrics.ROW_HEIGHT * d).roundToInt()
         (banner.layoutParams as LayoutParams).let {
             it.height = rowHeight
-            it.topMargin = (ClassicMenuStyle.STATUS_HEIGHT_DP * d).roundToInt()
+            it.topMargin = (ClassyMetrics.STATUS_BAR_HEIGHT * d).roundToInt()
             banner.layoutParams = it
         }
         // The look of a selected list row: the theme's selection colours, bold list text, the row padding.
