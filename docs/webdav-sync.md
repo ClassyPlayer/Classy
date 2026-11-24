@@ -76,9 +76,10 @@ NAS**, and you choose: delete one, or Delete All. Your copy is kept until you do
 Forgets the address, login and certificate, and the ticked folders. The songs stay on the player: Classy forgets that
 it synced them, so no later sync deletes them. Delete them with a file manager if you do not want them.
 
-A new **Server URL** does the same: no ticked folders, no certificate, and the songs of the old URL stay. A sync of the
-same folders downloads them again over the old copies. Only the same address in another spelling (for example with a
-`/` at the end) keeps everything.
+A new **Server URL** does the same: no ticked folders, no certificate, and the songs of the old URL stay. With the same
+folder path on another host, a sync of the same folders downloads them again over the old copies. With another folder
+path, the new copies go to other places in `Music`, and the old ones stay as well: delete them by hand. Only the same
+address in another spelling (for example with a `/` at the end) keeps everything.
 
 ### If something goes wrong
 
@@ -170,7 +171,8 @@ fingerprint and shows it, and Trust Certificate saves it as the pin. A new Serve
      ledger path that is not this target also downloads, except the same file on the other storage (`otherRoot`, after
      a Save To change): Move Synced Files moves that one. A download whose ledger path is another file has it in
      `replaces`; the sync deletes that copy when the new one is complete. While that copy plays, the download waits for the
-next sync. Only a copy that cannot be deleted (a card that is read-only) stays, untracked. A target is
+next sync. A copy that the user starts during the download, or that cannot be deleted (a card that is read-only),
+stays, untracked. A target is
      planned once: two names that share a FAT file are not written at the same time.
    - **unorphan**: a file that is back on the server.
    - **orphan**: a ledger item that is gone from the server but whose folder is ticked and was listed.

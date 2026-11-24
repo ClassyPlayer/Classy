@@ -214,8 +214,9 @@ class WebDavSync private constructor(context: Context) {
                     }
                     // The old copy (other storage or path): the record now names the new one
                     d.replaces?.let { old ->
-                        if (old.exists() && old.delete()) pruneEmptyDirs(old, listOf(destRoot(true), destRoot(false)))
-                        else if (old.exists()) Log.w(TAG, "Cannot delete the old copy ${old.path}")
+                        // Checked again: the user can start the old copy while the new one downloads. A playing file is never deleted
+                        if (old.exists() && !player.isFileCurrentlyPlaying(old) && old.delete()) pruneEmptyDirs(old, listOf(destRoot(true), destRoot(false)))
+                        else if (old.exists()) Log.w(TAG, "Old copy kept (playing, or cannot be deleted): ${old.path}")
                     }
                 } catch (e: Throwable) {
                     failure.compareAndSet(null, e)
