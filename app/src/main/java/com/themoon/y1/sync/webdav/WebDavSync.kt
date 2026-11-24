@@ -86,17 +86,19 @@ class WebDavSync private constructor(context: Context) {
         cancelled = false
         changedByRun = false
         executor.execute {
+            var result: () -> Unit = {}
             try {
                 val changed = SyncLocks.hold(ctx, "Classy:WebDavSync", WAKE_LOCK_MS) { work(listener) }
                 if (isSync) WebDavSyncProvider.getInstance(ctx).lastError = ""
-                main.post { listener.onDone(changed) }
+                result = { listener.onDone(changed) }
             } catch (e: Throwable) {
                 Log.w(TAG, "Sync failed: ${e.message}")
                 if (isSync && e !is CancellationException) WebDavSyncProvider.getInstance(ctx).lastError = errorText(e)
                 val changed = changedByRun // read here: a next run can reset it before this callback runs
-                main.post { listener.onError(e, changed) }
+                result = { listener.onError(e, changed) }
             } finally {
                 isRunning = false
+                main.post(result) // after isRunning: the screen that the callback refreshes sees the run as ended
             }
         }
         return true
@@ -184,7 +186,8 @@ class WebDavSync private constructor(context: Context) {
                 if (failure.get() != null) return@execute
                 try {
                     checkCancel()
-                    if (player.isFileCurrentlyPlaying(d.target)) return@execute // replaced on the next sync
+                    // Replaced on the next sync. Also when the copy it replaces plays: the ledger keeps that one until then
+                    if (player.isFileCurrentlyPlaying(d.target) || d.replaces?.let { player.isFileCurrentlyPlaying(it) } == true) return@execute
                     var last = 0L
                     var lastPost = 0L
                     client.download(d.entry.href, d.target, d.entry.size, { cancelled || failure.get() != null }) { n ->
@@ -202,9 +205,10 @@ class WebDavSync private constructor(context: Context) {
                         ledger.putItem(SyncLedger.LedgerItem(d.entry.href, d.folderHref, "music", d.target.path, d.target.length(), versionOf(d.entry), false))
                         if (finished.incrementAndGet() % 20 == 0) saveLedger() // keep progress if the device dies mid-sync
                     }
-                    // The old copy (other storage or path): the record now names the new one. A playing one stays
+                    // The old copy (other storage or path): the record now names the new one
                     d.replaces?.let { old ->
-                        if (old.exists() && !player.isFileCurrentlyPlaying(old) && old.delete()) pruneEmptyDirs(old, listOf(destRoot(true), destRoot(false)))
+                        if (old.exists() && old.delete()) pruneEmptyDirs(old, listOf(destRoot(true), destRoot(false)))
+                        else if (old.exists()) Log.w(TAG, "Cannot delete the old copy ${old.path}")
                     }
                 } catch (e: Throwable) {
                     failure.compareAndSet(null, e)

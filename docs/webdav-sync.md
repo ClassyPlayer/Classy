@@ -169,7 +169,8 @@ fingerprint and shows it, and Trust Certificate saves it as the pin. A new Serve
    - **downloads**: a file that is not in the ledger, whose local file is gone, or whose `etag|lastModified` changed. A
      ledger path that is not this target also downloads, except the same file on the other storage (`otherRoot`, after
      a Save To change): Move Synced Files moves that one. A download whose ledger path is another file has it in
-     `replaces`; the sync deletes that copy when the new one is complete, so no copy stays untracked. A target is
+     `replaces`; the sync deletes that copy when the new one is complete. While that copy plays, the download waits for the
+next sync. Only a copy that cannot be deleted (a card that is read-only) stays, untracked. A target is
      planned once: two names that share a FAT file are not written at the same time.
    - **unorphan**: a file that is back on the server.
    - **orphan**: a ledger item that is gone from the server but whose folder is ticked and was listed.
