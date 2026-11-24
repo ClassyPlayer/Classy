@@ -22,6 +22,9 @@ enum class RowLook {
     /** Tick column, label and status glyphs on the right (Wi-Fi networks, Bluetooth devices). */
     CHOICE,
 
+    /** Label and an eye on the right; a grey cross when [RowSpec.checked] is false (the hidden items of a menu editor). */
+    SHOWN,
+
     /**
      * Cover art (or a thumbnail), a title and a second line ([RowSpec.value]); the chevron on the focused row
      * ([ArtRow]: album rows, videos).

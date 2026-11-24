@@ -4,7 +4,6 @@ import com.themoon.y1.lists.ListScreen
 import com.themoon.y1.navigation.RowFocus
 import android.app.Activity
 import android.content.Context
-import android.graphics.Typeface
 import android.provider.Settings
 import android.view.Gravity
 import android.view.KeyEvent
@@ -52,7 +51,6 @@ import com.themoon.y1.navigation.SettingsSubMode
 import com.themoon.y1.sync.jellyfin.JellyfinSyncProvider
 import com.themoon.y1.views.ListEdges
 import com.themoon.y1.views.ListGlide
-import com.themoon.y1.views.FocusLook
 import com.themoon.y1.views.ListItemViewFactory
 import com.themoon.y1.views.Notice
 import com.themoon.y1.views.TablerIcons
@@ -70,7 +68,6 @@ class SettingsController(
     private val activity: Activity,
     override val rootView: ViewGroup,
     private val eqPresetNames: List<String>,
-    private val createSettingRow: (title: String, value: String) -> LinearLayout,
     private val createTablerListButton: (icon: Array<String>?, text: String, normalColor: Int, focusedColor: Int) -> View,
     private val clickFeedback: () -> Unit,
     private val onNavigateBack: () -> Unit,
@@ -117,8 +114,6 @@ class SettingsController(
     var dtDay: Int = 1
     var dtHour: Int = 0
     var dtMinute: Int = 0
-
-    private var materialIconFont: Typeface? = null
 
     companion object {
         /** The page of Settings → Battery. */
@@ -860,7 +855,7 @@ class SettingsController(
     private fun menuItemsSpec(title: String, menu: MenuItems, onHiddenChanged: (MenuItem, Boolean) -> Unit = { _, _ -> }): ListSpec =
         ListSpec(localize(title), menu.ordered(prefs).map { item ->
             val label = localize(item.label)
-            RowSpec(label, RowLook.CUSTOM, view = visibilityRow(label, menu.isHidden(prefs, item.id)), key = item.id, onClick = {
+            RowSpec(label, RowLook.SHOWN, checked = !menu.isHidden(prefs, item.id), key = item.id, onClick = {
                 val hidden = !menu.isHidden(prefs, item.id)
                 menu.setHidden(prefs, item.id, hidden)
                 onHiddenChanged(item, hidden)
@@ -870,41 +865,6 @@ class SettingsController(
             menu.saveOrder(prefs, ids)
             Notice.show(activity, localize("Menu order saved!"))
         })
-
-    /** A row of Main Menu Items or Music Menu Items: an eye (shown) or a cross ([hidden]) on the right. */
-    private fun visibilityRow(label: String, hidden: Boolean): View {
-        if (materialIconFont == null) {
-            try {
-                materialIconFont = Typeface.createFromAsset(activity.assets, "fonts/MaterialIcons-Regular.ttf")
-            } catch (_: Exception) {}
-        }
-        val row = createSettingRow(label, if (hidden) "\uE5CD" else "\uE8F4")
-        val tvRight = row.getChildAt(1) as? TextView
-        if (materialIconFont != null) {
-            tvRight?.typeface = materialIconFont
-            tvRight?.textSize = 22f
-            tvRight?.let { centreIconInRow(it) }
-        }
-        tvRight?.let { icon ->
-            FocusLook.of(row).text(icon) { if (hidden) ThemeManager.getTextColorSecondary() else ThemeManager.getTextColorPrimary() }.refresh()
-        }
-        return row
-    }
-
-    /**
-     * The icon glyphs fill the em box of the icon font (no descent), so a box of one line without font
-     * padding, centred in the row, centres the icons. A list style can have set a top padding for text.
-     */
-    private fun centreIconInRow(tv: TextView) {
-        tv.includeFontPadding = false
-        tv.gravity = Gravity.CENTER_VERTICAL
-        tv.setPadding(tv.paddingLeft, 0, tv.paddingRight, 0)
-        (tv.layoutParams as? LinearLayout.LayoutParams)?.let {
-            it.height = ViewGroup.LayoutParams.WRAP_CONTENT
-            it.gravity = Gravity.CENTER_VERTICAL
-            tv.layoutParams = it
-        }
-    }
 
     /** Reads Group Albums and rebuilds the album lists, so the next Albums or Cover Flow screen uses it. */
     private fun applyAlbumGrouping() {

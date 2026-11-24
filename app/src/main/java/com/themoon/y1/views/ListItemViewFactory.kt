@@ -289,6 +289,14 @@ object ListItemViewFactory {
         return row
     }
 
+    /**
+     * A row of a menu editor (Settings → Menus → Main Menu Items): the label and an eye ([shown]) or a grey cross on
+     * the right.
+     */
+    fun createShownRow(context: Context, text: String, shown: Boolean): View =
+        createTablerListButtonWithRightIcon(context, null, text, if (shown) TablerIcons.EYE else TablerIcons.X,
+            rightIconColor = if (shown) ThemeManager.getTextColorPrimary() else 0)
+
     fun createTablerListButtonWithRightIcon(
         context: Context,
         iconPaths: Array<String>?,
@@ -297,7 +305,9 @@ object ListItemViewFactory {
         iconColor: Int = 0,
         textColor: Int = 0,
         focusedTextColor: Int = 0,
-        focusedIconColor: Int = 0
+        focusedIconColor: Int = 0,
+        /** The colour of the right icon on a row that is not selected; 0 = the secondary text colour. */
+        rightIconColor: Int = 0
     ): View {
         val d = context.resources.displayMetrics.density
         val rowHeight = (ClassicMenuStyle.ROW_HEIGHT_DP * d).toInt()
@@ -315,6 +325,7 @@ object ListItemViewFactory {
         val actualTextColor = if (textColor != 0) textColor else ThemeManager.getTextColorPrimary()
         val actualFocusedTextColor = if (focusedTextColor != 0) focusedTextColor else ThemeManager.getListButtonFocusedTextColor()
         val actualFocusedIconColor = if (focusedIconColor != 0) focusedIconColor else ThemeManager.getListButtonFocusedTextColor()
+        val actualRightIconColor = if (rightIconColor != 0) rightIconColor else ThemeManager.getTextColorSecondary()
 
         val iconSize = (18f * d).toInt()
         var ivLeft: ImageView? = null
@@ -353,7 +364,7 @@ object ListItemViewFactory {
                 layoutParams = LinearLayout.LayoutParams(rightIconSize, rightIconSize).apply {
                     leftMargin = (8f * d).toInt()
                 }
-                setImageBitmap(TablerIcons.render(rightIconPaths, rightIconSize, ThemeManager.getTextColorSecondary()))
+                setImageBitmap(TablerIcons.render(rightIconPaths, rightIconSize, actualRightIconColor))
             }
             row.addView(ivRight)
         }
@@ -365,7 +376,7 @@ object ListItemViewFactory {
             tick?.color = if (focused) actualFocusedIconColor else actualIconColor
             if (iconPaths != null) ivLeft?.setImageBitmap(TablerIcons.render(iconPaths, iconSize, if (focused) actualFocusedIconColor else actualIconColor))
             if (rightIconPaths != null) ivRight?.setImageBitmap(TablerIcons.render(rightIconPaths, rightIconSize,
-                if (focused) actualFocusedIconColor else ThemeManager.getTextColorSecondary()))
+                if (focused) actualFocusedIconColor else actualRightIconColor))
         }.refresh()
         ClassyLists.styleListRow(row, tv, null)
         return row

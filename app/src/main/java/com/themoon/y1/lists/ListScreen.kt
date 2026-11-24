@@ -350,6 +350,7 @@ class ListScreen(
             RowLook.CHOICE ->
                 if (row.glyphs.isEmpty()) ListItemViewFactory.createCheckListButton(context, row.label, row.checked)
                 else ListItemViewFactory.createChoiceRowWithRightIcons(context, row.label, row.checked, row.glyphs)
+            RowLook.SHOWN -> ListItemViewFactory.createShownRow(context, row.label, row.checked)
             RowLook.ART -> ArtRow.of(null, context, inListView = false).also { art ->
                 art.bind(row.label, row.value)
                 val image = row.image
