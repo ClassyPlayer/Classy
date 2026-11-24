@@ -11,6 +11,7 @@ import com.themoon.y1.AppPrefs
 import com.themoon.y1.MainActivity
 import com.themoon.y1.R
 import com.themoon.y1.StoragePaths
+import com.themoon.y1.ThemeManager
 import com.themoon.y1.adapters.CategoryListAdapter
 import com.themoon.y1.adapters.SongListAdapter
 import com.themoon.y1.controllers.ScreenController
@@ -674,7 +675,8 @@ class BrowserController(
         }
 
         for (apk in apkFiles) {
-            rows += RowSpec("📦 [${localize("INSTALL")}] ${apk.name}", color = 0xFF00FFFF.toInt(), key = apk.absolutePath,
+            // The theme's grey: cyan was hard to read on Classic Light
+            rows += RowSpec("📦 [${localize("INSTALL")}] ${apk.name}", color = ThemeManager.getTextColorSecondary(), key = apk.absolutePath,
                 onClick = { installApk(apk) })
         }
         for (audio in audioFiles) rows += folderAudioRow(audio)
