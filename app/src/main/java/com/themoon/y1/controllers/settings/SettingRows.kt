@@ -76,15 +76,9 @@ class SettingRows(
     }
 
     /**
-     * A row that opens the list of its values ([valueList]): the chosen value shows on the right. [opens]: the arrow
-     * after the value, on the selected row.
-     */
-    fun choice(label: String, value: () -> String, opens: Boolean = false, open: () -> Unit): SettingRow =
-        SettingRow(label) { RowSpec(localize(label), RowLook.VALUE, value = value(), opens = opens, onClick = open) }
-
-    /**
-     * A row that opens a screen or does an action. With no [value], the arrow shows on the selected row; [value]: a
-     * status on the right, with the arrow after it when [opens]. [visible]: false hides the row.
+     * A row that opens a screen (also the list of its values, [valueList]) or does an action. With no [value], the
+     * arrow shows on the selected row; [value]: a status or the chosen value on the right, with the arrow after it when
+     * [opens]. [visible]: false hides the row.
      */
     fun action(
         label: String, value: (() -> String)? = null, opens: Boolean = value == null, enabled: () -> Boolean = { true },
@@ -94,7 +88,7 @@ class SettingRows(
     }
 
     /**
-     * The list of a [choice] row: one row for each value, and it opens at the chosen value (the iPod rule for a value list).
+     * The list that a value row opens ([action] with [opens]): one row for each value, and it opens at the chosen value (the iPod rule for a value list).
      * The rows are tick rows, or the views of [view] (the centred numbers of Volume Limit and Date & Time).
      */
     fun valueList(title: String, values: List<SettingValue>, focus: Focus = Focus.CHECKED, view: ((String) -> View)? = null): ListSpec =

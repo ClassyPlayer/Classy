@@ -68,7 +68,7 @@ class SettingRowsTest {
     @Test
     fun choiceAndActionRowsShowTheirValueAndOpenWithoutAChange() {
         var opened = 0
-        val choice = rows.choice("Volume Limit", { "Off" }, opens = true) { opened++ }.make()
+        val choice = rows.action("Volume Limit", { "Off" }, opens = true) { opened++ }.make()
         assertEquals("Off", choice.value)
         assertTrue(choice.opens)
         choice.onClick!!()

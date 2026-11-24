@@ -165,7 +165,7 @@ class SettingsController(
             toggle("Sound Check", Prefs.SOUND_CHECK) { AudioEffectManager.getInstance().applySoundCheck() },
             // Left and right mixed on both channels, for one earbud
             toggle("Mono Audio", Prefs.MONO_AUDIO) { AudioEffectManager.getInstance().applyAudioEffects() },
-            choice("Volume Limit", { volumeLimitText() }, opens = true) { openPage("VolumeLimit") },
+            action("Volume Limit", { volumeLimitText() }, opens = true) { openPage("VolumeLimit") },
             cycle("Playback Speed", { speedIndex() }, { setSpeed(it) }, SPEED_LABELS),
         )),
         SettingsGroup("Display", listOf(
@@ -198,7 +198,7 @@ class SettingsController(
             },
         )),
         SettingsGroup("Appearance", listOf(
-            choice("Theme", { AutoThemeManager.settingsRowValue(prefs, localize) }) { openPage("Theme") },
+            action("Theme", { AutoThemeManager.settingsRowValue(prefs, localize) }, opens = true) { openPage("Theme") },
             toggle("Toggle Style", { ToggleStyle.isSwitch(activity) }, { ToggleStyle.setSwitch(activity, it) }, { ToggleStyle.label(it, localize) }),
             toggle("List Edges", { ListEdges.isFade(activity) }, { ListEdges.setFade(activity, it) }, { localize(if (it) "Fade" else "Cut") }),
             // Slow pan and zoom of the art in the split screens (main menu, Music, Audiobooks, Videos), as on the iPod
@@ -245,7 +245,7 @@ class SettingsController(
             action("Wi-Fi") { onNavigateToScreen(MainActivity.STATE_WIFI) },
             action("Web Server") { onNavigateToScreen(MainActivity.STATE_WEBSERVER) },
             // What a cable plug to a computer does with the microSD card: the question, a USB drive at once, or nothing
-            choice("USB Drive", { localize(UsbDrive.LABELS[usbDrive()]) }) { openPage("UsbDrive") },
+            action("USB Drive", { localize(UsbDrive.LABELS[usbDrive()]) }, opens = true) { openPage("UsbDrive") },
             // Only while a computer is connected (without a card, the share gives the notice No microSD card.)
             action("Use as USB Drive", visible = { mainActivity?.usbStorageManager?.isComputerConnected == true }) {
                 mainActivity?.startUsbStorage()
@@ -264,9 +264,9 @@ class SettingsController(
                     localize("Clear")
                 ) { onClearCacheConfirmed() })
             },
-            action("Jellyfin Sync", { JellyfinSyncProvider.getInstance(activity).getStatusSummary() }) { onOpenJellyfin() },
+            action("Jellyfin Sync", { JellyfinSyncProvider.getInstance(activity).getStatusSummary() }, opens = true) { onOpenJellyfin() },
             toggle("Sync Scrobbles to Last.fm", { scrobbler().isEnabled() }, { scrobbler().setEnabled(it) }),
-            action("Last.fm Account", { lastFmAccountText() }) { openLastFmAccount() },
+            action("Last.fm Account", { lastFmAccountText() }, opens = true) { openLastFmAccount() },
         )),
         SettingsGroup("Date & Time", listOf(
             action("Date & Time") {
@@ -276,8 +276,8 @@ class SettingsController(
         ), direct = true),
         SettingsGroup("General", listOf(
             action("About") { onNavigateToScreen(MainActivity.STATE_STORAGE) },
-            choice("Language", { LanguageManager.getInstance(activity).currentLangFileName.replace(".json", "") }) { openPage("Language") },
-            action("System Update", { "v" + versionName() }) { openPage("Update") },
+            action("Language", { LanguageManager.getInstance(activity).currentLangFileName.replace(".json", "") }, opens = true) { openPage("Language") },
+            action("System Update", { "v" + versionName() }, opens = true) { openPage("Update") },
             action("Legal") { openPage("Legal") },
             action("Export Settings") { SettingsBackupUi.exportSettings(activity, localize) },
             action("Import Settings") { SettingsBackupUi.confirmImport(activity, localize) },
@@ -603,11 +603,12 @@ class SettingsController(
             mainActivity?.onClockSettingsChanged()
             refresh()
         })
-        list += RowSpec(localize("Time Zone"), RowLook.VALUE, value = timeZoneCityName(TimeZone.getDefault().id), onClick = { openPage("TimeZone") })
+        list += RowSpec(localize("Time Zone"), RowLook.VALUE, value = timeZoneCityName(TimeZone.getDefault().id), opens = true,
+            onClick = { openPage("TimeZone") })
         for ((type, label) in listOf("Year" to "Year", "Month" to "Month", "Day" to "Day", "Hour" to "Hour (24H)", "Minute" to "Minute")) {
             val value = dateTimeValue(type)
             list += RowSpec(localize(label), RowLook.VALUE, value = if (type == "Year") value.toString() else twoDigits(value),
-                onClick = { openPage("DateTime", type) })
+                opens = true, onClick = { openPage("DateTime", type) })
         }
         list += syncTimeRow()
         return ListSpec(localize("Date & Time"), list)
@@ -770,7 +771,7 @@ class SettingsController(
         return ListSpec(localize("System Update"), listOf(
             RowSpec(localize("Current Version"), RowLook.VALUE, value = if (version.startsWith("v")) version else "v$version"),
             RowSpec(localize("Update Channel"), RowLook.VALUE, value = localize(UpdateChannel.label(updateChannel())),
-                onClick = { openPage("UpdateChannel") }),
+                opens = true, onClick = { openPage("UpdateChannel") }),
             RowSpec("divider", RowLook.CUSTOM, view = divider),
             RowSpec(localize("Check for Updates"), RowLook.CUSTOM, view = check, checked = true, onClick = { onOpenUpdateCheck() })
         ), focus = Focus.CHECKED)
