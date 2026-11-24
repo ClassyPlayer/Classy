@@ -97,6 +97,14 @@ object TablerIcons {
     val SQUARE: Array<String> = arrayOf(
         "M3 5a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v14a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2z"
     )
+    val EYE: Array<String> = arrayOf(
+        "M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0",
+        "M21 12c-2.4 4 -5.4 6 -9 6c-3.6 0 -6.6 -2 -9 -6c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6"
+    )
+    val X: Array<String> = arrayOf(
+        "M18 6l-12 12",
+        "M6 6l12 12"
+    )
     val CHEVRON_RIGHT: Array<String> = arrayOf(
         "M9 6l6 6l-6 6"
     )

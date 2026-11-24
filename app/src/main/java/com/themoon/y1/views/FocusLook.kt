@@ -36,8 +36,16 @@ class FocusLook private constructor(private val row: View) : View.OnFocusChangeL
     /** An audiobook or podcast row: the background shows the position [0] of the length [1] (ms). Null: plain. */
     var progress: IntArray? = null
 
+    /** A row that the wheel moves ([com.themoon.y1.lists.ListSpec.reorder]): a red background in place of the highlight. */
+    var picked = false
+        set(value) {
+            field = value
+            refresh()
+        }
+
     private var normalBg: GradientDrawable? = null
     private var focusedBg: GradientDrawable? = null
+    private var pickedBg: GradientDrawable? = null
     private var normalBgColor = 0
 
     /** [view] gets the focused colour on the selected row, else [normal]. */
@@ -67,18 +75,19 @@ class FocusLook private constructor(private val row: View) : View.OnFocusChangeL
 
     /** Shows the look of the row's focus now (after a change of the parts or of the theme). */
     fun refresh(): FocusLook {
-        show(row.isFocused)
+        show(row.isFocused || picked)
         return this
     }
 
-    override fun onFocusChange(v: View, hasFocus: Boolean) = show(hasFocus)
+    // A picked row has the focused texts on its own background
+    override fun onFocusChange(v: View, hasFocus: Boolean) = show(hasFocus || picked)
 
     private fun show(focused: Boolean) {
         val p = progress
         if (p != null) {
             ListItemViewFactory.applyProgressBackground(row.context, row, p[0], p[1], focused)
         } else {
-            val bg = if (focused) focusedBg() else normalBg()
+            val bg = if (picked) pickedBg() else if (focused) focusedBg() else normalBg()
             if (row.background !== bg) row.background = bg
         }
         val focusedText = focusedColor()
@@ -99,12 +108,17 @@ class FocusLook private constructor(private val row: View) : View.OnFocusChangeL
         }
     }
 
+    private fun pickedBg(): GradientDrawable = pickedBg ?: GradientDrawable().apply { setColor(PICKED_COLOR) }.also { pickedBg = it }
+
     private fun focusedBg(): GradientDrawable = focusedBg ?: ListItemViewFactory.createFocusedButtonBackground(row.context).also {
         if (corners > 0f) it.cornerRadius = corners
         focusedBg = it
     }
 
     companion object {
+        /** The background of a [picked] row. */
+        const val PICKED_COLOR = 0xFFD32F2F.toInt()
+
         /** The look of [row]; the first call makes it and makes it the focus listener of the row. */
         fun of(row: View): FocusLook = row.getTag(R.id.focus_look) as? FocusLook ?: FocusLook(row).also {
             row.setTag(R.id.focus_look, it)

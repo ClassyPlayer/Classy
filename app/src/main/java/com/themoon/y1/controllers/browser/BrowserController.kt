@@ -17,6 +17,7 @@ import com.themoon.y1.ThemeManager
 import com.themoon.y1.adapters.CategoryListAdapter
 import com.themoon.y1.adapters.SongListAdapter
 import com.themoon.y1.controllers.ScreenController
+import com.themoon.y1.controllers.menu.MusicMenuItems
 import com.themoon.y1.lists.LetterBox
 import com.themoon.y1.lists.ListScreen
 import com.themoon.y1.lists.ListSpec
@@ -266,8 +267,7 @@ class BrowserController(
         val audiobooks = isAudiobookLibraryMode || currentBrowserMode is BrowserMode.Audiobooks
         val rows = ArrayList<RowSpec>()
         if (!audiobooks) {
-            for (item in MusicMenuItems.ITEMS) {
-                if (isMusicMenuItemHidden(item.id)) continue
+            for (item in MusicMenuItems.shown(AppPrefs.get(activity))) {
                 rows += RowSpec(localize(item.label), key = item.id, onClick = { openMusicMenuItem(item.id) })
             }
         } else {
@@ -793,7 +793,7 @@ class BrowserController(
         }
     }
 
-    /** The action of a Music menu item (MusicMenuItems.ITEMS). */
+    /** The action of a Music menu item ([MusicMenuItems]). */
     private fun openMusicMenuItem(id: String) {
         when (id) {
             "coverflow" -> onCoverFlowRequested()
@@ -815,10 +815,7 @@ class BrowserController(
         }
     }
 
-    private fun isMusicMenuItemHidden(id: String): Boolean {
-        // Settings > Music Menu Items writes these keys to AppPrefs.
-        return MusicMenuItems.isHidden(activity.getSharedPreferences("AppPrefs", Activity.MODE_PRIVATE), id)
-    }
+    private fun isMusicMenuItemHidden(id: String): Boolean = MusicMenuItems.isHidden(AppPrefs.get(activity), id)
 
     /** True when Compilations is in the Music menu: then Artists does not show the compilation tracks (as on the iPod). */
     fun artistsHideCompilations(): Boolean = !isAudiobookLibraryMode && !isMusicMenuItemHidden("compilations")

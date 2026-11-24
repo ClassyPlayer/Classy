@@ -2,7 +2,6 @@ package com.themoon.y1.migrations
 
 import com.themoon.y1.Prefs
 import com.themoon.y1.StoragePaths
-import com.themoon.y1.controllers.menu.MenuOrder
 
 /**
  * Migration 015: the main menu has a new row *Books* (the ebook reader, after *Audiobooks*).
@@ -23,10 +22,9 @@ class Migration015BooksMenuItem : Migration {
     @Throws(Exception::class)
     override fun migrate(context: MigrationContext) {
         val prefs = context.settingsPrefs ?: return
-        prefs.getString(MenuOrder.KEY, null)?.let { order ->
-            val updated = withBooks(order)
-            if (updated != order) MenuOrder.save(prefs, updated)
-        }
+        val order = Prefs.MENU_ORDER.get(prefs)
+        val updated = withBooks(order)
+        if (updated != order) Prefs.MENU_ORDER.set(prefs, updated)
         val hiddenKey = Prefs.MAIN_MENU_HIDDEN.key(ITEM)
         if (!prefs.contains(hiddenKey)) {
             val hasFolder = StoragePaths.getBooksDirs().any { it.isDirectory }

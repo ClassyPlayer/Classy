@@ -111,18 +111,6 @@ object ClassyLists {
         compoundDrawablePadding = 0
     }
 
-    /**
-     * A row value that ends with the arrow mark ("Edit 〉", "〉 ", "Normal ›") → the value text without it, and true:
-     * the row opens a screen and gets the [arrow]. Other values stay as they are, with false.
-     */
-    fun splitArrow(value: String): Pair<String, Boolean> {
-        val trimmed = value.trimEnd()
-        if (trimmed.isEmpty() || trimmed.last() !in ARROW_MARKS) return value to false
-        return trimmed.dropLast(1).trimEnd() to true
-    }
-
-    private val ARROW_MARKS = charArrayOf('〉', '›')
-
     private fun px(dp: Int, d: Float): Int = ClassyLayout.px(dp, d)
 }
 

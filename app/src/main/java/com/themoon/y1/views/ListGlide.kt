@@ -45,6 +45,11 @@ object ListGlide {
         glide.beforeStep(from, to)
     }
 
+    /** Ends a glide in [rows] at once: the rows change their places (a row that the wheel moves). */
+    fun cancel(rows: ViewGroup) {
+        ((rows as? EdgeFadeListView)?.glide ?: (rows.parent as? EdgeFadeScrollView)?.glide)?.cancel()
+    }
+
     /** Rates of the approach to the target: about 95 % of the way in 3 / rate seconds. */
     const val BAR_RATE = 24f // ≈125 ms
     const val SCROLL_RATE = 18f // ≈165 ms

@@ -1,7 +1,6 @@
 package com.themoon.y1
 
 import android.content.SharedPreferences
-import com.themoon.y1.controllers.menu.MenuOrder
 import com.themoon.y1.controllers.player.AlbumTiltSetting
 import com.themoon.y1.controllers.player.LyricsKeepScreenOn
 import com.themoon.y1.controllers.player.LyricsScript
@@ -86,7 +85,7 @@ class StringPref(key: String, default: String, group: PrefGroup, resettable: Boo
     override fun put(editor: SharedPreferences.Editor, value: String): SharedPreferences.Editor = editor.putString(key, value)
 }
 
-/** Keys that start with [prefix] and end with an id (a file path, a menu item, a theme name). */
+/** Keys that start with [prefix] and end with an id (a file path, a menu item). */
 class PrefFamily(
     val prefix: String,
     val group: PrefGroup,
@@ -180,9 +179,12 @@ object Prefs {
     val VIDEO_FILL = add(BoolPref("video_stretch_fill", false, PrefGroup.APPEARANCE, resettable = true))
 
     // --- Menus ---
-    val MENU_ORDER = add(PrefKey(MenuOrder.KEY, PrefGroup.MENUS))
+    /** Main Menu Items: the item ids in the saved order ([com.themoon.y1.controllers.menu.MenuItems]); "" = the default order. */
+    val MENU_ORDER = add(StringPref("custom_menu_order", "", PrefGroup.MENUS))
     /** Main Menu Items: "hide_btn_<button id>" = true hides the item. */
     val MAIN_MENU_HIDDEN = add(PrefFamily("hide_btn_", PrefGroup.MENUS))
+    /** Music Menu Items: the item ids in the saved order; "" = the default order. */
+    val MUSIC_MENU_ORDER = add(StringPref("music_menu_order", "", PrefGroup.MENUS))
     /** Music Menu Items: "hide_music_btn_<item id>" = true hides the item. */
     val MUSIC_MENU_HIDDEN = add(PrefFamily("hide_music_btn_", PrefGroup.MENUS))
     val GROUP_ALBUMS_BY_ARTIST = add(BoolPref(AlbumKey.PREF_BY_ARTIST, false, PrefGroup.MENUS, resettable = true))
@@ -251,8 +253,6 @@ object Prefs {
     /** Old theme keys (before the two themes were in the code). No code reads them. */
     val THEME_INDEX = add(PrefKey("app_theme_index", PrefGroup.LEGACY))
     val LAST_THEME_VERSION = add(PrefKey("last_installed_theme_version", PrefGroup.LEGACY, inBackup = false))
-    /** The main menu order of each theme name, before [MENU_ORDER]. */
-    val MENU_ORDER_OF_THEME = add(PrefFamily("custom_menu_order_", PrefGroup.LEGACY))
 
     /** All keys, in the order above. */
     val ALL: List<PrefKey> get() = keys

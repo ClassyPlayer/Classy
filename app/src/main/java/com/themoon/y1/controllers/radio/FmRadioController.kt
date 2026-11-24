@@ -527,20 +527,20 @@ class FmRadioController(
             activity.volumeControlStream = fmManager.getFmStreamType()
         }
         return ListSpec(localize("Radio"), listOf(
-            row("Tuner", String.format(Locale.US, "%.1f MHz", freq) + " 〉") {
+            row("Tuner", String.format(Locale.US, "%.1f MHz", freq), opens = true) {
                 (activity as? MainActivity)?.changeScreen(ScreenState.FmRadio)
             },
             row("Radio Power", onOff(fmManager.isPowerUp, localize)) { toggleRadioPower(feedback = false) },
             row("Save Channel", if (isSaved(freq)) "★ " + localize("SAVED") else "☆ " + localize("SAVE")) { toggleSavedChannel() },
-            row("Saved Channels", "${savedRadioStations.size} 〉") {
+            row("Saved Channels", "${savedRadioStations.size}", opens = true) {
                 (activity as? MainActivity)?.changeScreen(ScreenState.FmRadioSaved)
             },
-            row("Auto Scan All", localize("Start") + " 〉") { startRadioAutoScan() }
+            row("Auto Scan All", localize("Start"), opens = true) { startRadioAutoScan() }
         ))
     }
 
-    private fun row(title: String, value: String, onClick: () -> Unit) =
-        RowSpec(localize(title), RowLook.VALUE, value = value, key = title, onClick = onClick)
+    private fun row(title: String, value: String, opens: Boolean = false, onClick: () -> Unit) =
+        RowSpec(localize(title), RowLook.VALUE, value = value, opens = opens, key = title, onClick = onClick)
 
     /** The saved channels: the centre button plays a channel, a held centre button deletes it. */
     private fun savedSpec(): ListSpec = ListSpec(localize("Saved Channels"), savedRadioStations.mapIndexed { i, freq ->

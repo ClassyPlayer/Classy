@@ -16,6 +16,7 @@ import com.themoon.y1.navigation.LetterJump
 import com.themoon.y1.navigation.PadWheel
 import com.themoon.y1.navigation.WheelKind
 import com.themoon.y1.navigation.RowFocus
+import com.themoon.y1.views.FocusLook
 import com.themoon.y1.views.ListGlide
 import com.themoon.y1.views.ListItemViewFactory
 
@@ -32,6 +33,7 @@ import com.themoon.y1.views.ListItemViewFactory
  * - [ListSpec.pane]: the split screen shows with the list, and goes when a list without it shows or the screen exits.
  * - [ListSpec.letters]: the iPod letter jump ([LetterJump.Mode], Settings → Controls → Letter Jump) in [wheel], with
  *   the letter in [letterBox]; the screen gives its keys to [key] (a centre press ends letter mode).
+ * - [ListSpec.reorder]: a hold on a row picks it up, [wheel] moves it, and a push or [drop] (Back) puts it down.
  */
 class ListScreen(
     private val rows: LinearLayout,
@@ -49,7 +51,7 @@ class ListScreen(
     var spec: ListSpec? = null
         private set
 
-    private var shown: List<RowSpec> = emptyList()
+    private var shown: MutableList<RowSpec> = ArrayList()
     private val lastKeys = HashMap<String, String>()
     private var pane: Pane? = null
 
@@ -62,6 +64,14 @@ class ListScreen(
     private var letters: List<String?>? = null
     private var lettersOf: ListSpec? = null
 
+    /** The row that the wheel moves ([ListSpec.reorder]), or null. */
+    private var moving: View? = null
+    /** The row keys when the row was picked up: [drop] gives a new order only when it changed. */
+    private var keysBefore: List<String> = emptyList()
+
+    /** True while a row is picked up ([ListSpec.reorder]): the wheel moves it. */
+    val isMoving: Boolean get() = moving != null
+
     /** The row of the long list that the wheel selected last (its view can still be on the way); -1 = none. */
     private var longIndex = -1
 
@@ -73,6 +83,7 @@ class ListScreen(
 
     fun show(spec: ListSpec) {
         endLetters()
+        drop()
         build(spec)
         if (spec.isLong) {
             val lv = list ?: return
@@ -119,6 +130,7 @@ class ListScreen(
 
     /** Makes the rows of [spec] again and keeps the selected row (by its key, else at the same place). */
     fun update(spec: ListSpec) {
+        drop()
         val focused = focusedIndex()
         val listFocused = rows.isFocused
         val oldKey = shown.getOrNull(focused)?.key
@@ -143,6 +155,10 @@ class ListScreen(
      */
     fun wheel(delta: Int, timeMs: Long = SystemClock.uptimeMillis()): Boolean {
         val s = spec ?: return false
+        if (moving != null) {
+            moveStep(delta)
+            return true
+        }
         if (letterMode.isIdle(timeMs)) endLetters() // the end timer did not run yet
         if (s.letters && letterStep(s, delta, timeMs)) return true
         val moved = if (s.isLong) list?.let { stepLong(s, it, delta) } else RowFocus.step(rows, delta)
@@ -189,10 +205,51 @@ class ListScreen(
     /** Remove the rows and the split screen (the screen exits). The custom views go back to no parent, for the next [show]. */
     fun clear() {
         endLetters()
+        drop()
         pane?.hide()
         rows.removeAllViews()
         rows.isFocusable = false
-        shown = emptyList()
+        shown = ArrayList()
+    }
+
+    /**
+     * Puts the picked-up row down and gives the new order to [ListSpec.reorder] when it changed. True when a row was
+     * picked up (Back then only puts it down).
+     */
+    fun drop(): Boolean {
+        val view = moving ?: return false
+        moving = null
+        FocusLook.of(view).picked = false
+        val keys = shown.map { it.key }
+        if (keys != keysBefore) spec?.reorder?.invoke(keys)
+        return true
+    }
+
+    private fun pickUp(view: View) {
+        if (!view.hasFocus()) view.requestFocus()
+        ListGlide.cancel(rows)
+        if (moving == null) keysBefore = shown.map { it.key }
+        moving = view
+        FocusLook.of(view).picked = true
+    }
+
+    /**
+     * Moves the picked-up row one place: the next row goes to the other side of it. The picked-up row keeps the
+     * focus (it does not leave the list). At an end of the list, it stays.
+     */
+    private fun moveStep(delta: Int) {
+        val view = moving ?: return
+        val i = rows.indexOfChild(view)
+        val j = i + if (delta < 0) -1 else 1
+        if (i < 0 || j !in 0 until rows.childCount || !selectable(j)) return
+        ListGlide.cancel(rows)
+        val other = rows.getChildAt(j)
+        rows.removeViewAt(j)
+        rows.addView(other, i)
+        java.util.Collections.swap(shown, i, j)
+        // After the next layout, the ScrollView brings the row into view
+        (scroll as? ScrollView)?.requestChildFocus(rows, view)
+        clickFeedback()
     }
 
     /** Ends letter mode (idle wheel, a key, another screen): the list stays at the row of the letter, the box goes. */
@@ -275,10 +332,10 @@ class ListScreen(
         list?.visibility = if (long) View.VISIBLE else View.GONE
         if (long) {
             list?.adapter = spec.adapter
-            shown = emptyList()
+            shown = ArrayList()
             return
         }
-        shown = ListModel.shownRows(spec)
+        shown = ListModel.shownRows(spec).toMutableList()
         for (row in shown) rows.addView(makeRow(spec, row))
     }
 
@@ -289,10 +346,11 @@ class ListScreen(
                 val focus = onRowFocus?.let { told -> { _: String -> told(row.key) } }
                 ListItemViewFactory.createListButtonWithIcon(context, "", row.label, color, focus)
             }
-            RowLook.VALUE -> ListItemViewFactory.createSettingRow(context, row.label, row.value)
+            RowLook.VALUE -> ListItemViewFactory.createSettingRow(context, row.label, row.value, row.opens)
             RowLook.CHOICE ->
                 if (row.glyphs.isEmpty()) ListItemViewFactory.createCheckListButton(context, row.label, row.checked)
                 else ListItemViewFactory.createChoiceRowWithRightIcons(context, row.label, row.checked, row.glyphs)
+            RowLook.SHOWN -> ListItemViewFactory.createShownRow(context, row.label, row.checked)
             RowLook.ART -> ArtRow.of(null, context, inListView = false).also { art ->
                 art.bind(row.label, row.value)
                 val image = row.image
@@ -308,15 +366,22 @@ class ListScreen(
             if (view is ViewGroup) for (i in 0 until view.childCount) view.getChildAt(i).alpha = DISABLED_ALPHA
         }
         val click = row.onClick
-        if (click != null) {
+        // A row of a list with reorder takes the push also with no action: the push puts a picked-up row down
+        if (click != null || spec.reorder != null) {
             view.setOnClickListener {
+                if (moving != null) {
+                    clickFeedback()
+                    drop()
+                    return@setOnClickListener
+                }
+                if (click == null) return@setOnClickListener
                 if (!row.feedbackAfter) clickFeedback()
                 lastKeys[spec.id] = row.key
                 click()
                 if (row.feedbackAfter) clickFeedback()
             }
         }
-        val hold = row.onHold
+        val hold = if (spec.reorder != null) ({ pickUp(view) }) else row.onHold
         if (hold != null) {
             view.isLongClickable = true
             view.setOnLongClickListener {

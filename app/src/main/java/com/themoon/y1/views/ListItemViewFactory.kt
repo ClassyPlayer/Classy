@@ -209,7 +209,8 @@ object ListItemViewFactory {
         return btn
     }
 
-    fun createSettingRow(context: Context, title: String, value: String): LinearLayout {
+    /** A Settings row: the title, the value on the right and, for a row that [opens] a page, the arrow on the selected row. */
+    fun createSettingRow(context: Context, title: String, value: String, opens: Boolean = false): LinearLayout {
         val d = context.resources.displayMetrics.density
         val rowHeight = (ClassicMenuStyle.ROW_HEIGHT_DP * d).toInt()
         val padX = (8 * d).toInt()
@@ -231,24 +232,18 @@ object ListItemViewFactory {
         }
         row.addView(tvTitle)
 
-        val displayVal = value.replace("〉", "›")
         // Shows an on/off value as a switch when Settings → Toggle Style is Switch.
         val tvVal = SettingValueView(context).apply {
             stateKey = title
-            text = displayVal
+            text = value
             setTextSize(TypedValue.COMPLEX_UNIT_PX, 21f * d)
             typeface = ThemeManager.getCustomFont()
             includeFontPadding = false
         }
         row.addView(tvVal)
-        // A row that opens a deeper screen: the arrow of the other lists in place of the "〉" text, only on the
-        // selected row (the value keeps its place).
+        // A row that opens a deeper screen: the arrow of the other lists, only on the selected row (the value keeps its place)
         val look = FocusLook.of(row).text(tvTitle).text(tvVal) { ThemeManager.getTextColorSecondary() }
-        val (valueText, opens) = ClassyLists.splitArrow(displayVal)
-        if (opens) {
-            tvVal.text = valueText
-            look.arrow = ClassyLists.arrow(context, ARROW_MARGIN_DP).also { row.addView(it) }
-        }
+        if (opens) look.arrow = ClassyLists.arrow(context, ARROW_MARGIN_DP).also { row.addView(it) }
         look.refresh()
         ClassyLists.styleListRow(row, tvTitle, tvVal)
         return row
@@ -294,6 +289,14 @@ object ListItemViewFactory {
         return row
     }
 
+    /**
+     * A row of a menu editor (Settings → Menus → Main Menu Items): the label and an eye ([shown]) or a grey cross on
+     * the right.
+     */
+    fun createShownRow(context: Context, text: String, shown: Boolean): View =
+        createTablerListButtonWithRightIcon(context, null, text, if (shown) TablerIcons.EYE else TablerIcons.X,
+            rightIconColor = if (shown) ThemeManager.getTextColorPrimary() else 0)
+
     fun createTablerListButtonWithRightIcon(
         context: Context,
         iconPaths: Array<String>?,
@@ -302,7 +305,9 @@ object ListItemViewFactory {
         iconColor: Int = 0,
         textColor: Int = 0,
         focusedTextColor: Int = 0,
-        focusedIconColor: Int = 0
+        focusedIconColor: Int = 0,
+        /** The colour of the right icon on a row that is not selected; 0 = the secondary text colour. */
+        rightIconColor: Int = 0
     ): View {
         val d = context.resources.displayMetrics.density
         val rowHeight = (ClassicMenuStyle.ROW_HEIGHT_DP * d).toInt()
@@ -320,6 +325,7 @@ object ListItemViewFactory {
         val actualTextColor = if (textColor != 0) textColor else ThemeManager.getTextColorPrimary()
         val actualFocusedTextColor = if (focusedTextColor != 0) focusedTextColor else ThemeManager.getListButtonFocusedTextColor()
         val actualFocusedIconColor = if (focusedIconColor != 0) focusedIconColor else ThemeManager.getListButtonFocusedTextColor()
+        val actualRightIconColor = if (rightIconColor != 0) rightIconColor else ThemeManager.getTextColorSecondary()
 
         val iconSize = (18f * d).toInt()
         var ivLeft: ImageView? = null
@@ -351,14 +357,15 @@ object ListItemViewFactory {
         row.addView(tv)
         tick?.textView = tv
 
-        val rightIconSize = (16f * d).toInt()
+        // As tall as the row text: the eye and the cross of the menu editors fill a 24 dp box only in part
+        val rightIconSize = (24f * d).toInt()
         var ivRight: ImageView? = null
         if (rightIconPaths != null) {
             ivRight = ImageView(context).apply {
                 layoutParams = LinearLayout.LayoutParams(rightIconSize, rightIconSize).apply {
                     leftMargin = (8f * d).toInt()
                 }
-                setImageBitmap(TablerIcons.render(rightIconPaths, rightIconSize, ThemeManager.getTextColorSecondary()))
+                setImageBitmap(TablerIcons.render(rightIconPaths, rightIconSize, actualRightIconColor))
             }
             row.addView(ivRight)
         }
@@ -370,7 +377,7 @@ object ListItemViewFactory {
             tick?.color = if (focused) actualFocusedIconColor else actualIconColor
             if (iconPaths != null) ivLeft?.setImageBitmap(TablerIcons.render(iconPaths, iconSize, if (focused) actualFocusedIconColor else actualIconColor))
             if (rightIconPaths != null) ivRight?.setImageBitmap(TablerIcons.render(rightIconPaths, rightIconSize,
-                if (focused) actualFocusedIconColor else ThemeManager.getTextColorSecondary()))
+                if (focused) actualFocusedIconColor else actualRightIconColor))
         }.refresh()
         ClassyLists.styleListRow(row, tv, null)
         return row
