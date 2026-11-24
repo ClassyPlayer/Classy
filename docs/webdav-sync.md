@@ -132,8 +132,9 @@ On a FAT card (the SD card), characters that FAT does not take (`< > : " | ? * \
 - `list(href)`: `PROPFIND` with `Depth: 1` and a small property body. Sub-folders are walked one request each, with
   a visited set and a `MAX_FOLDERS` (20 000) cap, so a server that links back to itself ends in an error.
 - `download(href, target, size, cancelled, progress)`: `GET` into `target.part`, check the length, then
-  `replaceFile` (rename; on FAT, delete the old file and rename). A failed or cancelled download leaves the target as
-  it was.
+  `replaceFile`: one rename over the old file. On FAT, which cannot rename over a file, the old file moves aside to
+  `<name>.old` (or `.old1`, ...), the new one moves in, and the old one is deleted; if the new one cannot move in, the
+  old one moves back. A failed or cancelled download leaves the target as it was.
 - Auth is HTTP Basic, sent with every request. `urlFor(href)` refuses an absolute href that names another host, so
   the password is never sent to a server the user did not enter.
 - Redirects are not followed: a 3xx answer is an error (`HTTP 301`), so no request, and no password, goes to another
