@@ -22,9 +22,8 @@ import com.themoon.y1.changeTheme
 import com.themoon.y1.FeatureVisibility
 import com.themoon.y1.ThemeManager
 import com.themoon.y1.controllers.ScreenController
-import com.themoon.y1.controllers.browser.MusicMenuItems
 import com.themoon.y1.controllers.menu.MainMenuItems
-import com.themoon.y1.controllers.menu.MenuOrder
+import com.themoon.y1.controllers.menu.MusicMenuItems
 import com.themoon.y1.managers.AudioEffectManager
 import com.themoon.y1.managers.AudioPlayerManager
 import com.themoon.y1.managers.AutoThemeManager
@@ -904,19 +903,18 @@ class SettingsController(
     // --- Main Menu Items and Music Menu Items ---
 
     private fun mainMenuItemsSpec(): ListSpec = ListSpec(localize("Main Menu Items"), MainMenuItems.ordered(prefs).map { item ->
-        val key = Prefs.MAIN_MENU_HIDDEN.key(item.id)
-        val row = visibilityRow(item.label, { prefs.getBoolean(key, false) }, reorderable = true) { hidden ->
-            prefs.edit().putBoolean(key, hidden).commit()
+        val row = visibilityRow(item.label, { MainMenuItems.isHidden(prefs, item.id) }, reorderable = true) { hidden ->
+            MainMenuItems.setHidden(prefs, item.id, hidden)
             FeatureVisibility.onMenuButtonToggled(activity, item.action, hidden)
         }
         row.tag = item.id
         RowSpec(item.label, RowLook.CUSTOM, view = row)
     })
 
-    private fun musicMenuItemsSpec(): ListSpec = ListSpec(localize("Music Menu Items"), MusicMenuItems.ITEMS.map { item ->
+    private fun musicMenuItemsSpec(): ListSpec = ListSpec(localize("Music Menu Items"), MusicMenuItems.ordered(prefs).map { item ->
         val label = localize(item.label)
         val row = visibilityRow(label, { MusicMenuItems.isHidden(prefs, item.id) }, reorderable = false) { hidden ->
-            prefs.edit().putBoolean(Prefs.MUSIC_MENU_HIDDEN.key(item.id), hidden).commit()
+            MusicMenuItems.setHidden(prefs, item.id, hidden)
         }
         RowSpec(label, RowLook.CUSTOM, view = row)
     })
@@ -1026,15 +1024,8 @@ class SettingsController(
                 tvRight?.setTextColor(ThemeManager.getListButtonFocusedTextColor())
                 currentReorderRow = null
             }
-            val sb = StringBuilder()
-            for (i in 0 until containerSettingsItems.childCount) {
-                val child = containerSettingsItems.getChildAt(i)
-                val tagStr = child.tag as? String
-                if (!tagStr.isNullOrEmpty()) {
-                    sb.append(tagStr).append(",")
-                }
-            }
-            MenuOrder.save(prefs, sb.toString())
+            val ids = (0 until containerSettingsItems.childCount).mapNotNull { containerSettingsItems.getChildAt(it).tag as? String }
+            MainMenuItems.saveOrder(prefs, ids)
             Notice.show(activity, localize("Menu order saved!"))
         }
     }

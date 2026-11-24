@@ -1,6 +1,6 @@
 package com.themoon.y1.models
 
-import com.themoon.y1.controllers.browser.MusicMenuItems
+import com.themoon.y1.controllers.menu.MusicMenuItems
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
