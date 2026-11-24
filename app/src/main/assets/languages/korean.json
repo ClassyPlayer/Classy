@@ -889,5 +889,6 @@
   "Sync cancelled": "동기화가 취소되었습니다",
   "Sort by Year": "연도순 정렬",
   "No Duplicates in Playlists": "재생목록 중복 없음",
-  "Already in Playlist": "이미 재생목록에 있음"
+  "Already in Playlist": "이미 재생목록에 있음",
+  "Previous Restarts Song": "이전 버튼은 곡 처음부터"
 }

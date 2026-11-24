@@ -685,6 +685,18 @@ class AudioPlayerManager private constructor() {
         val main = MainActivity.instance ?: return
         if (main.currentPlaylist.isEmpty()) return
 
+        // Previous Restarts Song: back to the start of this song (gapless queue or not), playing or paused as it was
+        val current = exoPlayer
+        if (current != null && current.playbackState != Player.STATE_IDLE &&
+            PreviousButton.restarts(Prefs.PREVIOUS_RESTARTS.get(main.prefs), getCurrentPosition().toLong())
+        ) {
+            current.seekTo(0)
+            main.prefs.edit().putLong("last_played_position", 0L).apply()
+            saveAudiobookBookmarkIfNeeded()
+            main.updatePlayerUI()
+            return
+        }
+
         if (isGaplessQueueActive && exoPlayer != null) {
             val exo = exoPlayer ?: return
             if (exo.hasPrevious()) {

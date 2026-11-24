@@ -889,5 +889,6 @@
   "Sync cancelled": "同期をキャンセルしました",
   "Sort by Year": "年で並べ替え",
   "No Duplicates in Playlists": "プレイリスト内の重複なし",
-  "Already in Playlist": "既にプレイリストにあります"
+  "Already in Playlist": "既にプレイリストにあります",
+  "Previous Restarts Song": "前へで曲の頭に戻る"
 }

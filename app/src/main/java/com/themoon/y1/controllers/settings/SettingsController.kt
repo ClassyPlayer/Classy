@@ -161,6 +161,8 @@ class SettingsController(
         SettingsGroup("Playback", listOf(
             toggle("Shuffle", { Prefs.SHUFFLE.get(prefs) }, setShuffle),
             cycle("Repeat", { Prefs.REPEAT_MODE.get(prefs).let { if (it in 0..2) it else 0 } }, setRepeatMode, arrayOf("Off", "One", "All")),
+            // Previous after a few seconds of a song goes back to its start (PreviousButton)
+            toggle("Previous Restarts Song", Prefs.PREVIOUS_RESTARTS),
             action("EQ", { eqName() }, opens = true) { onOpenEqualizer() },
             toggle("Sound Check", Prefs.SOUND_CHECK) { AudioEffectManager.getInstance().applySoundCheck() },
             // Left and right mixed on both channels, for one earbud
