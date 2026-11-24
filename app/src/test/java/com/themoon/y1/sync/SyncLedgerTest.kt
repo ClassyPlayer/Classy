@@ -88,4 +88,21 @@ class SyncLedgerTest {
             dir.deleteRecursively()
         }
     }
+
+    @Test
+    fun loadReadsTheOldLedgerThatAStoppedSaveLeft() {
+        val dir = java.nio.file.Files.createTempDirectory("ledger").toFile()
+        try {
+            val file = java.io.File(dir, "ledger.json")
+            SyncLedger(file).apply {
+                putItem(SyncLedger.LedgerItem("a", "lib", "music", "/m/a.mp3", 1L, "v", false))
+                assertTrue(save())
+                assertTrue(save()) // over an existing file
+            }
+            assertTrue(file.renameTo(java.io.File(dir, "ledger.json.old")))
+            assertNotNull(SyncLedger(file).apply { load() }.getItem("a"))
+        } finally {
+            dir.deleteRecursively()
+        }
+    }
 }

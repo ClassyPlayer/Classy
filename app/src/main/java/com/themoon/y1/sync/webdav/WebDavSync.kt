@@ -232,20 +232,23 @@ class WebDavSync private constructor(context: Context) {
             }
         }
         pool.shutdown()
+        var saved = false
         try {
             pool.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)
         } finally {
             if (!pool.isTerminated) pool.shutdownNow()
-            synchronized(ledger) { saveLedger() } // also after an error: the finished files stay tracked
+            saved = synchronized(ledger) { saveLedger() } // also after an error: the finished files stay tracked
             if (finished.get() > 0) changedByRun = true
         }
         failure.get()?.let { throw it }
+        // Not a sync that worked: the records are in memory only (the next save writes them)
+        if (!saved) throw LedgerNotSaved()
         if (finished.get() > 0) changed = true
 
         val now = System.currentTimeMillis()
         synchronized(ledger) {
             ledger.setLastSyncTime(now)
-            saveLedger()
+            if (!saveLedger()) throw LedgerNotSaved()
         }
         provider.lastSync = now
         return changed
