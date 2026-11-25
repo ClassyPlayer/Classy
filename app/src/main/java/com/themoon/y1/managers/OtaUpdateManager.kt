@@ -465,8 +465,14 @@ class OtaUpdateManager(
                         return@postDelayed
                     }
                     Thread {
-                        installApk(file)
-                        downloadRunning.set(false)
+                        try {
+                            installApk(file)
+                        } catch (_: Throwable) {
+                            // Also an Error (for example an API that this Android does not have): a notice, not a crash
+                            activity.runOnUiThread { Notice.error(activity, localize("Install Failed.")) }
+                        } finally {
+                            downloadRunning.set(false)
+                        }
                     }.start()
                 }, 1000)
             } catch (_: Exception) {
