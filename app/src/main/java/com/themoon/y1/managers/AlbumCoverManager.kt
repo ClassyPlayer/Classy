@@ -12,6 +12,7 @@ import android.util.LruCache
 import com.themoon.y1.MainActivity
 import com.themoon.y1.R
 import com.themoon.y1.StoragePaths
+import com.themoon.y1.models.AlbumKey
 import com.themoon.y1.models.SongItem
 import com.themoon.y1.views.Notice
 import java.io.File
@@ -328,12 +329,14 @@ class AlbumCoverManager private constructor() {
     }
 
     /**
-     * Makes the thumbnail of the album of [item] and saves it in [targetThumbFile]. The search result tells a clean
+     * Makes the thumbnail of the album of [item] and saves it in [targetThumbFile]. The search reads the track of [item],
+     * then, when it has no cover, some other tracks of the album ([otherAlbumTracks]). The search result tells a clean
      * "no cover" ([CoverCacheRules.CoverSearch.recordsNoArt]) from a failed read. Worker thread.
      */
     private fun extractAndSaveThumbnail(item: SongItem, targetThumbFile: File?): CoverCacheRules.CoverSearch<Bitmap> {
         val trackPath = item.file.absolutePath
-        val search = CoverCacheRules.firstCover(item.file, { emptyList() }) { track -> readTrackCover(track) }
+        val readFolders = HashSet<String>()
+        val search = CoverCacheRules.firstCover(item.file, { otherAlbumTracks(item) }) { track -> readTrackCover(track, readFolders) }
         val rawBmp = search.cover ?: return search
 
         var finalThumb = rawBmp
@@ -370,20 +373,44 @@ class AlbumCoverManager private constructor() {
 
     /**
      * The cover of [track] at about the thumbnail size: the cover file of an older version, the file in the Covers
-     * folder, the folder cover (cover.jpg, folder.jpg), else the embedded cover. Null when the track has none; throws
-     * on a read error (also OutOfMemoryError). Worker thread.
+     * folder, the folder cover (cover.jpg, folder.jpg; only for a folder not in [readFolders]), else the embedded
+     * cover. Null when the track has none; throws on a read error (also OutOfMemoryError). Worker thread.
      */
-    private fun readTrackCover(track: File): Bitmap? {
+    private fun readTrackCover(track: File, readFolders: MutableSet<String>): Bitmap? {
         MainActivity.instance?.prefs?.getString("album_art_${track.absolutePath}", null)?.let { path ->
             if (File(path).exists()) sampledFromFile(path, THUMB_SIZE, THUMB_SIZE)?.let { return it }
         }
         val coversFile = File(StoragePaths.getCoversDir(), track.nameWithoutExtension + ".jpg")
         if (coversFile.exists()) sampledFromFile(coversFile.absolutePath, THUMB_SIZE, THUMB_SIZE)?.let { return it }
-        MediaLibraryManager.getInstance().findFolderCover(track.parentFile)?.let { folderCover ->
-            sampledFromFile(folderCover.absolutePath, THUMB_SIZE, THUMB_SIZE)?.let { return it }
+        val folder = track.parentFile
+        if (folder != null && readFolders.add(folder.absolutePath)) {
+            MediaLibraryManager.getInstance().findFolderCover(folder)?.let { folderCover ->
+                sampledFromFile(folderCover.absolutePath, THUMB_SIZE, THUMB_SIZE)?.let { return it }
+            }
         }
         val embedded = AudioPlayerManager.getInstance().readEmbeddedArt(track) ?: return null
         return sampledFromBytes(embedded, THUMB_SIZE, THUMB_SIZE)
+    }
+
+    /**
+     * The other tracks of the album of [song] to read when its track has no cover (at most [MAX_OTHER_ART_TRACKS], in
+     * the order of [CoverCacheRules.artCandidates]): the tracks of its folder with the same album title, and the tracks
+     * of other folders (CD1, CD2) with the same album title and album artist. Worker thread.
+     */
+    private fun otherAlbumTracks(song: SongItem): List<File> {
+        if (CoverCacheRules.isUnknownAlbum(song.album)) return emptyList()
+        val album = song.album.trim()
+        val folder = song.file.parent
+        val artist = AlbumKey.artistOf(song)
+        val tracks = ArrayList<File>()
+        val mlm = MediaLibraryManager.getInstance()
+        for (list in listOf(mlm.musicLibrary, mlm.audiobookLibrary)) synchronized(list) {
+            for (s in list) {
+                if (!s.album.trim().equals(album, ignoreCase = true)) continue
+                if (s.file.parent == folder || AlbumKey.artistOf(s).equals(artist, ignoreCase = true)) tracks.add(s.file)
+            }
+        }
+        return CoverCacheRules.artCandidates(song.file, tracks, MAX_OTHER_ART_TRACKS)
     }
 
     fun isPregenerating(): Boolean {
@@ -543,6 +570,8 @@ class AlbumCoverManager private constructor() {
         // Those markers are not used, so that each album without a cover is searched again one time.
         private const val NO_ART_SUFFIX = ".noart2"
         private const val OLD_NO_ART_SUFFIX = ".noart"
+        // Other tracks that the search reads when the first track of an album has no cover: a small cost on the Y1.
+        private const val MAX_OTHER_ART_TRACKS = 4
         // 12 MB: approx. 96 covers. A larger cache made more GCs while it filled (thumbnails in the Java heap).
         private const val MEMORY_CACHE_MAX_KB = 12288
         // 24 MB: approx. 190 covers, for purgeable thumbnails (before Android 5), which are not in the Java heap.

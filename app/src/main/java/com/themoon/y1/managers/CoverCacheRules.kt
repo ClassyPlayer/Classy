@@ -1,5 +1,6 @@
 package com.themoon.y1.managers
 
+import java.io.File
 import java.security.MessageDigest
 
 /**
@@ -88,5 +89,38 @@ object CoverCacheRules {
             return CoverSearch(null, true)
         }
         return CoverSearch(null, failed)
+    }
+
+    /**
+     * The tracks to read after [first] had no cover, at most [max], from the other [tracks] of its album: first one
+     * track of each other folder (CD1, CD2: that folder can have a cover file), then tracks of the folder of [first],
+     * spread over the album (some files of an album can have no cover).
+     */
+    fun artCandidates(first: File, tracks: List<File>, max: Int): List<File> {
+        if (max <= 0) return emptyList()
+        val folder = first.parent
+        val out = ArrayList<File>(max)
+        val folders = HashSet<String?>()
+        folders.add(folder)
+        val sameFolder = ArrayList<File>()
+        for (t in tracks) {
+            if (t == first) continue
+            val parent = t.parent
+            if (parent == folder) sameFolder.add(t)
+            else if (out.size < max && folders.add(parent)) out.add(t)
+        }
+        val left = max - out.size
+        if (sameFolder.size <= left) {
+            out.addAll(sameFolder)
+        } else {
+            for (i in 0 until left) out.add(sameFolder[i * sameFolder.size / left])
+        }
+        return out
+    }
+
+    /** True for an album without a title tag: its tracks are not one album, so no other track gives it a cover. */
+    fun isUnknownAlbum(album: String?): Boolean {
+        val a = album?.trim()
+        return a.isNullOrEmpty() || a.equals("Unknown Album", ignoreCase = true) || a.equals("Unknown Book", ignoreCase = true)
     }
 }
