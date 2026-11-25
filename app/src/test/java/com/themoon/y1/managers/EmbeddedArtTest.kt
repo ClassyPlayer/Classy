@@ -79,6 +79,13 @@ class EmbeddedArtTest {
         assertArrayEquals(picture, reader.readEmbeddedArt(m4a("c.m4a", picture)))
     }
 
+    @Test(expected = java.io.EOFException::class)
+    fun cutFlacPicture_isAnError_notNoCover() {
+        val file = flac("cut.flac", picture)
+        file.writeBytes(file.readBytes().copyOf(file.length().toInt() - 4))
+        reader.readEmbeddedArt(file)
+    }
+
     @Test(expected = FileNotFoundException::class)
     fun missingFile_isAnError_notNoCover() {
         reader.readEmbeddedArt(File(tmp.root, "gone.mp3"))

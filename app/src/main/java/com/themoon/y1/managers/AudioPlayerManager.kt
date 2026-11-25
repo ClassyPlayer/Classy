@@ -1538,7 +1538,10 @@ class AudioPlayerManager private constructor() {
                     i++
                 }
             }
-        } catch (ignored: Exception) {}
+        } catch (e: Exception) {
+            // The cover reader (readEmbeddedArt) must tell a read error from a file without a cover
+            if (includeArt && tags[5] == null) throw e
+        }
         return tags
     }
 
@@ -1816,7 +1819,10 @@ class AudioPlayerManager private constructor() {
                 }
             }
             raf.close()
-        } catch (ignored: Exception) {}
+        } catch (e: Exception) {
+            // The cover reader (readEmbeddedArt) must tell a read error from a file without a cover
+            if (includeArt && tags[5] == null) throw e
+        }
         return tags
     }
 
