@@ -29,11 +29,12 @@ object ApiCompat {
 }
 
 /**
- * [use] for a [ZipFile]: ZipFile is a Closeable only from API 19 on Android, so `ZipFile(f).use {}` fails before it.
+ * [use] for a [ZipFile] or a [java.util.jar.JarFile]: ZipFile is a Closeable only from API 19 on Android, so
+ * `ZipFile(f).use {}` fails before it (IncompatibleClassChangeError, an Error that `catch (e: Exception)` does not get).
  * Closes the file at the end, also when [block] returns from the calling function; when [block] fails, a close
  * failure does not hide the first exception.
  */
-inline fun <R> ZipFile.useZip(block: (ZipFile) -> R): R {
+inline fun <Z : ZipFile, R> Z.useZip(block: (Z) -> R): R {
     var failure: Throwable? = null
     try {
         return block(this)
