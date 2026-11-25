@@ -52,7 +52,9 @@ class PrefsTest {
             // Settings → Library
             "playlist_no_duplicates",
             // Settings → Menus → Cover Flow (singles and EPs)
-            "coverflow_show_singles", "coverflow_show_eps", "coverflow_untagged_single_step")
+            "coverflow_show_singles", "coverflow_show_eps", "coverflow_untagged_single_step",
+            // Settings → Playback → Previous Restarts Song
+            "previous_restarts_song")
         assertEquals(before + added, Prefs.RESETTABLE.map { it.key }.toSet())
     }
 
