@@ -1117,14 +1117,18 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
         if (currentPlaylist.isEmpty() || currentIndex !in currentPlaylist.indices) return
         val currentFile = currentPlaylist[currentIndex]
         val path = currentFile.absolutePath
+        // A chapter (file) of an audiobook: the whole book is meant, so every file of the book changes together
+        val targets: List<String> = if (StoragePaths.isUnderAudiobooks(path)) {
+            currentPlaylist.map { it.absolutePath }.filter { StoragePaths.isUnderAudiobooks(it) }
+        } else listOf(path)
         if (favoritePaths.contains(path)) {
-            favoritePaths.remove(path)
+            favoritePaths.removeAll(targets.toSet())
             Notice.show(this, t("Removed from Favorites."))
         } else {
-            favoritePaths.add(path)
+            favoritePaths.addAll(targets)
             Notice.show(this, t("Added to Favorites."))
         }
-        prefs.edit().putStringSet("favorite_songs_set", favoritePaths).apply()
+        prefs.edit().putStringSet("favorite_songs_set", HashSet(favoritePaths)).apply()
     }
 
     /** Shows work in progress under the status bar ([com.themoon.y1.views.ProgressLayer]), with the spinner. */
