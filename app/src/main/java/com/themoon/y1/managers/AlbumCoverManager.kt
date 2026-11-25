@@ -546,7 +546,13 @@ class AlbumCoverManager private constructor() {
                     }
                 }
 
-                savePregenSignature(signature)
+                if (failed == 0) {
+                    savePregenSignature(signature)
+                } else {
+                    // The albums with a failed read have no marker: the next Cover Flow entry pre-generates again
+                    pregeneratedSignature = null
+                    try { signatureFile().delete() } catch (ignored: Throwable) {}
+                }
                 val elapsed = System.currentTimeMillis() - startTime
                 val finalGenerated = generated
                 val finalSkipped = skipped
