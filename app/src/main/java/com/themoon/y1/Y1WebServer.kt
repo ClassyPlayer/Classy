@@ -3,6 +3,7 @@ package com.themoon.y1
 import android.content.Context
 import android.net.wifi.WifiManager
 import com.themoon.y1.io.SafeFiles
+import com.themoon.y1.managers.Aiff
 import com.themoon.y1.managers.LastFmScrobbler
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
@@ -493,6 +494,7 @@ class Y1WebServer @JvmOverloads constructor(
                         if (lowerName.endsWith(".mp3")) mimeType = "audio/mpeg"
                         else if (lowerName.endsWith(".flac")) mimeType = "audio/flac"
                         else if (lowerName.endsWith(".wav")) mimeType = "audio/wav"
+                        else if (Aiff.isAiffName(lowerName)) mimeType = "audio/aiff"
                         else if (lowerName.endsWith(".ogg")) mimeType = "audio/ogg"
                         else if (lowerName.endsWith(".m4a") || lowerName.endsWith(".aac")) mimeType = "audio/mp4"
                         else if (lowerName.endsWith(".jpg") || lowerName.endsWith(".jpeg")) mimeType = "image/jpeg"

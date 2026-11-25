@@ -43,7 +43,8 @@ class MediaLibraryManager private constructor() {
         val name = file.name.lowercase(java.util.Locale.US)
         return name.endsWith(".mp3") || name.endsWith(".flac") || name.endsWith(".m4a") ||
                 name.endsWith(".alac") || name.endsWith(".ogg") || name.endsWith(".opus") ||
-                name.endsWith(".wav") || name.endsWith(".aac") || name.endsWith(".m4b")
+                name.endsWith(".wav") || name.endsWith(".aac") || name.endsWith(".m4b") ||
+                Aiff.isAiffName(name)
     }
 
     fun findFolderCover(folder: File?): File? {
@@ -298,6 +299,21 @@ class MediaLibraryManager private constructor() {
                 if (tags.size > 11) durationMs = tags[11] as? Long ?: 0L
                 if (tags.size > 12 && tags[12] != null) mood = tags[12] as? String ?: ""
                 if (tags.size > 13 && tags[13] != null) rt = tags[13] as? String
+            } else if (Aiff.isAiffName(lower)) {
+                // Android cannot read AIFF: the ID3 chunk, the NAME/AUTH chunks and COMM
+                val tags = Aiff.readTags(f, false)
+                if (tags[0] != null) t = tags[0] as? String
+                if (tags[1] != null) a = tags[1] as? String
+                if (tags[2] != null) al = tags[2] as? String
+                if (tags[3] != null) y = tags[3] as? String
+                if (tags[4] != null) g = tags[4] as? String
+                if (tags[6] != null) trackStr = tags[6] as? String
+                if (tags[8] != null) aa = tags[8] as? String
+                if (tags[9] != null) cp = tags[9] as? String
+                if (tags[10] != null) cpl = tags[10] as? String
+                durationMs = tags[11] as? Long ?: 0L
+                if (tags[12] != null) mood = tags[12] as? String ?: ""
+                if (tags[13] != null) rt = tags[13] as? String
             } else {
                 var mmr: android.media.MediaMetadataRetriever? = null
                 var fis: java.io.FileInputStream? = null
