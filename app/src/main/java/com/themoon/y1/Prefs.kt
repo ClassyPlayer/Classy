@@ -112,6 +112,8 @@ object Prefs {
     val SHUFFLE = add(BoolPref("shuffle", false, PrefGroup.PLAYBACK))
     /** 0 = Off, 1 = One, 2 = All. */
     val REPEAT_MODE = add(IntPref("repeat_mode", 0, PrefGroup.PLAYBACK, resettable = true))
+    /** Previous goes back to the start of a song that played a few seconds ([com.themoon.y1.managers.PreviousButton]). */
+    val PREVIOUS_RESTARTS = add(BoolPref("previous_restarts_song", true, PrefGroup.PLAYBACK, resettable = true))
     /** "preset_N" (N = index in the preset list) or "custom_<name>". */
     val EQ_PROFILE = add(StringPref("eq_profile_id", "preset_0", PrefGroup.PLAYBACK, resettable = true))
     val SOFTWARE_EQ = add(BoolPref("software_eq_enabled", false, PrefGroup.PLAYBACK))

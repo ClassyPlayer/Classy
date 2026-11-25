@@ -51,6 +51,7 @@ open class MigrationManager {
         registerMigration(Migration018MoodTags())
         registerMigration(Migration019Mp3Years())
         registerMigration(Migration020ReleaseTypes())
+        registerMigration(Migration021PreviousRestartsSong())
     }
 
     /**
