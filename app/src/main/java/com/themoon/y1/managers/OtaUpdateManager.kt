@@ -350,7 +350,8 @@ class OtaUpdateManager(
     }
 
     /**
-     * Why the check of [channel] failed: no release has the update for this player, or another error.
+     * Why the check of [channel] failed: no release has the update for this player, the server answered with an error
+     * status (for example the GitHub rate limit), or no answer came (network).
      */
     private fun showUpdateErrorDialog(e: Throwable, channel: String) {
         val spec = when {
@@ -362,6 +363,10 @@ class OtaUpdateManager(
             e is UpdateChannel.NoManifestException -> ActionScreens.Spec(
                 localize("No Update for This Player"),
                 listOf(localize("Keep this version until there is an update for this player."))
+            )
+            e is UpdateChannel.HttpStatusException -> ActionScreens.Spec(
+                localize("Update Check Failed"),
+                listOf("${localize("The update server sent an error.")} (HTTP ${e.code})", localize("Try again later."))
             )
             else -> ActionScreens.Spec(
                 localize("Update Check Failed"),
