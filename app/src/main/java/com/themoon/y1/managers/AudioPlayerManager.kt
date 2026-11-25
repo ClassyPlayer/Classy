@@ -1398,8 +1398,9 @@ class AudioPlayerManager private constructor() {
 
     fun extractOpusMetadata(file: File, includeArt: Boolean): Array<Any?> {
         val tags = arrayOfNulls<Any>(14)
+        var opened: java.io.Closeable? = null // closed also after a read error
         try {
-            val fis = FileInputStream(file)
+            val fis = FileInputStream(file).also { opened = it }
             val bos = ByteArrayOutputStream()
             val header = ByteArray(27)
             var totalRead = 0
@@ -1541,6 +1542,8 @@ class AudioPlayerManager private constructor() {
         } catch (e: Exception) {
             // The cover reader (readEmbeddedArt) must tell a read error from a file without a cover
             if (includeArt && tags[5] == null) throw e
+        } finally {
+            try { opened?.close() } catch (ignored: Exception) {}
         }
         return tags
     }
@@ -1549,8 +1552,9 @@ class AudioPlayerManager private constructor() {
 
     fun extractOggVorbisMetadata(file: File, includeArt: Boolean): Array<Any?> {
         val tags = arrayOfNulls<Any>(14)
+        var opened: java.io.Closeable? = null // closed also after a read error
         try {
-            val fis = FileInputStream(file)
+            val fis = FileInputStream(file).also { opened = it }
             val bos = ByteArrayOutputStream()
             val header = ByteArray(27)
             var totalRead = 0
@@ -1709,7 +1713,10 @@ class AudioPlayerManager private constructor() {
                     i++
                 }
             }
-        } catch (ignored: Exception) {}
+        } catch (ignored: Exception) {
+        } finally {
+            try { opened?.close() } catch (ignored: Exception) {}
+        }
         return tags
     }
 
@@ -1717,8 +1724,9 @@ class AudioPlayerManager private constructor() {
 
     fun extractFlacMetadata(file: File, includeArt: Boolean): Array<Any?> {
         val tags = arrayOfNulls<Any>(14)
+        var opened: java.io.Closeable? = null // closed also after a read error
         try {
-            val raf = RandomAccessFile(file, "r")
+            val raf = RandomAccessFile(file, "r").also { opened = it }
             val header = ByteArray(4)
             raf.readFully(header)
 
@@ -1822,6 +1830,8 @@ class AudioPlayerManager private constructor() {
         } catch (e: Exception) {
             // The cover reader (readEmbeddedArt) must tell a read error from a file without a cover
             if (includeArt && tags[5] == null) throw e
+        } finally {
+            try { opened?.close() } catch (ignored: Exception) {}
         }
         return tags
     }
@@ -1830,8 +1840,9 @@ class AudioPlayerManager private constructor() {
 
     fun extractAlacMetadata(file: File, includeArt: Boolean): Array<Any?> {
         val tags = arrayOfNulls<Any>(14)
+        var opened: java.io.Closeable? = null // closed also after a read error
         try {
-            val raf = RandomAccessFile(file, "r")
+            val raf = RandomAccessFile(file, "r").also { opened = it }
             val fileSize = raf.length()
             var pos = 0L
             val iso88591 = Charset.forName("ISO-8859-1")
@@ -1915,7 +1926,10 @@ class AudioPlayerManager private constructor() {
                 pos += size
             }
             raf.close()
-        } catch (ignored: Exception) {}
+        } catch (ignored: Exception) {
+        } finally {
+            try { opened?.close() } catch (ignored: Exception) {}
+        }
         return tags
     }
 
