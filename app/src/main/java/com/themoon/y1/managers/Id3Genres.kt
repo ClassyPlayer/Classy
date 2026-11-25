@@ -2,7 +2,8 @@ package com.themoon.y1.managers
 
 /**
  * The genres of ID3 by number: ID3v1 (0 to 79) and the Winamp additions (80 to 191). ID3v2 TCON frames can give a
- * genre as "(17)", "17" or "(17)Rock" (number and refinement), and "(RX)" / "(CR)" for Remix and Cover.
+ * genre as "(17)", "17", "(17)Rock" (number and refinement) or "(51)(39)" (several numbers), and "(RX)" / "(CR)" for
+ * Remix and Cover.
  */
 object Id3Genres {
     val NAMES: List<String> = listOf(
@@ -29,22 +30,36 @@ object Id3Genres {
         "Garage Rock", "Psybient"
     )
 
-    private val NUMBERED = Regex("^\\((\\d{1,3})\\)(.*)$")
+    /** One reference at the start of a TCON value: "(17)", "(RX)" or "(CR)". */
+    private val REFERENCE = Regex("^\\((\\d{1,3}|RX|CR)\\)", RegexOption.IGNORE_CASE)
 
-    /** The genre name of a TCON value [raw]: the refinement after a number, else the name of the number, else [raw]. */
-    fun name(raw: String): String {
-        val value = raw.trim()
-        if (value.equals("(RX)", ignoreCase = true) || value.equals("RX", ignoreCase = true)) return "Remix"
-        if (value.equals("(CR)", ignoreCase = true) || value.equals("CR", ignoreCase = true)) return "Cover"
-        val m = NUMBERED.find(value)
-        if (m != null) {
-            val refinement = m.groupValues[2].trim()
-            if (refinement.isNotEmpty() && !refinement.startsWith("(")) return refinement
-            return NAMES.getOrNull(m.groupValues[1].toInt()) ?: value
+    /**
+     * The genres of a TCON value [raw]. ID3v2.3 gives references and then a refinement: "(51)(39)" is two genres,
+     * "(4)Eurodisco" one, named by its refinement (it says more than the number), and "((text)" a refinement that
+     * starts with "(". ID3v2.4 gives a plain number, "RX" or "CR", or a name. Numbers that are not genres stay as
+     * they are written.
+     */
+    fun names(raw: String): List<String> {
+        var rest = raw.trim()
+        val references = ArrayList<String>()
+        while (!rest.startsWith("((")) {
+            val m = REFERENCE.find(rest) ?: break
+            references.add(token(m.groupValues[1]) ?: m.value)
+            rest = rest.substring(m.value.length)
         }
-        if (value.isNotEmpty() && value.length <= 3 && value.all { it in '0'..'9' }) {
-            return NAMES.getOrNull(value.toInt()) ?: value
-        }
-        return value
+        val refinement = (if (rest.startsWith("((")) rest.substring(1) else rest).trim()
+        if (refinement.isNotEmpty()) return listOf(token(refinement) ?: refinement)
+        return references
+    }
+
+    /** The genres of a TCON value [raw] ([names]) joined with "; ", as the other tag readers join genres. */
+    fun name(raw: String): String = names(raw).joinToString("; ")
+
+    /** The name of a genre number, "RX" or "CR"; null for anything else. */
+    private fun token(value: String): String? = when {
+        value.equals("RX", ignoreCase = true) -> "Remix"
+        value.equals("CR", ignoreCase = true) -> "Cover"
+        value.length in 1..3 && value.all { it in '0'..'9' } -> NAMES.getOrNull(value.toInt())
+        else -> null
     }
 }

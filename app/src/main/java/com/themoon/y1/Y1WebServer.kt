@@ -268,6 +268,8 @@ class Y1WebServer @JvmOverloads constructor(
                             "<script>" +
                             "const nativeFetch = window.fetch.bind(window); window.fetch = (url, options) => nativeFetch(url, options).then(r => { if (!r.ok) { document.getElementById('status').textContent = 'Request failed (' + r.status + ')'; throw Error('Request failed'); } return r; });" +
                             "let currentPath = ''; let shownPath = ''; let listRequest = 0;" +
+                            // AIFF plays in the page only where the browser can (Safari); elsewhere it is a download
+                            "const canPlayAiff = !!document.createElement('audio').canPlayType('audio/aiff');" +
                             // Only the latest list request may change the page: an older answer that comes late is ignored
                             "function loadList() {" +
                             " const request = ++listRequest;" +
@@ -288,7 +290,7 @@ class Y1WebServer @JvmOverloads constructor(
                             " if(f.isDir) row.onclick=()=>goInto(f.name);" +
                             " else {" +
                             " if(['jpg','jpeg','png','webp','gif'].includes(ext)) {const image=document.createElement('img');image.className='thumb';image.src='/api/file?path='+path;image.loading='lazy';row.insertBefore(image,label);row.onclick=()=>window.open('/api/file?path='+path,'_blank');}" +
-                            " if(['mp3','flac','wav','ogg','opus','m4a','aac'].includes(ext)) row.onclick=()=>playAudio(path,f.name);" +
+                            " if(['mp3','flac','wav','ogg','opus','m4a','aac'].includes(ext) || (canPlayAiff && ['aif','aiff','aifc'].includes(ext))) row.onclick=()=>playAudio(path,f.name);" +
                             " if(['json','txt','xml','ini','md','m3u','m3u8','eq'].includes(ext)) button(row,'Edit',e=>openEditor(e,path,f.name));" +
                             " button(row,'Download',()=>{window.location.href='/api/download?path='+path;});" +
                             " }" +

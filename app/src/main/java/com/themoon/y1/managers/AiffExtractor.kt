@@ -41,6 +41,12 @@ class AiffExtractor : Extractor {
     private var buffer = ByteArray(0)
     private val scratch = ParsableByteArray()
 
+    /**
+     * Where the chunk that [readChunks] reads starts. After a read error the loader goes on with this extractor where
+     * the input stopped, which can be inside the chunk (its header was read): [readChunks] then seeks back here.
+     */
+    private var chunkStart = -1L
+
     override fun sniff(input: ExtractorInput): Boolean {
         val head = ByteArray(12)
         return try {
@@ -68,8 +74,10 @@ class AiffExtractor : Extractor {
 
     /** Reads the chunk headers up to the samples: COMM and SSND, the other chunks are skipped. */
     private fun readChunks(input: ExtractorInput, seekPosition: PositionHolder): Int {
+        if (chunkStart >= 0 && input.position != chunkStart) return seekTo(seekPosition, chunkStart)
         val ch = ByteArray(8)
         while (true) {
+            chunkStart = input.position
             // The end of the file before the samples: SSND came before COMM, or a chunk is missing
             if (!input.readFully(ch, 0, 8, true)) {
                 if (comm != null && dataStart >= 0) return startSamples(input, seekPosition)
@@ -106,7 +114,7 @@ class AiffExtractor : Extractor {
                     if (comm != null) return startSamples(input, seekPosition)
                     // COMM comes later: on past the samples, then back to them
                     if (size < 8) throw ParserException("AIFF COMM chunk after an SSND chunk of no size")
-                    return seekTo(seekPosition, next)
+                    return seekToChunk(seekPosition, next)
                 }
                 else -> {
                     if (size <= MAX_SKIP) {
@@ -116,7 +124,7 @@ class AiffExtractor : Extractor {
                         }
                     } else {
                         // A large chunk (an ID3 tag with a cover): seek over it in place of reading it
-                        return seekTo(seekPosition, next)
+                        return seekToChunk(seekPosition, next)
                     }
                 }
             }
@@ -126,6 +134,12 @@ class AiffExtractor : Extractor {
     private fun seekTo(seekPosition: PositionHolder, position: Long): Int {
         seekPosition.position = position
         return Extractor.RESULT_SEEK
+    }
+
+    /** Seeks to the chunk at [position], which [readChunks] reads next. */
+    private fun seekToChunk(seekPosition: PositionHolder, position: Long): Int {
+        chunkStart = position
+        return seekTo(seekPosition, position)
     }
 
     /** Gives the format and the seek map, then goes to the first sample: in place, or with a seek after a late COMM. */
@@ -174,43 +188,40 @@ class AiffExtractor : Extractor {
             )
             out.endTracks()
         }
-        state = STATE_SAMPLES
+        // The state changes only after the skip: a read error in it reads the chunk again ([chunkStart])
         val gap = dataStart - input.position
-        if (gap in 0L..MAX_SKIP && input.skipFully(gap.toInt(), true)) return Extractor.RESULT_CONTINUE
-        return seekTo(seekPosition, dataStart)
+        val inPlace = gap in 0L..MAX_SKIP && input.skipFully(gap.toInt(), true)
+        state = STATE_SAMPLES
+        return if (inPlace) Extractor.RESULT_CONTINUE else seekTo(seekPosition, dataStart)
     }
 
     /**
      * Gives about 100 ms of whole sample frames, read into [buffer] and turned into an order that ExoPlayer has. The time
      * of a sample comes from its place in the file, as the seek map counts it, so a seek needs no state here.
+     * A block is read whole or not at all: readFully moves the input only when it has all the bytes, so after a read
+     * error the loader reads the same block again, and no sound is lost.
      */
     private fun readSamples(input: ExtractorInput): Int {
         val c = comm!!
         val blockAlign = c.blockAlign
-        // After a load error the loader goes on where the input stopped, which can be inside a frame: to the next one
-        val inFrame = ((input.position - dataStart) % blockAlign).toInt()
-        if (inFrame != 0 && !input.skipFully(blockAlign - inFrame, true)) return Extractor.RESULT_END_OF_INPUT
         val position = input.position
         val left = dataEnd - position
         if (left < blockAlign) return Extractor.RESULT_END_OF_INPUT
         val want = minOf(sampleBytes.toLong(), left - left % blockAlign).toInt()
-        var got = 0
-        while (got < want) {
-            val n = input.read(buffer, got, want - got)
-            if (n == C.RESULT_END_OF_INPUT) break
-            got += n
+        val read = try {
+            input.readFully(buffer, 0, want, true)
+        } catch (_: java.io.EOFException) {
+            // Shorter than its length: only when the length is not known (an SSND of no size, from a stream)
+            false
         }
-        val whole = got - got % blockAlign
-        if (whole > 0) {
-            convertSamples(buffer, whole, convert)
-            scratch.reset(buffer, whole)
-            val t = track!!
-            t.sampleData(scratch, whole)
-            val timeUs = (position - dataStart) / blockAlign * C.MICROS_PER_SECOND / c.sampleRate
-            t.sampleMetadata(timeUs, C.BUFFER_FLAG_KEY_FRAME, whole, 0, null)
-        }
-        // A file cut in the middle of the samples ends there
-        return if (got < want) Extractor.RESULT_END_OF_INPUT else Extractor.RESULT_CONTINUE
+        if (!read) return Extractor.RESULT_END_OF_INPUT
+        convertSamples(buffer, want, convert)
+        scratch.reset(buffer, want)
+        val t = track!!
+        t.sampleData(scratch, want)
+        val timeUs = (position - dataStart) / blockAlign * C.MICROS_PER_SECOND / c.sampleRate
+        t.sampleMetadata(timeUs, C.BUFFER_FLAG_KEY_FRAME, want, 0, null)
+        return Extractor.RESULT_CONTINUE
     }
 
     /**
@@ -223,6 +234,7 @@ class AiffExtractor : Extractor {
             comm = null
             dataStart = -1L
             dataEnd = -1L
+            chunkStart = -1L
         }
     }
 

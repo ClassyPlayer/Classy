@@ -365,7 +365,12 @@ class Id3Test {
         assertEquals("Rock", Id3Genres.name("(17)"))
         assertEquals("Rock", Id3Genres.name("17"))
         assertEquals("Indie Rock", Id3Genres.name("(17)Indie Rock"))
-        assertEquals("Rock", Id3Genres.name("(17)(13)"))
+        assertEquals(listOf("Rock", "Pop"), Id3Genres.names("(17)(13)"))
+        assertEquals("Techno-Industrial; Noise", Id3Genres.name("(51)(39)"))
+        assertEquals(listOf("Indie"), Id3Genres.names("(17)(13)Indie"))
+        assertEquals(listOf("Remix", "Rock"), Id3Genres.names("(RX)(17)"))
+        assertEquals(listOf("(Live) Rock"), Id3Genres.names("((Live) Rock"))
+        assertEquals(emptyList<String>(), Id3Genres.names(" "))
         assertEquals("Remix", Id3Genres.name("(RX)"))
         assertEquals("Cover", Id3Genres.name("CR"))
         assertEquals("Shoegaze", Id3Genres.name("Shoegaze"))
@@ -377,6 +382,9 @@ class Id3Test {
     }
 
     @Test fun v24GenreValuesAreJoined() {
+        // v2.3 gives several numbers in one value
+        val v23 = AiffBytes.id3v23(AiffBytes.text("TCON", "(51)(39)"))
+        assertEquals("Techno-Industrial; Noise", Id3.readTags(aiff(v23), includeArt = false)[4])
         // v2.4 separates values with NULs; numbers become names and repeats go
         val body = byteArrayOf(3) + "17\u0000Jazz\u000017".toByteArray()
         val frame = rawFrame("TCON", byteArrayOf(0, 0), body)

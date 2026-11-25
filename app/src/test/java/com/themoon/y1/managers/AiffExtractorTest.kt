@@ -26,6 +26,7 @@ import org.junit.Assert.fail
 import org.junit.Test
 import java.io.ByteArrayOutputStream
 import java.io.EOFException
+import java.io.IOException
 
 class AiffExtractorTest {
     /** Reads [bytes] from [pos], as a data source opened at that position. */
@@ -274,5 +275,96 @@ class AiffExtractorTest {
         val d = byteArrayOf(1, 2)
         AiffExtractor.convertSamples(d, 2, AiffExtractor.CONVERT_NONE)
         assertArrayEquals(byteArrayOf(1, 2), d)
+    }
+
+    /**
+     * Reads [bytes] from [pos], and fails once at [Fault.at]: a read that reaches it gets the bytes before it, the next
+     * read throws, as a card with a read error. [fault] is shared by the inputs of one run, so it fails only once.
+     */
+    private class Fault(var at: Long, var failed: Boolean = false)
+
+    private class FlakyReader(private val bytes: ByteArray, private var pos: Int, private val fault: Fault) : DataReader {
+        override fun read(target: ByteArray, offset: Int, length: Int): Int {
+            if (length == 0) return 0
+            if (!fault.failed && pos.toLong() == fault.at) {
+                fault.failed = true
+                throw IOException("read error at ${fault.at}")
+            }
+            if (pos >= bytes.size) return C.RESULT_END_OF_INPUT
+            var n = minOf(length, bytes.size - pos)
+            if (!fault.failed && pos < fault.at) n = minOf(n.toLong(), fault.at - pos).toInt()
+            System.arraycopy(bytes, pos, target, offset, n)
+            pos += n
+            return n
+        }
+    }
+
+    /**
+     * Runs the extractor as ExoPlayer's loader does on a local file, with one read error at [failAt]: after the error the
+     * loader keeps the extractor and goes on at the position that the input had read up to (ProgressiveMediaPeriod).
+     */
+    private fun extractWithAReadError(bytes: ByteArray, failAt: Long): Output {
+        val extractor = AiffExtractor()
+        val output = Output()
+        val fault = Fault(failAt)
+        extractor.init(output)
+        extractor.seek(0, 0)
+        var input = DefaultExtractorInput(FlakyReader(bytes, 0, fault), 0, bytes.size.toLong())
+        val holder = PositionHolder()
+        repeat(100_000) {
+            val result = try {
+                extractor.read(input, holder)
+            } catch (e: IOException) {
+                if (e is ParserException) throw e
+                holder.position = input.position
+                Extractor.RESULT_SEEK
+            }
+            when (result) {
+                Extractor.RESULT_END_OF_INPUT -> {
+                    assertTrue("the read error at $failAt did not happen", fault.failed)
+                    return output
+                }
+                Extractor.RESULT_SEEK -> input = DefaultExtractorInput(FlakyReader(bytes, holder.position.toInt(), fault), holder.position, bytes.size.toLong())
+            }
+        }
+        fail("The extractor did not end")
+        return output
+    }
+
+    @Test
+    fun aReadErrorInTheHeaderReadsTheChunkAgain() {
+        val pcm = samples(4_000)
+        val bytes = form(true, comm(2, 1_000, 16, 8_000, "NONE"), chunk("NAME", "Title".toByteArray()), ssnd(pcm, offset = 4))
+        val comm = 12L
+        val name = comm + 8 + 24
+        val ssnd = name + 8 + 6
+        // Inside the COMM body, inside the NAME body, inside the SSND offset and block size fields, inside its offset
+        for (failAt in listOf(comm + 8 + 5, name + 8 + 2, ssnd + 8 + 3, ssnd + 8 + 8 + 2)) {
+            val out = extractWithAReadError(bytes, failAt)
+            assertEquals("format once, error at $failAt", 1, out.tracks)
+            assertArrayEquals("error at $failAt", pcm, out.track.data.toByteArray())
+        }
+    }
+
+    @Test
+    fun aReadErrorAfterTheSamplesReadsTheChunksAgain() {
+        // SSND before COMM: the extractor seeks past the samples to COMM and back
+        val pcm = samples(4_000)
+        val bytes = form(false, ssnd(pcm), comm(2, 1_000, 16, 8_000))
+        val out = extractWithAReadError(bytes, bytes.size - 10L)
+        assertArrayEquals(pcm, out.track.data.toByteArray())
+    }
+
+    @Test
+    fun aReadErrorInTheSamplesLosesNoSound() {
+        val pcm = samples(44_100 * 4)
+        val bytes = form(false, comm(2, 44_100, 16, 44_100), ssnd(pcm))
+        val dataStart = 12L + 26 + 16
+        // In the middle of the third 100 ms block, and inside a frame
+        val out = extractWithAReadError(bytes, dataStart + 2 * 17_640 + 1_001)
+        assertArrayEquals(pcm, out.track.data.toByteArray())
+        // Each block once, timed by its place
+        assertEquals(10, out.track.samples.size)
+        assertEquals(List(10) { it * 100_000L }, out.track.samples.map { it.first })
     }
 }

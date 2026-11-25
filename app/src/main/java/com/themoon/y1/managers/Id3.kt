@@ -112,7 +112,7 @@ object Id3 {
                             }
                         }
                         "TCON" -> if (tags[4] == null) {
-                            tags[4] = strings(body).map { Id3Genres.name(it) }.filter { it.isNotBlank() }
+                            tags[4] = strings(body).flatMap { Id3Genres.names(it) }.filter { it.isNotBlank() }
                                 .distinct().joinToString("; ").ifEmpty { null }
                         }
                         "TRCK" -> if (tags[6] == null) tags[6] = text(body)
