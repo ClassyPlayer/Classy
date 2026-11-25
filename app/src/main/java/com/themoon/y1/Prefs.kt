@@ -15,6 +15,7 @@ import com.themoon.y1.managers.UpdateChannel
 import com.themoon.y1.managers.UsbDrive
 import com.themoon.y1.managers.VolumeSteps
 import com.themoon.y1.models.AlbumKey
+import com.themoon.y1.models.AlbumYear
 import com.themoon.y1.navigation.LetterJump
 import com.themoon.y1.views.CoverPane
 import com.themoon.y1.views.ListEdges
@@ -187,7 +188,10 @@ object Prefs {
     val MUSIC_MENU_ORDER = add(StringPref("music_menu_order", "", PrefGroup.MENUS))
     /** Music Menu Items: "hide_music_btn_<item id>" = true hides the item. */
     val MUSIC_MENU_HIDDEN = add(PrefFamily("hide_music_btn_", PrefGroup.MENUS))
+    /** Settings → Library → No Duplicates in Playlists. */
+    val PLAYLIST_NO_DUPLICATES = add(BoolPref("playlist_no_duplicates", false, PrefGroup.GENERAL, resettable = true))
     val GROUP_ALBUMS_BY_ARTIST = add(BoolPref(AlbumKey.PREF_BY_ARTIST, false, PrefGroup.MENUS, resettable = true))
+    val ALBUMS_BY_YEAR = add(BoolPref(AlbumYear.PREF, false, PrefGroup.MENUS, resettable = true))
 
     // --- Controls ---
     val BUTTON_SOUND = add(BoolPref("sound", true, PrefGroup.CONTROLS))

@@ -886,5 +886,13 @@
   "Last sync failed": "Ostatnia synchronizacja nie powiodła się",
   "Cannot save the sync record": "Nie można zapisać rejestru synchronizacji",
   "This Folder": "Ten folder",
-  "Sync cancelled": "Synchronizacja anulowana"
+  "Sync cancelled": "Synchronizacja anulowana",
+  "Sort by Year": "Sortuj według roku",
+  "No Duplicates in Playlists": "Bez duplikatów w playlistach",
+  "Already in Playlist": "Już jest na playliście",
+  "No Update for This Player": "Brak aktualizacji dla tego odtwarzacza",
+  "There is no stable version for this player yet.": "Nie ma jeszcze wersji stabilnej dla tego odtwarzacza.",
+  "To get updates now, set System Update → Update Channel to Beta.": "Aby dostać aktualizacje teraz, ustaw Aktualizacja systemu → Kanał aktualizacji na Beta.",
+  "The update server sent an error.": "Serwer aktualizacji zwrócił błąd.",
+  "Try again later.": "Spróbuj ponownie później."
 }

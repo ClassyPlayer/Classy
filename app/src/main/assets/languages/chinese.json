@@ -886,5 +886,13 @@
   "Last sync failed": "上次同步失败",
   "Cannot save the sync record": "无法保存同步记录",
   "This Folder": "此文件夹",
-  "Sync cancelled": "同步已取消"
+  "Sync cancelled": "同步已取消",
+  "Sort by Year": "按年份排序",
+  "No Duplicates in Playlists": "播放列表中不重复",
+  "Already in Playlist": "已在播放列表中",
+  "No Update for This Player": "没有适用于本播放器的更新",
+  "There is no stable version for this player yet.": "本播放器还没有稳定版本。",
+  "To get updates now, set System Update → Update Channel to Beta.": "如需现在获取更新，请在“系统更新 → 更新渠道”中选择“测试版”。",
+  "The update server sent an error.": "更新服务器返回了错误。",
+  "Try again later.": "请稍后再试。"
 }

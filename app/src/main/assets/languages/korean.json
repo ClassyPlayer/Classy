@@ -886,5 +886,13 @@
   "Last sync failed": "마지막 동기화 실패",
   "Cannot save the sync record": "동기화 기록을 저장할 수 없습니다",
   "This Folder": "이 폴더",
-  "Sync cancelled": "동기화가 취소되었습니다"
+  "Sync cancelled": "동기화가 취소되었습니다",
+  "Sort by Year": "연도순 정렬",
+  "No Duplicates in Playlists": "재생목록 중복 없음",
+  "Already in Playlist": "이미 재생목록에 있음",
+  "No Update for This Player": "이 플레이어용 업데이트 없음",
+  "There is no stable version for this player yet.": "이 플레이어용 안정 버전이 아직 없습니다.",
+  "To get updates now, set System Update → Update Channel to Beta.": "지금 업데이트를 받으려면 시스템 업데이트 → 업데이트 채널을 베타로 설정하세요.",
+  "The update server sent an error.": "업데이트 서버가 오류를 보냈습니다.",
+  "Try again later.": "나중에 다시 시도하세요."
 }

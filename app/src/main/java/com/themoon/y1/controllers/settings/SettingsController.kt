@@ -267,6 +267,7 @@ class SettingsController(
             },
             action("Jellyfin Sync", { JellyfinSyncProvider.getInstance(activity).getStatusSummary() }, opens = true) { onOpenJellyfin() },
             action("WebDAV Sync", { WebDavSyncProvider.getInstance(activity).getStatusSummary() }, opens = true) { onOpenWebDav() },
+            toggle("No Duplicates in Playlists", Prefs.PLAYLIST_NO_DUPLICATES),
             toggle("Sync Scrobbles to Last.fm", { scrobbler().isEnabled() }, { scrobbler().setEnabled(it) }),
             action("Last.fm Account", { lastFmAccountText() }, opens = true) { openLastFmAccount() },
         )),

@@ -154,7 +154,8 @@ internal fun MainActivity.initControllers() {
         onPlaylistSelected = { file ->
             changeScreen(ScreenState.M3uPlaylistSongs(file))
         },
-        localize = { t(it) }
+        localize = { t(it) },
+        noDuplicates = { Prefs.PLAYLIST_NO_DUPLICATES.get(prefs) }
     )
 
     coverFlowController = CoverFlowController(

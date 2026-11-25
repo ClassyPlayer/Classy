@@ -23,9 +23,12 @@ import com.themoon.y1.lists.RowLook
 import com.themoon.y1.lists.RowSpec
 import com.themoon.y1.managers.AudioPlayerManager
 import com.themoon.y1.managers.AudiobookManager
+import com.themoon.y1.Prefs
 import com.themoon.y1.models.AlbumKey
 import com.themoon.y1.models.AlbumTrackOrder
+import com.themoon.y1.models.AlbumYear
 import com.themoon.y1.models.SongItem
+import com.themoon.y1.models.SortName
 import com.themoon.y1.navigation.BrowserMode
 import com.themoon.y1.navigation.InputRouter
 import com.themoon.y1.navigation.NavigationManager
@@ -409,25 +412,35 @@ class BrowserController(
         uniqueCategories.addAll(com.themoon.y1.models.ArtistNames.distinctIgnoringCase(artistNames))
 
         val categories = ArrayList(uniqueCategories)
-        Collections.sort(categories, java.lang.String.CASE_INSENSITIVE_ORDER)
+        // Artists and composers in iPod order (SortName: "The Beatles" under B); genres, moods and years A–Z as written
+        if (type == "ARTIST" || type == "TRACK_ARTIST" || type == "GENRE_ARTIST" || type == "COMPOSER") SortName.sort(categories)
+        else Collections.sort(categories, java.lang.String.CASE_INSENSITIVE_ORDER)
         // One row per album as Group Albums tells (AlbumKey): title, or title + album artist.
         var albumArtists: ArrayList<String>? = null
+        var albumYears: ArrayList<String>? = null
         if (type == "ALBUM" || type == "GENRE_ALBUM") {
+            val byYear = MainActivity.instance?.let { Prefs.ALBUMS_BY_YEAR.get(it.prefs) } == true
+            // Sort by Year: oldest first, albums with no year last, then by title as before.
+            // Titles and artists in iPod order (SortName: "The Wall" under W).
+            val names = SortName.order()
+            val order = compareBy<SongItem, String>(names) { it.album }.thenBy(names) { AlbumKey.artistOf(it) }
+                .thenBy(java.lang.String.CASE_INSENSITIVE_ORDER) { it.album }
             val albums = AlbumKey.firstSongPerAlbum(albumSongs).sortedWith(
-                compareBy<SongItem, String>(java.lang.String.CASE_INSENSITIVE_ORDER) { it.album }
-                    .thenBy(java.lang.String.CASE_INSENSITIVE_ORDER) { AlbumKey.artistOf(it) }
+                if (byYear) compareBy<SongItem, String>(naturalOrder()) { AlbumYear.of(it.year) ?: "9999" }.then(order) else order
             )
             albums.mapTo(categories) { it.album }
             albumArtists = albums.mapTo(ArrayList()) { AlbumKey.artistOf(it) }
+            if (byYear) albumYears = albums.mapTo(ArrayList()) { it.year }
         }
 
         if (!isAudiobookLibraryMode && ((type == "ALBUM" && categoryArtistFilter.isNotEmpty()) || type == "GENRE_ARTIST" || type == "GENRE_ALBUM")) {
             categories.add(0, ALL_SONGS_SENTINEL)
             albumArtists?.add(0, "")
+            albumYears?.add(0, "")
         }
 
         val albumList = type == "ALBUM" || type == "GENRE_ALBUM"
-        screen.show(ListSpec(catTitle, adapter = CategoryListAdapter(categories, type, isAudiobookLibraryMode, albumArtists = albumArtists),
+        screen.show(ListSpec(catTitle, adapter = CategoryListAdapter(categories, type, isAudiobookLibraryMode, albumArtists = albumArtists, albumYears = albumYears),
             empty = localize(if (albumList) "No albums found." else "No results found."), letters = true))
     }
 
@@ -552,7 +565,9 @@ class BrowserController(
             main?.virtualSongList?.add(song.file)
         }
 
-        screen.show(ListSpec(localize("My Favorites"), adapter = SongListAdapter(targetSongs),
+        // Hold a song: remove it from My Favorites
+        val adapter = SongListAdapter(targetSongs, onHold = { song, _ -> MainActivity.instance?.showRemoveFromFavoritesDialog(song.file) })
+        screen.show(ListSpec(localize("My Favorites"), adapter = adapter,
             empty = localize("No favorites added yet."), letters = true))
 
         // The song that plays, if it is a favorite

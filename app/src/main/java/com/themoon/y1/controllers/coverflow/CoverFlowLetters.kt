@@ -1,11 +1,12 @@
 package com.themoon.y1.controllers.coverflow
 
 import com.themoon.y1.models.SongItem
+import com.themoon.y1.models.SortName
 import com.themoon.y1.navigation.LetterJump
 
 /**
  * The letter of each Cover Flow album for speed scrolling: the first letter of its artist sort name
- * ([CoverFlowOrder.sortName] of [CoverFlowOrder.artistOf]), without accents. Digits, symbols and blank names
+ * ([SortName.of] of [CoverFlowOrder.artistOf]), without accents. Digits, symbols and blank names
  * are "#", which sorts before "A". Make it one time for each album list.
  */
 class CoverFlowLetters private constructor(
@@ -26,7 +27,7 @@ class CoverFlowLetters private constructor(
     companion object {
         /** Null when the albums are not in alphabetical order of artist: then the wheel steps album by album. */
         fun of(albums: List<SongItem>): CoverFlowLetters? {
-            val names = albums.map { CoverFlowOrder.sortName(CoverFlowOrder.artistOf(it)) }
+            val names = albums.map { SortName.of(CoverFlowOrder.artistOf(it)) }
             val letters = LetterJump.lettersFor(names) ?: return null
             return CoverFlowLetters(letters.map { it ?: "#" })
         }

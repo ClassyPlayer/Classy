@@ -6,7 +6,8 @@ import org.json.JSONArray
 
 /**
  * Settings → General → System Update → Update Channel: which releases System Update offers.
- * - [STABLE]: the releases marked Latest on GitHub (`releases/latest`, which never is a pre-release).
+ * - [STABLE]: the releases marked Latest on GitHub (`releases/latest`, which never is a pre-release); when the Latest
+ *   release has no metadata for this player, the newest stable release that has it ([manifestTexts]).
  * - [BETA]: the newest release of either kind (betas are GitHub pre-releases), so a tester also gets a newer stable.
  *
  * The player follows the channel of the build that is installed. A choice in Settings holds only for the builds it was
@@ -72,15 +73,16 @@ object UpdateChannel {
 
     /**
      * The download URLs of [manifest] in a GitHub releases list ([releasesJson]), newest release first. Releases without
-     * it (the hand-made `y1-exp.N`) and drafts are skipped. "Newest" is by tag, as the updater compares versions
+     * it (the hand-made `y1-exp.N`) and drafts are skipped, and also the betas when [prereleases] is false. "Newest" is by tag, as the updater compares versions
      * ([OtaUpdateManager.compareVersionStrings]); releases with the same version keep the order of the list.
      */
-    fun manifestUrls(releasesJson: String, manifest: String = MANIFEST): List<String> {
+    fun manifestUrls(releasesJson: String, manifest: String = MANIFEST, prereleases: Boolean = true): List<String> {
         val releases = JSONArray(releasesJson)
         val found = ArrayList<Pair<String, String>>()
         for (i in 0 until releases.length()) {
             val release = releases.optJSONObject(i) ?: continue
             if (release.optBoolean("draft", false)) continue
+            if (!prereleases && release.optBoolean("prerelease", false)) continue
             val tag = release.optString("tag_name", "")
             if (tag.isEmpty()) continue
             val assets = release.optJSONArray("assets") ?: continue
@@ -94,6 +96,43 @@ object UpdateChannel {
         }
         return found.sortedWith { a, b -> OtaUpdateManager.compareVersionStrings(b.first, a.first) }.map { it.second }
     }
+
+    /** The update server answered with the HTTP error status [code] (the network works). */
+    class HttpStatusException(val code: Int) : Exception("HTTP $code")
+
+    /** No release of the channel has [manifest], the update metadata for this player. */
+    class NoManifestException(manifest: String) : Exception("No release with $manifest")
+
+    /**
+     * The texts of the update metadata that a check of [channel] reads, in this order, each one only when the check
+     * asks for it. [fetch] gives the text at a URL and throws [HttpStatusException] for an HTTP error status.
+     * - Beta: [manifest] of the releases in [RELEASES_API_URL], newest first ([manifestUrls]).
+     * - Stable: [latestUrl], the release marked Latest. When that release has no [manifest] (404: it is from before the
+     *   build for this player, as for the Y1 until the first stable release with Y1 support), the stable releases in
+     *   [RELEASES_API_URL] that have it, newest first.
+     *
+     * Throws [NoManifestException] when no release of the channel has [manifest].
+     */
+    fun manifestTexts(channel: String, manifest: String, latestUrl: String, fetch: (String) -> String): Sequence<String> =
+        sequence {
+            val urls = if (normalize(channel) == BETA) {
+                manifestUrls(fetch(RELEASES_API_URL), manifest)
+            } else {
+                val latest = try {
+                    fetch(latestUrl)
+                } catch (e: HttpStatusException) {
+                    if (e.code != 404) throw e
+                    null
+                }
+                if (latest != null) {
+                    yield(latest)
+                    return@sequence
+                }
+                manifestUrls(fetch(RELEASES_API_URL), manifest, prereleases = false)
+            }
+            if (urls.isEmpty()) throw NoManifestException(manifest)
+            for (url in urls) yield(fetch(url))
+        }
 
     /** The key in [MANIFEST] for the commits of `main` in the build (see [outcome]). */
     const val MAIN_COMMITS_KEY = "mainCommits"
@@ -126,8 +165,8 @@ object UpdateChannel {
     }
 
     /**
-     * True when the release has fewer commits of `main` than the installed build (both known). On the Beta channel the
-     * check then reads the next older release of the list: a newer beta can have an older tag than a hotfix.
+     * True when the release has fewer commits of `main` than the installed build (both known). The check then reads the
+     * next text of [manifestTexts] (Beta: a newer beta can have an older tag than a hotfix).
      */
     fun hasOlderCode(serverMainCommits: Int, myMainCommits: Int): Boolean =
         serverMainCommits > 0 && myMainCommits > 0 && serverMainCommits < myMainCommits
