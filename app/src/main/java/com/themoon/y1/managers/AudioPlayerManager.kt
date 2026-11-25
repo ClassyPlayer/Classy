@@ -1370,7 +1370,7 @@ class AudioPlayerManager private constructor() {
     fun extractOpusMetadata(file: File): Array<Any?> = extractOpusMetadata(file, true)
 
     fun extractOpusMetadata(file: File, includeArt: Boolean): Array<Any?> {
-        val tags = arrayOfNulls<Any>(13)
+        val tags = arrayOfNulls<Any>(14)
         try {
             val fis = FileInputStream(file)
             val bos = ByteArrayOutputStream()
@@ -1474,6 +1474,8 @@ class AudioPlayerManager private constructor() {
                         tags[10] = comment.substring(comment.indexOf("=") + 1)
                     } else if (upper.startsWith("MOOD=") || upper.startsWith("AB:MOOD=")) {
                         appendMood(tags, comment)
+                    } else if (upper.startsWith("RELEASETYPE=") || upper.startsWith("MUSICBRAINZ_ALBUMTYPE=")) {
+                        appendReleaseType(tags, comment)
                     } else if (includeArt && upper.startsWith("METADATA_BLOCK_PICTURE=")) {
                         try {
                             val base64Data = comment.substring(23).replace("\\s".toRegex(), "")
@@ -1516,7 +1518,7 @@ class AudioPlayerManager private constructor() {
     fun extractOggVorbisMetadata(file: File): Array<Any?> = extractOggVorbisMetadata(file, true)
 
     fun extractOggVorbisMetadata(file: File, includeArt: Boolean): Array<Any?> {
-        val tags = arrayOfNulls<Any>(13)
+        val tags = arrayOfNulls<Any>(14)
         try {
             val fis = FileInputStream(file)
             val bos = ByteArrayOutputStream()
@@ -1635,6 +1637,8 @@ class AudioPlayerManager private constructor() {
                         tags[10] = comment.substring(comment.indexOf("=") + 1)
                     } else if (upper.startsWith("MOOD=") || upper.startsWith("AB:MOOD=")) {
                         appendMood(tags, comment)
+                    } else if (upper.startsWith("RELEASETYPE=") || upper.startsWith("MUSICBRAINZ_ALBUMTYPE=")) {
+                        appendReleaseType(tags, comment)
                     } else if (includeArt && upper.startsWith("METADATA_BLOCK_PICTURE=")) {
                         try {
                             val base64Data = comment.substring(23).replace("\\s".toRegex(), "")
@@ -1682,7 +1686,7 @@ class AudioPlayerManager private constructor() {
     fun extractFlacMetadata(file: File): Array<Any?> = extractFlacMetadata(file, true)
 
     fun extractFlacMetadata(file: File, includeArt: Boolean): Array<Any?> {
-        val tags = arrayOfNulls<Any>(13)
+        val tags = arrayOfNulls<Any>(14)
         try {
             val raf = RandomAccessFile(file, "r")
             val header = ByteArray(4)
@@ -1759,6 +1763,8 @@ class AudioPlayerManager private constructor() {
                                 tags[10] = comment.substring(comment.indexOf("=") + 1)
                             } else if (upper.startsWith("MOOD=") || upper.startsWith("AB:MOOD=")) {
                                 appendMood(tags, comment)
+                            } else if (upper.startsWith("RELEASETYPE=") || upper.startsWith("MUSICBRAINZ_ALBUMTYPE=")) {
+                                appendReleaseType(tags, comment)
                             }
                             i++
                         }
@@ -1790,7 +1796,7 @@ class AudioPlayerManager private constructor() {
     fun extractAlacMetadata(file: File): Array<Any?> = extractAlacMetadata(file, true)
 
     fun extractAlacMetadata(file: File, includeArt: Boolean): Array<Any?> {
-        val tags = arrayOfNulls<Any>(12)
+        val tags = arrayOfNulls<Any>(14)
         try {
             val raf = RandomAccessFile(file, "r")
             val fileSize = raf.length()
@@ -1810,6 +1816,15 @@ class AudioPlayerManager private constructor() {
                     if (type == "meta") pos += 4
                     pos += 8
                     continue
+                }
+
+                if (type == "----" && size in 9..MAX_FREEFORM_ATOM) {
+                    // [13]: the release type of a freeform atom (com.apple.iTunes:MusicBrainz Album Type)
+                    val box = ByteArray(size - 8)
+                    raf.readFully(box)
+                    mp4FreeformReleaseType(box)?.let { value ->
+                        tags[13] = ((tags[13] as? String)?.let { "$it;" } ?: "") + value
+                    }
                 }
 
                 if (type == "mvhd" && size >= 28) {
@@ -2287,6 +2302,47 @@ internal fun <T> shuffleWithFirst(list: MutableList<T>, first: T) {
     list.remove(first)
     Collections.shuffle(list)
     list.add(0, first)
+}
+
+/** The largest MP4 freeform ("----") atom that the tag reader reads; the ones with a release type are small. */
+internal const val MAX_FREEFORM_ATOM = 4096
+
+/**
+ * The release type in the [body] of an MP4 freeform atom ("----": a "mean", a "name" and one or more "data" atoms),
+ * when its name is "MusicBrainz Album Type" (Picard) or "RELEASETYPE"; several data atoms are joined with ";".
+ * Null for any other freeform atom or a broken one.
+ */
+internal fun mp4FreeformReleaseType(body: ByteArray): String? {
+    fun int(at: Int) = ((body[at].toInt() and 0xFF) shl 24) or ((body[at + 1].toInt() and 0xFF) shl 16) or
+        ((body[at + 2].toInt() and 0xFF) shl 8) or (body[at + 3].toInt() and 0xFF)
+    var name: String? = null
+    val values = ArrayList<String>()
+    var pos = 0
+    while (pos + 8 <= body.size) {
+        val size = int(pos)
+        if (size < 8 || pos + size > body.size) return null
+        val type = String(body, pos + 4, 4, Charsets.ISO_8859_1)
+        when (type) {
+            // 4 bytes of version and flags, then the text
+            "name" -> if (size >= 12) name = String(body, pos + 12, size - 12, Charsets.UTF_8)
+            // 4 bytes of type, 4 bytes of locale, then the value
+            "data" -> if (size > 16) values.add(String(body, pos + 16, size - 16, Charsets.UTF_8))
+        }
+        pos += size
+    }
+    if (name == null || values.isEmpty()) return null
+    if (!name.equals("MusicBrainz Album Type", ignoreCase = true) && !name.equals("RELEASETYPE", ignoreCase = true)) return null
+    return values.joinToString(";").takeIf { it.isNotBlank() }
+}
+
+/**
+ * Adds the value of the Vorbis comment [comment] ("RELEASETYPE=single", or "MUSICBRAINZ_ALBUMTYPE=album") to the
+ * release type in tags[13]. Picard writes one comment per type, so they are joined with ";" (see ReleaseTypes).
+ */
+internal fun appendReleaseType(tags: Array<Any?>, comment: String) {
+    val value = comment.substring(comment.indexOf("=") + 1).trim()
+    if (value.isEmpty()) return
+    tags[13] = ((tags[13] as? String)?.let { "$it;" } ?: "") + value
 }
 
 /**

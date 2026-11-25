@@ -50,7 +50,9 @@ class PrefsTest {
             // Settings → Controls → Wheel Mode (Y2) and List Glide
             "wheel_mode", "list_glide", "albums_by_year",
             // Settings → Library
-            "playlist_no_duplicates")
+            "playlist_no_duplicates",
+            // Settings → Menus → Cover Flow (singles and EPs)
+            "coverflow_show_singles", "coverflow_show_eps", "coverflow_untagged_single_step")
         assertEquals(before + added, Prefs.RESETTABLE.map { it.key }.toSet())
     }
 

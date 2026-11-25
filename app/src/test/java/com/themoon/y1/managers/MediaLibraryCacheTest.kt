@@ -70,7 +70,7 @@ class MediaLibraryCacheTest {
     fun parseLibraryCacheReadsDateModifiedAndFileSize() {
         val json = JSONObject(
             """
-            {"v":3,"music":[
+            {"v":${MediaLibraryManager.CACHE_VERSION},"music":[
               {"path":"/music/t1.mp3","title":"T1","artist":"A","album":"Alb","trackNum":1,"dateModified":1729000000000,"fileSize":98765},
               {"path":"/music/t2.mp3","title":"T2","artist":"A","album":"Alb","trackNum":2,"modified":1729111111000,"size":54321},
               {"path":"/music/t3.mp3","title":"T3","artist":"A","album":"Alb","trackNum":3}
@@ -97,14 +97,15 @@ class MediaLibraryCacheTest {
 
     @Test
     fun cacheFromBeforeMoodsReadsOnlyFlacOggOpusAgain() {
+        // Audiobooks: the music files of a cache from before v4 are all read again (cacheFromBeforeReleaseTypes...)
         val json = JSONObject(
-            """{"music":[
-              {"path":"/music/t1.mp3","title":"T1","year":"1999","dateModified":1729000000000,"fileSize":9},
-              {"path":"/music/t2.FLAC","title":"T2","dateModified":1729000000000,"fileSize":9},
-              {"path":"/music/t3.opus","title":"T3","dateModified":1729000000000,"fileSize":9}
-            ],"books":[]}"""
+            """{"music":[],"books":[
+              {"path":"/books/t1.mp3","title":"T1","year":"1999","dateModified":1729000000000,"fileSize":9},
+              {"path":"/books/t2.FLAC","title":"T2","dateModified":1729000000000,"fileSize":9},
+              {"path":"/books/t3.opus","title":"T3","dateModified":1729000000000,"fileSize":9}
+            ]}"""
         )
-        val music = mlm.parseLibraryCache(json) { _, _ -> true }.music
+        val music = mlm.parseLibraryCache(json) { _, _ -> true }.books
         assertEquals(1729000000000L, music[0].dateModified)
         assertEquals(0L, music[1].dateModified) // 0 makes the next scan extract the tags again
         assertEquals(0L, music[2].dateModified)
@@ -112,19 +113,52 @@ class MediaLibraryCacheTest {
 
     @Test
     fun cacheFromBeforeMp3YearsReadsOnlyMp3sWithNoYearAgain() {
+        // Audiobooks: the music files of a cache from before v4 are all read again (cacheFromBeforeReleaseTypes...)
         val json = JSONObject(
-            """{"v":2,"music":[
-              {"path":"/music/t1.mp3","title":"T1","year":"1999","dateModified":1729000000000,"fileSize":9},
-              {"path":"/music/t2.MP3","title":"T2","year":"Unknown Year","dateModified":1729000000000,"fileSize":9},
-              {"path":"/music/t3.mp3","title":"T3","dateModified":1729000000000,"fileSize":9},
-              {"path":"/music/t4.flac","title":"T4","dateModified":1729000000000,"fileSize":9}
-            ],"books":[]}"""
+            """{"v":2,"music":[],"books":[
+              {"path":"/books/t1.mp3","title":"T1","year":"1999","dateModified":1729000000000,"fileSize":9},
+              {"path":"/books/t2.MP3","title":"T2","year":"Unknown Year","dateModified":1729000000000,"fileSize":9},
+              {"path":"/books/t3.mp3","title":"T3","dateModified":1729000000000,"fileSize":9},
+              {"path":"/books/t4.flac","title":"T4","dateModified":1729000000000,"fileSize":9}
+            ]}"""
         )
-        val music = mlm.parseLibraryCache(json) { _, _ -> true }.music
+        val music = mlm.parseLibraryCache(json) { _, _ -> true }.books
         assertEquals(1729000000000L, music[0].dateModified)
         assertEquals(0L, music[1].dateModified) // 0 makes the next scan extract the tags again
         assertEquals(0L, music[2].dateModified)
         assertEquals(1729000000000L, music[3].dateModified)
+    }
+
+    @Test
+    fun cacheFromBeforeReleaseTypesReadsTaggedMusicFilesAgain() {
+        val json = JSONObject(
+            """{"v":3,"music":[
+              {"path":"/music/t1.mp3","title":"T1","year":"1999","dateModified":1729000000000,"fileSize":9},
+              {"path":"/music/t2.FLAC","title":"T2","dateModified":1729000000000,"fileSize":9},
+              {"path":"/music/t3.ogg","title":"T3","dateModified":1729000000000,"fileSize":9},
+              {"path":"/music/t4.opus","title":"T4","dateModified":1729000000000,"fileSize":9},
+              {"path":"/music/t5.m4a","title":"T5","dateModified":1729000000000,"fileSize":9},
+              {"path":"/music/t6.wav","title":"T6","dateModified":1729000000000,"fileSize":9},
+              {"path":"/music/t7.m4b","title":"T7","dateModified":1729000000000,"fileSize":9}
+            ],"books":[
+              {"path":"/books/b1.m4b","title":"B1","dateModified":1729000000000,"fileSize":9}
+            ]}"""
+        )
+        val cache = mlm.parseLibraryCache(json) { _, _ -> true }
+        // 0 makes the next scan extract the tags again; WAV files and audiobooks have no release type here
+        assertEquals(listOf(0L, 0L, 0L, 0L, 0L, 1729000000000L, 0L), cache.music.map { it.dateModified })
+        assertEquals(1729000000000L, cache.books[0].dateModified)
+    }
+
+    @Test
+    fun releaseTypeSurvivesTheCache() {
+        val tagged = SongItem(File("/music/s.mp3"), "S", "A", "B").also { it.releaseType = "single;remix" }
+        val untagged = SongItem(File("/music/u.mp3"), "U", "A", "B")
+        val w = java.io.StringWriter()
+        mlm.writeSongListJson(w, listOf(tagged, untagged))
+        assertEquals(1, Regex("releaseType").findAll(w.toString()).count()) // only when the file has one
+        val back = mlm.parseLibraryCache(JSONObject("""{"v":${MediaLibraryManager.CACHE_VERSION},"music":[${w}],"books":[]}""")) { _, _ -> true }.music
+        assertEquals(listOf("single;remix", ""), back.map { it.releaseType })
     }
 
     @Test

@@ -192,6 +192,11 @@ object Prefs {
     val PLAYLIST_NO_DUPLICATES = add(BoolPref("playlist_no_duplicates", false, PrefGroup.GENERAL, resettable = true))
     val GROUP_ALBUMS_BY_ARTIST = add(BoolPref(AlbumKey.PREF_BY_ARTIST, false, PrefGroup.MENUS, resettable = true))
     val ALBUMS_BY_YEAR = add(BoolPref(AlbumYear.PREF, false, PrefGroup.MENUS, resettable = true))
+    /** Cover Flow: show the albums with the release type Single, and EP ([com.themoon.y1.controllers.coverflow.CoverFlowAlbums]). */
+    val COVER_FLOW_SINGLES = add(BoolPref("coverflow_show_singles", true, PrefGroup.MENUS, resettable = true))
+    val COVER_FLOW_EPS = add(BoolPref("coverflow_show_eps", true, PrefGroup.MENUS, resettable = true))
+    /** Cover Flow → Untagged Singles: the step of CoverFlowAlbums.UNTAGGED_SINGLE_TRACKS (0 = Off). */
+    val COVER_FLOW_UNTAGGED_SINGLES = add(IntPref("coverflow_untagged_single_step", 0, PrefGroup.MENUS, resettable = true))
 
     // --- Controls ---
     val BUTTON_SOUND = add(BoolPref("sound", true, PrefGroup.CONTROLS))
