@@ -889,5 +889,8 @@
   "Sync cancelled": "Sync cancelled",
   "Sort by Year": "Sort by Year",
   "No Duplicates in Playlists": "No Duplicates in Playlists",
-  "Already in Playlist": "Already in Playlist"
+  "Already in Playlist": "Already in Playlist",
+  "No Update for This Player": "No Update for This Player",
+  "There is no stable version for this player yet.": "There is no stable version for this player yet.",
+  "To get updates now, set System Update → Update Channel to Beta.": "To get updates now, set System Update → Update Channel to Beta."
 }
