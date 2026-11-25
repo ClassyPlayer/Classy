@@ -19,11 +19,13 @@ object AudiobookSeriesIndex {
         val folder: File?,
         val audioFiles: List<File>,
         val isSeries: Boolean,
-        val seriesFolder: File?
+        val seriesFolder: File?,
+        /** Shown under the title on the cover: the folder name (the series of a book), never the artist. */
+        val subtitle: String = ""
     ) {
         fun coverItem(): SongItem = SongItem(
-            representative.file, title, representative.artist, title,
-            representative.year, representative.genre, representative.albumArtist
+            representative.file, title, subtitle, title,
+            representative.year, representative.genre, subtitle
         )
     }
 
@@ -78,7 +80,8 @@ object AudiobookSeriesIndex {
     private fun bookEntry(unit: BookUnit, parent: File, seriesFolder: File?): Entry {
         val sorted = sortedByPath(unit.items) { it.first }
         val folder = if (unit.isFolder) File(parent, unit.name) else if (unit.name == "Other") parent else null
-        return Entry(unit.name, sorted.first().second, folder, sorted.map { it.second.file }, false, seriesFolder)
+        return Entry(unit.name, sorted.first().second, folder, sorted.map { it.second.file }, false, seriesFolder,
+            subtitle = seriesFolder?.name ?: parent.name)
     }
 
     fun rootEntries(
@@ -187,33 +190,34 @@ object AudiobookSeriesIndex {
     private fun leadingNumber(value: String): Int? = LEADING_NUMBER.find(value)?.groupValues?.get(1)?.toIntOrNull()
 
     /**
-     * One ordering key for every file of a book: its folder first (so Disc 2 follows Disc 1), then files with a
-     * track number (by number) before files without one, then the natural file name. Every pair compares by the
+     * One ordering key for every file of a book: its folder first (so Disc 2 follows Disc 1), then the natural file
+     * name (numbers by value: 2 before 10, 09 before 10, 001 before 002). Tags are not used: a wrong or missing
+     * track tag must not change the order. Every pair compares by the
      * same key, so the order is transitive.
      */
-    private class OrderKey(val dir: String, val untagged: Int, val track: Int, val name: String)
+    private class OrderKey(val dir: String, val name: String)
 
     private val ORDER: Comparator<OrderKey> =
-        compareBy<OrderKey>({ it.dir }, { it.untagged }, { it.track }, { it.name })
+        compareBy<OrderKey>({ it.dir }, { it.name })
 
-    private fun orderKey(relativePath: String, track: Int): OrderKey {
+    private fun orderKey(relativePath: String): OrderKey {
         val cut = relativePath.lastIndexOf(SEP)
         val dir = if (cut < 0) "" else naturalKey(relativePath.substring(0, cut))
-        return OrderKey(dir, if (track > 0) 0 else 1, if (track > 0) track else 0, naturalKey(relativePath.substring(cut + 1)))
+        return OrderKey(dir, naturalKey(relativePath.substring(cut + 1)))
     }
 
     /** [items] in book order by the path that [path] gives (relative to the book folder), each key made one time. */
     private fun <T> sortedByPath(items: List<T>, path: (T) -> String): List<T> =
-        items.map { orderKey(path(it), 0) to it }.sortedWith { a, b -> ORDER.compare(a.first, b.first) }.map { it.second }
+        items.map { orderKey(path(it)) to it }.sortedWith { a, b -> ORDER.compare(a.first, b.first) }.map { it.second }
 
     /**
      * [files] of the book folder [base] in play order: the order of the index, plus the track numbers that
      * [trackNumber] gives (0 = none), so the queue keeps the folder-aware sequence.
      */
-    fun orderedFiles(files: List<File>, base: File?, trackNumber: (File) -> Int): List<File> {
+    fun orderedFiles(files: List<File>, base: File?, @Suppress("UNUSED_PARAMETER") trackNumber: (File) -> Int = { 0 }): List<File> {
         val basePath = base?.let { dirPath(it) }
         return files.map { f ->
-            orderKey((basePath?.let { relative(it, f) }) ?: f.name, trackNumber(f)) to f
+            orderKey((basePath?.let { relative(it, f) }) ?: f.name) to f
         }.sortedWith { a, b -> ORDER.compare(a.first, b.first) }.map { it.second }
     }
 

@@ -60,14 +60,24 @@ class AudiobookSeriesIndexTest {
         assertEquals("Saga", entries.first().title)
     }
 
-    @Test fun orderedFilesKeepDiscOrderAndPutUntaggedAfterNumbered() {
+    @Test fun orderedFilesFollowTheFileNamesWhateverTheTagsSay() {
         val book = Files.createTempDirectory("book").toFile()
         val d1 = File(book, "Disc 1").apply { mkdirs() }
         val d2 = File(book, "Disc 2").apply { mkdirs() }
         val a = File(d1, "b.mp3"); val b = File(d1, "a.mp3"); val c = File(d2, "a.mp3"); val d = File(d1, "c.mp3")
         val tracks = mapOf(a to 2, b to 0, c to 1, d to 1)
         val ordered = AudiobookSeriesIndex.orderedFiles(listOf(c, b, a, d), book) { tracks[it] ?: 0 }
-        assertEquals(listOf(d, a, b, c), ordered)
+        assertEquals(listOf(b, a, d, c), ordered)
+    }
+
+    @Test fun numbersInFileNamesSortByValueInEveryNamingStyle() {
+        val book = Files.createTempDirectory("book").toFile()
+        fun order(vararg names: String): List<String> =
+            AudiobookSeriesIndex.orderedFiles(names.map { File(book, it) }.reversed(), book).map { it.name }
+        assertEquals(listOf("Track 01.mp3", "Track 02.mp3", "Track 10.mp3"), order("Track 01.mp3", "Track 02.mp3", "Track 10.mp3"))
+        assertEquals(listOf("001 Book.mp3", "002 Book.mp3", "010 Book.mp3"), order("001 Book.mp3", "002 Book.mp3", "010 Book.mp3"))
+        assertEquals(listOf("09 Book.mp3", "10 Book.mp3", "100 Book.mp3"), order("09 Book.mp3", "10 Book.mp3", "100 Book.mp3"))
+        assertEquals(listOf("Chapter 2.mp3", "Chapter 10.mp3"), order("Chapter 10.mp3", "Chapter 2.mp3"))
     }
 
     @Test fun foldersAboveListsSeriesThenBookFolder() {

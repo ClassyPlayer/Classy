@@ -81,7 +81,7 @@ object NowPlayingContextMenu {
     /** The menu of an audiobook: the speed, the chapters and the sleep timer. */
     private fun showAudiobookMenu(main: MainActivity, songFile: File) {
         val label = SettingsController.SPEED_LABELS[speedIndex(AudioPlayerManager.getInstance().audiobookSpeed())]
-        val sleep = if (SleepTimer.isActive()) "${SleepTimer.minutesLeft()} min" else main.t("Off")
+        val sleep = if (SleepTimer.isActive()) "${SleepTimer.minutesLeft()} min " + main.t("left") else main.t("Off")
         val rows = listOf(
             ActionScreens.Action(main.t("Audiobook Speed") + ": " + main.t(label), opensList = true) {
                 showAudiobookSpeed(main)
@@ -128,22 +128,24 @@ object NowPlayingContextMenu {
         )
     }
 
-    /** The sleep timer: 5 minutes to 2 hours, and Off while one runs. */
+    /** The sleep timer: the time left on top, 5 minutes to 2 hours, and Stop Sleep Timer below while one runs. */
     private fun showSleepTimer(main: MainActivity) {
         val rows = ArrayList<ActionScreens.Action>()
-        if (SleepTimer.isActive()) {
-            rows += ActionScreens.Action(main.t("Off")) {
-                SleepTimer.cancel()
-                Notice.show(main, main.t("Sleep timer cancelled"))
-            }
-        }
         for (minutes in SleepTimer.CHOICES) {
             rows += ActionScreens.Action("$minutes min") {
                 SleepTimer.start(main, minutes)
                 Notice.show(main, main.t("Sleep timer set for ") + "$minutes min")
             }
         }
-        ActionScreens.open(ActionScreens.Spec(main.t("Sleep Timer"), actions = rows))
+        val info = ArrayList<String>()
+        if (SleepTimer.isActive()) {
+            info += main.t("Time left") + ": " + SleepTimer.minutesLeft() + " min"
+            rows += ActionScreens.Action(main.t("Stop Sleep Timer")) {
+                SleepTimer.cancel()
+                Notice.show(main, main.t("Sleep timer cancelled"))
+            }
+        }
+        ActionScreens.open(ActionScreens.Spec(main.t("Sleep Timer"), info = info, actions = rows))
     }
 
     /** The speeds of the audiobooks; the one that is set has the check mark, and a row sets it and goes back. */

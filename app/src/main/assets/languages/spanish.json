@@ -894,5 +894,8 @@
   "No Audiobooks Found": "No se encontraron audiolibros",
   "Series Cover Flow": "Cover Flow de series",
   "Audiobook Series Cover Flow": "Cover Flow de series de audiolibros",
-  "Audiobook Speed": "Velocidad de audiolibros"
+  "Audiobook Speed": "Velocidad de audiolibros",
+  "Time left": "Tiempo restante",
+  "Stop Sleep Timer": "Detener temporizador de apagado",
+  "left": "restantes"
 }

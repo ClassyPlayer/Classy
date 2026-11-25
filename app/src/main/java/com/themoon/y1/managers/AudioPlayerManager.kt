@@ -277,7 +277,7 @@ class AudioPlayerManager private constructor() {
         if (StoragePaths.isUnderAudiobooks(path)) audiobookSpeed() else generalSpeed
 
     fun setShuffleMode(isShuffle: Boolean) {
-        exoPlayer?.shuffleModeEnabled = isShuffle
+        exoPlayer?.shuffleModeEnabled = isShuffle && !StoragePaths.isUnderAudiobooks(currentlyPlayingFilePath)
     }
 
     fun setRepeatMode(mode: Int) {
@@ -416,7 +416,8 @@ class AudioPlayerManager private constructor() {
         main.currentPlaylist.clear()
         main.currentPlaylist.addAll(newList)
 
-        val isShuffle = Prefs.SHUFFLE.get(main.prefs)
+        // Shuffle never changes the order of an audiobook
+        val isShuffle = Prefs.SHUFFLE.get(main.prefs) && !StoragePaths.isUnderAudiobooks(targetSong.absolutePath)
         val repeatPref = Prefs.REPEAT_MODE.get(main.prefs)
         if (isShuffle) {
             shuffleWithFirst(main.currentPlaylist, targetSong)
@@ -967,7 +968,7 @@ class AudioPlayerManager private constructor() {
                 // Only this track is in ExoPlayer: Repeat All goes to the next track in handleTrackCompletion.
                 exoPlayer?.repeatMode = exoRepeatMode(Prefs.REPEAT_MODE.get(main.prefs), gapless = false)
 
-                val isShuffle = Prefs.SHUFFLE.get(main.prefs)
+                val isShuffle = Prefs.SHUFFLE.get(main.prefs) && !StoragePaths.isUnderAudiobooks(track.absolutePath)
                 exoPlayer?.shuffleModeEnabled = isShuffle
 
                 if (effectiveSeekMs > 0) {
@@ -2113,7 +2114,7 @@ class AudioPlayerManager private constructor() {
             main.isAudiobookLibraryMode = isAudiobook
             incompleteQueueStamp = if (missing > 0) queueStamp(main.currentPlaylist, main.originalPlaylist) else null
 
-            val isShuffle = Prefs.SHUFFLE.get(main.prefs)
+            val isShuffle = Prefs.SHUFFLE.get(main.prefs) && !isAudiobook
             val repeatPref = Prefs.REPEAT_MODE.get(main.prefs)
             isGaplessQueueActive = !isShuffle && shouldUseGaplessQueue(main.currentPlaylist)
             exoPlayer?.shuffleModeEnabled = isShuffle

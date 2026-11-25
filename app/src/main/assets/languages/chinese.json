@@ -894,5 +894,8 @@
   "No Audiobooks Found": "未找到有声书",
   "Series Cover Flow": "系列封面流",
   "Audiobook Series Cover Flow": "有声书系列封面流",
-  "Audiobook Speed": "有声书播放速度"
+  "Audiobook Speed": "有声书播放速度",
+  "Time left": "剩余时间",
+  "Stop Sleep Timer": "停止睡眠定时器",
+  "left": "剩余"
 }
