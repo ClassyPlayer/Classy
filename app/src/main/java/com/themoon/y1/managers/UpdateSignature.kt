@@ -1,5 +1,6 @@
 package com.themoon.y1.managers
 
+import com.themoon.y1.core.useZip
 import java.io.File
 import java.security.MessageDigest
 import java.util.Locale
@@ -43,7 +44,7 @@ object UpdateSignature {
      * an app that is not in the firmware, but also for the META-INF entries that are not signature files.
      */
     fun verifiedSigners(apk: File): Set<String>? = try {
-        JarFile(apk, true).use { jar -> signersOf(jar) }
+        JarFile(apk, true).useZip { jar -> signersOf(jar) }
     } catch (_: Exception) {
         // IOException, or SecurityException: an entry or the manifest does not match the signature
         null

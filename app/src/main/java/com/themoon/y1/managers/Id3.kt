@@ -7,8 +7,8 @@ import java.io.File
 import java.io.RandomAccessFile
 
 /**
- * Reads frames of the ID3v2.3/v2.4 tag at the start of a file: the year (library scan), the lyrics (lyrics thread) and
- * the MusicBrainz album id (cast thread). Frames that are not wanted are skipped by seeking, so cover art costs nothing.
+ * Reads frames of the ID3v2.3/v2.4 tag at the start of a file: the year and the release type (library scan), the lyrics
+ * (lyrics thread) and the MusicBrainz album id (cast thread). Frames that are not wanted are skipped by seeking, so cover art costs nothing.
  * Handled: the extended header, v2.3 32-bit and v2.4 syncsafe frame sizes, frame and tag unsynchronisation, the group
  * id and data length prefixes, and the four text encodings with their BOMs. A broken or cut tag does not throw: the walk
  * stops and keeps what it found.
@@ -27,13 +27,52 @@ object Id3 {
     fun year(file: File): String? {
         var best: String? = null
         forEachFrame(file, setOf("TDRC", "TYER"), MAX_YEAR_FRAME) { id, body ->
-            val year = strings(body).firstOrNull()?.trim { it <= ' ' || it == '﻿' }?.take(4)
-            if (year != null && year.length == 4 && year.all { it in '0'..'9' }) {
+            val year = yearOf(body)
+            if (year != null) {
                 best = year
                 id != "TDRC" // TDRC wins over TYER
             } else true
         }
         return best
+    }
+
+    /** What the library scan reads from the tag of an MP3 besides Android's metadata reader, in one walk. */
+    class ScanTags(val year: String?, val releaseType: String?)
+
+    /**
+     * The year (as [year]) and the release type: the values of the TXXX frame "MusicBrainz Album Type" (Picard, beets)
+     * or "RELEASETYPE" (Mp3tag), joined with ";" (null when there is none). See ReleaseTypes for the values.
+     */
+    fun scanTags(file: File): ScanTags {
+        var year: String? = null
+        var yearFromTdrc = false
+        var releaseType: String? = null
+        forEachFrame(file, SCAN_FRAMES, MAX_TXXX_FRAME) { id, body ->
+            if (id == "TXXX") {
+                val fields = strings(body)
+                if (fields.size >= 2 && RELEASE_TYPE_DESCRIPTIONS.any { fields[0].equals(it, ignoreCase = true) }) {
+                    val value = fields.subList(1, fields.size).joinToString(";")
+                    releaseType = if (releaseType == null) value else "$releaseType;$value"
+                }
+            } else if (!yearFromTdrc) {
+                val found = yearOf(body)
+                if (found != null) {
+                    year = found
+                    yearFromTdrc = id == "TDRC" // TDRC wins over TYER
+                }
+            }
+            true
+        }
+        return ScanTags(year, releaseType)
+    }
+
+    private val SCAN_FRAMES = setOf("TDRC", "TYER", "TXXX")
+    private val RELEASE_TYPE_DESCRIPTIONS = listOf("MusicBrainz Album Type", "RELEASETYPE")
+
+    /** The 4-digit year at the start of a TDRC or TYER [body], or null. */
+    private fun yearOf(body: ByteArray): String? {
+        val year = strings(body).firstOrNull()?.trim { it <= ' ' || it == '\uFEFF' }?.take(4)
+        return if (year != null && year.length == 4 && year.all { it in '0'..'9' }) year else null
     }
 
     /** The text of the first USLT frame with visible lyrics, or null. */

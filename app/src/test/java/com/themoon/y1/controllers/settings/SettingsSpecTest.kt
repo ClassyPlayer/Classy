@@ -46,14 +46,14 @@ class SettingsSpecTest {
     fun theGroupsAndTheirRowsAreAsBefore() {
         assertEquals(
             listOf(
-                "Playback" to listOf("Shuffle", "Repeat", "EQ", "Sound Check", "Mono Audio", "Volume Limit", "Playback Speed"),
+                "Playback" to listOf("Shuffle", "Repeat", "Previous Restarts Song", "EQ", "Sound Check", "Mono Audio", "Volume Limit", "Playback Speed"),
                 "Display" to listOf("Brightness", "Backlight"),
                 "Now Playing" to listOf("Spectrum", "Total Time", "Lyrics", "Lyrics Keep Screen On", "Cover Tilt"),
                 "Photos" to listOf("Time Per Slide", "Repeat Slideshow", "Shuffle Photos", "Transitions"),
                 "Books" to listOf("Page Colours", "Font Size", "Line Spacing", "Font", "Wheel", "Wheel Clicks per Page", "Keep Screen On"),
                 "Status Bar" to listOf("Clock", "Battery Icon", "Battery Percentage"),
                 "Appearance" to listOf("Theme", "Toggle Style", "List Edges", "Menu Cover Motion", "Fill Video Screen"),
-                "Menus" to listOf("Main Menu Items", "Music Menu Items", "Group Albums"),
+                "Menus" to listOf("Main Menu Items", "Music Menu Items", "Group Albums", "Cover Flow"),
                 "Controls" to listOf(
                     "Button Sound", "Click Volume", "Button Vibration", "Vibration Strength", "Wheel Mode", "Wheel Loop Scroll",
                     "List Glide", "Letter Jump", "Letter Jump Sensitivity", "Screen-Off Control", "Double-Click to Favorite", "Hold Back for Now Playing"

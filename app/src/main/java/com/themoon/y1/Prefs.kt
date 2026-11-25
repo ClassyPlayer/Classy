@@ -112,6 +112,8 @@ object Prefs {
     val SHUFFLE = add(BoolPref("shuffle", false, PrefGroup.PLAYBACK))
     /** 0 = Off, 1 = One, 2 = All. */
     val REPEAT_MODE = add(IntPref("repeat_mode", 0, PrefGroup.PLAYBACK, resettable = true))
+    /** Previous goes back to the start of a song that played a few seconds ([com.themoon.y1.managers.PreviousButton]). */
+    val PREVIOUS_RESTARTS = add(BoolPref("previous_restarts_song", true, PrefGroup.PLAYBACK, resettable = true))
     /** "preset_N" (N = index in the preset list) or "custom_<name>". */
     val EQ_PROFILE = add(StringPref("eq_profile_id", "preset_0", PrefGroup.PLAYBACK, resettable = true))
     val SOFTWARE_EQ = add(BoolPref("software_eq_enabled", false, PrefGroup.PLAYBACK))
@@ -192,6 +194,11 @@ object Prefs {
     val PLAYLIST_NO_DUPLICATES = add(BoolPref("playlist_no_duplicates", false, PrefGroup.GENERAL, resettable = true))
     val GROUP_ALBUMS_BY_ARTIST = add(BoolPref(AlbumKey.PREF_BY_ARTIST, false, PrefGroup.MENUS, resettable = true))
     val ALBUMS_BY_YEAR = add(BoolPref(AlbumYear.PREF, false, PrefGroup.MENUS, resettable = true))
+    /** Cover Flow: show the albums with the release type Single, and EP ([com.themoon.y1.controllers.coverflow.CoverFlowAlbums]). */
+    val COVER_FLOW_SINGLES = add(BoolPref("coverflow_show_singles", true, PrefGroup.MENUS, resettable = true))
+    val COVER_FLOW_EPS = add(BoolPref("coverflow_show_eps", true, PrefGroup.MENUS, resettable = true))
+    /** Cover Flow → Untagged Singles: the step of CoverFlowAlbums.UNTAGGED_SINGLE_TRACKS (0 = Off). */
+    val COVER_FLOW_UNTAGGED_SINGLES = add(IntPref("coverflow_untagged_single_step", 0, PrefGroup.MENUS, resettable = true))
     /** Show the folder-based audiobook series Cover Flow entry in Audiobooks. */
     val AUDIOBOOK_SERIES_COVER_FLOW = add(BoolPref("audiobook_series_cover_flow", false, PrefGroup.LIBRARY, resettable = true))
 
