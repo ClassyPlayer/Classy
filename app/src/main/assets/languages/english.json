@@ -899,5 +899,10 @@
   "All Albums": "All Albums",
   "No Singles": "No Singles",
   "No EPs": "No EPs",
-  "Albums Only": "Albums Only"
+  "Albums Only": "Albums Only",
+  "No Update for This Player": "No Update for This Player",
+  "There is no stable version for this player yet.": "There is no stable version for this player yet.",
+  "To get updates now, set System Update → Update Channel to Beta.": "To get updates now, set System Update → Update Channel to Beta.",
+  "The update server sent an error.": "The update server sent an error.",
+  "Try again later.": "Try again later."
 }

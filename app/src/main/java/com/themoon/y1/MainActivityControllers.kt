@@ -30,6 +30,7 @@ import com.themoon.y1.views.ClassyMetrics
 import com.themoon.y1.controllers.settings.SettingsController
 import com.themoon.y1.controllers.storage.StorageController
 import com.themoon.y1.controllers.sync.JellyfinUiController
+import com.themoon.y1.controllers.sync.WebDavUiController
 import com.themoon.y1.controllers.videos.VideoBrowserController
 import com.themoon.y1.controllers.videos.VideoPlayerController
 import com.themoon.y1.managers.AudioPlayerManager
@@ -43,6 +44,9 @@ import com.themoon.y1.navigation.ScreenState
 import com.themoon.y1.navigation.VideoMode
 import com.themoon.y1.podcasts.PodcastDownloadManager
 import com.themoon.y1.podcasts.PodcastRepository
+import com.themoon.y1.sync.webdav.LedgerNotSaved
+import com.themoon.y1.sync.webdav.WebDavSync
+import com.themoon.y1.sync.webdav.WebDavSyncProvider
 import com.themoon.y1.views.EdgeFadeListView
 import com.themoon.y1.views.ListItemViewFactory
 import com.themoon.y1.views.Notice
@@ -396,17 +400,17 @@ internal fun MainActivity.initControllers() {
         onSubmitWebDavUrl = { url ->
             // Another server must be trusted again, and starts with no folders; a sync that started meanwhile keeps the old URL
             try {
-                if (!com.themoon.y1.sync.webdav.WebDavSyncProvider.getInstance(this).changeUrl(url)) Notice.show(this, t("Syncing..."))
-            } catch (e: com.themoon.y1.sync.webdav.LedgerNotSaved) {
+                if (!WebDavSyncProvider.getInstance(this).changeUrl(url)) Notice.show(this, t("Syncing..."))
+            } catch (e: LedgerNotSaved) {
                 Notice.error(this, t(e.message ?: "")) // the old URL stays
             }
             NavigationManager.getInstance().popBackStack()
         },
         onSubmitWebDavUser = { user ->
-            com.themoon.y1.sync.webdav.WebDavSyncProvider.getInstance(this).user = user
+            WebDavSyncProvider.getInstance(this).user = user
         },
         onSubmitWebDavPassword = { password ->
-            com.themoon.y1.sync.webdav.WebDavSyncProvider.getInstance(this).password = password
+            WebDavSyncProvider.getInstance(this).password = password
             NavigationManager.getInstance().popBackStack()
         },
         onConnectWifi = { ssid, password, isOpen ->
@@ -435,8 +439,8 @@ internal fun MainActivity.initControllers() {
                 KeyboardTarget.JellyfinUsername -> provider.username
                 is KeyboardTarget.JellyfinPassword -> provider.password
                 KeyboardTarget.JellyfinToken -> provider.accessToken
-                KeyboardTarget.WebDavUrl -> com.themoon.y1.sync.webdav.WebDavSyncProvider.getInstance(this).url
-                KeyboardTarget.WebDavUser -> com.themoon.y1.sync.webdav.WebDavSyncProvider.getInstance(this).user
+                KeyboardTarget.WebDavUrl -> WebDavSyncProvider.getInstance(this).url
+                KeyboardTarget.WebDavUser -> WebDavSyncProvider.getInstance(this).user
                 is KeyboardTarget.WebDavPassword -> "" // the keyboard does not mask: the saved password is not shown
                 else -> ""
             }
@@ -496,7 +500,7 @@ internal fun MainActivity.initControllers() {
         isCustomScanning = { isCustomScanning }
     )
 
-    webDavUiController = com.themoon.y1.controllers.sync.WebDavUiController(
+    webDavUiController = WebDavUiController(
         activity = this,
         rootView = layoutSettingsMode as ViewGroup,
         clickFeedback = { clickFeedback() },
@@ -510,7 +514,7 @@ internal fun MainActivity.initControllers() {
         // A run can end after this window is gone (the activity was made again): then the live one rescans on the broadcast
         onSyncFinished = {
             if (isDestroyed) applicationContext.sendBroadcast(
-                android.content.Intent(com.themoon.y1.sync.webdav.WebDavSync.ACTION_SYNCED).setPackage(packageName)
+                android.content.Intent(WebDavSync.ACTION_SYNCED).setPackage(packageName)
             ) else startMediaLibraryScan()
         },
         localize = { t(it) }

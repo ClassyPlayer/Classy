@@ -899,5 +899,10 @@
   "All Albums": "全部专辑",
   "No Singles": "不含单曲",
   "No EPs": "不含 EP",
-  "Albums Only": "仅专辑"
+  "Albums Only": "仅专辑",
+  "No Update for This Player": "没有适用于本播放器的更新",
+  "There is no stable version for this player yet.": "本播放器还没有稳定版本。",
+  "To get updates now, set System Update → Update Channel to Beta.": "如需现在获取更新，请在“系统更新 → 更新渠道”中选择“测试版”。",
+  "The update server sent an error.": "更新服务器返回了错误。",
+  "Try again later.": "请稍后再试。"
 }

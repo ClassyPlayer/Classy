@@ -2,7 +2,6 @@ package com.themoon.y1.controllers.sync
 
 import android.app.Activity
 import android.os.SystemClock
-import android.view.KeyEvent
 import android.view.ViewGroup
 import com.themoon.y1.R
 import com.themoon.y1.StoragePaths
@@ -16,6 +15,7 @@ import com.themoon.y1.lists.RowLook
 import com.themoon.y1.lists.RowSpec
 import com.themoon.y1.navigation.KeyboardTarget
 import com.themoon.y1.navigation.NavigationManager
+import com.themoon.y1.navigation.RowKey
 import com.themoon.y1.navigation.ScreenState
 import com.themoon.y1.navigation.WebDavLevel
 import com.themoon.y1.sync.webdav.DavEntry
@@ -48,6 +48,8 @@ class WebDavUiController(
 ) : ScreenController {
 
     private val screen = ListScreen(rootView.findViewById(R.id.container_settings_items), null, clickFeedback)
+
+    override val listScreen: ListScreen get() = screen
     private val provider: WebDavSyncProvider get() = WebDavSyncProvider.getInstance(activity)
     private val sync: WebDavSync get() = WebDavSync.getInstance(activity)
 
@@ -91,12 +93,6 @@ class WebDavUiController(
         NavigationManager.getInstance().currentState?.let { onEnter(it) }
     }
 
-    override fun onWheel(delta: Int, event: KeyEvent): Boolean = screen.wheel(delta, event.eventTime)
-
-    override fun dispatchKeyEvent(event: KeyEvent): Boolean = screen.key(event)
-
-    override fun title(): String? = screen.title
-
     private val shownLevel: WebDavLevel?
         get() = (NavigationManager.getInstance().currentState as? ScreenState.WebDav)?.level
 
@@ -106,6 +102,18 @@ class WebDavUiController(
 
     private fun refresh() {
         shownLevel?.let { screen.update(spec(it)) }
+    }
+
+    /**
+     * After a run: selects the row that started it. A confirm screen (Move Synced Files, Delete All) closes before
+     * Back has selected that row again, so without this the list opens at its first row. Save To when nothing is left
+     * to move (the Move row is gone). [selectRow] runs after the first focus of the screen, at the bottom of the list
+     * as a wheel step down would.
+     */
+    private fun selectRunRow(move: Boolean) {
+        if (shownLevel != WebDavLevel.Root) return
+        val label = localize(if (!move) "Sync Now" else if (sync.misplaced().isEmpty()) "Save To" else "Move Synced Files")
+        selectRow(RowKey(label, 0, Int.MAX_VALUE))
     }
 
     private fun spec(level: WebDavLevel): ListSpec = when (level) {
@@ -152,6 +160,8 @@ class WebDavUiController(
                 pendingFingerprint = null
                 Notice.show(activity, localize("Certificate trusted"))
                 refresh()
+                // The fingerprint rows are gone: select Folders, the next step, not the row that is now at this place
+                screen.select(localize("Folders"))
             }
         }
 
@@ -314,7 +324,12 @@ class WebDavUiController(
             }
             activity.runOnUiThread {
                 if (provider.url != url) return@runOnUiThread // another server now: this listing is not for it
-                result.onSuccess { folders[href] = it; refresh() }
+                result.onSuccess {
+                    folders[href] = it
+                    // The listing replaces the Loading row, which has no row to keep: open it at its first row
+                    val level = WebDavLevel.Folders(href)
+                    if (!shown && shownLevel == level) screen.show(spec(level)) else refresh()
+                }
                 result.onFailure { e ->
                     if (shown) { // a refresh: keep the last listing on screen
                         showError(e, url)
@@ -440,12 +455,14 @@ class WebDavUiController(
                 Notice.show(activity, localize(if (move) "Move Complete" else "Sync Complete"))
                 if (changed) onSyncFinished()
                 refresh()
+                selectRunRow(move)
             }
 
             override fun onError(e: Throwable, changed: Boolean) {
                 ActionScreens.close(key)
                 if (changed) onSyncFinished() // files were downloaded, deleted or moved before it stopped
                 refresh() // also after a cancel: the counts and Last Synced can have changed
+                selectRunRow(move)
                 if (e !is CancellationException) showError(e, syncUrl, asked = true)
             }
         }

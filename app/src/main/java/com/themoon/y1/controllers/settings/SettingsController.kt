@@ -48,6 +48,7 @@ import com.themoon.y1.navigation.PadWheel
 import com.themoon.y1.navigation.ScreenState
 import com.themoon.y1.navigation.SettingsSubMode
 import com.themoon.y1.sync.jellyfin.JellyfinSyncProvider
+import com.themoon.y1.sync.webdav.WebDavSyncProvider
 import com.themoon.y1.views.ListEdges
 import com.themoon.y1.views.ListGlide
 import com.themoon.y1.views.ListItemViewFactory
@@ -270,7 +271,7 @@ class SettingsController(
                 ) { onClearCacheConfirmed() })
             },
             action("Jellyfin Sync", { JellyfinSyncProvider.getInstance(activity).getStatusSummary() }, opens = true) { onOpenJellyfin() },
-            action("WebDAV Sync", { com.themoon.y1.sync.webdav.WebDavSyncProvider.getInstance(activity).getStatusSummary() }, opens = true) { onOpenWebDav() },
+            action("WebDAV Sync", { WebDavSyncProvider.getInstance(activity).getStatusSummary() }, opens = true) { onOpenWebDav() },
             toggle("No Duplicates in Playlists", Prefs.PLAYLIST_NO_DUPLICATES),
             toggle("Sync Scrobbles to Last.fm", { scrobbler().isEnabled() }, { scrobbler().setEnabled(it) }),
             action("Last.fm Account", { lastFmAccountText() }, opens = true) { openLastFmAccount() },

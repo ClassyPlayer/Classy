@@ -844,11 +844,7 @@ class MediaLibraryManager private constructor() {
             result.add(rep)
         }
 
-        result.sortWith { s1, s2 ->
-            val byArtist = (s1.albumArtist ?: "").compareTo(s2.albumArtist ?: "", ignoreCase = true)
-            if (byArtist != 0) byArtist
-            else (s1.album ?: "").compareTo(s2.album ?: "", ignoreCase = true)
-        }
+        com.themoon.y1.controllers.coverflow.CoverFlowOrder.sort(result)
 
         synchronized(uniqueAlbumList) {
             uniqueAlbumList.clear()
