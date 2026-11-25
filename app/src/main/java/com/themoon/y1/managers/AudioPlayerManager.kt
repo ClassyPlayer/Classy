@@ -688,8 +688,11 @@ class AudioPlayerManager private constructor() {
         main.updatePlayerUI()
     }
 
-    /** Plays queue entry [index] (the Queue list of the Now Playing menu), also when the player was paused. */
-    fun jumpTo(index: Int) {
+    /**
+     * Plays queue entry [index] (the Queue list of the Now Playing menu), also when the player was paused.
+     * [fromStart]: at 0, not at its audiobook or podcast bookmark (an audiobook chapter).
+     */
+    fun jumpTo(index: Int, fromStart: Boolean = false) {
         saveAudiobookBookmarkIfNeeded()
         val main = MainActivity.instance ?: return
         if (!canJumpTo(index, main.currentPlaylist.size)) return
@@ -707,7 +710,7 @@ class AudioPlayerManager private constructor() {
             return
         }
         main.currentIndex = index
-        prepareMusicTrack(index)
+        prepareMusicTrack(index, fromStart = fromStart)
         main.updatePlayerUI()
     }
 
@@ -752,7 +755,8 @@ class AudioPlayerManager private constructor() {
     /** Seeks the current track to [positionMs] (a chapter of an .m4b) and saves the place. */
     fun seekToMs(positionMs: Long) {
         exoPlayer?.seekTo(positionMs.coerceAtLeast(0L))
-        savePlaybackPositionOnly(sync = true)
+        // The first chapter is at 0: that place is saved too, so a restart does not reopen the old one
+        savePlaybackPositionOnly(sync = true, allowZero = true)
     }
 
     fun seekRelative(offsetMs: Int, savePosition: Boolean = true) {
@@ -1993,7 +1997,7 @@ class AudioPlayerManager private constructor() {
                 .putBoolean("last_played_is_audiobook", main.isAudiobookLibraryMode)
                 .putBoolean("has_saved_playback_state", true)
 
-            if (StoragePaths.isUnderAudiobooks(currentFile.absolutePath) || currentFile.absolutePath.contains("/Audiobooks")) {
+            if (StoragePaths.isUnderAudiobooks(currentFile.absolutePath)) {
                 editor.putString("last_played_audiobook_path", currentFile.absolutePath)
                 // Index each audiobook file once for series resume. The separate marker also handles
                 // upgrades where last_played_audiobook_path was already this file before the feature
@@ -2023,12 +2027,13 @@ class AudioPlayerManager private constructor() {
         }
     }
 
-    fun savePlaybackPositionOnly(sync: Boolean = false) {
+    /** [allowZero]: an explicit seek to 0 is saved; a periodic save at 0 (the player not loaded yet) is not. */
+    fun savePlaybackPositionOnly(sync: Boolean = false, allowZero: Boolean = false) {
         val main = MainActivity.instance ?: return
         if (isRestoringPlaybackState) return
         if (main.currentPlaylist.isEmpty() || main.currentIndex !in main.currentPlaylist.indices) return
         val pos = getCurrentPosition().toLong().coerceAtLeast(0L)
-        if (pos <= 0L) return
+        if (pos <= 0L && !allowZero) return
         val editor = main.prefs.edit().putLong("last_played_position", pos)
         val dur = getDuration().toLong().coerceAtLeast(0L)
         if (dur > 0L) editor.putLong("last_played_duration", dur)

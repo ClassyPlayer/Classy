@@ -289,8 +289,15 @@ class BrowserController(
         val targetFile = if (file != null && file.exists()) file else MainActivity.audiobookLibrary.firstOrNull()?.file
         if (targetFile != null && targetFile.exists()) {
             val bookChapters = ArrayList<File>()
+            // With the Series Cover Flow a book is its folder (or .m4b), as there: books of a series often share
+            // one album tag, and the tag match below would put the next book into this one's queue.
+            if (Prefs.AUDIOBOOK_SERIES_COVER_FLOW.get(main.prefs)) {
+                com.themoon.y1.controllers.coverflow.AudiobookSeriesIndex.bookFilesOf(
+                    MainActivity.audiobookLibrary, StoragePaths.getAudiobooksDirs(), targetFile
+                )?.let { bookChapters.addAll(it) }
+            }
             val bookItem = MainActivity.audiobookLibrary.firstOrNull { it.file.absolutePath == targetFile.absolutePath }
-            if (bookItem != null && bookItem.album.isNotEmpty()) {
+            if (bookChapters.isEmpty() && bookItem != null && bookItem.album.isNotEmpty()) {
                 val matching = MainActivity.audiobookLibrary.filter {
                     it.album.equals(bookItem.album, ignoreCase = true) &&
                     (bookItem.artist.isEmpty() || it.artist.equals(bookItem.artist, ignoreCase = true) || it.albumArtist.equals(bookItem.albumArtist, ignoreCase = true))

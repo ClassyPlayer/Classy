@@ -211,7 +211,8 @@ internal fun MainActivity.initControllers() {
         audiobookEntriesCache[cacheKey] = entries
         audiobookCoverItems.clear()
         audiobookEntriesByPath.clear()
-        for (entry in entries) {
+        for (stored in entries) {
+            val entry = if (stored.isOther) stored.copy(title = t("Other")) else stored
             val cover = entry.coverItem()
             audiobookCoverItems.add(cover)
             audiobookEntriesByPath[cover.file.absolutePath] = entry
@@ -231,9 +232,7 @@ internal fun MainActivity.initControllers() {
                 prefs.edit().putString("audiobook_series_last_played", entry.folder.absolutePath).apply()
                 changeScreen(ScreenState.AudiobookCoverFlow(entry.folder))
             } else {
-                val files = AudiobookSeriesIndex.orderedFiles(entry.audioFiles, entry.folder) {
-                    MainActivity.trackNumberMap[it.absolutePath] ?: 0
-                }
+                val files = AudiobookSeriesIndex.orderedFiles(entry.audioFiles, entry.folder)
                 if (files.isNotEmpty()) {
                     isAudiobookLibraryMode = true
                     val series = entry.seriesFolder
@@ -271,7 +270,7 @@ internal fun MainActivity.initControllers() {
         emptyText = t("No Audiobooks Found"),
         titleProvider = {
             (NavigationManager.getInstance().currentState as? ScreenState.AudiobookCoverFlow)
-                ?.seriesDirectory?.name ?: t("Audiobooks")
+                ?.seriesDirectory?.name ?: t("Audiobook Series")
         }
     )
 

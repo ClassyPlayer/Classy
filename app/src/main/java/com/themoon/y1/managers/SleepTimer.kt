@@ -65,8 +65,15 @@ object SleepTimer {
     }
 
     private fun expire(context: Context) {
-        synchronized(this) { fire = null; endAt = 0L }
+        // This timer's lock leaves the field: a timer started before a failed power off keeps its own lock
+        val lock = synchronized(this) {
+            fire = null
+            endAt = 0L
+            wakeLock.also { wakeLock = null }
+        }
         // Pauses the book, saves the place, powers off. The wake lock stays until the power off (or a failure) is done.
-        PowerMenu.run(context, PowerMenu.Action.POWER_OFF) { synchronized(this) { releaseLock() } }
+        PowerMenu.run(context, PowerMenu.Action.POWER_OFF) {
+            try { lock?.takeIf { it.isHeld }?.release() } catch (_: RuntimeException) {}
+        }
     }
 }

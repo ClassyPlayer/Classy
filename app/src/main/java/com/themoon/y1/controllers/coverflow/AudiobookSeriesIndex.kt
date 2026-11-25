@@ -21,7 +21,9 @@ object AudiobookSeriesIndex {
         val isSeries: Boolean,
         val seriesFolder: File?,
         /** Shown under the title on the cover: the folder name (the series of a book), never the artist. */
-        val subtitle: String = ""
+        val subtitle: String = "",
+        /** The book of the loose files of a series folder: its [title] is "Other", to translate where it shows. */
+        val isOther: Boolean = false
     ) {
         fun coverItem(): SongItem = SongItem(
             representative.file, title, subtitle, title,
@@ -47,7 +49,9 @@ object AudiobookSeriesIndex {
         compareBy<String> { leadingNumber(it) ?: Int.MAX_VALUE }.thenBy(String.CASE_INSENSITIVE_ORDER) { it }
 
     /** One book of a series folder: its name, the files below it (path below the book, song), and the file that is the book. */
-    private class BookUnit(val name: String, val items: List<Pair<String, SongItem>>, val isFolder: Boolean)
+    private class BookUnit(
+        val name: String, val items: List<Pair<String, SongItem>>, val isFolder: Boolean, val isOther: Boolean = false
+    )
 
     private fun isM4b(name: String): Boolean = name.endsWith(".m4b", ignoreCase = true)
 
@@ -70,8 +74,44 @@ object AudiobookSeriesIndex {
         val books = ArrayList<BookUnit>()
         for ((name, list) in folders) books += BookUnit(name, list, true)
         for (file in m4bFiles) books += BookUnit(file.first.substringBeforeLast('.'), listOf(file), false)
-        if (others.isNotEmpty()) books += BookUnit("Other", others, false)
+        if (others.isNotEmpty()) books += BookUnit("Other", others, false, isOther = true)
         return books
+    }
+
+    /**
+     * Goes down through folders that only hold one folder of books: Audiobooks/Jellyfin/<Author>/<Book> (the
+     * layout of Jellyfin Sync) is the series <Author>, not one book "Jellyfin" of all the author's books. It stops
+     * at a folder whose only subfolder holds files only (a book): Saga/Only Book stays the book "Only Book".
+     */
+    private fun descend(
+        directory: File, items: List<Pair<String, SongItem>>
+    ): Pair<File, List<Pair<String, SongItem>>> {
+        var dir = directory
+        var list = items
+        while (true) {
+            if (list.any { it.first.indexOf(SEP) < 0 }) break
+            val sub = list.map { it.first.substringBefore(SEP) }.distinct().singleOrNull() ?: break
+            val inner = list.map { it.first.substring(sub.length + 1) to it.second }
+            if (inner.none { it.first.indexOf(SEP) >= 0 }) break
+            dir = File(dir, sub)
+            list = inner
+        }
+        return dir to list
+    }
+
+    /** The top folder below a root that holds [file] after [descend], and its files; null for a loose file. */
+    private fun topOf(library: List<SongItem>, root: File, file: File): Pair<File, List<Pair<String, SongItem>>>? {
+        val rel = relative(dirPath(root), file) ?: return null
+        val cut = rel.indexOf(SEP)
+        if (cut <= 0) return null
+        val top = File(root, rel.substring(0, cut))
+        val topPath = dirPath(top)
+        val items = ArrayList<Pair<String, SongItem>>()
+        for (song in library) {
+            val r = relative(topPath, song.file) ?: continue
+            items.add(r to song)
+        }
+        return descend(top, items)
     }
 
     private fun bookNameOrder(): Comparator<BookUnit> =
@@ -79,9 +119,9 @@ object AudiobookSeriesIndex {
 
     private fun bookEntry(unit: BookUnit, parent: File, seriesFolder: File?): Entry {
         val sorted = sortedByPath(unit.items) { it.first }
-        val folder = if (unit.isFolder) File(parent, unit.name) else if (unit.name == "Other") parent else null
+        val folder = if (unit.isFolder) File(parent, unit.name) else if (unit.isOther) parent else null
         return Entry(unit.name, sorted.first().second, folder, sorted.map { it.second.file }, false, seriesFolder,
-            subtitle = seriesFolder?.name ?: parent.name)
+            subtitle = seriesFolder?.name ?: parent.name, isOther = unit.isOther)
     }
 
     fun rootEntries(
@@ -104,8 +144,8 @@ object AudiobookSeriesIndex {
                 result += Entry(song.title.ifBlank { song.file.nameWithoutExtension }, song, null,
                     listOf(song.file), false, null)
             }
-            for ((name, items) in byTop) {
-                val directory = File(root, name)
+            for ((name, topItems) in byTop) {
+                val (directory, items) = descend(File(root, name), topItems)
                 val books = booksOf(items)
                 when {
                     // No books inside: the folder is one book
@@ -134,17 +174,25 @@ object AudiobookSeriesIndex {
     /** Finds the top-level series folder containing [file]: a folder with more than one book (see [booksOf]). */
     fun seriesFolderForFile(library: List<SongItem>, roots: List<File>, file: File): File? {
         for (root in roots) {
-            val rel = relative(dirPath(root), file) ?: continue
-            val cut = rel.indexOf(SEP)
-            if (cut <= 0) continue
-            val top = File(root, rel.substring(0, cut))
-            val topPath = dirPath(top)
-            val items = ArrayList<Pair<String, SongItem>>()
-            for (song in library) {
-                val r = relative(topPath, song.file) ?: continue
-                items.add(r to song)
-            }
+            val (top, items) = topOf(library, root, file) ?: continue
             if ((booksOf(items)?.size ?: 0) > 1) return top
+        }
+        return null
+    }
+
+    /**
+     * The files of the book that [file] is in, in play order, grouped as the Cover Flow groups them (a book folder,
+     * an .m4b, or the loose files of a series folder). Null when [file] is not a library file below a root.
+     */
+    fun bookFilesOf(library: List<SongItem>, roots: List<File>, file: File): List<File>? {
+        val path = file.absoluteFile.path
+        for (root in roots) {
+            if (relative(dirPath(root), file) == null) continue
+            // A loose file at a root is one book
+            val (_, items) = topOf(library, root, file) ?: return listOf(file)
+            if (items.none { it.second.file.absoluteFile.path == path }) return null
+            val unit = booksOf(items)?.firstOrNull { u -> u.items.any { it.second.file.absoluteFile.path == path } }
+            return sortedByPath(unit?.items ?: items) { it.first }.map { it.second.file }
         }
         return null
     }
@@ -210,11 +258,8 @@ object AudiobookSeriesIndex {
     private fun <T> sortedByPath(items: List<T>, path: (T) -> String): List<T> =
         items.map { orderKey(path(it)) to it }.sortedWith { a, b -> ORDER.compare(a.first, b.first) }.map { it.second }
 
-    /**
-     * [files] of the book folder [base] in play order: the order of the index, plus the track numbers that
-     * [trackNumber] gives (0 = none), so the queue keeps the folder-aware sequence.
-     */
-    fun orderedFiles(files: List<File>, base: File?, @Suppress("UNUSED_PARAMETER") trackNumber: (File) -> Int = { 0 }): List<File> {
+    /** [files] of the book folder [base] in play order: the order of the index (folder, then natural file name). */
+    fun orderedFiles(files: List<File>, base: File?): List<File> {
         val basePath = base?.let { dirPath(it) }
         return files.map { f ->
             orderKey((basePath?.let { relative(it, f) }) ?: f.name) to f

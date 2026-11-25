@@ -60,13 +60,12 @@ class AudiobookSeriesIndexTest {
         assertEquals("Saga", entries.first().title)
     }
 
-    @Test fun orderedFilesFollowTheFileNamesWhateverTheTagsSay() {
+    @Test fun orderedFilesFollowTheFolderThenTheFileName() {
         val book = Files.createTempDirectory("book").toFile()
         val d1 = File(book, "Disc 1").apply { mkdirs() }
         val d2 = File(book, "Disc 2").apply { mkdirs() }
         val a = File(d1, "b.mp3"); val b = File(d1, "a.mp3"); val c = File(d2, "a.mp3"); val d = File(d1, "c.mp3")
-        val tracks = mapOf(a to 2, b to 0, c to 1, d to 1)
-        val ordered = AudiobookSeriesIndex.orderedFiles(listOf(c, b, a, d), book) { tracks[it] ?: 0 }
+        val ordered = AudiobookSeriesIndex.orderedFiles(listOf(c, b, a, d), book)
         assertEquals(listOf(b, a, d, c), ordered)
     }
 
@@ -119,6 +118,40 @@ class AudiobookSeriesIndexTest {
         assertTrue(!entries[0].isSeries)
         assertEquals(book, entries[0].folder)
         assertEquals(null, AudiobookSeriesIndex.seriesFolderForFile(library, listOf(root), audio))
+    }
+
+    @Test fun bookFilesOfKeepsEachBookOfASeriesApart() {
+        val root = Files.createTempDirectory("audiobooks").toFile()
+        val series = File(root, "Saga").apply { mkdirs() }
+        val book1 = File(series, "1 - One").apply { mkdirs() }
+        val book2 = File(series, "2 - Two").apply { mkdirs() }
+        val a2 = File(book1, "02.mp3"); val a1 = File(book1, "01.mp3"); val b1 = File(book2, "01.mp3")
+        val m4b = File(series, "3 - Three.m4b"); val loose = File(root, "Loose.mp3")
+        // The same album tag for every file: only the folders tell the books apart
+        val library = listOf(a2, b1, a1, m4b, loose).map { song(it) }
+        val roots = listOf(root)
+
+        assertEquals(listOf(a1, a2), AudiobookSeriesIndex.bookFilesOf(library, roots, a2))
+        assertEquals(listOf(b1), AudiobookSeriesIndex.bookFilesOf(library, roots, b1))
+        assertEquals(listOf(m4b), AudiobookSeriesIndex.bookFilesOf(library, roots, m4b))
+        assertEquals(listOf(loose), AudiobookSeriesIndex.bookFilesOf(library, roots, loose))
+        assertEquals(null, AudiobookSeriesIndex.bookFilesOf(library, roots, File(book1, "missing.mp3")))
+    }
+
+    @Test fun aFolderThatOnlyHoldsOneAuthorFolderShowsThatAuthorsSeries() {
+        // Jellyfin Sync: Audiobooks/Jellyfin/<Author>/<Book>/<files>
+        val root = Files.createTempDirectory("audiobooks").toFile()
+        val author = File(File(root, "Jellyfin"), "Author")
+        val one = File(File(author, "Book One"), "01.mp3"); val two = File(File(author, "Book Two"), "01.mp3")
+        val library = listOf(song(one), song(two))
+
+        val entries = AudiobookSeriesIndex.rootEntries(library, listOf(root), null, null)
+        assertEquals(1, entries.size)
+        assertTrue(entries[0].isSeries)
+        assertEquals(author, entries[0].folder)
+        assertEquals(author, AudiobookSeriesIndex.seriesFolderForFile(library, listOf(root), one))
+        assertEquals(listOf("Book One", "Book Two"), AudiobookSeriesIndex.bookEntries(library, author, null).map { it.title })
+        assertEquals(listOf(two), AudiobookSeriesIndex.bookFilesOf(library, listOf(root), two))
     }
 
     private fun song(file: File) = SongItem(file, file.nameWithoutExtension, "Author", "Book")
