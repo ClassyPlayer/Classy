@@ -350,7 +350,7 @@ object CastManager {
 
     /** The embedded picture of the file, else the image of its folder (cast thread). */
     private fun coverBytes(file: File): ByteArray? =
-        AudioPlayerManager.getInstance().readTrackTags(file, includeArt = true).art
+        (try { AudioPlayerManager.getInstance().readEmbeddedArt(file) } catch (_: Throwable) { null })
             ?: try { MediaLibraryManager.getInstance().findFolderCover(file.parentFile)?.readBytes() } catch (_: Exception) { null }
 
     /** Cast thread: status of the speaker, then the actions of [CastSync]. */
