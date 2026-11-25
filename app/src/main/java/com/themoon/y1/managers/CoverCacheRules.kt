@@ -62,4 +62,31 @@ object CoverCacheRules {
         hasNoArtMarker() -> PregenAction.SKIP
         else -> PregenAction.EXTRACT
     }
+
+    /** The result of a cover search: the [cover], or none. [failed]: a read failed, for example out of memory. */
+    class CoverSearch<C : Any>(val cover: C?, val failed: Boolean) {
+        /** Only clean reads record "no art": after a failed read the album is searched again later. */
+        val recordsNoArt: Boolean get() = cover == null && !failed
+    }
+
+    /**
+     * Reads [first], then the tracks of [more] (called only when [first] has no cover) until one has a cover. [read]
+     * gives null for no cover and throws on a read error. The search continues after an Exception, and stops after an
+     * Error (OutOfMemoryError): the next reads would fail too.
+     */
+    fun <T, C : Any> firstCover(first: T, more: () -> List<T>, read: (T) -> C?): CoverSearch<C> {
+        var failed = false
+        try {
+            for (track in sequenceOf(first) + sequence { yieldAll(more()) }) {
+                try {
+                    read(track)?.let { return CoverSearch(it, false) }
+                } catch (e: Exception) {
+                    failed = true
+                }
+            }
+        } catch (t: Throwable) {
+            return CoverSearch(null, true)
+        }
+        return CoverSearch(null, failed)
+    }
 }

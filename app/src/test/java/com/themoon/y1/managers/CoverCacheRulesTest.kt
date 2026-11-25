@@ -4,7 +4,10 @@ import com.themoon.y1.managers.CoverCacheRules.PregenAction
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.IOException
 import java.security.MessageDigest
 
 class CoverCacheRulesTest {
@@ -79,5 +82,51 @@ class CoverCacheRulesTest {
         assertEquals(null, CoverCacheRules.parseSignature("42"))
         assertEquals(null, CoverCacheRules.parseSignature("albums-v0:42"))
         assertEquals(null, CoverCacheRules.parseSignature(CoverCacheRules.formatSignature(1L) + "x"))
+    }
+
+    @Test
+    fun firstCover_cleanNoCover_recordsNoArt() {
+        val search = CoverCacheRules.firstCover("a", { listOf("b", "c") }) { null as String? }
+        assertNull(search.cover)
+        assertFalse(search.failed)
+        assertTrue(search.recordsNoArt)
+    }
+
+    @Test
+    fun firstCover_readsMoreOnlyWithoutACover() {
+        val search = CoverCacheRules.firstCover("a", { error("not needed") }) { "cover of $it" }
+        assertEquals("cover of a", search.cover)
+        assertFalse(search.recordsNoArt)
+    }
+
+    @Test
+    fun firstCover_takesTheFirstTrackWithACover() {
+        val read = ArrayList<String>()
+        val search = CoverCacheRules.firstCover("a", { listOf("b", "c", "d") }) { read.add(it); if (it == "c") "cover" else null }
+        assertEquals("cover", search.cover)
+        assertEquals(listOf("a", "b", "c"), read)
+    }
+
+    @Test
+    fun firstCover_afterAReadError_recordsNoNoArt() {
+        val search = CoverCacheRules.firstCover("a", { listOf("b") }) { if (it == "a") throw IOException("busy") else null as String? }
+        assertNull(search.cover)
+        assertTrue(search.failed)
+        assertFalse(search.recordsNoArt)
+    }
+
+    @Test
+    fun firstCover_continuesAfterAnException() {
+        val search = CoverCacheRules.firstCover("a", { listOf("b") }) { if (it == "a") throw RuntimeException("bad file") else "cover" }
+        assertEquals("cover", search.cover)
+    }
+
+    @Test
+    fun firstCover_stopsAfterOutOfMemory() {
+        val read = ArrayList<String>()
+        val search = CoverCacheRules.firstCover("a", { listOf("b") }) { read.add(it); if (it == "a") throw OutOfMemoryError() else "cover" }
+        assertNull(search.cover)
+        assertFalse(search.recordsNoArt)
+        assertEquals(listOf("a"), read)
     }
 }

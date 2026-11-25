@@ -43,7 +43,7 @@ class AlbumCoverManager private constructor() {
     private val loading = HashMap<String, MutableList<CoverCallback>>()
     private val isPregeneratingFlag: AtomicBoolean = AtomicBoolean(false)
 
-    // Albums that have no art (also marked on disk), so that they are not searched again.
+    // Albums that have no art (also marked on disk), or whose search failed in this run, so that they are not searched again.
     private val noArtKeys: MutableSet<String> = Collections.synchronizedSet(HashSet<String>())
 
     // Album list of the last complete pre-generation (see CoverCacheRules.albumListSignature).
@@ -138,7 +138,7 @@ class AlbumCoverManager private constructor() {
         noArtKeys.clear()
         try {
             StoragePaths.getThumbsCacheDir().listFiles()?.forEach { f ->
-                if (f.name.endsWith(NO_ART_SUFFIX)) f.delete()
+                if (f.name.endsWith(NO_ART_SUFFIX) || f.name.endsWith(OLD_NO_ART_SUFFIX)) f.delete()
             }
         } catch (ignored: Throwable) {}
     }
@@ -299,8 +299,10 @@ class AlbumCoverManager private constructor() {
             if (marker.exists()) {
                 noArtKeys.add(albumKey)
             } else {
-                val made = extractAndSaveThumbnail(song, diskThumb) ?: run {
-                    markNoArt(albumKey, marker)
+                val search = extractAndSaveThumbnail(song, diskThumb)
+                val made = search.cover ?: run {
+                    // After a failed read only this run skips the album: the next start searches it again
+                    if (search.recordsNoArt) markNoArt(albumKey, marker) else noArtKeys.add(albumKey)
                     return null
                 }
                 if (android.os.Build.VERSION.SDK_INT >= 21) {
@@ -325,57 +327,14 @@ class AlbumCoverManager private constructor() {
         return bmp
     }
 
-    private fun extractAndSaveThumbnail(item: SongItem?, targetThumbFile: File?): Bitmap? {
-        if (item?.file == null) return null
+    /**
+     * Makes the thumbnail of the album of [item] and saves it in [targetThumbFile]. The search result tells a clean
+     * "no cover" ([CoverCacheRules.CoverSearch.recordsNoArt]) from a failed read. Worker thread.
+     */
+    private fun extractAndSaveThumbnail(item: SongItem, targetThumbFile: File?): CoverCacheRules.CoverSearch<Bitmap> {
         val trackPath = item.file.absolutePath
-        var rawBmp: Bitmap? = null
-
-        try {
-            val act = MainActivity.instance
-            if (act != null) {
-                val cachedArtPath = act.prefs.getString("album_art_$trackPath", null)
-                if (cachedArtPath != null && File(cachedArtPath).exists()) {
-                    rawBmp = decodeSampledBitmapFromFile(cachedArtPath, THUMB_SIZE, THUMB_SIZE)
-                }
-            }
-        } catch (ignored: Throwable) {}
-
-        if (rawBmp == null) {
-            try {
-                var songName = item.file.name
-                val dot = songName.lastIndexOf(".")
-                if (dot > 0) songName = songName.substring(0, dot)
-                val fallbackFile = File(StoragePaths.getCoversDir(), "$songName.jpg")
-                if (fallbackFile.exists()) {
-                    rawBmp = decodeSampledBitmapFromFile(fallbackFile.absolutePath, THUMB_SIZE, THUMB_SIZE)
-                }
-            } catch (ignored: Throwable) {}
-        }
-
-        if (rawBmp == null) {
-            try {
-                val act = MainActivity.instance
-                if (act != null) {
-                    val folderCover = act.findFolderCover(item.file.parentFile)
-                    if (folderCover != null && folderCover.exists()) {
-                        rawBmp = decodeSampledBitmapFromFile(folderCover.absolutePath, THUMB_SIZE, THUMB_SIZE)
-                    }
-                }
-            } catch (ignored: Throwable) {}
-        }
-
-        if (rawBmp == null) {
-            val embeddedArt = try {
-                AudioPlayerManager.getInstance().readEmbeddedArt(item.file)
-            } catch (ignored: Throwable) {
-                null
-            }
-            if (embeddedArt != null) {
-                rawBmp = decodeSampledBitmapFromByteArray(embeddedArt, THUMB_SIZE, THUMB_SIZE)
-            }
-        }
-
-        if (rawBmp == null) return null
+        val search = CoverCacheRules.firstCover(item.file, { emptyList() }) { track -> readTrackCover(track) }
+        val rawBmp = search.cover ?: return search
 
         var finalThumb = rawBmp
         if (rawBmp.width != THUMB_SIZE || rawBmp.height != THUMB_SIZE) {
@@ -406,7 +365,25 @@ class AlbumCoverManager private constructor() {
             }
         }
 
-        return finalThumb
+        return CoverCacheRules.CoverSearch(finalThumb, false)
+    }
+
+    /**
+     * The cover of [track] at about the thumbnail size: the cover file of an older version, the file in the Covers
+     * folder, the folder cover (cover.jpg, folder.jpg), else the embedded cover. Null when the track has none; throws
+     * on a read error (also OutOfMemoryError). Worker thread.
+     */
+    private fun readTrackCover(track: File): Bitmap? {
+        MainActivity.instance?.prefs?.getString("album_art_${track.absolutePath}", null)?.let { path ->
+            if (File(path).exists()) sampledFromFile(path, THUMB_SIZE, THUMB_SIZE)?.let { return it }
+        }
+        val coversFile = File(StoragePaths.getCoversDir(), track.nameWithoutExtension + ".jpg")
+        if (coversFile.exists()) sampledFromFile(coversFile.absolutePath, THUMB_SIZE, THUMB_SIZE)?.let { return it }
+        MediaLibraryManager.getInstance().findFolderCover(track.parentFile)?.let { folderCover ->
+            sampledFromFile(folderCover.absolutePath, THUMB_SIZE, THUMB_SIZE)?.let { return it }
+        }
+        val embedded = AudioPlayerManager.getInstance().readEmbeddedArt(track) ?: return null
+        return sampledFromBytes(embedded, THUMB_SIZE, THUMB_SIZE)
     }
 
     fun isPregenerating(): Boolean {
@@ -490,6 +467,7 @@ class AlbumCoverManager private constructor() {
                 val total = copy.size
                 var generated = 0
                 var skipped = 0
+                var failed = 0
                 Log.i(TAG, "Starting album thumbnail pregeneration for $total albums (force=$force)...")
 
                 try {
@@ -506,12 +484,15 @@ class AlbumCoverManager private constructor() {
                     val hasThumb = diskThumb.exists() && diskThumb.length() > 0L
 
                     if (CoverCacheRules.pregenAction(force, hasThumb) { marker.exists() } == CoverCacheRules.PregenAction.EXTRACT) {
-                        val bmp = extractAndSaveThumbnail(item, diskThumb)
-                        if (bmp != null) {
+                        val search = extractAndSaveThumbnail(item, diskThumb)
+                        if (search.cover != null) {
                             generated++
                             if (noArtKeys.remove(albumKey) || force) marker.delete()
-                        } else {
+                        } else if (search.recordsNoArt) {
                             markNoArt(albumKey, marker)
+                        } else {
+                            failed++
+                            noArtKeys.add(albumKey)
                         }
                         try {
                             Thread.sleep(pauseMs)
@@ -523,7 +504,7 @@ class AlbumCoverManager private constructor() {
                     if ((i + 1) % 50 == 0 || i == total - 1) {
                         Log.i(
                             TAG, "Thumbnail pregeneration progress: " + (i + 1) + "/" + total
-                                    + " (" + ((i + 1) * 100 / total) + "%) - generated=" + generated + ", skipped=" + skipped
+                                    + " (" + ((i + 1) * 100 / total) + "%) - generated=" + generated + ", skipped=" + skipped + ", failed=" + failed
                         )
                     }
                 }
@@ -558,7 +539,10 @@ class AlbumCoverManager private constructor() {
     companion object {
         private const val TAG = "AlbumCoverManager"
         const val THUMB_SIZE: Int = 256
-        private const val NO_ART_SUFFIX = ".noart"
+        // ".noart2": an older version also wrote ".noart" after a read error (for example out of memory on the Y1).
+        // Those markers are not used, so that each album without a cover is searched again one time.
+        private const val NO_ART_SUFFIX = ".noart2"
+        private const val OLD_NO_ART_SUFFIX = ".noart"
         // 12 MB: approx. 96 covers. A larger cache made more GCs while it filled (thumbnails in the Java heap).
         private const val MEMORY_CACHE_MAX_KB = 12288
         // 24 MB: approx. 190 covers, for purgeable thumbnails (before Android 5), which are not in the Java heap.
@@ -594,36 +578,32 @@ class AlbumCoverManager private constructor() {
                 s.hashCode().toString()
             }
         }
-        fun decodeSampledBitmapFromFile(path: String, reqWidth: Int, reqHeight: Int): Bitmap? {
-            return try {
-                val options = BitmapFactory.Options().apply {
-                    inJustDecodeBounds = true
-                }
-                BitmapFactory.decodeFile(path, options)
+        fun decodeSampledBitmapFromFile(path: String, reqWidth: Int, reqHeight: Int): Bitmap? =
+            try { sampledFromFile(path, reqWidth, reqHeight) } catch (t: Throwable) { null }
 
-                options.inSampleSize = calculateInSampleSize(options, reqWidth, reqHeight)
-                options.inJustDecodeBounds = false
-                options.inPreferredConfig = Bitmap.Config.RGB_565
-                BitmapFactory.decodeFile(path, options)
-            } catch (t: Throwable) {
-                null
-            }
-        }
-        fun decodeSampledBitmapFromByteArray(data: ByteArray, reqWidth: Int, reqHeight: Int): Bitmap? {
-            return try {
-                val options = BitmapFactory.Options().apply {
-                    inJustDecodeBounds = true
-                }
-                BitmapFactory.decodeByteArray(data, 0, data.size, options)
+        fun decodeSampledBitmapFromByteArray(data: ByteArray, reqWidth: Int, reqHeight: Int): Bitmap? =
+            try { sampledFromBytes(data, reqWidth, reqHeight) } catch (t: Throwable) { null }
 
-                options.inSampleSize = calculateInSampleSize(options, reqWidth, reqHeight)
-                options.inJustDecodeBounds = false
-                options.inPreferredConfig = Bitmap.Config.RGB_565
-                BitmapFactory.decodeByteArray(data, 0, data.size, options)
-            } catch (t: Throwable) {
-                null
-            }
+        /** As [decodeSampledBitmapFromFile], but an error (also OutOfMemoryError) is thrown: it is not "no cover". */
+        private fun sampledFromFile(path: String, reqWidth: Int, reqHeight: Int): Bitmap? {
+            val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeFile(path, options)
+            options.inSampleSize = calculateInSampleSize(options, reqWidth, reqHeight)
+            options.inJustDecodeBounds = false
+            options.inPreferredConfig = Bitmap.Config.RGB_565
+            return BitmapFactory.decodeFile(path, options)
         }
+
+        /** As [decodeSampledBitmapFromByteArray], but an error (also OutOfMemoryError) is thrown: it is not "no cover". */
+        private fun sampledFromBytes(data: ByteArray, reqWidth: Int, reqHeight: Int): Bitmap? {
+            val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeByteArray(data, 0, data.size, options)
+            options.inSampleSize = calculateInSampleSize(options, reqWidth, reqHeight)
+            options.inJustDecodeBounds = false
+            options.inPreferredConfig = Bitmap.Config.RGB_565
+            return BitmapFactory.decodeByteArray(data, 0, data.size, options)
+        }
+
         fun calculateInSampleSize(options: BitmapFactory.Options, reqWidth: Int, reqHeight: Int): Int {
             val height = options.outHeight
             val width = options.outWidth
