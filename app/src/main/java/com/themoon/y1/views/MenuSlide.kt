@@ -388,7 +388,7 @@ class MenuSlide private constructor(
         }
 
         private fun isCoverFlow(s: ScreenState): Boolean =
-            s is ScreenState.CoverFlow || (s is ScreenState.Browser && s.mode is BrowserMode.CoverFlow)
+            s is ScreenState.CoverFlow || s is ScreenState.AudiobookCoverFlow || (s is ScreenState.Browser && s.mode is BrowserMode.CoverFlow)
 
         /** Screens that slide: all lists and screens, not the video player, the quiz and a game (full screen). */
         private fun slides(s: ScreenState): Boolean =

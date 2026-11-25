@@ -147,6 +147,8 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
 
         val customLibrary: ArrayList<SongItem> = ArrayList()
         val audiobookLibrary: ArrayList<SongItem> = ArrayList()
+        /** Changes each time a scan publishes the audiobook library: the audiobook Cover Flow index is built again. */
+        @Volatile var audiobookLibraryVersion: Int = 0
         val trackNumberMap: HashMap<String, Int> = HashMap()
     }
 
@@ -296,6 +298,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     fun isPlayerControllerInitialized(): Boolean = ::playerController.isInitialized
     lateinit var playlistController: PlaylistController
     lateinit var coverFlowController: CoverFlowController
+    lateinit var audiobookCoverFlowController: CoverFlowController
     fun isCoverFlowControllerInitialized(): Boolean = ::coverFlowController.isInitialized
     lateinit var playerController: PlayerController
     lateinit var equalizerController: EqualizerController
@@ -696,7 +699,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     fun syncCurrentScreenState(state: ScreenState) {
         currentScreenState = when (state) {
             is ScreenState.MainMenu -> STATE_MENU
-            is ScreenState.CoverFlow -> STATE_COVERFLOW
+            is ScreenState.CoverFlow, is ScreenState.AudiobookCoverFlow -> STATE_COVERFLOW
             is ScreenState.Browser -> {
                 when (state.mode) {
                     is BrowserMode.CoverFlow -> STATE_COVERFLOW
@@ -1114,14 +1117,18 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
         if (currentPlaylist.isEmpty() || currentIndex !in currentPlaylist.indices) return
         val currentFile = currentPlaylist[currentIndex]
         val path = currentFile.absolutePath
+        // A chapter (file) of an audiobook: the whole book is meant, so every file of the book changes together
+        val targets: List<String> = if (StoragePaths.isUnderAudiobooks(path)) {
+            currentPlaylist.map { it.absolutePath }.filter { StoragePaths.isUnderAudiobooks(it) }
+        } else listOf(path)
         if (favoritePaths.contains(path)) {
-            favoritePaths.remove(path)
+            favoritePaths.removeAll(targets.toSet())
             Notice.show(this, t("Removed from Favorites."))
         } else {
-            favoritePaths.add(path)
+            favoritePaths.addAll(targets)
             Notice.show(this, t("Added to Favorites."))
         }
-        prefs.edit().putStringSet("favorite_songs_set", favoritePaths).apply()
+        prefs.edit().putStringSet("favorite_songs_set", HashSet(favoritePaths)).apply()
     }
 
     /** Shows work in progress under the status bar ([com.themoon.y1.views.ProgressLayer]), with the spinner. */
@@ -1266,11 +1273,14 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
             STATE_QUIZ -> t("Music Quiz")
             STATE_VIDEOS -> t("Videos")
             STATE_COVERFLOW -> {
-                val total = uniqueAlbumList.size
-                if (total > 0 && ::coverFlowController.isInitialized) {
-                    com.themoon.y1.controllers.coverflow.CoverFlowTitle.format(t("Cover Flow"), coverFlowController.currentCoverFlowIndex + 1, total)
+                val route = NavigationManager.getInstance().currentState as? ScreenState.AudiobookCoverFlow
+                if (route != null) {
+                    if (route.seriesDirectory == null) t("Audiobook Series") else route.seriesDirectory.name
                 } else {
-                    t("Cover Flow")
+                    val total = uniqueAlbumList.size
+                    if (total > 0 && ::coverFlowController.isInitialized) {
+                        com.themoon.y1.controllers.coverflow.CoverFlowTitle.format(t("Cover Flow"), coverFlowController.currentCoverFlowIndex + 1, total)
+                    } else t("Cover Flow")
                 }
             }
             STATE_EQUALIZER -> t("Equalizer")

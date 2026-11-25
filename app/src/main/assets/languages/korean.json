@@ -905,5 +905,12 @@
   "There is no stable version for this player yet.": "이 플레이어용 안정 버전이 아직 없습니다.",
   "To get updates now, set System Update → Update Channel to Beta.": "지금 업데이트를 받으려면 시스템 업데이트 → 업데이트 채널을 베타로 설정하세요.",
   "The update server sent an error.": "업데이트 서버가 오류를 보냈습니다.",
-  "Try again later.": "나중에 다시 시도하세요."
+  "Try again later.": "나중에 다시 시도하세요.",
+  "Audiobook Series": "오디오북 시리즈",
+  "No Audiobooks Found": "오디오북을 찾을 수 없습니다",
+  "Series Cover Flow": "시리즈 커버 플로우",
+  "Audiobook Series Cover Flow": "오디오북 시리즈 커버 플로우",
+  "Audiobook Speed": "오디오북 재생 속도",
+  "Time left": "남은 시간",
+  "Stop Sleep Timer": "수면 타이머 중지"
 }

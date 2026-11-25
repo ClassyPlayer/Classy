@@ -265,6 +265,7 @@ class SettingsController(
             action("Battery") { openPage(BATTERY_USAGE) },
         ), direct = true),
         SettingsGroup("Library", listOf(
+            toggle("Audiobook Series Cover Flow", Prefs.AUDIOBOOK_SERIES_COVER_FLOW),
             action("Clear Album Art & Info") {
                 ActionScreens.open(confirmScreen(
                     localize("Clear Album Art & Info"),

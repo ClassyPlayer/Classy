@@ -15,6 +15,7 @@ import com.themoon.y1.controllers.connectivity.WebServerController
 import com.themoon.y1.controllers.connectivity.WifiController
 import com.themoon.y1.controllers.connectivity.WifiKeyboardController
 import com.themoon.y1.controllers.coverflow.CoverFlowController
+import com.themoon.y1.controllers.coverflow.AudiobookSeriesIndex
 import com.themoon.y1.controllers.home.HomeWidgetsController
 import com.themoon.y1.controllers.menu.MainMenuController
 import com.themoon.y1.controllers.games.GamePlayerController
@@ -174,6 +175,103 @@ internal fun MainActivity.initControllers() {
             else currentPlaylist.getOrNull(currentIndex)?.let { file -> MainActivity.customLibrary.firstOrNull { it.file == file } }
         },
         localize = { t(it) }
+    )
+
+    val audiobookCoverItems = ArrayList<com.themoon.y1.models.SongItem>()
+    val audiobookEntriesByPath = HashMap<String, AudiobookSeriesIndex.Entry>()
+    // The indexes that were built (the top level and the series that were opened): Back from a series, or a refresh,
+    // reuses them while nothing they depend on changed (the key holds the route, the library and the saved places).
+    val audiobookEntriesCache = HashMap<String, List<AudiobookSeriesIndex.Entry>>()
+    fun prepareAudiobookCoverFlow(state: ScreenState?) {
+        val route = state as? ScreenState.AudiobookCoverFlow ?: return
+        val prefs = AppPrefs.get(this)
+        val library = MainActivity.audiobookLibrary
+        val cacheKey = listOf(
+            route.seriesDirectory?.absolutePath, library.size, MainActivity.audiobookLibraryVersion,
+            prefs.getString("audiobook_series_last_played", null), prefs.getString("last_played_audiobook_path", null),
+            route.seriesDirectory?.let { prefs.getString("audiobook_series_last_book_${it.absolutePath}", null) }
+        ).joinToString("|")
+        val cached = audiobookEntriesCache[cacheKey]
+        val entries = if (cached != null && cached.isNotEmpty()) {
+            cached
+        } else if (route.seriesDirectory == null) {
+            AudiobookSeriesIndex.rootEntries(
+                MainActivity.audiobookLibrary,
+                StoragePaths.getAudiobooksDirs(),
+                prefs.getString("audiobook_series_last_played", null),
+                prefs.getString("last_played_audiobook_path", null)
+            )
+        } else {
+            val key = "audiobook_series_last_book_${route.seriesDirectory.absolutePath}"
+            AudiobookSeriesIndex.bookEntries(
+                MainActivity.audiobookLibrary, route.seriesDirectory, prefs.getString(key, null)
+            )
+        }
+        if (audiobookEntriesCache.size > 12) audiobookEntriesCache.clear()
+        audiobookEntriesCache[cacheKey] = entries
+        audiobookCoverItems.clear()
+        audiobookEntriesByPath.clear()
+        for (stored in entries) {
+            val entry = if (stored.isOther) stored.copy(title = t("Other")) else stored
+            val cover = entry.coverItem()
+            audiobookCoverItems.add(cover)
+            audiobookEntriesByPath[cover.file.absolutePath] = entry
+        }
+    }
+
+    audiobookCoverFlowController = CoverFlowController(
+        activity = this,
+        rootView = layoutBrowserMode as ViewGroup,
+        listVirtualSongs = listVirtualSongs,
+        uniqueAlbumList = audiobookCoverItems,
+        clickFeedback = { clickFeedback() },
+        onAlbumSelected = onAlbumSelected@{ cover ->
+            val entry = audiobookEntriesByPath[cover.file.absolutePath] ?: return@onAlbumSelected
+            val prefs = AppPrefs.get(this)
+            if (entry.isSeries && entry.folder != null) {
+                prefs.edit().putString("audiobook_series_last_played", entry.folder.absolutePath).apply()
+                changeScreen(ScreenState.AudiobookCoverFlow(entry.folder))
+            } else {
+                val files = AudiobookSeriesIndex.orderedFiles(entry.audioFiles, entry.folder)
+                if (files.isNotEmpty()) {
+                    isAudiobookLibraryMode = true
+                    val series = entry.seriesFolder
+                    val ownPath = entry.folder?.let { prefs.getString("audiobook_last_in_${it.absolutePath}", null) }
+                    val resumePath = if (!ownPath.isNullOrEmpty() && files.any { it.absolutePath == ownPath }) ownPath
+                    else if (series != null) {
+                        prefs.getString("audiobook_series_last_book_${series.absolutePath}", null)
+                    } else prefs.getString("last_played_audiobook_path", null)
+                    if (series != null) {
+                        prefs.edit().putString("audiobook_series_last_played", series.absolutePath).apply()
+                    }
+                    // A saved place that is not one of this book's files (or none) starts at the first file in order
+                    val selected = if (resumePath.isNullOrEmpty()) 0
+                    else files.indexOfFirst { it.absolutePath == resumePath }.let { if (it < 0) 0 else it }
+                    val offset = prefs.getInt("book_pos_${files[selected].absolutePath}", 0)
+                    AudioPlayerManager.getInstance().playTrackListWithOffset(files, selected, offset)
+                    changeScreen(ScreenState.Player)
+                }
+            }
+        },
+        onRebuildUniqueAlbumList = { prepareAudiobookCoverFlow(NavigationManager.getInstance().currentState) },
+        nowPlayingSong = {
+            val route = NavigationManager.getInstance().currentState as? ScreenState.AudiobookCoverFlow
+            val prefs = AppPrefs.get(this)
+            val path = if (route?.seriesDirectory != null) {
+                prefs.getString("audiobook_series_last_book_${route.seriesDirectory.absolutePath}", null)
+            } else prefs.getString("last_played_audiobook_path", null)
+            audiobookEntriesByPath.values.firstOrNull { entry ->
+                !path.isNullOrEmpty() && entry.audioFiles.any { it.absolutePath == path }
+            }?.coverItem()
+        },
+        localize = { t(it) },
+        prepareItems = { state -> prepareAudiobookCoverFlow(state) },
+        isAdditionalOpenState = { it is ScreenState.AudiobookCoverFlow },
+        emptyText = t("No Audiobooks Found"),
+        titleProvider = {
+            (NavigationManager.getInstance().currentState as? ScreenState.AudiobookCoverFlow)
+                ?.seriesDirectory?.name ?: t("Audiobook Series")
+        }
     )
 
     playerController = PlayerController(
@@ -578,6 +676,7 @@ internal fun MainActivity.initControllers() {
         registerController(ScreenState.MainMenu::class.java, mainMenuController)
         registerController(ScreenState.Browser::class.java, browserController)
         registerController(ScreenState.CoverFlow::class.java, coverFlowController)
+        registerController(ScreenState.AudiobookCoverFlow::class.java, audiobookCoverFlowController)
         registerController(ScreenState.Playlists::class.java, playlistController)
         registerController(ScreenState.M3uPlaylistSongs::class.java, playlistController)
         registerController(ScreenState.SmartPlaylistSongs::class.java, playlistController)

@@ -27,7 +27,7 @@ import com.themoon.y1.views.ToggleStyle
  */
 enum class PrefGroup(val isSetting: Boolean) {
     PLAYBACK(true), DISPLAY(true), NOW_PLAYING(true), STATUS_BAR(true), APPEARANCE(true), MENUS(true),
-    CONTROLS(true), CONNECTIVITY(true), DATE_TIME(true), GENERAL(true),
+    CONTROLS(true), CONNECTIVITY(true), LIBRARY(true), DATE_TIME(true), GENERAL(true),
 
     /** Playback state that the app saves while it plays. */
     STATE(false),
@@ -199,6 +199,8 @@ object Prefs {
     val COVER_FLOW_EPS = add(BoolPref("coverflow_show_eps", true, PrefGroup.MENUS, resettable = true))
     /** Cover Flow → Untagged Singles: the step of CoverFlowAlbums.UNTAGGED_SINGLE_TRACKS (0 = Off). */
     val COVER_FLOW_UNTAGGED_SINGLES = add(IntPref("coverflow_untagged_single_step", 0, PrefGroup.MENUS, resettable = true))
+    /** Show the folder-based audiobook series Cover Flow entry in Audiobooks. */
+    val AUDIOBOOK_SERIES_COVER_FLOW = add(BoolPref("audiobook_series_cover_flow", false, PrefGroup.LIBRARY, resettable = true))
 
     // --- Controls ---
     val BUTTON_SOUND = add(BoolPref("sound", true, PrefGroup.CONTROLS))

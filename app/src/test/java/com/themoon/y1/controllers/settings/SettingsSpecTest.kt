@@ -60,7 +60,7 @@ class SettingsSpecTest {
                 ),
                 "Connectivity" to listOf("Bluetooth", "Wi-Fi", "Web Server", "USB Drive", "Use as USB Drive"),
                 "Battery" to listOf("Battery"),
-                "Library" to listOf("Clear Album Art & Info", "Jellyfin Sync", "WebDAV Sync", "No Duplicates in Playlists", "Sync Scrobbles to Last.fm", "Last.fm Account"),
+                "Library" to listOf("Audiobook Series Cover Flow", "Clear Album Art & Info", "Jellyfin Sync", "WebDAV Sync", "No Duplicates in Playlists", "Sync Scrobbles to Last.fm", "Last.fm Account"),
                 "Date & Time" to listOf("Date & Time"),
                 "General" to listOf(
                     "About", "Language", "System Update", "Legal", "Export Settings", "Import Settings", "Reset Settings", "Power"

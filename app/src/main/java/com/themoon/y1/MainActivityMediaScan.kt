@@ -58,6 +58,7 @@ private fun MainActivity.applyLibraryCache(mlm: MediaLibraryManager, cache: Medi
     synchronized(MainActivity.audiobookLibrary) {
         MainActivity.audiobookLibrary.clear()
         MainActivity.audiobookLibrary.addAll(mlm.audiobookLibrary)
+        MainActivity.audiobookLibraryVersion++
     }
     synchronized(MainActivity.trackNumberMap) {
         MainActivity.trackNumberMap.clear()
@@ -91,6 +92,7 @@ internal fun MainActivity.startMediaLibraryScanInternal() {
                 MainActivity.customLibrary.addAll(mlm.musicLibrary)
                 MainActivity.audiobookLibrary.clear()
                 MainActivity.audiobookLibrary.addAll(mlm.audiobookLibrary)
+                MainActivity.audiobookLibraryVersion++
                 MainActivity.trackNumberMap.clear()
                 MainActivity.trackNumberMap.putAll(mlm.trackNumberMap)
                 rebuildUniqueAlbumListInternal()

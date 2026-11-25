@@ -54,7 +54,9 @@ class PrefsTest {
             // Settings → Menus → Cover Flow (singles and EPs)
             "coverflow_show_singles", "coverflow_show_eps", "coverflow_untagged_single_step",
             // Settings → Playback → Previous Restarts Song
-            "previous_restarts_song")
+            "previous_restarts_song",
+            // Settings → Library → Audiobook Series Cover Flow
+            "audiobook_series_cover_flow")
         assertEquals(before + added, Prefs.RESETTABLE.map { it.key }.toSet())
     }
 

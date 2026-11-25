@@ -2,9 +2,14 @@ package com.themoon.y1.controllers.player
 
 import com.themoon.y1.MainActivity
 import com.themoon.y1.cast.PlayOnMenu
+import com.themoon.y1.StoragePaths
 import com.themoon.y1.controllers.settings.ActionScreens
+import com.themoon.y1.controllers.settings.SettingsController
+import com.themoon.y1.views.Notice
 import com.themoon.y1.managers.AudioPlayerManager
 import com.themoon.y1.managers.LibrarySongs
+import com.themoon.y1.managers.M4bChapterParser
+import com.themoon.y1.managers.SleepTimer
 import com.themoon.y1.models.ArtistNames
 import com.themoon.y1.models.SongItem
 import com.themoon.y1.navigation.NavigationManager
@@ -19,6 +24,7 @@ import java.io.File
  * - Add to On-The-Go playlist
  * - Add to Playlist
  * - Browse Album / Browse Artist
+ * - Audiobook Speed, Chapters and Sleep Timer (audiobooks only, at the top; music is not changed)
  * - Play On (the speaker list; with the speaker name while a speaker plays)
  * Only actions on the current song and Play On: the display options (Spectrum, Total Time) are in Settings.
  * A row closes the menu, then does its action (ActionScreens.choose), so Browse Album goes from Now Playing.
@@ -36,32 +42,141 @@ object NowPlayingContextMenu {
         onBrowseArtist: (artistName: String) -> Unit,
         localize: (String) -> String
     ) {
-        val rows = ArrayList<ActionScreens.Action>()
         val main = MainActivity.instance
-        if (main != null && main.currentPlaylist.size > 1) {
-            rows += ActionScreens.Action(localize("Queue"), opensList = true) { showQueue(main) }
-        }
-        rows += ActionScreens.Action(if (isFavorite) localize("Remove from Favorites") else localize("Add to Favorites")) {
-            onToggleFavorite()
-        }
-        rows += ActionScreens.Action(localize("Add to On-The-Go")) { onAddToOnTheGo(songFile) }
-        rows += ActionScreens.Action(localize("Add to Playlist")) { onAddToPlaylist(songFile) }
-        if (songItem != null) {
-            if (songItem.album.isNotEmpty()) {
-                rows += ActionScreens.Action(localize("Browse Album")) { onBrowseAlbum(songItem.album) }
+        var menuKey = -1
+        fun spec(): ActionScreens.Spec {
+            val rows = ArrayList<ActionScreens.Action>()
+            // Audiobooks: Speed, Chapters and Sleep Timer first, then the rows of every song (Queue, Play On...).
+            // A new speed or timer shows in its row at once (Back comes back to this menu).
+            if (main != null && StoragePaths.isUnderAudiobooks(songFile.absolutePath)) {
+                rows += audiobookRows(main, songFile) { if (menuKey >= 0) ActionScreens.replace(menuKey, spec()) }
             }
-            val artist = if (songItem.albumArtist.isNotEmpty()) songItem.albumArtist else songItem.artist
-            if (artist.isNotEmpty()) {
-                // "A;B" opens the songs of A, as the Artists list shows A and B on their own
-                val firstArtist = ArtistNames.split(artist).firstOrNull() ?: artist
-                rows += ActionScreens.Action(localize("Browse Artist")) { onBrowseArtist(firstArtist) }
+            if (main != null && main.currentPlaylist.size > 1) {
+                rows += ActionScreens.Action(localize("Queue"), opensList = true) { showQueue(main) }
+            }
+            rows += ActionScreens.Action(if (isFavorite) localize("Remove from Favorites") else localize("Add to Favorites")) {
+                onToggleFavorite()
+            }
+            rows += ActionScreens.Action(localize("Add to On-The-Go")) { onAddToOnTheGo(songFile) }
+            rows += ActionScreens.Action(localize("Add to Playlist")) { onAddToPlaylist(songFile) }
+            if (songItem != null) {
+                if (songItem.album.isNotEmpty()) {
+                    rows += ActionScreens.Action(localize("Browse Album")) { onBrowseAlbum(songItem.album) }
+                }
+                val artist = if (songItem.albumArtist.isNotEmpty()) songItem.albumArtist else songItem.artist
+                if (artist.isNotEmpty()) {
+                    // "A;B" opens the songs of A, as the Artists list shows A and B on their own
+                    val firstArtist = ArtistNames.split(artist).firstOrNull() ?: artist
+                    rows += ActionScreens.Action(localize("Browse Artist")) { onBrowseArtist(firstArtist) }
+                }
+            }
+            // Play On: the speaker list of Main menu → Play On opens over this menu (Back comes back to it)
+            if (main != null) {
+                rows += ActionScreens.Action(PlayOnMenu.rowLabel(main), opensList = true) { PlayOnMenu.open(main, fromNowPlaying = true) }
+            }
+            return ActionScreens.Spec(localize("Now Playing"), actions = rows)
+        }
+        menuKey = ActionScreens.open(spec())
+    }
+
+    private fun speedIndex(speed: Float): Int =
+        SettingsController.SPEED_VALUES.indexOfFirst { Math.abs(it - speed) < 0.01f }.coerceAtLeast(0)
+
+    /** "45 minutes", with the translated unit. */
+    private fun minutesText(main: MainActivity, minutes: Int): String = "$minutes" + main.t(" minutes")
+
+    /** The rows of an audiobook: the speed, the chapters and the sleep timer. [changed]: redraws them after a change. */
+    private fun audiobookRows(main: MainActivity, songFile: File, changed: () -> Unit): List<ActionScreens.Action> {
+        val label = SettingsController.SPEED_LABELS[speedIndex(AudioPlayerManager.getInstance().audiobookSpeed())]
+        val sleep = if (SleepTimer.isActive()) minutesText(main, SleepTimer.minutesLeft()) else main.t("Off")
+        return listOf(
+            ActionScreens.Action(main.t("Audiobook Speed") + ": " + main.t(label), opensList = true, key = "audiobook_speed") {
+                showAudiobookSpeed(main, changed)
+            },
+            ActionScreens.Action(main.t("Chapters"), opensList = true) { showChapters(main, songFile) },
+            ActionScreens.Action(main.t("Sleep Timer") + ": " + sleep, opensList = true, key = "sleep_timer") {
+                showSleepTimer(main, changed)
+            }
+        )
+    }
+
+    /** True while [file] is still the queue entry that plays: a chapter row of another file must not act. */
+    private fun stillPlaying(main: MainActivity, file: File): Boolean =
+        main.currentPlaylist.getOrNull(main.currentIndex)?.absolutePath == file.absolutePath
+
+    /** The chapter of [positionMs]: the last one that starts at or before it (0 when none). */
+    internal fun chapterIndexAt(starts: List<Int>, positionMs: Int): Int {
+        var found = 0
+        for (i in starts.indices) if (starts[i] <= positionMs) found = i else break
+        return found
+    }
+
+    /**
+     * The chapters: the chapters inside the .m4b that plays (a row seeks to it), else the files of the book
+     * (a row plays that file from its start).
+     */
+    private fun showChapters(main: MainActivity, songFile: File) {
+        val player = AudioPlayerManager.getInstance()
+        val embedded = M4bChapterParser.extractChapters(songFile)
+        val rows = ArrayList<ActionScreens.Action>()
+        if (embedded.timestamps.isNotEmpty()) {
+            val starts = embedded.timestamps.toList()
+            val current = chapterIndexAt(starts, player.getCurrentPosition())
+            for ((i, start) in starts.withIndex()) {
+                val title = (embedded.chaptersMap[start] ?: "").removePrefix("\uD83D\uDD16 ").ifBlank { "${i + 1}" }
+                rows += ActionScreens.Action(title, checked = i == current, key = "chapter$i") {
+                    // The times are those of songFile: after the next file started they would seek the wrong file
+                    if (stillPlaying(main, songFile)) player.seekToMs(start.toLong())
+                }
+            }
+        } else {
+            val files = main.currentPlaylist.toList()
+            for ((i, f) in files.withIndex()) {
+                rows += ActionScreens.Action(f.nameWithoutExtension, checked = i == main.currentIndex, key = "chapter$i") {
+                    // A chapter starts at its beginning, not at the bookmark of an earlier listen
+                    if (main.currentPlaylist.getOrNull(i)?.absolutePath == f.absolutePath) player.jumpTo(i, fromStart = true)
+                }
             }
         }
-        // Play On: the speaker list of Main menu → Play On opens over this menu (Back comes back to it)
-        if (main != null) {
-            rows += ActionScreens.Action(PlayOnMenu.rowLabel(main), opensList = true) { PlayOnMenu.open(main, fromNowPlaying = true) }
+        ActionScreens.open(
+            ActionScreens.Spec(main.t("Chapters"), info = if (rows.isEmpty()) listOf(main.t("No chapters found")) else emptyList(),
+                actions = rows, focusChecked = true)
+        )
+    }
+
+    /** The sleep timer: the time left on top, 5 minutes to 2 hours, and Stop Sleep Timer below while one runs. */
+    private fun showSleepTimer(main: MainActivity, changed: () -> Unit) {
+        val rows = ArrayList<ActionScreens.Action>()
+        for (minutes in SleepTimer.CHOICES) {
+            rows += ActionScreens.Action(minutesText(main, minutes)) {
+                SleepTimer.start(main, minutes)
+                changed()
+                Notice.show(main, main.t("Sleep timer set for ") + minutesText(main, minutes))
+            }
         }
-        ActionScreens.open(ActionScreens.Spec(localize("Now Playing"), actions = rows))
+        val info = ArrayList<String>()
+        if (SleepTimer.isActive()) {
+            info += main.t("Time left") + ": " + minutesText(main, SleepTimer.minutesLeft())
+            rows += ActionScreens.Action(main.t("Stop Sleep Timer")) {
+                SleepTimer.cancel()
+                changed()
+                Notice.show(main, main.t("Sleep timer cancelled"))
+            }
+        }
+        ActionScreens.open(ActionScreens.Spec(main.t("Sleep Timer"), info = info, actions = rows))
+    }
+
+    /** The speeds of the audiobooks; the one that is set has the check mark, and a row sets it and goes back. */
+    private fun showAudiobookSpeed(main: MainActivity, changed: () -> Unit) {
+        val current = speedIndex(AudioPlayerManager.getInstance().audiobookSpeed())
+        val rows = SettingsController.SPEED_LABELS.indices.map { i ->
+            ActionScreens.Action(main.t(SettingsController.SPEED_LABELS[i]), checked = i == current) {
+                AudioPlayerManager.getInstance().setAudiobookSpeed(SettingsController.SPEED_VALUES[i])
+                changed()
+                Notice.show(main, main.t("Audiobook Speed") + ": " + main.t(SettingsController.SPEED_LABELS[i]))
+            }
+        }
+        ActionScreens.open(ActionScreens.Spec(main.t("Audiobook Speed"), actions = rows, focusChecked = true))
     }
 
     /** The rows of the Queue screen at most: a queue of thousands (Shuffle Songs) would make one view for each. */

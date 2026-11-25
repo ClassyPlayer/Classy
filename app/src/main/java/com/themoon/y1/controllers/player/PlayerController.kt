@@ -22,6 +22,7 @@ import android.widget.ProgressBar
 import android.widget.SeekBar
 import android.widget.TextView
 import com.themoon.y1.MainActivity
+import com.themoon.y1.StoragePaths
 import com.themoon.y1.R
 import com.themoon.y1.ThemeManager
 import com.themoon.y1.controllers.ScreenController
@@ -532,6 +533,10 @@ class PlayerController(
             else -> localize("Off")
         }
 
+        // Shuffle does not apply to an audiobook: its row is hidden
+        val shuffleShown = if (isAudiobookOn()) View.GONE else View.VISIBLE
+        tvScrubShuffleValue?.visibility = shuffleShown
+        ivScrubShuffleIcon?.visibility = shuffleShown
         tvScrubShuffleValue?.text = "${localize("Shuffle")}: ${if (isShuffle) localize("Songs") else localize("Off")}"
         tvScrubRepeatValue?.text = "${localize("Repeat")}: $repeatText"
         setScrubGlyph(ivScrubShuffleIcon, TablerIcons.SHUFFLE)
@@ -583,7 +588,11 @@ class PlayerController(
         tvPlayerRating?.visibility = View.VISIBLE
     }
 
+    /** An audiobook is on: shuffle never changes it, so the shuffle control and icon are not shown. */
+    private fun isAudiobookOn(): Boolean = StoragePaths.isUnderAudiobooks(AudioPlayerManager.getInstance().currentlyPlayingFilePath)
+
     private fun toggleShuffleMode() {
+        if (isAudiobookOn()) return
         val isShuffle = Prefs.SHUFFLE.toggle(playbackPrefs())
         AudioPlayerManager.getInstance().setShuffleMode(isShuffle)
         updateShuffleRepeatStatusIcons()
@@ -605,7 +614,7 @@ class PlayerController(
         val isShuffle = Prefs.SHUFFLE.get(prefs)
         val repeatMode = Prefs.REPEAT_MODE.get(prefs)
 
-        ivPlayerShuffleStatus?.visibility = if (isShuffle) View.VISIBLE else View.GONE
+        ivPlayerShuffleStatus?.visibility = if (isShuffle && !isAudiobookOn()) View.VISIBLE else View.GONE
         ivPlayerRepeatStatus?.visibility = if (repeatMode > 0) View.VISIBLE else View.GONE
     }
 

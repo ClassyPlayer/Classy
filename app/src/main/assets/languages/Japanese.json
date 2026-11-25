@@ -905,5 +905,12 @@
   "There is no stable version for this player yet.": "このプレーヤー向けの安定版はまだありません。",
   "To get updates now, set System Update → Update Channel to Beta.": "今すぐアップデートを受け取るには、「システムアップデート → アップデートチャンネル」で「ベータ版」を選んでください。",
   "The update server sent an error.": "アップデートサーバーがエラーを返しました。",
-  "Try again later.": "しばらくしてからもう一度お試しください。"
+  "Try again later.": "しばらくしてからもう一度お試しください。",
+  "Audiobook Series": "オーディオブックシリーズ",
+  "No Audiobooks Found": "オーディオブックが見つかりません",
+  "Series Cover Flow": "シリーズカバーフロー",
+  "Audiobook Series Cover Flow": "オーディオブックシリーズのカバーフロー",
+  "Audiobook Speed": "オーディオブックの再生速度",
+  "Time left": "残り時間",
+  "Stop Sleep Timer": "スリープタイマーを停止"
 }

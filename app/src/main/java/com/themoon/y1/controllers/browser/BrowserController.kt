@@ -259,6 +259,10 @@ class BrowserController(
             }
         } else {
             rows += RowSpec(localize("Continue"), onClick = { continueAudiobook() })
+            if (Prefs.AUDIOBOOK_SERIES_COVER_FLOW.get(AppPrefs.get(activity))) {
+                rows += RowSpec(localize("Series Cover Flow"), key = "audiobook_series_cover_flow",
+                    onClick = { onNavigateToScreen(ScreenState.AudiobookCoverFlow()) })
+            }
             rows += RowSpec(localize("Books"), onClick = { openList(BrowserMode.Albums()) })
             rows += RowSpec(localize("Authors"), onClick = { openList(BrowserMode.Artists) })
         }
@@ -272,16 +276,28 @@ class BrowserController(
     private fun continueAudiobook() {
         val main = MainActivity.instance ?: return
         main.isAudiobookLibraryMode = true
-        val savedPath = main.prefs.getString("last_played_audiobook_path", null)
+        // Only a file of the Audiobooks folders counts: an older save can hold a music file (played while the
+        // audiobook mode was still on), and Continue must not open that.
+        fun audiobookPath(path: String?): String? = if (!path.isNullOrEmpty() && StoragePaths.isUnderAudiobooks(path)) path else null
+        val seriesFolder = main.prefs.getString("audiobook_series_last_played", null)
+        val savedPath = audiobookPath(main.prefs.getString("last_played_audiobook_path", null))
+            ?: audiobookPath(seriesFolder?.let { main.prefs.getString("audiobook_series_last_book_$it", null) })
             ?: if (main.prefs.getBoolean("last_played_is_audiobook", false)) {
-                main.prefs.getString("last_played_song_path", null)
+                audiobookPath(main.prefs.getString("last_played_song_path", null))
             } else null
         val file = if (!savedPath.isNullOrEmpty()) File(savedPath) else null
         val targetFile = if (file != null && file.exists()) file else MainActivity.audiobookLibrary.firstOrNull()?.file
         if (targetFile != null && targetFile.exists()) {
             val bookChapters = ArrayList<File>()
+            // With the Series Cover Flow a book is its folder (or .m4b), as there: books of a series often share
+            // one album tag, and the tag match below would put the next book into this one's queue.
+            if (Prefs.AUDIOBOOK_SERIES_COVER_FLOW.get(main.prefs)) {
+                com.themoon.y1.controllers.coverflow.AudiobookSeriesIndex.bookFilesOf(
+                    MainActivity.audiobookLibrary, StoragePaths.getAudiobooksDirs(), targetFile
+                )?.let { bookChapters.addAll(it) }
+            }
             val bookItem = MainActivity.audiobookLibrary.firstOrNull { it.file.absolutePath == targetFile.absolutePath }
-            if (bookItem != null && bookItem.album.isNotEmpty()) {
+            if (bookChapters.isEmpty() && bookItem != null && bookItem.album.isNotEmpty()) {
                 val matching = MainActivity.audiobookLibrary.filter {
                     it.album.equals(bookItem.album, ignoreCase = true) &&
                     (bookItem.artist.isEmpty() || it.artist.equals(bookItem.artist, ignoreCase = true) || it.albumArtist.equals(bookItem.albumArtist, ignoreCase = true))

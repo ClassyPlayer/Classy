@@ -905,5 +905,12 @@
   "There is no stable version for this player yet.": "本播放器还没有稳定版本。",
   "To get updates now, set System Update → Update Channel to Beta.": "如需现在获取更新，请在“系统更新 → 更新渠道”中选择“测试版”。",
   "The update server sent an error.": "更新服务器返回了错误。",
-  "Try again later.": "请稍后再试。"
+  "Try again later.": "请稍后再试。",
+  "Audiobook Series": "有声书系列",
+  "No Audiobooks Found": "未找到有声书",
+  "Series Cover Flow": "系列封面流",
+  "Audiobook Series Cover Flow": "有声书系列封面流",
+  "Audiobook Speed": "有声书播放速度",
+  "Time left": "剩余时间",
+  "Stop Sleep Timer": "停止睡眠定时器"
 }

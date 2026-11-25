@@ -905,5 +905,12 @@
   "There is no stable version for this player yet.": "Todavía no hay una versión estable para este reproductor.",
   "To get updates now, set System Update → Update Channel to Beta.": "Para recibir actualizaciones ahora, elige Beta en Actualización del sistema → Canal de actualización.",
   "The update server sent an error.": "El servidor de actualizaciones devolvió un error.",
-  "Try again later.": "Inténtalo de nuevo más tarde."
+  "Try again later.": "Inténtalo de nuevo más tarde.",
+  "Audiobook Series": "Series de audiolibros",
+  "No Audiobooks Found": "No se encontraron audiolibros",
+  "Series Cover Flow": "Cover Flow de series",
+  "Audiobook Series Cover Flow": "Cover Flow de series de audiolibros",
+  "Audiobook Speed": "Velocidad de audiolibros",
+  "Time left": "Tiempo restante",
+  "Stop Sleep Timer": "Detener temporizador de apagado"
 }

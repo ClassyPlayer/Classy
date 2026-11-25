@@ -905,5 +905,12 @@
   "There is no stable version for this player yet.": "There is no stable version for this player yet.",
   "To get updates now, set System Update → Update Channel to Beta.": "To get updates now, set System Update → Update Channel to Beta.",
   "The update server sent an error.": "The update server sent an error.",
-  "Try again later.": "Try again later."
+  "Try again later.": "Try again later.",
+  "Audiobook Series": "Audiobook Series",
+  "No Audiobooks Found": "No Audiobooks Found",
+  "Series Cover Flow": "Series Cover Flow",
+  "Audiobook Series Cover Flow": "Audiobook Series Cover Flow",
+  "Audiobook Speed": "Audiobook Speed",
+  "Time left": "Time left",
+  "Stop Sleep Timer": "Stop Sleep Timer"
 }

@@ -37,6 +37,7 @@ import com.google.android.exoplayer2.upstream.DefaultAllocator
 import com.google.android.exoplayer2.upstream.DefaultDataSourceFactory
 import com.google.android.exoplayer2.util.Util
 import com.themoon.y1.MainActivity
+import com.themoon.y1.controllers.coverflow.AudiobookSeriesIndex
 import com.themoon.y1.R
 import com.themoon.y1.StoragePaths
 import com.themoon.y1.core.TimeFormat
@@ -72,6 +73,8 @@ class AudioPlayerManager private constructor() {
     private var lastPlaybackState: Int = Player.STATE_IDLE
 
     private var currentSpeed: Float = 1.0f
+    /** The speed of everything but audiobooks (Settings → Playback Speed). */
+    private var generalSpeed: Float = 1.0f
     private var currentMasterVolume: Float = 1.0f
 
     private var pendingScrobbleArtist: String? = null
@@ -243,13 +246,38 @@ class AudioPlayerManager private constructor() {
         applyMasterVolume()
     }
 
+    /**
+     * The speed of Settings → Playback Speed. While an audiobook plays it is the audiobook speed (kept for
+     * audiobooks only); otherwise it is the speed of music and podcasts, which audiobooks never change.
+     */
     fun setPlaybackSpeed(speed: Float) {
+        if (StoragePaths.isUnderAudiobooks(currentlyPlayingFilePath)) {
+            setAudiobookSpeed(speed)
+            return
+        }
+        generalSpeed = speed
         currentSpeed = speed
         exoPlayer?.setPlaybackParameters(PlaybackParameters(speed, 1.0f))
     }
 
+    /** The speed of the audiobooks: saved, so it stays after a restart, and never used by music. */
+    fun audiobookSpeed(): Float = MainActivity.instance?.prefs?.getFloat(AUDIOBOOK_SPEED_KEY, 1.0f) ?: 1.0f
+
+    /** Sets the audiobook speed now (when an audiobook plays) and for every audiobook after it. */
+    fun setAudiobookSpeed(speed: Float) {
+        MainActivity.instance?.prefs?.edit()?.putFloat(AUDIOBOOK_SPEED_KEY, speed)?.apply()
+        if (StoragePaths.isUnderAudiobooks(currentlyPlayingFilePath)) {
+            currentSpeed = speed
+            exoPlayer?.setPlaybackParameters(PlaybackParameters(speed, 1.0f))
+        }
+    }
+
+    /** The speed that [path] plays at: the audiobook speed for an audiobook, else the speed of Settings. */
+    private fun speedFor(path: String?): Float =
+        if (StoragePaths.isUnderAudiobooks(path)) audiobookSpeed() else generalSpeed
+
     fun setShuffleMode(isShuffle: Boolean) {
-        exoPlayer?.shuffleModeEnabled = isShuffle
+        exoPlayer?.shuffleModeEnabled = isShuffle && !StoragePaths.isUnderAudiobooks(currentlyPlayingFilePath)
     }
 
     fun setRepeatMode(mode: Int) {
@@ -388,7 +416,8 @@ class AudioPlayerManager private constructor() {
         main.currentPlaylist.clear()
         main.currentPlaylist.addAll(newList)
 
-        val isShuffle = Prefs.SHUFFLE.get(main.prefs)
+        // Shuffle never changes the order of an audiobook
+        val isShuffle = Prefs.SHUFFLE.get(main.prefs) && !StoragePaths.isUnderAudiobooks(targetSong.absolutePath)
         val repeatPref = Prefs.REPEAT_MODE.get(main.prefs)
         if (isShuffle) {
             shuffleWithFirst(main.currentPlaylist, targetSong)
@@ -421,6 +450,7 @@ class AudioPlayerManager private constructor() {
         exo.setMediaItems(main.currentPlaylist.map { MediaItem.fromUri(Uri.fromFile(it)) }, main.currentIndex, startMs)
         exo.shuffleModeEnabled = false
         exo.repeatMode = exoRepeatMode(repeatPref, gapless = true)
+        currentSpeed = speedFor(main.currentPlaylist.getOrNull(main.currentIndex)?.absolutePath)
         exo.setPlaybackParameters(PlaybackParameters(currentSpeed, 1.0f))
         exo.playWhenReady = play
         exo.prepare()
@@ -518,6 +548,7 @@ class AudioPlayerManager private constructor() {
             if (offsetMs > 0) {
                 exoPlayer?.seekTo(offsetMs.toLong())
             }
+            currentSpeed = speedFor(main.currentPlaylist.getOrNull(main.currentIndex)?.absolutePath)
             exoPlayer?.setPlaybackParameters(PlaybackParameters(currentSpeed, 1.0f))
 
             main.runOnUiThread {
@@ -657,8 +688,11 @@ class AudioPlayerManager private constructor() {
         main.updatePlayerUI()
     }
 
-    /** Plays queue entry [index] (the Queue list of the Now Playing menu), also when the player was paused. */
-    fun jumpTo(index: Int) {
+    /**
+     * Plays queue entry [index] (the Queue list of the Now Playing menu), also when the player was paused.
+     * [fromStart]: at 0, not at its audiobook or podcast bookmark (an audiobook chapter).
+     */
+    fun jumpTo(index: Int, fromStart: Boolean = false) {
         saveAudiobookBookmarkIfNeeded()
         val main = MainActivity.instance ?: return
         if (!canJumpTo(index, main.currentPlaylist.size)) return
@@ -676,7 +710,7 @@ class AudioPlayerManager private constructor() {
             return
         }
         main.currentIndex = index
-        prepareMusicTrack(index)
+        prepareMusicTrack(index, fromStart = fromStart)
         main.updatePlayerUI()
     }
 
@@ -718,6 +752,13 @@ class AudioPlayerManager private constructor() {
         main.updatePlayerUI()
     }
 
+    /** Seeks the current track to [positionMs] (a chapter of an .m4b) and saves the place. */
+    fun seekToMs(positionMs: Long) {
+        exoPlayer?.seekTo(positionMs.coerceAtLeast(0L))
+        // The first chapter is at 0: that place is saved too, so a restart does not reopen the old one
+        savePlaybackPositionOnly(sync = true, allowZero = true)
+    }
+
     fun seekRelative(offsetMs: Int, savePosition: Boolean = true) {
         val currentPos = getCurrentPosition().toLong()
         val duration = getDuration().toLong()
@@ -737,6 +778,7 @@ class AudioPlayerManager private constructor() {
 
         val track = main.currentPlaylist[index]
         currentlyPlayingFilePath = track.absolutePath
+        currentSpeed = speedFor(track.absolutePath)
         main.lastAlbumArtBytes = null
 
         if (!track.exists() || track.length() < 1024) {
@@ -946,7 +988,7 @@ class AudioPlayerManager private constructor() {
                 // Only this track is in ExoPlayer: Repeat All goes to the next track in handleTrackCompletion.
                 exoPlayer?.repeatMode = exoRepeatMode(Prefs.REPEAT_MODE.get(main.prefs), gapless = false)
 
-                val isShuffle = Prefs.SHUFFLE.get(main.prefs)
+                val isShuffle = Prefs.SHUFFLE.get(main.prefs) && !StoragePaths.isUnderAudiobooks(track.absolutePath)
                 exoPlayer?.shuffleModeEnabled = isShuffle
 
                 if (effectiveSeekMs > 0) {
@@ -1265,8 +1307,15 @@ class AudioPlayerManager private constructor() {
                         val editor = main.prefs.edit()
                             .putInt("book_pos_$filePath", getCurrentPosition())
                             .putInt("book_dur_$filePath", getDuration())
-                        if (isAudiobook) {
+                        // Only a file of the Audiobooks folders: music played while the audiobook mode flag was still
+                        // set must not become the audiobook that Continue opens.
+                        if (isAudiobook && StoragePaths.isUnderAudiobooks(filePath)) {
                             editor.putString("last_played_audiobook_path", filePath)
+                            // Each book folder remembers its own current file, so reopening a book from the
+                            // Series Cover Flow resumes at its chapter even after other books were played.
+                            for (dir in AudiobookSeriesIndex.foldersAbove(StoragePaths.getAudiobooksDirs(), java.io.File(filePath))) {
+                                editor.putString("audiobook_last_in_" + dir.absolutePath, filePath)
+                            }
                         }
                         editor.apply()
                     }
@@ -1995,8 +2044,28 @@ class AudioPlayerManager private constructor() {
                 .putBoolean("last_played_is_audiobook", main.isAudiobookLibraryMode)
                 .putBoolean("has_saved_playback_state", true)
 
-            if (main.isAudiobookLibraryMode || currentFile.absolutePath.contains("/Audiobooks")) {
+            if (StoragePaths.isUnderAudiobooks(currentFile.absolutePath)) {
                 editor.putString("last_played_audiobook_path", currentFile.absolutePath)
+                // Index each audiobook file once for series resume. The separate marker also handles
+                // upgrades where last_played_audiobook_path was already this file before the feature
+                // was enabled; comparing only that older key would otherwise skip the first series save.
+                if (main.prefs.getString("audiobook_series_indexed_path", null) != currentFile.absolutePath) {
+                    // The lookup needs the scanned library. While it is still loading (or does not hold this file
+                    // yet) nothing is cached, so the next save looks again; a confirmed standalone book is cached.
+                    val library = MainActivity.audiobookLibrary
+                    synchronized(library) {
+                        if (library.any { it.file.absolutePath == currentFile.absolutePath }) {
+                            val series = AudiobookSeriesIndex.seriesFolderForFile(
+                                library, StoragePaths.getAudiobooksDirs(), currentFile
+                            )
+                            if (series != null) {
+                                editor.putString("audiobook_series_last_played", series.absolutePath)
+                                    .putString("audiobook_series_last_book_${series.absolutePath}", currentFile.absolutePath)
+                            }
+                            editor.putString("audiobook_series_indexed_path", currentFile.absolutePath)
+                        }
+                    }
+                }
             }
 
             if (sync) editor.commit() else editor.apply()
@@ -2005,12 +2074,13 @@ class AudioPlayerManager private constructor() {
         }
     }
 
-    fun savePlaybackPositionOnly(sync: Boolean = false) {
+    /** [allowZero]: an explicit seek to 0 is saved; a periodic save at 0 (the player not loaded yet) is not. */
+    fun savePlaybackPositionOnly(sync: Boolean = false, allowZero: Boolean = false) {
         val main = MainActivity.instance ?: return
         if (isRestoringPlaybackState) return
         if (main.currentPlaylist.isEmpty() || main.currentIndex !in main.currentPlaylist.indices) return
         val pos = getCurrentPosition().toLong().coerceAtLeast(0L)
-        if (pos <= 0L) return
+        if (pos <= 0L && !allowZero) return
         val editor = main.prefs.edit().putLong("last_played_position", pos)
         val dur = getDuration().toLong().coerceAtLeast(0L)
         if (dur > 0L) editor.putLong("last_played_duration", dur)
@@ -2127,7 +2197,7 @@ class AudioPlayerManager private constructor() {
             main.isAudiobookLibraryMode = isAudiobook
             incompleteQueueStamp = if (missing > 0) queueStamp(main.currentPlaylist, main.originalPlaylist) else null
 
-            val isShuffle = Prefs.SHUFFLE.get(main.prefs)
+            val isShuffle = Prefs.SHUFFLE.get(main.prefs) && !isAudiobook
             val repeatPref = Prefs.REPEAT_MODE.get(main.prefs)
             isGaplessQueueActive = !isShuffle && shouldUseGaplessQueue(main.currentPlaylist)
             exoPlayer?.shuffleModeEnabled = isShuffle
@@ -2265,6 +2335,9 @@ class AudioPlayerManager private constructor() {
             factory.setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
             return factory
         }
+
+        /** The saved speed of the audiobooks. */
+        private const val AUDIOBOOK_SPEED_KEY = "audiobook_speed"
 
         /** After a USB storage share: the longest wait for the card before the play queue loads again. */
         private const val CARD_WAIT_MS = 60_000L

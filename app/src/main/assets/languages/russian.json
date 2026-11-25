@@ -905,5 +905,12 @@
   "There is no stable version for this player yet.": "Для этого плеера ещё нет стабильной версии.",
   "To get updates now, set System Update → Update Channel to Beta.": "Чтобы получать обновления сейчас, выберите Бета в Обновление системы → Канал обновлений.",
   "The update server sent an error.": "Сервер обновлений вернул ошибку.",
-  "Try again later.": "Повторите попытку позже."
+  "Try again later.": "Повторите попытку позже.",
+  "Audiobook Series": "Серии аудиокниг",
+  "No Audiobooks Found": "Аудиокниги не найдены",
+  "Series Cover Flow": "Cover Flow серий",
+  "Audiobook Series Cover Flow": "Cover Flow серий аудиокниг",
+  "Audiobook Speed": "Скорость аудиокниг",
+  "Time left": "Осталось",
+  "Stop Sleep Timer": "Остановить таймер сна"
 }
