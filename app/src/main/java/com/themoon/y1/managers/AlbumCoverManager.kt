@@ -374,22 +374,32 @@ class AlbumCoverManager private constructor() {
     /**
      * The cover of [track] at about the thumbnail size: the cover file of an older version, the file in the Covers
      * folder, the folder cover (cover.jpg, folder.jpg; only for a folder not in [readFolders]), else the embedded
-     * cover. Null when the track has none; throws on a read error (also OutOfMemoryError). Worker thread.
+     * cover. Null when the track has none; throws on a read error (also OutOfMemoryError), and when a cover is there
+     * but does not decode and no other source gives one. Worker thread.
      */
     private fun readTrackCover(track: File, readFolders: MutableSet<String>): Bitmap? {
+        var undecoded: String? = null
+        fun decodeFile(file: File): Bitmap? =
+            sampledFromFile(file.absolutePath, THUMB_SIZE, THUMB_SIZE).also { if (it == null) undecoded = file.path }
+
         MainActivity.instance?.prefs?.getString("album_art_${track.absolutePath}", null)?.let { path ->
-            if (File(path).exists()) sampledFromFile(path, THUMB_SIZE, THUMB_SIZE)?.let { return it }
+            val file = File(path)
+            if (file.exists()) decodeFile(file)?.let { return it }
         }
         val coversFile = File(StoragePaths.getCoversDir(), track.nameWithoutExtension + ".jpg")
-        if (coversFile.exists()) sampledFromFile(coversFile.absolutePath, THUMB_SIZE, THUMB_SIZE)?.let { return it }
+        if (coversFile.exists()) decodeFile(coversFile)?.let { return it }
         val folder = track.parentFile
         if (folder != null && readFolders.add(folder.absolutePath)) {
-            MediaLibraryManager.getInstance().findFolderCover(folder)?.let { folderCover ->
-                sampledFromFile(folderCover.absolutePath, THUMB_SIZE, THUMB_SIZE)?.let { return it }
-            }
+            MediaLibraryManager.getInstance().findFolderCover(folder)?.let { folderCover -> decodeFile(folderCover)?.let { return it } }
         }
-        val embedded = AudioPlayerManager.getInstance().readEmbeddedArt(track) ?: return null
-        return sampledFromBytes(embedded, THUMB_SIZE, THUMB_SIZE)
+        val embedded = AudioPlayerManager.getInstance().readEmbeddedArt(track)
+        if (embedded != null) {
+            sampledFromBytes(embedded, THUMB_SIZE, THUMB_SIZE)?.let { return it }
+            undecoded = "the embedded cover of ${track.path}"
+        }
+        // A cover that does not decode is a failed read, not "no art": the album is searched again at the next start
+        undecoded?.let { throw java.io.IOException("cover does not decode: $it") }
+        return null
     }
 
     /**
