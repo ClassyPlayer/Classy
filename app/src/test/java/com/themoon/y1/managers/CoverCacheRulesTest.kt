@@ -4,7 +4,11 @@ import com.themoon.y1.managers.CoverCacheRules.PregenAction
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
+import java.io.IOException
 import java.security.MessageDigest
 
 class CoverCacheRulesTest {
@@ -78,6 +82,87 @@ class CoverCacheRulesTest {
         assertEquals(null, CoverCacheRules.parseSignature(""))
         assertEquals(null, CoverCacheRules.parseSignature("42"))
         assertEquals(null, CoverCacheRules.parseSignature("albums-v0:42"))
+        assertEquals(null, CoverCacheRules.parseSignature("albums-v1:42"))
         assertEquals(null, CoverCacheRules.parseSignature(CoverCacheRules.formatSignature(1L) + "x"))
+    }
+
+    @Test
+    fun firstCover_cleanNoCover_recordsNoArt() {
+        val search = CoverCacheRules.firstCover("a", { listOf("b", "c") }) { null as String? }
+        assertNull(search.cover)
+        assertFalse(search.failed)
+        assertTrue(search.recordsNoArt)
+    }
+
+    @Test
+    fun firstCover_readsMoreOnlyWithoutACover() {
+        val search = CoverCacheRules.firstCover("a", { error("not needed") }) { "cover of $it" }
+        assertEquals("cover of a", search.cover)
+        assertFalse(search.recordsNoArt)
+    }
+
+    @Test
+    fun firstCover_takesTheFirstTrackWithACover() {
+        val read = ArrayList<String>()
+        val search = CoverCacheRules.firstCover("a", { listOf("b", "c", "d") }) { read.add(it); if (it == "c") "cover" else null }
+        assertEquals("cover", search.cover)
+        assertEquals(listOf("a", "b", "c"), read)
+    }
+
+    @Test
+    fun firstCover_afterAReadError_recordsNoNoArt() {
+        val search = CoverCacheRules.firstCover("a", { listOf("b") }) { if (it == "a") throw IOException("busy") else null as String? }
+        assertNull(search.cover)
+        assertTrue(search.failed)
+        assertFalse(search.recordsNoArt)
+    }
+
+    @Test
+    fun firstCover_continuesAfterAnException() {
+        val search = CoverCacheRules.firstCover("a", { listOf("b") }) { if (it == "a") throw RuntimeException("bad file") else "cover" }
+        assertEquals("cover", search.cover)
+    }
+
+    @Test
+    fun firstCover_stopsAfterOutOfMemory() {
+        val read = ArrayList<String>()
+        val search = CoverCacheRules.firstCover("a", { listOf("b") }) { read.add(it); if (it == "a") throw OutOfMemoryError() else "cover" }
+        assertNull(search.cover)
+        assertFalse(search.recordsNoArt)
+        assertEquals(listOf("a"), read)
+    }
+
+    private fun files(vararg paths: String) = paths.map { File(it) }
+
+    @Test
+    fun artCandidates_otherFoldersFirst_thenTheSameFolder() {
+        val first = File("/m/A/CD1/01.mp3")
+        val tracks = files("/m/A/CD1/01.mp3", "/m/A/CD1/02.mp3", "/m/A/CD1/03.mp3", "/m/A/CD2/01.mp3", "/m/A/CD2/02.mp3")
+        assertEquals(
+            files("/m/A/CD2/01.mp3", "/m/A/CD1/02.mp3", "/m/A/CD1/03.mp3"),
+            CoverCacheRules.artCandidates(first, tracks, 4)
+        )
+    }
+
+    @Test
+    fun artCandidates_spreadsTheSameFolderOverTheAlbum() {
+        val first = File("/m/A/01.mp3")
+        val tracks = (1..12).map { File("/m/A/%02d.mp3".format(it)) }
+        assertEquals(files("/m/A/02.mp3", "/m/A/04.mp3", "/m/A/07.mp3", "/m/A/10.mp3"), CoverCacheRules.artCandidates(first, tracks, 4))
+    }
+
+    @Test
+    fun artCandidates_keepsTheMaximum() {
+        val first = File("/m/A/CD1/01.mp3")
+        val tracks = (1..6).map { File("/m/A/CD$it/01.mp3") }
+        assertEquals(files("/m/A/CD2/01.mp3", "/m/A/CD3/01.mp3"), CoverCacheRules.artCandidates(first, tracks, 2))
+        assertTrue(CoverCacheRules.artCandidates(first, tracks, 0).isEmpty())
+        assertTrue(CoverCacheRules.artCandidates(first, listOf(first), 4).isEmpty())
+    }
+
+    @Test
+    fun unknownAlbum_hasNoOtherTracks() {
+        for (a in listOf(null, "", "  ", "Unknown Album", "unknown album ", "Unknown Book")) assertTrue("$a", CoverCacheRules.isUnknownAlbum(a))
+        assertFalse(CoverCacheRules.isUnknownAlbum("Unknown Pleasures"))
     }
 }

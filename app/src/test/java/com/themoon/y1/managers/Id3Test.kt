@@ -27,6 +27,26 @@ class Id3Test {
         assertEquals("2024", Id3.year(mp3(4, frame("TIT2", "Song", true), frame("TDRC", "2024-09-27", true))))
 
     @Test fun v23Tyer() = assertEquals("1999", Id3.year(mp3(3, frame("TYER", "1999", false))))
+
+    // TXXX: description, NUL, value(s); ID3v2.4 values NUL-separated (Picard), ID3v2.3 values joined with "/"
+    @Test fun scanTagsReadsTheReleaseTypeAndTheYearInOneWalk() {
+        val tags = Id3.scanTags(mp3(4, frame("TDRC", "2024-09-27", true), frame("TXXX", "MusicBrainz Album Type\u0000single\u0000remix", true)))
+        assertEquals("2024", tags.year)
+        assertEquals("single;remix", tags.releaseType)
+    }
+
+    @Test fun scanTagsReadsV23AndMp3tagReleaseType() {
+        assertEquals("Album/Live", Id3.scanTags(mp3(3, frame("TXXX", "MusicBrainz Album Type\u0000Album/Live", false))).releaseType)
+        assertEquals("ep", Id3.scanTags(mp3(4, frame("TXXX", "RELEASETYPE\u0000ep", true))).releaseType)
+    }
+
+    @Test fun scanTagsSkipsOtherTxxxFramesAndKeepsTdrcOverTyer() {
+        val tags = Id3.scanTags(mp3(4, frame("TXXX", "MusicBrainz Album Id\u00001b2c3d4e-0000-0000-0000-000000000000", true),
+            frame("TYER", "1999", true), frame("TDRC", "2001", true), frame("TYER", "1998", true)))
+        assertEquals("2001", tags.year)
+        assertNull(tags.releaseType)
+    }
+
     @Test fun noYearFrame() = assertNull(Id3.year(mp3(4, frame("TIT2", "Song", true))))
     @Test fun notId3() = assertNull(Id3.year(File.createTempFile("none", ".mp3").apply { writeBytes(ByteArray(40)); deleteOnExit() }))
 

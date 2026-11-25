@@ -898,4 +898,20 @@
   "Time left": "残り時間",
   "Stop Sleep Timer": "スリープタイマーを停止",
   "left": "残り"
+  "Previous Restarts Song": "前へで曲の頭に戻る",
+  "Show Singles": "シングルを表示",
+  "Show EPs": "EPを表示",
+  "Untagged Singles": "タグなしのシングル",
+  "1 Track": "1曲",
+  "Up to 3 Tracks": "3曲まで",
+  "Up to 5 Tracks": "5曲まで",
+  "All Albums": "すべてのアルバム",
+  "No Singles": "シングルなし",
+  "No EPs": "EPなし",
+  "Albums Only": "アルバムのみ",
+  "No Update for This Player": "このプレーヤー向けのアップデートはありません",
+  "There is no stable version for this player yet.": "このプレーヤー向けの安定版はまだありません。",
+  "To get updates now, set System Update → Update Channel to Beta.": "今すぐアップデートを受け取るには、「システムアップデート → アップデートチャンネル」で「ベータ版」を選んでください。",
+  "The update server sent an error.": "アップデートサーバーがエラーを返しました。",
+  "Try again later.": "しばらくしてからもう一度お試しください。"
 }

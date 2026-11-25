@@ -3,7 +3,6 @@ package com.themoon.y1.controllers.quiz
 import android.app.Activity
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.media.MediaMetadataRetriever
 import android.os.CountDownTimer
 import android.os.Handler
 import android.os.Looper
@@ -37,7 +36,6 @@ import com.themoon.y1.quiz.QuizLeaderboardManager
 import com.themoon.y1.views.Notice
 import com.themoon.y1.views.SquareImageView
 import java.io.File
-import java.io.FileInputStream
 import java.util.Locale
 
 /**
@@ -682,26 +680,8 @@ class MusicQuizController(
 
         // 5. Embedded art
         try {
-            val path = file.absolutePath
-            val lower = path.lowercase(Locale.US)
-            var embeddedBytes: ByteArray? = null
-            if (lower.endsWith(".m4a") || lower.endsWith(".alac")) {
-                val tags = AudioPlayerManager.getInstance().extractAlacMetadata(file)
-                if (tags.size > 5 && tags[5] != null) {
-                    embeddedBytes = tags[5] as? ByteArray
-                }
-            } else {
-                val mmr = MediaMetadataRetriever()
-                val fis = FileInputStream(file)
-                try {
-                    mmr.setDataSource(fis.fd)
-                    embeddedBytes = mmr.embeddedPicture
-                } finally {
-                    try { fis.close() } catch (ignored: Throwable) {}
-                    try { mmr.release() } catch (ignored: Throwable) {}
-                }
-            }
-            if (embeddedBytes != null && embeddedBytes.isNotEmpty()) {
+            val embeddedBytes = AudioPlayerManager.getInstance().readEmbeddedArt(file)
+            if (embeddedBytes != null) {
                 val bmp = AlbumCoverManager.decodeSampledBitmapFromByteArray(
                     embeddedBytes,
                     AlbumCoverManager.THUMB_SIZE,

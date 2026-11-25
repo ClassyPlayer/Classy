@@ -716,6 +716,22 @@ class AudioPlayerManager private constructor() {
         val main = MainActivity.instance ?: return
         if (main.currentPlaylist.isEmpty()) return
 
+        // Previous Restarts Song: back to the start of this song (gapless queue or not), playing or paused as it was.
+        // Only when the player holds the queue entry: after a missing file the one before stays loaded while a skip
+        // waits, and the path below cancels that skip.
+        val current = exoPlayer
+        val entry = main.currentPlaylist.getOrNull(main.currentIndex)
+        if (current != null && current.playbackState != Player.STATE_IDLE && entry != null &&
+            current.currentMediaItem?.playbackProperties?.uri == Uri.fromFile(entry) &&
+            PreviousButton.restarts(Prefs.PREVIOUS_RESTARTS.get(main.prefs), getCurrentPosition().toLong())
+        ) {
+            current.seekTo(0)
+            main.prefs.edit().putLong("last_played_position", 0L).apply()
+            saveAudiobookBookmarkIfNeeded()
+            main.updatePlayerUI()
+            return
+        }
+
         if (isGaplessQueueActive && exoPlayer != null) {
             val exo = exoPlayer ?: return
             if (exo.hasPrevious()) {
@@ -861,7 +877,7 @@ class AudioPlayerManager private constructor() {
                 a = song.artist.takeUnless { it == "Unknown Artist" || it == "Unknown Author" }
                 album = song.album.takeUnless { it == "Unknown Album" || it == "Unknown Book" }
             } else {
-                val tags = readTrackTags(track, includeArt = false)
+                val tags = readTrackTags(track)
                 t = tags.title
                 a = tags.artist
                 album = tags.album
@@ -1016,20 +1032,13 @@ class AudioPlayerManager private constructor() {
         }
     }
 
-    /** Title, artist and album of a file, and with [includeArt] its embedded cover. Any thread. */
-    internal class TrackTags(val title: String?, val artist: String?, val album: String?, val art: ByteArray?)
+    /** Title, artist and album of a file. Any thread. */
+    internal class TrackTags(val title: String?, val artist: String?, val album: String?)
 
-    internal fun readTrackTags(track: File, includeArt: Boolean): TrackTags {
-        val name = track.name.lowercase(Locale.US)
-        val tags = when {
-            name.endsWith(".opus") -> extractOpusMetadata(track, includeArt)
-            name.endsWith(".flac") -> extractFlacMetadata(track, includeArt)
-            name.endsWith(".m4a") || name.endsWith(".alac") -> extractAlacMetadata(track, includeArt)
-            name.endsWith(".ogg") -> extractOggVorbisMetadata(track, includeArt)
-            else -> null
-        }
+    internal fun readTrackTags(track: File): TrackTags {
+        val tags = parseOwnTags(track, includeArt = false)
         if (tags != null) {
-            return TrackTags(tags[0] as? String, tags[1] as? String, tags[2] as? String, if (includeArt) tags[5] as? ByteArray else null)
+            return TrackTags(tags[0] as? String, tags[1] as? String, tags[2] as? String)
         }
         var mmr: MediaMetadataRetriever? = null
         var fis: FileInputStream? = null
@@ -1044,14 +1053,48 @@ class AudioPlayerManager private constructor() {
             TrackTags(
                 mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE),
                 artist,
-                mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUM),
-                if (includeArt) mmr.embeddedPicture else null
+                mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUM)
             )
         } catch (ignored: Throwable) {
-            TrackTags(null, null, null, null)
+            TrackTags(null, null, null)
         } finally {
             try { fis?.close() } catch (ignored: Throwable) {}
             try { mmr?.release() } catch (ignored: Throwable) {}
+        }
+    }
+
+    /** The tags of [track] from the own parser of its format, or null for a format without one (MediaMetadataRetriever). */
+    private fun parseOwnTags(track: File, includeArt: Boolean): Array<Any?>? {
+        val name = track.name.lowercase(Locale.US)
+        return when {
+            name.endsWith(".opus") -> extractOpusMetadata(track, includeArt)
+            name.endsWith(".flac") -> extractFlacMetadata(track, includeArt)
+            name.endsWith(".m4a") || name.endsWith(".alac") -> extractAlacMetadata(track, includeArt)
+            name.endsWith(".ogg") -> extractOggVorbisMetadata(track, includeArt)
+            else -> null
+        }
+    }
+
+    /**
+     * The embedded cover of [track], or null when the file has none. The one reader of Now Playing, Cover Flow, the
+     * album lists, Play On and Music Quiz: the own parser of the format, then MediaMetadataRetriever when
+     * [retrieverReadsArt]. Throws on a read error (also OutOfMemoryError), so that a caller can tell it from "no cover".
+     * Any thread.
+     */
+    internal fun readEmbeddedArt(track: File): ByteArray? {
+        if (!track.canRead()) throw java.io.FileNotFoundException(track.path)
+        val parsed = parseOwnTags(track, includeArt = true)?.get(5) as? ByteArray
+        if (parsed != null && parsed.isNotEmpty()) return parsed
+        if (!retrieverReadsArt(track.name)) return null
+        val mmr = MediaMetadataRetriever()
+        var fis: FileInputStream? = null
+        try {
+            fis = FileInputStream(track)
+            mmr.setDataSource(fis.fd)
+            return mmr.embeddedPicture?.takeIf { it.isNotEmpty() }
+        } finally {
+            try { fis?.close() } catch (ignored: Throwable) {}
+            try { mmr.release() } catch (ignored: Throwable) {}
         }
     }
 
@@ -1141,7 +1184,7 @@ class AudioPlayerManager private constructor() {
             readPodcastCover(art, File(StoragePaths.getPodcastChannelDir(show), PodcastCover.FILE_NAME))
             return
         }
-        art.bytes = readTrackTags(track, includeArt = true).art
+        art.bytes = try { readEmbeddedArt(track) } catch (ignored: Throwable) { null }
         val bytes = art.bytes
         if (bytes != null && bytes.isNotEmpty()) {
             try {
@@ -1415,9 +1458,10 @@ class AudioPlayerManager private constructor() {
     fun extractOpusMetadata(file: File): Array<Any?> = extractOpusMetadata(file, true)
 
     fun extractOpusMetadata(file: File, includeArt: Boolean): Array<Any?> {
-        val tags = arrayOfNulls<Any>(13)
+        val tags = arrayOfNulls<Any>(14)
+        var opened: java.io.Closeable? = null // closed also after a read error
         try {
-            val fis = FileInputStream(file)
+            val fis = FileInputStream(file).also { opened = it }
             val bos = ByteArrayOutputStream()
             val header = ByteArray(27)
             var totalRead = 0
@@ -1519,6 +1563,8 @@ class AudioPlayerManager private constructor() {
                         tags[10] = comment.substring(comment.indexOf("=") + 1)
                     } else if (upper.startsWith("MOOD=") || upper.startsWith("AB:MOOD=")) {
                         appendMood(tags, comment)
+                    } else if (upper.startsWith("RELEASETYPE=") || upper.startsWith("MUSICBRAINZ_ALBUMTYPE=")) {
+                        appendReleaseType(tags, comment)
                     } else if (includeArt && upper.startsWith("METADATA_BLOCK_PICTURE=")) {
                         try {
                             val base64Data = comment.substring(23).replace("\\s".toRegex(), "")
@@ -1554,16 +1600,22 @@ class AudioPlayerManager private constructor() {
                     i++
                 }
             }
-        } catch (ignored: Exception) {}
+        } catch (e: Exception) {
+            // The cover reader (readEmbeddedArt) must tell a read error from a file without a cover
+            if (includeArt && tags[5] == null) throw e
+        } finally {
+            try { opened?.close() } catch (ignored: Exception) {}
+        }
         return tags
     }
 
     fun extractOggVorbisMetadata(file: File): Array<Any?> = extractOggVorbisMetadata(file, true)
 
     fun extractOggVorbisMetadata(file: File, includeArt: Boolean): Array<Any?> {
-        val tags = arrayOfNulls<Any>(13)
+        val tags = arrayOfNulls<Any>(14)
+        var opened: java.io.Closeable? = null // closed also after a read error
         try {
-            val fis = FileInputStream(file)
+            val fis = FileInputStream(file).also { opened = it }
             val bos = ByteArrayOutputStream()
             val header = ByteArray(27)
             var totalRead = 0
@@ -1680,6 +1732,8 @@ class AudioPlayerManager private constructor() {
                         tags[10] = comment.substring(comment.indexOf("=") + 1)
                     } else if (upper.startsWith("MOOD=") || upper.startsWith("AB:MOOD=")) {
                         appendMood(tags, comment)
+                    } else if (upper.startsWith("RELEASETYPE=") || upper.startsWith("MUSICBRAINZ_ALBUMTYPE=")) {
+                        appendReleaseType(tags, comment)
                     } else if (includeArt && upper.startsWith("METADATA_BLOCK_PICTURE=")) {
                         try {
                             val base64Data = comment.substring(23).replace("\\s".toRegex(), "")
@@ -1720,16 +1774,20 @@ class AudioPlayerManager private constructor() {
                     i++
                 }
             }
-        } catch (ignored: Exception) {}
+        } catch (ignored: Exception) {
+        } finally {
+            try { opened?.close() } catch (ignored: Exception) {}
+        }
         return tags
     }
 
     fun extractFlacMetadata(file: File): Array<Any?> = extractFlacMetadata(file, true)
 
     fun extractFlacMetadata(file: File, includeArt: Boolean): Array<Any?> {
-        val tags = arrayOfNulls<Any>(13)
+        val tags = arrayOfNulls<Any>(14)
+        var opened: java.io.Closeable? = null // closed also after a read error
         try {
-            val raf = RandomAccessFile(file, "r")
+            val raf = RandomAccessFile(file, "r").also { opened = it }
             val header = ByteArray(4)
             raf.readFully(header)
 
@@ -1804,6 +1862,8 @@ class AudioPlayerManager private constructor() {
                                 tags[10] = comment.substring(comment.indexOf("=") + 1)
                             } else if (upper.startsWith("MOOD=") || upper.startsWith("AB:MOOD=")) {
                                 appendMood(tags, comment)
+                            } else if (upper.startsWith("RELEASETYPE=") || upper.startsWith("MUSICBRAINZ_ALBUMTYPE=")) {
+                                appendReleaseType(tags, comment)
                             }
                             i++
                         }
@@ -1828,16 +1888,22 @@ class AudioPlayerManager private constructor() {
                 }
             }
             raf.close()
-        } catch (ignored: Exception) {}
+        } catch (e: Exception) {
+            // The cover reader (readEmbeddedArt) must tell a read error from a file without a cover
+            if (includeArt && tags[5] == null) throw e
+        } finally {
+            try { opened?.close() } catch (ignored: Exception) {}
+        }
         return tags
     }
 
     fun extractAlacMetadata(file: File): Array<Any?> = extractAlacMetadata(file, true)
 
     fun extractAlacMetadata(file: File, includeArt: Boolean): Array<Any?> {
-        val tags = arrayOfNulls<Any>(12)
+        val tags = arrayOfNulls<Any>(14)
+        var opened: java.io.Closeable? = null // closed also after a read error
         try {
-            val raf = RandomAccessFile(file, "r")
+            val raf = RandomAccessFile(file, "r").also { opened = it }
             val fileSize = raf.length()
             var pos = 0L
             val iso88591 = Charset.forName("ISO-8859-1")
@@ -1855,6 +1921,15 @@ class AudioPlayerManager private constructor() {
                     if (type == "meta") pos += 4
                     pos += 8
                     continue
+                }
+
+                if (type == "----" && size in 9..MAX_FREEFORM_ATOM) {
+                    // [13]: the release type of a freeform atom (com.apple.iTunes:MusicBrainz Album Type)
+                    val box = ByteArray(size - 8)
+                    raf.readFully(box)
+                    mp4FreeformReleaseType(box)?.let { value ->
+                        tags[13] = ((tags[13] as? String)?.let { "$it;" } ?: "") + value
+                    }
                 }
 
                 if (type == "mvhd" && size >= 28) {
@@ -1912,7 +1987,10 @@ class AudioPlayerManager private constructor() {
                 pos += size
             }
             raf.close()
-        } catch (ignored: Exception) {}
+        } catch (ignored: Exception) {
+        } finally {
+            try { opened?.close() } catch (ignored: Exception) {}
+        }
         return tags
     }
 
@@ -2357,6 +2435,47 @@ internal fun <T> shuffleWithFirst(list: MutableList<T>, first: T) {
     list.add(0, first)
 }
 
+/** The largest MP4 freeform ("----") atom that the tag reader reads; the ones with a release type are small. */
+internal const val MAX_FREEFORM_ATOM = 4096
+
+/**
+ * The release type in the [body] of an MP4 freeform atom ("----": a "mean", a "name" and one or more "data" atoms),
+ * when its name is "MusicBrainz Album Type" (Picard) or "RELEASETYPE"; several data atoms are joined with ";".
+ * Null for any other freeform atom or a broken one.
+ */
+internal fun mp4FreeformReleaseType(body: ByteArray): String? {
+    fun int(at: Int) = ((body[at].toInt() and 0xFF) shl 24) or ((body[at + 1].toInt() and 0xFF) shl 16) or
+        ((body[at + 2].toInt() and 0xFF) shl 8) or (body[at + 3].toInt() and 0xFF)
+    var name: String? = null
+    val values = ArrayList<String>()
+    var pos = 0
+    while (pos + 8 <= body.size) {
+        val size = int(pos)
+        if (size < 8 || pos + size > body.size) return null
+        val type = String(body, pos + 4, 4, Charsets.ISO_8859_1)
+        when (type) {
+            // 4 bytes of version and flags, then the text
+            "name" -> if (size >= 12) name = String(body, pos + 12, size - 12, Charsets.UTF_8)
+            // 4 bytes of type, 4 bytes of locale, then the value
+            "data" -> if (size > 16) values.add(String(body, pos + 16, size - 16, Charsets.UTF_8))
+        }
+        pos += size
+    }
+    if (name == null || values.isEmpty()) return null
+    if (!name.equals("MusicBrainz Album Type", ignoreCase = true) && !name.equals("RELEASETYPE", ignoreCase = true)) return null
+    return values.joinToString(";").takeIf { it.isNotBlank() }
+}
+
+/**
+ * Adds the value of the Vorbis comment [comment] ("RELEASETYPE=single", or "MUSICBRAINZ_ALBUMTYPE=album") to the
+ * release type in tags[13]. Picard writes one comment per type, so they are joined with ";" (see ReleaseTypes).
+ */
+internal fun appendReleaseType(tags: Array<Any?>, comment: String) {
+    val value = comment.substring(comment.indexOf("=") + 1).trim()
+    if (value.isEmpty()) return
+    tags[13] = ((tags[13] as? String)?.let { "$it;" } ?: "") + value
+}
+
 /**
  * Adds the value of the Vorbis comment [comment] ("MOOD=happy" or Picard's "AB:MOOD=Happy") to the moods in tags[12],
  * several moods joined by "; ". AB:MOOD (AcousticBrainz) lists a negative for each mood it does not find ("Not happy"):
@@ -2367,4 +2486,13 @@ internal fun appendMood(tags: Array<Any?>, comment: String) {
     val mood = comment.substring(eq + 1).trim()
     if (mood.isEmpty() || (comment.startsWith("AB:", ignoreCase = true) && mood.startsWith("not ", ignoreCase = true))) return
     tags[12] = ((tags[12] as? String)?.let { "$it; " } ?: "") + mood
+}
+
+/**
+ * True when MediaMetadataRetriever reads the embedded cover of [fileName] after the own parser of the format found none
+ * (Cover Flow read .m4a and .ogg covers with it before). Not for Opus and FLAC: their parsers read all the pictures.
+ */
+internal fun retrieverReadsArt(fileName: String): Boolean {
+    val name = fileName.lowercase(Locale.US)
+    return !name.endsWith(".opus") && !name.endsWith(".flac")
 }
