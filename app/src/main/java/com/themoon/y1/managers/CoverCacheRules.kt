@@ -39,9 +39,11 @@ object CoverCacheRules {
         return sum xor (count * 0x5851F42D4C957F2DL)
     }
 
-    private const val SIGNATURE_PREFIX = "albums-v1:"
+    // v2: the cover search changed (other tracks of the album, no "no art" after a read error). A v1 signature does not
+    // match, so one pre-generation runs at the next Cover Flow entry and searches the albums of the old ".noart" markers.
+    private const val SIGNATURE_PREFIX = "albums-v2:"
 
-    /** Text of the signature file. The prefix changes when the signature method changes. */
+    /** Text of the signature file. The prefix changes when the signature method or the cover search changes. */
     fun formatSignature(signature: Long): String = SIGNATURE_PREFIX + signature
 
     /** Signature from the file text, or null when the text is not from [formatSignature]. */

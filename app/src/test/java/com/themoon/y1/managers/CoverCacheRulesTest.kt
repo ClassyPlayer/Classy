@@ -82,6 +82,7 @@ class CoverCacheRulesTest {
         assertEquals(null, CoverCacheRules.parseSignature(""))
         assertEquals(null, CoverCacheRules.parseSignature("42"))
         assertEquals(null, CoverCacheRules.parseSignature("albums-v0:42"))
+        assertEquals(null, CoverCacheRules.parseSignature("albums-v1:42"))
         assertEquals(null, CoverCacheRules.parseSignature(CoverCacheRules.formatSignature(1L) + "x"))
     }
 
