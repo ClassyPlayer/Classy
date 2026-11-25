@@ -1,5 +1,6 @@
 package com.themoon.y1.navigation
 
+import com.themoon.y1.models.SortName
 import java.text.Normalizer
 import java.util.ArrayDeque
 import java.util.Locale
@@ -53,13 +54,13 @@ object LetterJump {
 
     /**
      * The index letter of a row: the first letter in upper case without accents ("Émile" → "E"),
-     * "#" for a digit or a symbol, the initial consonant for Hangul. With [skipThe], a leading "The " is
-     * ignored ("The Who" → "W"). Null for a blank row.
+     * "#" for a digit or a symbol, the initial consonant for Hangul. With [skipThe], the letter of the
+     * [SortName] ("The Who" → "W"). Null for a blank row.
      */
     fun letterOf(text: String?, skipThe: Boolean = true): String? {
         var s = text?.trim() ?: return null
         if (s.isEmpty()) return null
-        if (skipThe && s.length > 4 && s.startsWith("The ", ignoreCase = true)) s = s.substring(4).trimStart()
+        if (skipThe) s = SortName.of(s)
         val cp = s.codePointAt(0)
         if (cp in 0xAC00..0xD7A3) return HANGUL_INITIALS[(cp - 0xAC00) / (21 * 28)].toString()
         if (!Character.isLetter(cp)) return "#"

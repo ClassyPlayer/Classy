@@ -11,7 +11,7 @@ object AssetInstaller {
         val lastInstalledVersion = prefs.getInt("last_lang_version", 0)
         // 1013: the Books strings; 1014: the Photos strings; 1015: Hold Back for Now Playing; 1016-1019: the WebDAV Sync strings
         // (1017-1019: more of them, for a player with a test build of the one before); 1020: Sort by Year;
-        // 1021: No Duplicates in Playlists; 1023: Previous Restarts Song (1022 is the Cover Flow release types branch)
+        // 1021: No Duplicates in Playlists; 1022: Settings → Cover Flow (singles and EPs); 1023: Previous Restarts Song
         val currentPackVersion = 1023
         if (lastInstalledVersion >= currentPackVersion) return
 

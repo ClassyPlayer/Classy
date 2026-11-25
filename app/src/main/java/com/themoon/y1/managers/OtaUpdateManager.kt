@@ -191,6 +191,7 @@ class OtaUpdateManager(
         ))
 
         Thread {
+            var channel = UpdateChannel.STABLE
             try {
                 val wm = activity.applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
                 var connected = isNetworkConnected()
@@ -237,21 +238,16 @@ class OtaUpdateManager(
                     myVersionCode = pInfo.versionCode
                 } catch (_: Exception) {}
 
-                val channel = UpdateChannel.current(AppPrefs.get(activity), myVersionName)
+                channel = UpdateChannel.current(AppPrefs.get(activity), myVersionName)
                 val client = getUpdateHttpClient()
                 // The channel picks the release, the player picks the metadata file in it (update.json or update-y1.json).
-                // Stable: the release marked Latest. Beta: the newest release with that file, a beta or not
-                val manifest = manifestName()
-                val manifestUrls = if (channel == UpdateChannel.BETA) {
-                    UpdateChannel.manifestUrls(fetch(client, UpdateChannel.RELEASES_API_URL), manifest)
-                        .ifEmpty { throw Exception("No release with $manifest") }
-                } else {
-                    listOf(updateJsonUrl())
-                }
+                // Stable: the release marked Latest (else the newest stable release with that file). Beta: the newest
+                // release with that file, a beta or not
+                val manifestTexts = UpdateChannel.manifestTexts(channel, manifestName(), updateJsonUrl()) { fetch(client, it) }
                 var root = JSONObject()
-                for (manifestUrl in manifestUrls) {
+                for (manifestText in manifestTexts) {
                     if (cancelled.get()) return@Thread
-                    root = JSONObject(fetch(client, manifestUrl))
+                    root = JSONObject(manifestText)
                     // A release with older code than this build (a hotfix, a promoted older beta) can have the newest
                     // tag: then the next older release can still be a newer beta
                     val serverMainCommits = root.optInt(UpdateChannel.MAIN_COMMITS_KEY, 0)
@@ -285,7 +281,7 @@ class OtaUpdateManager(
                 activity.runOnUiThread {
                     if (cancelled.get()) return@runOnUiThread
                     ActionScreens.close(key)
-                    showUpdateErrorDialog(e.message ?: "Network error")
+                    showUpdateErrorDialog(e, channel)
                 }
             }
         }.start()
@@ -326,7 +322,7 @@ class OtaUpdateManager(
         ActionScreens.open(ActionScreens.Spec(localize("Up to Date"), info))
     }
 
-    /** The body of a GET of [url] as text; an HTTP error status throws. */
+    /** The body of a GET of [url] as text; an HTTP error status throws [UpdateChannel.HttpStatusException]. */
     private fun fetch(client: OkHttpClient, url: String): String {
         val request = Request.Builder()
             .url(url)
@@ -334,7 +330,7 @@ class OtaUpdateManager(
             .header("Accept", "application/vnd.github+json, application/json")
             .build()
         client.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) throw Exception("HTTP ${response.code()}")
+            if (!response.isSuccessful) throw UpdateChannel.HttpStatusException(response.code())
             return response.body()?.string() ?: ""
         }
     }
@@ -353,12 +349,31 @@ class OtaUpdateManager(
         }
     }
 
-    @Suppress("UNUSED_PARAMETER")
-    private fun showUpdateErrorDialog(errorMsg: String) {
-        ActionScreens.open(ActionScreens.Spec(
-            localize("Update Check Failed"),
-            listOf(localize("Unable to check for updates. Check internet connection."))
-        ))
+    /**
+     * Why the check of [channel] failed: no release has the update for this player, the server answered with an error
+     * status (for example the GitHub rate limit), or no answer came (network).
+     */
+    private fun showUpdateErrorDialog(e: Throwable, channel: String) {
+        val spec = when {
+            e is UpdateChannel.NoManifestException && channel == UpdateChannel.STABLE -> ActionScreens.Spec(
+                localize("No Update for This Player"),
+                listOf(localize("There is no stable version for this player yet."),
+                    localize("To get updates now, set System Update → Update Channel to Beta."))
+            )
+            e is UpdateChannel.NoManifestException -> ActionScreens.Spec(
+                localize("No Update for This Player"),
+                listOf(localize("Keep this version until there is an update for this player."))
+            )
+            e is UpdateChannel.HttpStatusException -> ActionScreens.Spec(
+                localize("Update Check Failed"),
+                listOf("${localize("The update server sent an error.")} (HTTP ${e.code})", localize("Try again later."))
+            )
+            else -> ActionScreens.Spec(
+                localize("Update Check Failed"),
+                listOf(localize("Unable to check for updates. Check internet connection."))
+            )
+        }
+        ActionScreens.open(spec)
     }
 
     /** Downloads the update on a progress screen, then installs it. Back stops the download. */
@@ -450,8 +465,14 @@ class OtaUpdateManager(
                         return@postDelayed
                     }
                     Thread {
-                        installApk(file)
-                        downloadRunning.set(false)
+                        try {
+                            installApk(file)
+                        } catch (_: Throwable) {
+                            // Also an Error (for example an API that this Android does not have): a notice, not a crash
+                            activity.runOnUiThread { Notice.error(activity, localize("Install Failed.")) }
+                        } finally {
+                            downloadRunning.set(false)
+                        }
                     }.start()
                 }, 1000)
             } catch (_: Exception) {

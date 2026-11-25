@@ -24,18 +24,20 @@ Requires: pip install mutagen
 import argparse
 import json
 import os
+import re
 import sys
 from pathlib import Path
 
 try:
     from mutagen import File as MutagenFile
     from mutagen.mp4 import MP4
+    from mutagen.id3 import ID3
 except ImportError:
     print("This script needs the 'mutagen' package: pip install mutagen", file=sys.stderr)
     sys.exit(1)
 
 # Same value as MediaLibraryManager.CACHE_VERSION in the app.
-CACHE_VERSION = 3
+CACHE_VERSION = 4
 
 # Keep this in sync with isAudioFile() in MainActivity.java
 AUDIO_EXTENSIONS = {".mp3", ".flac", ".wav", ".ogg", ".m4a", ".aac", ".ape", ".wma", ".opus", ".m4b"}
@@ -107,6 +109,45 @@ def read_compilation(local_path: Path, tags):
     return False
 
 
+def normalize_release_type(raw):
+    """As ReleaseTypes.normalize in the app: lower case, split on , ; / and NUL ("mixtape/street" stays one), joined with ";"."""
+    held = str(raw or "").lower().replace("mixtape/street", "mixtape\x01street")
+    tokens = []
+    for part in re.split(r"[,;/\x00]", held):
+        token = part.replace("mixtape\x01street", "mixtape/street").strip().strip("\ufeff").strip()
+        if token and token not in tokens:
+            tokens.append(token)
+    return ";".join(tokens)
+
+
+def read_release_type(local_path: Path, tags):
+    """The release type as the app reads it: Vorbis RELEASETYPE / MUSICBRAINZ_ALBUMTYPE, ID3 TXXX "MusicBrainz Album Type"
+    or "RELEASETYPE", MP4 freeform "MusicBrainz Album Type" or "RELEASETYPE". WAV, AAC, APE and WMA files have none in the app."""
+    suffix = local_path.suffix.lower()
+    values = []
+    if suffix in (".flac", ".ogg", ".opus"):
+        for key in ("releasetype", "musicbrainz_albumtype"):
+            values += [str(v) for v in (tags.get(key) or [])]
+    elif suffix == ".mp3":
+        try:
+            id3 = ID3(local_path)
+            for frame in id3.getall("TXXX"):
+                if frame.desc.lower() in ("musicbrainz album type", "releasetype"):
+                    values += [str(v) for v in frame.text]
+        except Exception:
+            pass
+    elif suffix in (".m4a", ".m4b"):
+        try:
+            mp4 = MP4(local_path)
+            for key, items in (mp4.tags or {}).items():
+                name = key.split(":")[-1].lower() if key.startswith("----:") else ""
+                if name in ("musicbrainz album type", "releasetype"):
+                    values += [bytes(v).decode("utf-8", "replace") for v in items]
+        except Exception:
+            pass
+    return normalize_release_type(";".join(values))
+
+
 def scan_folder(local_root: Path, device_root: str):
     entries = []
     for dirpath, dirnames, filenames in os.walk(local_root):
@@ -122,6 +163,7 @@ def scan_folder(local_root: Path, device_root: str):
             title = artist = album = year = genre = album_artist = composer = mood = ""
             track_num = 0
             compilation = False
+            release_type = ""
             duration_ms = 0
             try:
                 audio = MutagenFile(local_path, easy=True)
@@ -142,6 +184,9 @@ def scan_folder(local_root: Path, device_root: str):
                         mood = read_moods(tags)
                     track_num = extract_track_number(first_tag(tags, "tracknumber", "track"))
                     compilation = read_compilation(local_path, tags)
+                # Outside the easy-tag check: an MP3 or M4A whose only tag is the release type has no easy tags
+                if audio is not None:
+                    release_type = read_release_type(local_path, audio.tags or {})
             except Exception as e:
                 print(f"  ! couldn't read tags from {local_path}: {e}", file=sys.stderr)
 
@@ -175,6 +220,9 @@ def scan_folder(local_root: Path, device_root: str):
                 entry["compilation"] = True
             if mood:
                 entry["mood"] = mood
+            # As the app writes it: only when the file has a release type tag.
+            if release_type:
+                entry["releaseType"] = release_type
             entries.append(entry)
     return entries
 

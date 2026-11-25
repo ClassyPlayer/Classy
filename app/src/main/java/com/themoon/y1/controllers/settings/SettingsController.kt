@@ -19,6 +19,7 @@ import com.themoon.y1.changeTheme
 import com.themoon.y1.FeatureVisibility
 import com.themoon.y1.ThemeManager
 import com.themoon.y1.controllers.ScreenController
+import com.themoon.y1.controllers.coverflow.CoverFlowAlbums
 import com.themoon.y1.controllers.menu.MainMenuItems
 import com.themoon.y1.controllers.menu.MenuItem
 import com.themoon.y1.controllers.menu.MenuItems
@@ -47,6 +48,7 @@ import com.themoon.y1.navigation.PadWheel
 import com.themoon.y1.navigation.ScreenState
 import com.themoon.y1.navigation.SettingsSubMode
 import com.themoon.y1.sync.jellyfin.JellyfinSyncProvider
+import com.themoon.y1.sync.webdav.WebDavSyncProvider
 import com.themoon.y1.views.ListEdges
 import com.themoon.y1.views.ListGlide
 import com.themoon.y1.views.ListItemViewFactory
@@ -213,6 +215,10 @@ class SettingsController(
             toggle("Group Albums", Prefs.GROUP_ALBUMS_BY_ARTIST, { localize(if (it) "By Title and Artist" else "By Title") }) {
                 applyAlbumGrouping()
             },
+            // Which albums Cover Flow shows: without the singles and EPs (issue #140). Albums and Artists keep them
+            action("Cover Flow", { localize(CoverFlowAlbums.summary(CoverFlowAlbums.Filter.of(prefs))) }, opens = true) {
+                openPage("CoverFlow")
+            },
         )),
         // The rows that change the click sound or vibration give the click after the change: it plays the new value
         SettingsGroup("Controls", listOf(
@@ -267,7 +273,7 @@ class SettingsController(
                 ) { onClearCacheConfirmed() })
             },
             action("Jellyfin Sync", { JellyfinSyncProvider.getInstance(activity).getStatusSummary() }, opens = true) { onOpenJellyfin() },
-            action("WebDAV Sync", { com.themoon.y1.sync.webdav.WebDavSyncProvider.getInstance(activity).getStatusSummary() }, opens = true) { onOpenWebDav() },
+            action("WebDAV Sync", { WebDavSyncProvider.getInstance(activity).getStatusSummary() }, opens = true) { onOpenWebDav() },
             toggle("No Duplicates in Playlists", Prefs.PLAYLIST_NO_DUPLICATES),
             toggle("Sync Scrobbles to Last.fm", { scrobbler().isEnabled() }, { scrobbler().setEnabled(it) }),
             action("Last.fm Account", { lastFmAccountText() }, opens = true) { openLastFmAccount() },
@@ -334,6 +340,7 @@ class SettingsController(
                 "UpdateChannel" -> return updateChannelList()
                 "MainMenuItems" -> return mainMenuItemsSpec()
                 "MusicMenuItems" -> return musicMenuItemsSpec()
+                "CoverFlow" -> return ListSpec(localize("Cover Flow"), coverFlowRows.filter { it.visible() }.map { it.make() })
                 BATTERY_USAGE -> return batteryUsageSpec()
             }
         }
@@ -841,6 +848,17 @@ class SettingsController(
             menu.saveOrder(prefs, ids)
             Notice.show(activity, localize("Menu order saved!"))
         })
+
+    /**
+     * Settings → Menus → Cover Flow: the albums with the release type Single or EP show or not (ReleaseTypes). Untagged
+     * Singles counts an album with no type and few tracks as a single; it is grey while the singles show.
+     */
+    private val coverFlowRows: List<SettingRow> by lazy { with(rows) { listOf(
+        toggle("Show Singles", Prefs.COVER_FLOW_SINGLES) { mainActivity?.rebuildUniqueAlbumList() },
+        toggle("Show EPs", Prefs.COVER_FLOW_EPS) { mainActivity?.rebuildUniqueAlbumList() },
+        cycle("Untagged Singles", Prefs.COVER_FLOW_UNTAGGED_SINGLES, CoverFlowAlbums.UNTAGGED_SINGLE_LABELS, CoverFlowAlbums::validUntaggedStep,
+            enabled = { !Prefs.COVER_FLOW_SINGLES.get(prefs) }) { mainActivity?.rebuildUniqueAlbumList() },
+    ) } }
 
     /** Reads Group Albums and rebuilds the album lists, so the next Albums or Cover Flow screen uses it. */
     private fun applyAlbumGrouping() {

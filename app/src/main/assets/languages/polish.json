@@ -890,5 +890,20 @@
   "Sort by Year": "Sortuj według roku",
   "No Duplicates in Playlists": "Bez duplikatów w playlistach",
   "Already in Playlist": "Już jest na playliście",
-  "Previous Restarts Song": "Poprzedni od początku utworu"
+  "Previous Restarts Song": "Poprzedni od początku utworu",
+  "Show Singles": "Pokaż single",
+  "Show EPs": "Pokaż EP-ki",
+  "Untagged Singles": "Single bez tagu",
+  "1 Track": "1 utwór",
+  "Up to 3 Tracks": "Do 3 utworów",
+  "Up to 5 Tracks": "Do 5 utworów",
+  "All Albums": "Wszystkie albumy",
+  "No Singles": "Bez singli",
+  "No EPs": "Bez EP-ek",
+  "Albums Only": "Tylko albumy",
+  "No Update for This Player": "Brak aktualizacji dla tego odtwarzacza",
+  "There is no stable version for this player yet.": "Nie ma jeszcze wersji stabilnej dla tego odtwarzacza.",
+  "To get updates now, set System Update → Update Channel to Beta.": "Aby dostać aktualizacje teraz, ustaw Aktualizacja systemu → Kanał aktualizacji na Beta.",
+  "The update server sent an error.": "Serwer aktualizacji zwrócił błąd.",
+  "Try again later.": "Spróbuj ponownie później."
 }

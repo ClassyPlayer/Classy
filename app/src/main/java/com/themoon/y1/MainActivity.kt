@@ -61,6 +61,7 @@ import com.themoon.y1.controllers.settings.EqualizerController
 import com.themoon.y1.controllers.settings.SettingsController
 import com.themoon.y1.controllers.storage.StorageController
 import com.themoon.y1.controllers.sync.JellyfinUiController
+import com.themoon.y1.controllers.sync.WebDavUiController
 import com.themoon.y1.controllers.videos.VideoBrowserController
 import com.themoon.y1.controllers.videos.VideoPlayerController
 import com.themoon.y1.controllers.games.GamePlayerController
@@ -361,7 +362,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     lateinit var brightnessController: BrightnessController
     lateinit var storageController: StorageController
     lateinit var jellyfinUiController: JellyfinUiController
-    lateinit var webDavUiController: com.themoon.y1.controllers.sync.WebDavUiController
+    lateinit var webDavUiController: WebDavUiController
     lateinit var webServerController: WebServerController
     var otaUpdateManager: OtaUpdateManager? = null
     var externalSdMountMonitor: ExternalSdMountMonitor? = null

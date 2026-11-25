@@ -207,7 +207,9 @@ class MediaLibraryManager private constructor() {
         val compilationTag: Boolean,
         val mood: String,
         val trackNum: Int,
-        val durationMs: Long = 0L
+        val durationMs: Long = 0L,
+        /** The release type tag, normalized ([com.themoon.y1.models.ReleaseTypes.normalize]); empty when none. */
+        val releaseType: String = ""
     )
 
     internal fun extractAudioMetadata(f: File, isAudiobook: Boolean): ExtractedAudioMetadata {
@@ -223,6 +225,7 @@ class MediaLibraryManager private constructor() {
         var composer: String? = null
         var compilation = false
         var mood = ""
+        var releaseType = ""
         var trackNum = 0
         var durationMs = 0L
 
@@ -236,6 +239,7 @@ class MediaLibraryManager private constructor() {
             var aa: String? = null
             var cp: String? = null
             var cpl: String? = null
+            var rt: String? = null
             var trackStr: String? = null
 
             val apm = AudioPlayerManager.getInstance()
@@ -252,6 +256,7 @@ class MediaLibraryManager private constructor() {
                 if (tags.size > 10 && tags[10] != null) cpl = tags[10] as? String
                 if (tags.size > 11) durationMs = tags[11] as? Long ?: 0L
                 if (tags.size > 12 && tags[12] != null) mood = tags[12] as? String ?: ""
+                if (tags.size > 13 && tags[13] != null) rt = tags[13] as? String
             } else if (lower.endsWith(".flac")) {
                 val tags = apm.extractFlacMetadata(f, false)
                 if (tags[0] != null) t = tags[0] as? String
@@ -265,6 +270,7 @@ class MediaLibraryManager private constructor() {
                 if (tags.size > 10 && tags[10] != null) cpl = tags[10] as? String
                 if (tags.size > 11) durationMs = tags[11] as? Long ?: 0L
                 if (tags.size > 12 && tags[12] != null) mood = tags[12] as? String ?: ""
+                if (tags.size > 13 && tags[13] != null) rt = tags[13] as? String
             } else if (lower.endsWith(".m4a") || lower.endsWith(".m4b")) {
                 val tags = apm.extractAlacMetadata(f, false)
                 if (tags[0] != null) t = tags[0] as? String
@@ -277,6 +283,7 @@ class MediaLibraryManager private constructor() {
                 if (tags.size > 9 && tags[9] != null) cp = tags[9] as? String
                 if (tags.size > 10 && tags[10] != null) cpl = tags[10] as? String
                 if (tags.size > 11) durationMs = tags[11] as? Long ?: 0L
+                if (tags.size > 13 && tags[13] != null) rt = tags[13] as? String
             } else if (lower.endsWith(".ogg")) {
                 val tags = apm.extractOggVorbisMetadata(f, false)
                 if (tags[0] != null) t = tags[0] as? String
@@ -290,6 +297,7 @@ class MediaLibraryManager private constructor() {
                 if (tags.size > 10 && tags[10] != null) cpl = tags[10] as? String
                 if (tags.size > 11) durationMs = tags[11] as? Long ?: 0L
                 if (tags.size > 12 && tags[12] != null) mood = tags[12] as? String ?: ""
+                if (tags.size > 13 && tags[13] != null) rt = tags[13] as? String
             } else {
                 var mmr: android.media.MediaMetadataRetriever? = null
                 var fis: java.io.FileInputStream? = null
@@ -315,9 +323,13 @@ class MediaLibraryManager private constructor() {
                     try { fis?.close() } catch (_: Throwable) {}
                     try { mmr?.release() } catch (_: Throwable) {}
                 }
-                // Android 4.4 gives no year for an ID3v2.4 tag (TDRC), so read it from the file. After the retriever
-                // is released, so nothing here costs the file its other tags
-                if (y.isNullOrBlank() && lower.endsWith(".mp3")) y = Id3.year(f)
+                // Android 4.4 gives no year for an ID3v2.4 tag (TDRC), and no TXXX frames (the release type), so read
+                // them from the file. After the retriever is released, so nothing here costs the file its other tags
+                if (lower.endsWith(".mp3")) {
+                    val id3 = Id3.scanTags(f)
+                    if (y.isNullOrBlank()) y = id3.year
+                    rt = id3.releaseType
+                }
             }
 
             if (!t.isNullOrBlank()) title = t
@@ -349,6 +361,7 @@ class MediaLibraryManager private constructor() {
             albumArtist = if (!aa.isNullOrBlank()) aa else artist
             if (!cp.isNullOrBlank()) composer = cp
             compilation = com.themoon.y1.models.Compilations.parseFlag(cpl)
+            releaseType = com.themoon.y1.models.ReleaseTypes.normalize(rt)
 
             if (!trackStr.isNullOrEmpty()) {
                 trackNum = try {
@@ -369,7 +382,8 @@ class MediaLibraryManager private constructor() {
             compilationTag = compilation,
             mood = mood,
             trackNum = trackNum,
-            durationMs = durationMs
+            durationMs = durationMs,
+            releaseType = releaseType
         )
     }
 
@@ -454,6 +468,7 @@ class MediaLibraryManager private constructor() {
                     existingItem.albumArtist = meta.albumArtist
                     existingItem.composer = meta.composer
                     existingItem.compilationTag = meta.compilationTag
+                    existingItem.releaseType = meta.releaseType
                     existingItem.durationMs = meta.durationMs
                     existingItem.mood = meta.mood
                     existingItem.dateModified = currentModified
@@ -475,6 +490,7 @@ class MediaLibraryManager private constructor() {
                 } else {
                     val song = SongItem(f, meta.title, meta.artist, meta.album, meta.year, meta.genre, meta.albumArtist, meta.composer)
                     song.compilationTag = meta.compilationTag
+                    song.releaseType = meta.releaseType
                     song.durationMs = meta.durationMs
                     song.mood = meta.mood
                     song.dateModified = currentModified
@@ -647,6 +663,11 @@ class MediaLibraryManager private constructor() {
                 }
                 // Only for compilation tracks: a missing field reads as false (also in caches from before).
                 if (song.compilationTag) w.write(",\"compilation\":true")
+                // Only when the file has a release type tag (also missing in caches from before v4)
+                if (song.releaseType.isNotEmpty()) {
+                    w.write(",\"releaseType\":")
+                    w.write(JSONObject.quote(song.releaseType))
+                }
                 if (song.mood.isNotEmpty()) {
                     w.write(",\"mood\":")
                     w.write(JSONObject.quote(song.mood))
@@ -711,6 +732,13 @@ class MediaLibraryManager private constructor() {
             (music + books).filter { it.file.name.lowercase().endsWith(".mp3") && (it.year.isBlank() || it.year == "Unknown Year") }
                 .forEach { it.dateModified = 0L }
         }
+        // A cache from before the release type tags (v4): the next scan reads the music files with these tags again
+        // (MP3 TXXX, FLAC/Ogg/Opus RELEASETYPE, M4A/M4B freeform atom). Audiobooks are not in Cover Flow. Migration 020
+        // starts that scan.
+        if (root.optInt("v", 1) < 4) {
+            music.filter { val n = it.file.name.lowercase(); RELEASE_TYPE_EXTENSIONS.any { ext -> n.endsWith(ext) } }
+                .forEach { it.dateModified = 0L }
+        }
         return LibraryCache(music, books, trackNumbers)
     }
 
@@ -762,6 +790,7 @@ class MediaLibraryManager private constructor() {
                     o.optString("composer", "")
                 )
                 song.compilationTag = o.optBoolean("compilation", false)
+                song.releaseType = o.optString("releaseType", "")
                 song.mood = o.optString("mood", "")
                 song.dateModified = o.optLong("dateModified", o.optLong("modified", 0L))
                 song.fileSize = o.optLong("fileSize", o.optLong("size", 0L))
@@ -815,11 +844,7 @@ class MediaLibraryManager private constructor() {
             result.add(rep)
         }
 
-        result.sortWith { s1, s2 ->
-            val byArtist = (s1.albumArtist ?: "").compareTo(s2.albumArtist ?: "", ignoreCase = true)
-            if (byArtist != 0) byArtist
-            else (s1.album ?: "").compareTo(s2.album ?: "", ignoreCase = true)
-        }
+        com.themoon.y1.controllers.coverflow.CoverFlowOrder.sort(result)
 
         synchronized(uniqueAlbumList) {
             uniqueAlbumList.clear()
@@ -833,8 +858,12 @@ class MediaLibraryManager private constructor() {
          * [parseLibraryCache] mark the cached files that have this tag as changed, so that the next scan reads them again.
          * Keep `tools/build_library_cache.py` at the same value.
          * 1: no `"v"` key. 2: MOOD tags of FLAC, Ogg and Opus files. 3: year of MP3 files from ID3v2.3/2.4 (Id3.year).
+         * 4: release type of MP3, FLAC, Ogg, Opus and M4A files (`"releaseType"`, ReleaseTypes).
          */
-        internal const val CACHE_VERSION = 3
+        internal const val CACHE_VERSION = 4
+
+        /** The files whose release type tag the scan reads (v4). An M4B file in Music is music too. */
+        private val RELEASE_TYPE_EXTENSIONS = listOf(".mp3", ".flac", ".ogg", ".opus", ".m4a", ".m4b")
 
         /**
          * Hidden files and folders (name starts with "."): the scan skips them. They are not songs: macOS writes a
