@@ -1,5 +1,6 @@
 package com.themoon.y1.managers
 
+import java.io.File
 import java.security.MessageDigest
 
 /**
@@ -38,9 +39,11 @@ object CoverCacheRules {
         return sum xor (count * 0x5851F42D4C957F2DL)
     }
 
-    private const val SIGNATURE_PREFIX = "albums-v1:"
+    // v2: the cover search changed (other tracks of the album, no "no art" after a read error). A v1 signature does not
+    // match, so one pre-generation runs at the next Cover Flow entry and searches the albums of the old ".noart" markers.
+    private const val SIGNATURE_PREFIX = "albums-v2:"
 
-    /** Text of the signature file. The prefix changes when the signature method changes. */
+    /** Text of the signature file. The prefix changes when the signature method or the cover search changes. */
     fun formatSignature(signature: Long): String = SIGNATURE_PREFIX + signature
 
     /** Signature from the file text, or null when the text is not from [formatSignature]. */
@@ -61,5 +64,65 @@ object CoverCacheRules {
         hasThumb -> PregenAction.SKIP
         hasNoArtMarker() -> PregenAction.SKIP
         else -> PregenAction.EXTRACT
+    }
+
+    /** The result of a cover search: the [cover], or none. [failed]: a read failed, for example out of memory. */
+    class CoverSearch<C : Any>(val cover: C?, val failed: Boolean) {
+        /** Only clean reads record "no art": after a failed read the album is searched again later. */
+        val recordsNoArt: Boolean get() = cover == null && !failed
+    }
+
+    /**
+     * Reads [first], then the tracks of [more] (called only when [first] has no cover) until one has a cover. [read]
+     * gives null for no cover and throws on a read error. The search continues after an Exception, and stops after an
+     * Error (OutOfMemoryError): the next reads would fail too.
+     */
+    fun <T, C : Any> firstCover(first: T, more: () -> List<T>, read: (T) -> C?): CoverSearch<C> {
+        var failed = false
+        try {
+            for (track in sequenceOf(first) + sequence { yieldAll(more()) }) {
+                try {
+                    read(track)?.let { return CoverSearch(it, false) }
+                } catch (e: Exception) {
+                    failed = true
+                }
+            }
+        } catch (t: Throwable) {
+            return CoverSearch(null, true)
+        }
+        return CoverSearch(null, failed)
+    }
+
+    /**
+     * The tracks to read after [first] had no cover, at most [max], from the other [tracks] of its album: first one
+     * track of each other folder (CD1, CD2: that folder can have a cover file), then tracks of the folder of [first],
+     * spread over the album (some files of an album can have no cover).
+     */
+    fun artCandidates(first: File, tracks: List<File>, max: Int): List<File> {
+        if (max <= 0) return emptyList()
+        val folder = first.parent
+        val out = ArrayList<File>(max)
+        val folders = HashSet<String?>()
+        folders.add(folder)
+        val sameFolder = ArrayList<File>()
+        for (t in tracks) {
+            if (t == first) continue
+            val parent = t.parent
+            if (parent == folder) sameFolder.add(t)
+            else if (out.size < max && folders.add(parent)) out.add(t)
+        }
+        val left = max - out.size
+        if (sameFolder.size <= left) {
+            out.addAll(sameFolder)
+        } else {
+            for (i in 0 until left) out.add(sameFolder[i * sameFolder.size / left])
+        }
+        return out
+    }
+
+    /** True for an album without a title tag: its tracks are not one album, so no other track gives it a cover. */
+    fun isUnknownAlbum(album: String?): Boolean {
+        val a = album?.trim()
+        return a.isNullOrEmpty() || a.equals("Unknown Album", ignoreCase = true) || a.equals("Unknown Book", ignoreCase = true)
     }
 }
