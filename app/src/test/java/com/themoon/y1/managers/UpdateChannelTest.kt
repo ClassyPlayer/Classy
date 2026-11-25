@@ -9,6 +9,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Test
 
 class UpdateChannelTest {
@@ -97,6 +98,98 @@ class UpdateChannelTest {
             {"tag_name": "20261118-beta", "prerelease": true, "assets": [{"name": "update.json", "browser_download_url": "old"}]}
         ]"""
         assertEquals(listOf("hotfix", "beta", "old"), UpdateChannel.manifestUrls(json))
+    }
+
+    @Test
+    fun manifestUrls_withoutPrereleases_onlyStableReleases() {
+        val json = """[
+            {"tag_name": "20261124-beta.4", "prerelease": true, "assets": [{"name": "update-y1.json", "browser_download_url": "beta"}]},
+            {"tag_name": "20261125", "prerelease": false, "assets": [{"name": "update-y1.json", "browser_download_url": "new"}]},
+            {"tag_name": "20261117", "prerelease": false, "assets": [{"name": "update.json", "browser_download_url": "y2"}]},
+            {"tag_name": "20261121", "assets": [{"name": "update-y1.json", "browser_download_url": "old"}]}
+        ]"""
+        assertEquals(listOf("new", "old"), UpdateChannel.manifestUrls(json, "update-y1.json", prereleases = false))
+        assertEquals(listOf("new", "beta", "old"), UpdateChannel.manifestUrls(json, "update-y1.json"))
+    }
+
+    /** A server for [UpdateChannel.manifestTexts]: the text of each URL, 404 for other URLs; [calls] has each URL read. */
+    private class FakeServer(private val texts: Map<String, String>, private val status: Int = 404) {
+        val calls = ArrayList<String>()
+        fun fetch(url: String): String {
+            calls += url
+            return texts[url] ?: throw UpdateChannel.HttpStatusException(status)
+        }
+    }
+
+    private val latestY1 = OtaUpdateManager.UPDATE_JSON_URL_Y1
+
+    /** The releases of 2026-11-24: the Latest release (20261117) is from before Y1 support and has only update.json. */
+    private val releasesWithoutStableY1 = """[
+        {"tag_name": "20261124-beta.4", "prerelease": true, "assets": [{"name": "update-y1.json", "browser_download_url": "beta-y1"}]},
+        {"tag_name": "20261117", "prerelease": false, "assets": [{"name": "update.json", "browser_download_url": "stable-y2"}]}
+    ]"""
+
+    @Test
+    fun manifestTexts_stable_readsOnlyTheLatestRelease() {
+        val server = FakeServer(mapOf(OtaUpdateManager.UPDATE_JSON_URL to "latest"))
+        val texts = UpdateChannel.manifestTexts(STABLE, "update.json", OtaUpdateManager.UPDATE_JSON_URL, server::fetch)
+        assertEquals(listOf("latest"), texts.toList())
+        assertEquals(listOf(OtaUpdateManager.UPDATE_JSON_URL), server.calls)
+    }
+
+    @Test
+    fun manifestTexts_stable_latestWithoutTheManifest_takesTheNewestStableWithIt() {
+        val releases = """[
+            {"tag_name": "20261126-beta", "prerelease": true, "assets": [{"name": "update-y1.json", "browser_download_url": "beta-y1"}]},
+            {"tag_name": "20261125", "prerelease": false, "assets": [{"name": "update.json", "browser_download_url": "y2"}]},
+            {"tag_name": "20261120", "prerelease": false, "assets": [{"name": "update-y1.json", "browser_download_url": "stable-y1"}]}
+        ]"""
+        val server = FakeServer(mapOf(UpdateChannel.RELEASES_API_URL to releases, "stable-y1" to "y1 manifest"))
+        val texts = UpdateChannel.manifestTexts(STABLE, "update-y1.json", latestY1, server::fetch)
+        assertEquals(listOf("y1 manifest"), texts.toList())
+        assertEquals(listOf(latestY1, UpdateChannel.RELEASES_API_URL, "stable-y1"), server.calls)
+    }
+
+    @Test
+    fun manifestTexts_stable_noStableReleaseForThePlayer_throwsNoManifest() {
+        val server = FakeServer(mapOf(UpdateChannel.RELEASES_API_URL to releasesWithoutStableY1))
+        try {
+            UpdateChannel.manifestTexts(STABLE, "update-y1.json", latestY1, server::fetch).toList()
+            fail("no stable release has update-y1.json")
+        } catch (_: UpdateChannel.NoManifestException) {
+        }
+        // Not the beta's metadata
+        assertEquals(listOf(latestY1, UpdateChannel.RELEASES_API_URL), server.calls)
+    }
+
+    @Test
+    fun manifestTexts_stable_otherErrorStatus_isNotANewSearch() {
+        val server = FakeServer(emptyMap(), status = 403)
+        try {
+            UpdateChannel.manifestTexts(STABLE, "update-y1.json", latestY1, server::fetch).toList()
+            fail("403 must stop the check")
+        } catch (e: UpdateChannel.HttpStatusException) {
+            assertEquals(403, e.code)
+        }
+        assertEquals(listOf(latestY1), server.calls)
+    }
+
+    @Test
+    fun manifestTexts_beta_readsEachManifestOnlyWhenAsked() {
+        val server = FakeServer(mapOf(UpdateChannel.RELEASES_API_URL to releasesWithoutStableY1, "beta-y1" to "beta manifest"))
+        val texts = UpdateChannel.manifestTexts(BETA, "update-y1.json", latestY1, server::fetch)
+        assertEquals("beta manifest", texts.first())
+        assertEquals(listOf(UpdateChannel.RELEASES_API_URL, "beta-y1"), server.calls)
+    }
+
+    @Test
+    fun manifestTexts_beta_noReleaseWithTheManifest_throwsNoManifest() {
+        val server = FakeServer(mapOf(UpdateChannel.RELEASES_API_URL to "[]"))
+        try {
+            UpdateChannel.manifestTexts(BETA, "update-y1.json", latestY1, server::fetch).toList()
+            fail("no release has update-y1.json")
+        } catch (_: UpdateChannel.NoManifestException) {
+        }
     }
 
     @Test

@@ -889,5 +889,10 @@
   "Sync cancelled": "Синхронизация отменена",
   "Sort by Year": "Сортировка по году",
   "No Duplicates in Playlists": "Без повторов в плейлистах",
-  "Already in Playlist": "Уже в плейлисте"
+  "Already in Playlist": "Уже в плейлисте",
+  "No Update for This Player": "Нет обновления для этого плеера",
+  "There is no stable version for this player yet.": "Для этого плеера ещё нет стабильной версии.",
+  "To get updates now, set System Update → Update Channel to Beta.": "Чтобы получать обновления сейчас, выберите Бета в Обновление системы → Канал обновлений.",
+  "The update server sent an error.": "Сервер обновлений вернул ошибку.",
+  "Try again later.": "Повторите попытку позже."
 }
