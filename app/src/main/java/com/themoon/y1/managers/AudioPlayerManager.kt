@@ -823,7 +823,7 @@ class AudioPlayerManager private constructor() {
                 a = song.artist.takeUnless { it == "Unknown Artist" || it == "Unknown Author" }
                 album = song.album.takeUnless { it == "Unknown Album" || it == "Unknown Book" }
             } else {
-                val tags = readTrackTags(track, includeArt = false)
+                val tags = readTrackTags(track)
                 t = tags.title
                 a = tags.artist
                 album = tags.album
@@ -978,20 +978,13 @@ class AudioPlayerManager private constructor() {
         }
     }
 
-    /** Title, artist and album of a file, and with [includeArt] its embedded cover. Any thread. */
-    internal class TrackTags(val title: String?, val artist: String?, val album: String?, val art: ByteArray?)
+    /** Title, artist and album of a file. Any thread. */
+    internal class TrackTags(val title: String?, val artist: String?, val album: String?)
 
-    internal fun readTrackTags(track: File, includeArt: Boolean): TrackTags {
-        val name = track.name.lowercase(Locale.US)
-        val tags = when {
-            name.endsWith(".opus") -> extractOpusMetadata(track, includeArt)
-            name.endsWith(".flac") -> extractFlacMetadata(track, includeArt)
-            name.endsWith(".m4a") || name.endsWith(".alac") -> extractAlacMetadata(track, includeArt)
-            name.endsWith(".ogg") -> extractOggVorbisMetadata(track, includeArt)
-            else -> null
-        }
+    internal fun readTrackTags(track: File): TrackTags {
+        val tags = parseOwnTags(track, includeArt = false)
         if (tags != null) {
-            return TrackTags(tags[0] as? String, tags[1] as? String, tags[2] as? String, if (includeArt) tags[5] as? ByteArray else null)
+            return TrackTags(tags[0] as? String, tags[1] as? String, tags[2] as? String)
         }
         var mmr: MediaMetadataRetriever? = null
         var fis: FileInputStream? = null
@@ -1006,14 +999,48 @@ class AudioPlayerManager private constructor() {
             TrackTags(
                 mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE),
                 artist,
-                mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUM),
-                if (includeArt) mmr.embeddedPicture else null
+                mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUM)
             )
         } catch (ignored: Throwable) {
-            TrackTags(null, null, null, null)
+            TrackTags(null, null, null)
         } finally {
             try { fis?.close() } catch (ignored: Throwable) {}
             try { mmr?.release() } catch (ignored: Throwable) {}
+        }
+    }
+
+    /** The tags of [track] from the own parser of its format, or null for a format without one (MediaMetadataRetriever). */
+    private fun parseOwnTags(track: File, includeArt: Boolean): Array<Any?>? {
+        val name = track.name.lowercase(Locale.US)
+        return when {
+            name.endsWith(".opus") -> extractOpusMetadata(track, includeArt)
+            name.endsWith(".flac") -> extractFlacMetadata(track, includeArt)
+            name.endsWith(".m4a") || name.endsWith(".alac") -> extractAlacMetadata(track, includeArt)
+            name.endsWith(".ogg") -> extractOggVorbisMetadata(track, includeArt)
+            else -> null
+        }
+    }
+
+    /**
+     * The embedded cover of [track], or null when the file has none. The one reader of Now Playing, Cover Flow, the
+     * album lists, Play On and Music Quiz: the own parser of the format, then MediaMetadataRetriever when
+     * [retrieverReadsArt]. Throws on a read error (also OutOfMemoryError), so that a caller can tell it from "no cover".
+     * Any thread.
+     */
+    internal fun readEmbeddedArt(track: File): ByteArray? {
+        if (!track.canRead()) throw java.io.FileNotFoundException(track.path)
+        val parsed = parseOwnTags(track, includeArt = true)?.get(5) as? ByteArray
+        if (parsed != null && parsed.isNotEmpty()) return parsed
+        if (!retrieverReadsArt(track.name)) return null
+        val mmr = MediaMetadataRetriever()
+        var fis: FileInputStream? = null
+        try {
+            fis = FileInputStream(track)
+            mmr.setDataSource(fis.fd)
+            return mmr.embeddedPicture?.takeIf { it.isNotEmpty() }
+        } finally {
+            try { fis?.close() } catch (ignored: Throwable) {}
+            try { mmr.release() } catch (ignored: Throwable) {}
         }
     }
 
@@ -1103,7 +1130,7 @@ class AudioPlayerManager private constructor() {
             readPodcastCover(art, File(StoragePaths.getPodcastChannelDir(show), PodcastCover.FILE_NAME))
             return
         }
-        art.bytes = readTrackTags(track, includeArt = true).art
+        art.bytes = try { readEmbeddedArt(track) } catch (ignored: Throwable) { null }
         val bytes = art.bytes
         if (bytes != null && bytes.isNotEmpty()) {
             try {
@@ -2355,4 +2382,13 @@ internal fun appendMood(tags: Array<Any?>, comment: String) {
     val mood = comment.substring(eq + 1).trim()
     if (mood.isEmpty() || (comment.startsWith("AB:", ignoreCase = true) && mood.startsWith("not ", ignoreCase = true))) return
     tags[12] = ((tags[12] as? String)?.let { "$it; " } ?: "") + mood
+}
+
+/**
+ * True when MediaMetadataRetriever reads the embedded cover of [fileName] after the own parser of the format found none
+ * (Cover Flow read .m4a and .ogg covers with it before). Not for Opus and FLAC: their parsers read all the pictures.
+ */
+internal fun retrieverReadsArt(fileName: String): Boolean {
+    val name = fileName.lowercase(Locale.US)
+    return !name.endsWith(".opus") && !name.endsWith(".flac")
 }

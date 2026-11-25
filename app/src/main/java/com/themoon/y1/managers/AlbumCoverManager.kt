@@ -5,7 +5,6 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Paint
-import android.media.MediaMetadataRetriever
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
@@ -16,7 +15,6 @@ import com.themoon.y1.StoragePaths
 import com.themoon.y1.models.SongItem
 import com.themoon.y1.views.Notice
 import java.io.File
-import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.util.Collections
 import java.util.HashSet
@@ -367,30 +365,12 @@ class AlbumCoverManager private constructor() {
         }
 
         if (rawBmp == null) {
-            var embeddedArt: ByteArray? = null
-            try {
-                val lower = trackPath.lowercase()
-                if (lower.endsWith(".opus")) {
-                    val opusTags = AudioPlayerManager.getInstance().extractOpusMetadata(item.file)
-                    if (opusTags != null && opusTags.size > 5 && opusTags[5] != null) {
-                        embeddedArt = opusTags[5] as? ByteArray
-                    }
-                } else if (lower.endsWith(".flac")) {
-                    val flacTags = AudioPlayerManager.getInstance().extractFlacMetadata(item.file)
-                    if (flacTags != null && flacTags.size > 5 && flacTags[5] != null) {
-                        embeddedArt = flacTags[5] as? ByteArray
-                    }
-                } else {
-                    val mmr = MediaMetadataRetriever()
-                    val fis = FileInputStream(item.file)
-                    mmr.setDataSource(fis.fd)
-                    embeddedArt = mmr.embeddedPicture
-                    fis.close()
-                    mmr.release()
-                }
-            } catch (ignored: Throwable) {}
-
-            if (embeddedArt != null && embeddedArt.isNotEmpty()) {
+            val embeddedArt = try {
+                AudioPlayerManager.getInstance().readEmbeddedArt(item.file)
+            } catch (ignored: Throwable) {
+                null
+            }
+            if (embeddedArt != null) {
                 rawBmp = decodeSampledBitmapFromByteArray(embeddedArt, THUMB_SIZE, THUMB_SIZE)
             }
         }
