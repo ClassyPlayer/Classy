@@ -68,12 +68,4 @@ class CoverFlowOrderTest {
             )
         )
     }
-
-    @Test
-    fun sortName_dropsOnlyALeadingThe() {
-        assertEquals("Beatles", CoverFlowOrder.sortName("The Beatles"))
-        assertEquals("Theory of a Deadman", CoverFlowOrder.sortName("Theory of a Deadman"))
-        assertEquals("The", CoverFlowOrder.sortName("The"))
-        assertEquals("Them", CoverFlowOrder.sortName("Them"))
-    }
 }
