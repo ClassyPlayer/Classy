@@ -299,7 +299,8 @@ class PlaylistController(
         val tmp = File(from.parentFile, from.name + ".rename.tmp")
         if (tmp.exists() || !from.renameTo(tmp)) return false
         if (tmp.renameTo(to)) return true
-        tmp.renameTo(from) // put the old name back
+        // Put the old name back. If that also fails, the file keeps the temporary name, which the list does not show.
+        if (!tmp.renameTo(from)) android.util.Log.e("PlaylistController", "Rename failed; playlist left as ${tmp.path}")
         return false
     }
 
