@@ -80,17 +80,8 @@ class PlaylistController(
         com.themoon.y1.navigation.NavigationManager.getInstance().currentState?.let { onEnter(it) }
     }
 
-    /** The M3U files of each Playlists folder, A to Z. */
-    private fun playlistFiles(): List<File> {
-        val files = ArrayList<File>()
-        for (dir in StoragePaths.getPlaylistsDirs()) {
-            for (f in dir.listFiles() ?: emptyArray()) {
-                val name = f.name.lowercase()
-                if (f.isFile && (name.endsWith(".m3u") || name.endsWith(".m3u8"))) files.add(f)
-            }
-        }
-        return files.sortedWith { f1, f2 -> f1.name.compareTo(f2.name, ignoreCase = true) }
-    }
+    /** The M3U files of each Playlists folder, A to Z, without hidden files ([PlaylistPaths.playlistsIn]). */
+    private fun playlistFiles(): List<File> = PlaylistPaths.playlistsIn(StoragePaths.getPlaylistsDirs())
 
     /** The smart playlists, then the M3U files of the Playlists folders (A to Z). Opens at the last opened playlist. */
     fun buildPlaylistsUI() {

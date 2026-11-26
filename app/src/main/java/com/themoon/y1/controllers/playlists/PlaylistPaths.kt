@@ -1,7 +1,30 @@
 package com.themoon.y1.controllers.playlists
 
+import com.themoon.y1.managers.MediaLibraryManager
+
 /** Paths of the songs in an M3U playlist. */
 object PlaylistPaths {
+
+    /**
+     * True when [name] is the name of a playlist file: .m3u or .m3u8 (any case), and not hidden
+     * ([MediaLibraryManager.isHiddenName]). macOS writes a "._<name>" AppleDouble file (no playlist) beside each file
+     * that it copies to the microSD card.
+     */
+    fun isPlaylistName(name: String): Boolean {
+        val lower = name.lowercase()
+        return !MediaLibraryManager.isHiddenName(name) && (lower.endsWith(".m3u") || lower.endsWith(".m3u8"))
+    }
+
+    /** The playlist files ([isPlaylistName]) of each folder of [dirs], A to Z (ignoring case). */
+    fun playlistsIn(dirs: List<java.io.File>): List<java.io.File> {
+        val files = ArrayList<java.io.File>()
+        for (dir in dirs) {
+            for (f in dir.listFiles() ?: emptyArray()) {
+                if (isPlaylistName(f.name) && f.isFile) files.add(f)
+            }
+        }
+        return files.sortedWith { f1, f2 -> f1.name.compareTo(f2.name, ignoreCase = true) }
+    }
 
     /**
      * [path] without "." parts and empty parts, and with each ".." part removed together with the part before it.

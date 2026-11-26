@@ -59,6 +59,33 @@ class PlaylistPathsTest {
     }
 
     @Test
+    fun playlistNamesAreM3uFilesThatAreNotHidden() {
+        assertTrue(PlaylistPaths.isPlaylistName("Rock.m3u8"))
+        assertTrue(PlaylistPaths.isPlaylistName("Jazz.M3U"))
+        assertTrue(PlaylistPaths.isPlaylistName("Mr. Big.m3u"))
+        assertFalse(PlaylistPaths.isPlaylistName("._Rock.m3u8"))
+        assertFalse(PlaylistPaths.isPlaylistName(".Rock.m3u"))
+        assertFalse(PlaylistPaths.isPlaylistName("Rock.txt"))
+        assertFalse(PlaylistPaths.isPlaylistName("Rock.m3u8.tmp"))
+    }
+
+    @Test
+    fun listsThePlaylistsOfEachFolderWithoutAppleDoubleFiles() {
+        val root = Files.createTempDirectory("classy_m3u").toFile()
+        try {
+            val card = File(root, "card").apply { mkdirs() }
+            val internal = File(root, "internal").apply { mkdirs() }
+            for (name in listOf("Rock.m3u8", "._Rock.m3u8", "notes.txt", ".hidden.m3u")) File(card, name).writeText("#EXTM3U\n")
+            File(card, "Folder.m3u").mkdirs()
+            for (name in listOf("jazz.M3U", "._jazz.M3U")) File(internal, name).writeText("#EXTM3U\n")
+            val names = PlaylistPaths.playlistsIn(listOf(card, internal, File(root, "missing"))).map { it.name }
+            assertEquals(listOf("jazz.M3U", "Rock.m3u8"), names)
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
+    @Test
     fun sameNameGetsTheStorage() {
         val files = listOf(
             File("/storage/sdcard1/Playlists/On-The-Go.m3u8"),
