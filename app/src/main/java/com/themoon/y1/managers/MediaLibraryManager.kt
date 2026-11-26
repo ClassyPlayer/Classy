@@ -679,7 +679,7 @@ class MediaLibraryManager private constructor() {
                 }
                 // Only for compilation tracks: a missing field reads as false (also in caches from before).
                 if (song.compilationTag) w.write(",\"compilation\":true")
-                // Only when the file has a release type tag (also missing in caches from before v4)
+                // Only when the file has a release type tag
                 if (song.releaseType.isNotEmpty()) {
                     w.write(",\"releaseType\":")
                     w.write(JSONObject.quote(song.releaseType))
@@ -722,7 +722,12 @@ class MediaLibraryManager private constructor() {
                     sb.append(line)
                 }
             }
-            parseLibraryCache(JSONObject(sb.toString()))
+            val root = JSONObject(sb.toString())
+            if (!isCurrentVersion(root)) {
+                Log.i(tag, "Library cache of an older version: not used, a scan makes it again")
+                return null
+            }
+            parseLibraryCache(root)
         } catch (t: Throwable) {
             Log.e(tag, "Failed to load library cache: ${t.message}")
             null
@@ -736,25 +741,6 @@ class MediaLibraryManager private constructor() {
         val trackNumbers = HashMap<String, Int>()
         val music = jsonToSongList(root.optJSONArray("music"), trackNumbers, isAudiobook = false, isUsable = isUsable)
         val books = jsonToSongList(root.optJSONArray("books"), trackNumbers, isAudiobook = true, isUsable = isUsable)
-        // A cache from before the Mood tags (v2): the next scan reads the FLAC, Ogg and Opus files again (a modified
-        // time of 0 counts as changed). MP3 and M4A have no MOOD tag here. Migration 018 starts that scan.
-        if (root.optInt("v", 1) < 2) {
-            (music + books).filter { val n = it.file.name.lowercase(); n.endsWith(".flac") || n.endsWith(".ogg") || n.endsWith(".opus") }
-                .forEach { it.dateModified = 0L }
-        }
-        // A cache from before the MP3 year fallback (v3): the next scan reads the MP3 files with no year again, so
-        // that it can find their TYER/TDRC year. Migration 019 starts that scan.
-        if (root.optInt("v", 1) < 3) {
-            (music + books).filter { it.file.name.lowercase().endsWith(".mp3") && (it.year.isBlank() || it.year == "Unknown Year") }
-                .forEach { it.dateModified = 0L }
-        }
-        // A cache from before the release type tags (v4): the next scan reads the music files with these tags again
-        // (MP3 TXXX, FLAC/Ogg/Opus RELEASETYPE, M4A/M4B freeform atom). Audiobooks are not in Cover Flow. Migration 020
-        // starts that scan.
-        if (root.optInt("v", 1) < 4) {
-            music.filter { val n = it.file.name.lowercase(); RELEASE_TYPE_EXTENSIONS.any { ext -> n.endsWith(ext) } }
-                .forEach { it.dateModified = 0L }
-        }
         return LibraryCache(music, books, trackNumbers)
     }
 
@@ -870,9 +856,9 @@ class MediaLibraryManager private constructor() {
 
     companion object {
         /**
-         * Version of the library cache file (`"v"`). Increase it when the scan reads a new tag, and in
-         * [parseLibraryCache] mark the cached files that have this tag as changed, so that the next scan reads them again.
-         * Keep `tools/build_library_cache.py` at the same value.
+         * Version of the library cache file (`"v"`). Increase it when the scan reads a new tag: the start does not use a
+         * cache of an older version ([isCurrentVersion]), and a scan makes it again. Keep `tools/build_library_cache.py`
+         * at the same value.
          * 1: no `"v"` key. 2: MOOD tags of FLAC, Ogg and Opus files. 3: year of MP3 files from ID3v2.3/2.4 (Id3.year).
          * 4: release type of MP3, FLAC, Ogg, Opus and M4A files (`"releaseType"`, ReleaseTypes).
          */
@@ -884,8 +870,8 @@ class MediaLibraryManager private constructor() {
          */
         fun needsScanAtStart(cacheLoaded: Boolean, scanning: Boolean): Boolean = !cacheLoaded && !scanning
 
-        /** The files whose release type tag the scan reads (v4). An M4B file in Music is music too. */
-        private val RELEASE_TYPE_EXTENSIONS = listOf(".mp3", ".flac", ".ogg", ".opus", ".m4a", ".m4b")
+        /** True when the library cache [root] has the current [CACHE_VERSION] (or a newer one). */
+        internal fun isCurrentVersion(root: JSONObject): Boolean = root.optInt("v", 1) >= CACHE_VERSION
 
         /**
          * Hidden files and folders (name starts with "."): the scan skips them. They are not songs: macOS writes a
