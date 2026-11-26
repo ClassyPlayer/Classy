@@ -25,7 +25,6 @@ class SettingsBackupTest {
         app.map["lastfm_password"] = "secret"
         app.map["last_played_song_path"] = "/x.mp3"
         app.map["has_saved_playback_state"] = true
-        app.map["last_lang_version"] = 1011
         val music = MapPrefs()
         music.map["hide_music_btn_genres"] = true
         val jellyfin = MapPrefs()
@@ -33,7 +32,7 @@ class SettingsBackupTest {
         jellyfin.map["access_token"] = "tok"
         jellyfin.map["server_url"] = "http://server"
         jellyfin.map["password"] = "pw"
-        return linkedMapOf("AppPrefs" to app, "y1_settings" to music, "Y1_JELLYFIN" to jellyfin)
+        return linkedMapOf("AppPrefs" to app, "Y1_SETTINGS" to music, "Y1_JELLYFIN" to jellyfin)
     }
 
     @Test
@@ -49,7 +48,7 @@ class SettingsBackupTest {
         val music = MapPrefs()
         val jellyfin = MapPrefs()
         jellyfin.map["access_token"] = "my-token"
-        SettingsBackup.apply(backup, mapOf("AppPrefs" to target, "y1_settings" to music, "Y1_JELLYFIN" to jellyfin))
+        SettingsBackup.apply(backup, mapOf("AppPrefs" to target, "Y1_SETTINGS" to music, "Y1_JELLYFIN" to jellyfin))
 
         val m = target.map
         assertEquals(true, m["is_24h_format"])
@@ -65,7 +64,6 @@ class SettingsBackupTest {
         assertEquals("keep-me", m["lastfm_password"])
         assertEquals("/keep.mp3", m["last_played_song_path"])
         assertFalse(m.containsKey("lastfm_username"))
-        assertFalse(m.containsKey("last_lang_version"))
         assertFalse(m.containsKey("has_saved_playback_state"))
         // Keys that the backup does not have are removed.
         assertFalse(m.containsKey("old_setting"))

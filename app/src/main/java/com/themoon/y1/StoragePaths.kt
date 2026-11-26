@@ -295,28 +295,6 @@ object StoragePaths {
     fun isTopStorageRoot(absolutePath: String?): Boolean =
         if (absolutePath == null) true else isTopStorageRoot(File(absolutePath))
 
-    fun isVideosRoot(absolutePath: String?): Boolean {
-        if (absolutePath == null) return false
-        if (absolutePath == "$PRIMARY_PATH/Videos" || absolutePath == "$SECONDARY_PATH/Videos" ||
-            absolutePath == "$PRIMARY_PATH/Movies" || absolutePath == "$SECONDARY_PATH/Movies" ||
-            absolutePath == "$PRIMARY_PATH/Tvshows" || absolutePath == "$SECONDARY_PATH/Tvshows"
-        ) return true
-        for (dir in getVideosDirs()) {
-            if (absolutePath == dir.absolutePath) return true
-        }
-        for (root in getAllRoots()) {
-            if (absolutePath == File(root, "Videos").absolutePath ||
-                absolutePath == File(root, "Video").absolutePath ||
-                absolutePath == File(root, "Movies").absolutePath ||
-                absolutePath == File(root, "Tvshows").absolutePath
-            ) return true
-        }
-        return false
-    }
-
-    fun isVideosRoot(file: File?): Boolean =
-        file != null && isVideosRoot(file.absolutePath)
-
     fun isUnderVideos(absolutePath: String?): Boolean {
         if (absolutePath == null) return false
         for (dir in getVideosDirs()) {

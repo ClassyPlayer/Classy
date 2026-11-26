@@ -1,6 +1,5 @@
 package com.themoon.y1
 
-import com.themoon.y1.migrations.MoveMisplacedPrefsTest.FakePrefs
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -38,7 +37,7 @@ class PrefsTest {
             "toggle_style", "sound_check_enabled", "video_stretch_fill", "album_tilt_enabled", "lyrics_keep_screen_on",
             "show_total_time", "show_spectrum", "lyrics_script", "backlight_timer_index", "click_volume",
             "screen_off_control", "double_click_favorite", "repeat_mode", "loop_scroll_on", "list_edges_fade",
-            "eq_preset", "eq_profile_id", "group_albums_by_artist", "cover_pan_zoom", "mono_audio",
+            "eq_profile_id", "group_albums_by_artist", "cover_pan_zoom", "mono_audio",
             // Settings → Books (the ebook reader)
             "reader_colors", "reader_font_size", "reader_line_spacing", "reader_font", "reader_wheel_mode",
             "reader_wheel_clicks", "reader_keep_screen_on"
@@ -63,7 +62,7 @@ class PrefsTest {
     @Test
     fun resetAllRemovesOnlyResettableKeys() {
         val map = mutableMapOf<String, Any?>(
-            "repeat_mode" to 2, "shuffle" to true, "sound" to false, "eq_preset" to "x", "rating_/a.mp3" to 5
+            "repeat_mode" to 2, "shuffle" to true, "sound" to false, "eq_profile_id" to "x", "rating_/a.mp3" to 5
         )
         val prefs = FakePrefs(map)
         assertTrue(Prefs.resetAll(prefs))
@@ -75,8 +74,8 @@ class PrefsTest {
     @Test
     fun backupExclusionsAreTheSameAsBefore() {
         assertEquals(
-            setOf("lastfm_username", "lastfm_password", "has_saved_playback_state", "last_lang_version",
-                "last_installed_theme_version", "reboot_to_theme", "update_channel", "update_channel_builds",
+            setOf("lastfm_username", "lastfm_password", "has_saved_playback_state",
+                "update_channel", "update_channel_builds",
                 // The book that Continue Reading opens: state, as last_played_
                 "last_read_book_path"),
             Prefs.ALL.filter { !it.inBackup }.map { it.key }.toSet()
@@ -88,7 +87,7 @@ class PrefsTest {
     fun settingKeysAreSettings() {
         val settings = listOf(
             "sound", "vibrate", "vibrate_strength", "double_click_favorite", "time_in_title_bar", "is_24h_format",
-            "screen_off_control", "loop_scroll_on", "list_edges_fade", "app_theme_name", "current_theme_name",
+            "screen_off_control", "loop_scroll_on", "list_edges_fade", "app_theme_name",
             "album_tilt_enabled", "shuffle", "repeat_mode", "backlight_timer_index", "volume_limit_max",
             "app_language", "auto_theme_enabled"
         )

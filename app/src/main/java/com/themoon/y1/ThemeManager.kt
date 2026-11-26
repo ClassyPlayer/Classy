@@ -71,7 +71,7 @@ object ThemeManager {
     }
 
     private fun savedName(prefs: SharedPreferences): String =
-        prefs.getString(Prefs.THEME_NAME.key, null) ?: Prefs.CURRENT_THEME_NAME.get(prefs)
+        prefs.getString(Prefs.THEME_NAME.key, null) ?: LIGHT_NAME
 
     /** The theme with this name, or null. */
     fun find(name: String?): ThemeData? = themes.firstOrNull { it.name == name }
@@ -87,7 +87,6 @@ object ThemeManager {
         try {
             prefs.edit()
                 .putString(Prefs.THEME_NAME.key, theme.name)
-                .putString(Prefs.CURRENT_THEME_NAME.key, theme.name)
                 .commit()
         } catch (_: Exception) {
         }

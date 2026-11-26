@@ -1,6 +1,5 @@
 package com.themoon.y1.models
 
-import com.themoon.y1.controllers.menu.MusicMenuItems
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -99,13 +98,5 @@ class CompilationsTest {
         val library = soundtrack + albumByA
         Compilations.mark(library)
         assertEquals(listOf("Artist A", "Artist B", "Artist C"), artists(library, compilationsShown = false))
-    }
-
-    @Test
-    fun musicMenu_hidesOnlyAlbumArtistsByDefault() {
-        assertTrue(MusicMenuItems.isHiddenByDefault("artists"))
-        assertFalse(MusicMenuItems.isHiddenByDefault("track_artists"))
-        assertFalse(MusicMenuItems.isHiddenByDefault("compilations"))
-        assertFalse(MusicMenuItems.isHiddenByDefault("albums"))
     }
 }

@@ -28,11 +28,19 @@ class MediaLibraryManager private constructor() {
     val trackNumberMap = Collections.synchronizedMap(HashMap<String, Int>())
     val uniqueAlbumList = Collections.synchronizedList(ArrayList<SongItem>())
 
-    @Volatile
-    var isScanning: Boolean = false
-        private set
+    private val scans = ScanListeners()
 
-    private val isFillingLengths = java.util.concurrent.atomic.AtomicBoolean(false)
+    val isScanning: Boolean get() = scans.isRunning
+
+    /** Sends the progress and the completion of scan [id] to all listeners of that scan ([ScanListeners]). */
+    private fun listenersOf(id: Int) = object : ScanProgressListener {
+        override fun onProgress(scanned: Int, total: Int) {
+            for (l in scans.current()) l.onProgress(scanned, total)
+        }
+        override fun onComplete(musicCount: Int, booksCount: Int) {
+            for (l in scans.finish(id)) l.onComplete(musicCount, booksCount)
+        }
+    }
 
     interface ScanProgressListener {
         fun onProgress(scanned: Int, total: Int)
@@ -83,8 +91,9 @@ class MediaLibraryManager private constructor() {
         blacklist: Set<String> = emptySet(),
         listener: ScanProgressListener? = null
     ) {
-        if (isScanning) return
-        isScanning = true
+        // A request while a scan runs joins that scan
+        val scanId = scans.join(listener) ?: return
+        val scanListeners = listenersOf(scanId)
         // The scan goes on with the screen off
         val wakeLock = ScanWakeLock.forScan(context).also { it.acquire() }
 
@@ -141,10 +150,10 @@ class MediaLibraryManager private constructor() {
 
                 var scanned = 0
                 for (musicDir in StoragePaths.getMusicDirs()) {
-                    scanned = scanDirectory(musicDir, musicLibrary, existingMusic, blacklist, scanned, total, isAudiobook = false, listener)
+                    scanned = scanDirectory(musicDir, musicLibrary, existingMusic, blacklist, scanned, total, isAudiobook = false, scanListeners)
                 }
                 for (bookDir in bookDirs) {
-                    scanned = scanDirectory(bookDir, audiobookLibrary, existingBooks, blacklist, scanned, total, isAudiobook = true, listener)
+                    scanned = scanDirectory(bookDir, audiobookLibrary, existingBooks, blacklist, scanned, total, isAudiobook = true, scanListeners)
                 }
 
                 deduplicateLibrary(musicLibrary)
@@ -157,18 +166,18 @@ class MediaLibraryManager private constructor() {
                     com.themoon.y1.migrations.MigrationManager.getInstance(context).clearPendingMediaRescan()
                 } catch (_: Throwable) {}
 
-                listener?.onComplete(musicLibrary.size, audiobookLibrary.size)
+                scanListeners.onComplete(musicLibrary.size, audiobookLibrary.size)
             } catch (t: Throwable) {
                 Log.e(tag, "Scan error: ${t.message}", t)
             } finally {
-                isScanning = false
+                scans.finish(scanId)
                 wakeLock.release()
             }
         }, "y1-media-scanner")
         try {
             scanner.start()
         } catch (t: Throwable) {
-            isScanning = false
+            scans.finish(scanId)
             wakeLock.release()
             throw t
         }
@@ -529,77 +538,7 @@ class MediaLibraryManager private constructor() {
         return scanned
     }
 
-    /**
-     * Reads the length of each song that has none (a library cache from before the scan kept the length) on a
-     * low-priority worker, and saves the cache. [onDone] runs on the worker when no song in the lists is left
-     * to read. Only one fill runs at a time.
-     */
-    fun fillMissingLengths(onDone: () -> Unit) {
-        if (!isFillingLengths.compareAndSet(false, true)) return
-        val worker = Thread({
-            try {
-                android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND)
-                val songs = ArrayList<SongItem>()
-                synchronized(musicLibrary) { musicLibrary.filterTo(songs) { it.durationMs <= 0L } }
-                synchronized(audiobookLibrary) { audiobookLibrary.filterTo(songs) { it.durationMs <= 0L } }
-                // Each path read, with its length (0: not known)
-                val read = HashMap<String, Long>()
-                var filled = 0
-                for (song in songs) {
-                    if (song.durationMs > 0L) continue
-                    val ms = readLengthMs(song.file)
-                    read[song.file.absolutePath] = ms
-                    if (ms <= 0L) continue
-                    song.durationMs = ms
-                    filled++
-                    if (filled % 500 == 0) saveLibraryCache()
-                }
-                // A cache load during the fill puts new song objects into the lists: give them the lengths too
-                var missed = false
-                for (list in listOf(musicLibrary, audiobookLibrary)) synchronized(list) {
-                    for (song in list) {
-                        if (song.durationMs > 0L) continue
-                        val ms = read[song.file.absolutePath]
-                        if (ms == null) missed = true else if (ms > 0L) song.durationMs = ms
-                    }
-                }
-                val saved = filled == 0 || saveLibraryCache()
-                // A cache load between the last pass and the save puts new song objects without the lengths into
-                // the lists (and the save then wrote them): look again after the save
-                val lost = hasMissingLengths(read)
-                Log.i(tag, "Track lengths: filled $filled of ${songs.size}, saved $saved, lost $lost")
-                // A song that came into the lists during the fill, a cache that was not saved, or lengths that a cache
-                // load replaced: the next cache load continues
-                if (!missed && saved && !lost) onDone()
-            } catch (t: Throwable) {
-                Log.e(tag, "Track length fill error: ${t.message}", t)
-            } finally {
-                isFillingLengths.set(false)
-            }
-        }, "y1-length-fill")
-        try {
-            worker.start()
-        } catch (t: Throwable) {
-            isFillingLengths.set(false)
-        }
-    }
-
-    /**
-     * True when a song in the lists has no length but the fill read one for its path ([read]), or was not read at
-     * all: a cache load replaced the song objects after the fill gave them their lengths.
-     */
-    internal fun hasMissingLengths(read: Map<String, Long>): Boolean {
-        for (list in listOf(musicLibrary, audiobookLibrary)) synchronized(list) {
-            for (song in list) {
-                if (song.durationMs > 0L) continue
-                val ms = read[song.file.absolutePath] ?: return true
-                if (ms > 0L) return true
-            }
-        }
-        return false
-    }
-
-    /** The scan and the length fill can both save the cache: one at a time, as they write the same temp file. */
+    /** One save at a time: each save writes the same temp file. */
     @Synchronized
     fun saveLibraryCache(): Boolean {
         val cacheFile = StoragePaths.primaryFile(".y1_library_cache.json")
@@ -679,7 +618,7 @@ class MediaLibraryManager private constructor() {
                 }
                 // Only for compilation tracks: a missing field reads as false (also in caches from before).
                 if (song.compilationTag) w.write(",\"compilation\":true")
-                // Only when the file has a release type tag (also missing in caches from before v4)
+                // Only when the file has a release type tag
                 if (song.releaseType.isNotEmpty()) {
                     w.write(",\"releaseType\":")
                     w.write(JSONObject.quote(song.releaseType))
@@ -722,7 +661,12 @@ class MediaLibraryManager private constructor() {
                     sb.append(line)
                 }
             }
-            parseLibraryCache(JSONObject(sb.toString()))
+            val root = JSONObject(sb.toString())
+            if (!isCurrentVersion(root)) {
+                Log.i(tag, "Library cache of an older version: not used, a scan makes it again")
+                return null
+            }
+            parseLibraryCache(root)
         } catch (t: Throwable) {
             Log.e(tag, "Failed to load library cache: ${t.message}")
             null
@@ -736,25 +680,6 @@ class MediaLibraryManager private constructor() {
         val trackNumbers = HashMap<String, Int>()
         val music = jsonToSongList(root.optJSONArray("music"), trackNumbers, isAudiobook = false, isUsable = isUsable)
         val books = jsonToSongList(root.optJSONArray("books"), trackNumbers, isAudiobook = true, isUsable = isUsable)
-        // A cache from before the Mood tags (v2): the next scan reads the FLAC, Ogg and Opus files again (a modified
-        // time of 0 counts as changed). MP3 and M4A have no MOOD tag here. Migration 018 starts that scan.
-        if (root.optInt("v", 1) < 2) {
-            (music + books).filter { val n = it.file.name.lowercase(); n.endsWith(".flac") || n.endsWith(".ogg") || n.endsWith(".opus") }
-                .forEach { it.dateModified = 0L }
-        }
-        // A cache from before the MP3 year fallback (v3): the next scan reads the MP3 files with no year again, so
-        // that it can find their TYER/TDRC year. Migration 019 starts that scan.
-        if (root.optInt("v", 1) < 3) {
-            (music + books).filter { it.file.name.lowercase().endsWith(".mp3") && (it.year.isBlank() || it.year == "Unknown Year") }
-                .forEach { it.dateModified = 0L }
-        }
-        // A cache from before the release type tags (v4): the next scan reads the music files with these tags again
-        // (MP3 TXXX, FLAC/Ogg/Opus RELEASETYPE, M4A/M4B freeform atom). Audiobooks are not in Cover Flow. Migration 020
-        // starts that scan.
-        if (root.optInt("v", 1) < 4) {
-            music.filter { val n = it.file.name.lowercase(); RELEASE_TYPE_EXTENSIONS.any { ext -> n.endsWith(ext) } }
-                .forEach { it.dateModified = 0L }
-        }
         return LibraryCache(music, books, trackNumbers)
     }
 
@@ -870,16 +795,22 @@ class MediaLibraryManager private constructor() {
 
     companion object {
         /**
-         * Version of the library cache file (`"v"`). Increase it when the scan reads a new tag, and in
-         * [parseLibraryCache] mark the cached files that have this tag as changed, so that the next scan reads them again.
-         * Keep `tools/build_library_cache.py` at the same value.
+         * Version of the library cache file (`"v"`). Increase it when the scan reads a new tag: the start does not use a
+         * cache of an older version ([isCurrentVersion]), and a scan makes it again. Keep `tools/build_library_cache.py`
+         * at the same value.
          * 1: no `"v"` key. 2: MOOD tags of FLAC, Ogg and Opus files. 3: year of MP3 files from ID3v2.3/2.4 (Id3.year).
          * 4: release type of MP3, FLAC, Ogg, Opus and M4A files (`"releaseType"`, ReleaseTypes).
          */
         internal const val CACHE_VERSION = 4
 
-        /** The files whose release type tag the scan reads (v4). An M4B file in Music is music too. */
-        private val RELEASE_TYPE_EXTENSIONS = listOf(".mp3", ".flac", ".ogg", ".opus", ".m4a", ".m4b")
+        /**
+         * True when the start must scan the library: no library cache was loaded (a new install has none) and no scan
+         * runs. The scan makes the cache.
+         */
+        fun needsScanAtStart(cacheLoaded: Boolean, scanning: Boolean): Boolean = !cacheLoaded && !scanning
+
+        /** True when the library cache [root] has the current [CACHE_VERSION] (or a newer one). */
+        internal fun isCurrentVersion(root: JSONObject): Boolean = root.optInt("v", 1) >= CACHE_VERSION
 
         /**
          * Hidden files and folders (name starts with "."): the scan skips them. They are not songs: macOS writes a

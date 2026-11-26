@@ -19,13 +19,4 @@ class PreviousButtonTest {
         assertTrue(PreviousButton.restarts(enabled = true, positionMs = PreviousButton.RESTART_AFTER_MS + 1))
         assertTrue(PreviousButton.restarts(enabled = true, positionMs = 120_000L))
     }
-
-    @Test
-    fun onlyANewInstallGetsTheRestart() {
-        assertFalse(PreviousButton.keepsOldBehaviour(startingVersion = 0, hasPlayed = false))
-        // A player from before the migrations that played music
-        assertTrue(PreviousButton.keepsOldBehaviour(startingVersion = 0, hasPlayed = true))
-        assertTrue(PreviousButton.keepsOldBehaviour(startingVersion = 19, hasPlayed = false))
-        assertTrue(PreviousButton.keepsOldBehaviour(startingVersion = 20, hasPlayed = true))
-    }
 }

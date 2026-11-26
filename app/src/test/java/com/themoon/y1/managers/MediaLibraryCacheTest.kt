@@ -4,6 +4,7 @@ import com.themoon.y1.models.SongItem
 import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -96,58 +97,10 @@ class MediaLibraryCacheTest {
     }
 
     @Test
-    fun cacheFromBeforeMoodsReadsOnlyFlacOggOpusAgain() {
-        // Audiobooks: the music files of a cache from before v4 are all read again (cacheFromBeforeReleaseTypes...)
-        val json = JSONObject(
-            """{"music":[],"books":[
-              {"path":"/books/t1.mp3","title":"T1","year":"1999","dateModified":1729000000000,"fileSize":9},
-              {"path":"/books/t2.FLAC","title":"T2","dateModified":1729000000000,"fileSize":9},
-              {"path":"/books/t3.opus","title":"T3","dateModified":1729000000000,"fileSize":9}
-            ]}"""
-        )
-        val music = mlm.parseLibraryCache(json) { _, _ -> true }.books
-        assertEquals(1729000000000L, music[0].dateModified)
-        assertEquals(0L, music[1].dateModified) // 0 makes the next scan extract the tags again
-        assertEquals(0L, music[2].dateModified)
-    }
-
-    @Test
-    fun cacheFromBeforeMp3YearsReadsOnlyMp3sWithNoYearAgain() {
-        // Audiobooks: the music files of a cache from before v4 are all read again (cacheFromBeforeReleaseTypes...)
-        val json = JSONObject(
-            """{"v":2,"music":[],"books":[
-              {"path":"/books/t1.mp3","title":"T1","year":"1999","dateModified":1729000000000,"fileSize":9},
-              {"path":"/books/t2.MP3","title":"T2","year":"Unknown Year","dateModified":1729000000000,"fileSize":9},
-              {"path":"/books/t3.mp3","title":"T3","dateModified":1729000000000,"fileSize":9},
-              {"path":"/books/t4.flac","title":"T4","dateModified":1729000000000,"fileSize":9}
-            ]}"""
-        )
-        val music = mlm.parseLibraryCache(json) { _, _ -> true }.books
-        assertEquals(1729000000000L, music[0].dateModified)
-        assertEquals(0L, music[1].dateModified) // 0 makes the next scan extract the tags again
-        assertEquals(0L, music[2].dateModified)
-        assertEquals(1729000000000L, music[3].dateModified)
-    }
-
-    @Test
-    fun cacheFromBeforeReleaseTypesReadsTaggedMusicFilesAgain() {
-        val json = JSONObject(
-            """{"v":3,"music":[
-              {"path":"/music/t1.mp3","title":"T1","year":"1999","dateModified":1729000000000,"fileSize":9},
-              {"path":"/music/t2.FLAC","title":"T2","dateModified":1729000000000,"fileSize":9},
-              {"path":"/music/t3.ogg","title":"T3","dateModified":1729000000000,"fileSize":9},
-              {"path":"/music/t4.opus","title":"T4","dateModified":1729000000000,"fileSize":9},
-              {"path":"/music/t5.m4a","title":"T5","dateModified":1729000000000,"fileSize":9},
-              {"path":"/music/t6.wav","title":"T6","dateModified":1729000000000,"fileSize":9},
-              {"path":"/music/t7.m4b","title":"T7","dateModified":1729000000000,"fileSize":9}
-            ],"books":[
-              {"path":"/books/b1.m4b","title":"B1","dateModified":1729000000000,"fileSize":9}
-            ]}"""
-        )
-        val cache = mlm.parseLibraryCache(json) { _, _ -> true }
-        // 0 makes the next scan extract the tags again; WAV files and audiobooks have no release type here
-        assertEquals(listOf(0L, 0L, 0L, 0L, 0L, 1729000000000L, 0L), cache.music.map { it.dateModified })
-        assertEquals(1729000000000L, cache.books[0].dateModified)
+    fun aCacheOfAnOlderVersionIsNotUsed() {
+        assertFalse(MediaLibraryManager.isCurrentVersion(JSONObject("""{"music":[],"books":[]}""")))
+        assertFalse(MediaLibraryManager.isCurrentVersion(JSONObject("""{"v":${MediaLibraryManager.CACHE_VERSION - 1}}""")))
+        assertTrue(MediaLibraryManager.isCurrentVersion(JSONObject("""{"v":${MediaLibraryManager.CACHE_VERSION}}""")))
     }
 
     @Test
@@ -286,5 +239,13 @@ class MediaLibraryCacheTest {
         } finally {
             tempDir.deleteRecursively()
         }
+    }
+
+    @Test
+    fun theStartScansOnlyWithoutALoadedCache() {
+        assertTrue(MediaLibraryManager.needsScanAtStart(cacheLoaded = false, scanning = false))
+        assertFalse(MediaLibraryManager.needsScanAtStart(cacheLoaded = true, scanning = false))
+        assertFalse(MediaLibraryManager.needsScanAtStart(cacheLoaded = false, scanning = true))
+        assertFalse(MediaLibraryManager.needsScanAtStart(cacheLoaded = true, scanning = true))
     }
 }

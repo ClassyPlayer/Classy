@@ -29,7 +29,6 @@ import java.util.concurrent.atomic.AtomicInteger
  * 7. Registration validation: duplicate version or id throws IllegalArgumentException; null is safely ignored.
  * 8. Durability: synchronous commit() is invoked per migration to guarantee state survives sudden power loss.
  * 9. MigrationContext: startingVersion, isUpgradingFromBaseline, requestMediaRescan, and requestCacheInvalidation.
- * 10. Concrete default migrations: Migration001RestoreDeduplicatedSongs and Migration002PurgeOemDemoMedia.
  */
 class MigrationManagerParityTest {
 
@@ -594,38 +593,6 @@ class MigrationManagerParityTest {
         val applied = migrationManager.applyPendingMigrations()
         assertEquals(2, applied)
         assertEquals(2, migrationManager.currentVersion)
-    }
-
-    // =========================================================================
-    // 10. Concrete Built-in Migrations Parity
-    // =========================================================================
-
-    @Test
-    fun concreteMigration_001RestoreDeduplicatedSongs_parityContracts() {
-        val m1 = Migration001RestoreDeduplicatedSongs()
-        assertEquals(1, m1.version)
-        assertEquals("001_restore_deduplicated_songs", m1.id)
-        assertTrue(m1.description.isNotEmpty())
-
-        val ctx = MigrationContext(null, mockPrefs, mockPrefs, 0)
-        assertFalse(ctx.isMediaRescanRequested)
-        m1.migrate(ctx)
-        assertTrue(ctx.isMediaRescanRequested)
-        assertFalse(ctx.isCacheInvalidationRequested)
-    }
-
-    @Test
-    fun concreteMigration_002PurgeOemDemoMedia_parityContracts() {
-        val m2 = Migration002PurgeOemDemoMedia()
-        assertEquals(2, m2.version)
-        assertEquals("002_purge_oem_demo_media", m2.id)
-        assertTrue(m2.description.isNotEmpty())
-
-        val ctx = MigrationContext(null, mockPrefs, mockPrefs, 1)
-        assertFalse(ctx.isMediaRescanRequested)
-        m2.migrate(ctx)
-        assertTrue(ctx.isMediaRescanRequested)
-        assertFalse(ctx.isCacheInvalidationRequested)
     }
 
     // =========================================================================

@@ -11,10 +11,4 @@ object PreviousButton {
     const val RESTART_AFTER_MS = 3000L
 
     fun restarts(enabled: Boolean, positionMs: Long): Boolean = enabled && positionMs > RESTART_AFTER_MS
-
-    /**
-     * For [com.themoon.y1.migrations.Migration021PreviousRestartsSong]: a player that ran migrations before
-     * ([startingVersion] > 0) or played before keeps Previous = previous song. Only a new install gets the restart.
-     */
-    fun keepsOldBehaviour(startingVersion: Int, hasPlayed: Boolean): Boolean = startingVersion > 0 || hasPlayed
 }

@@ -37,8 +37,6 @@ enum class PrefGroup(val isSetting: Boolean) {
     INSTALL(false),
     /** Login data. */
     ACCOUNT(false),
-    /** Keys that no code reads now. Reset still removes them. */
-    LEGACY(false),
 }
 
 /**
@@ -129,8 +127,6 @@ object Prefs {
     val MONO_AUDIO = add(BoolPref("mono_audio", false, PrefGroup.PLAYBACK, resettable = true))
     /** A volume step (1..30); -1 = no limit. */
     val VOLUME_LIMIT = add(IntPref(VolumeSteps.PREF_LIMIT, -1, PrefGroup.PLAYBACK, resettable = true))
-    /** An old EQ key. No code reads it; Reset removes it. */
-    val EQ_PRESET_OLD = add(PrefKey("eq_preset", PrefGroup.LEGACY, resettable = true))
 
     // --- Display ---
     val BACKLIGHT_TIMER = add(IntPref(BacklightTimer.PREF_INDEX, BacklightTimer.DEFAULT_INDEX, PrefGroup.DISPLAY, resettable = true))
@@ -171,9 +167,8 @@ object Prefs {
     val BATTERY_PERCENTAGE = add(BoolPref("show_battery_percentage", false, PrefGroup.STATUS_BAR, resettable = true))
 
     // --- Appearance ---
-    /** The theme that the user selected; null before the first selection (then [CURRENT_THEME_NAME]). */
+    /** The theme that the user selected; null before the first selection (then Classic Light). */
     val THEME_NAME = add(PrefKey("app_theme_name", PrefGroup.APPEARANCE))
-    val CURRENT_THEME_NAME = add(StringPref("current_theme_name", "Classic Light", PrefGroup.APPEARANCE))
     /** Reset does not remove it: [AutoThemeManager.reset] turns Auto off and selects the default theme. */
     val AUTO_THEME = add(BoolPref(AutoThemeManager.PREF_KEY, false, PrefGroup.APPEARANCE))
     val TOGGLE_STYLE = add(StringPref(ToggleStyle.PREF_KEY, ToggleStyle.TEXT, PrefGroup.APPEARANCE, resettable = true))
@@ -260,13 +255,6 @@ object Prefs {
     val UPDATE_CHANNEL = add(StringPref(UpdateChannel.PREF, "", PrefGroup.INSTALL, inBackup = false))
     /** The version names, comma-separated, that [UPDATE_CHANNEL] holds for. */
     val UPDATE_CHANNEL_BUILDS = add(StringPref(UpdateChannel.PREF_BUILDS, "", PrefGroup.INSTALL, inBackup = false))
-    /** An old key. No code reads it. */
-    val REBOOT_TO_THEME = add(PrefKey("reboot_to_theme", PrefGroup.LEGACY, inBackup = false))
-    /** Old theme keys (before the two themes were in the code). No code reads them. */
-    val THEME_INDEX = add(PrefKey("app_theme_index", PrefGroup.LEGACY))
-    val LAST_THEME_VERSION = add(PrefKey("last_installed_theme_version", PrefGroup.LEGACY, inBackup = false))
-    /** The version of the language files that an earlier version copied to internal storage. No code reads it. */
-    val LAST_LANG_VERSION = add(PrefKey("last_lang_version", PrefGroup.LEGACY, inBackup = false))
 
     /** All keys, in the order above. */
     val ALL: List<PrefKey> get() = keys

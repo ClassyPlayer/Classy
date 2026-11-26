@@ -1,6 +1,5 @@
 package com.themoon.y1
 
-import com.themoon.y1.migrations.MoveMisplacedPrefsTest.FakePrefs
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -57,8 +56,7 @@ class ThemeManagerTest {
 
         assertSame(ThemeManager.CLASSIC_DARK, ThemeManager.getCurrentTheme())
         assertEquals("Classic Dark", prefs.getString("app_theme_name", null))
-        assertEquals("Classic Dark", prefs.getString("current_theme_name", null))
-        assertEquals(setOf("app_theme_name", "current_theme_name"), prefs.all.keys)
+        assertEquals(setOf("app_theme_name"), prefs.all.keys)
         assertEquals(generation + 1, ThemeManager.themeGeneration)
     }
 
@@ -80,11 +78,9 @@ class ThemeManagerTest {
         ThemeManager.applySaved(FakePrefs(mutableMapOf("app_theme_name" to "Classic Dark")))
         assertEquals("Classic Dark", ThemeManager.getCurrentTheme().name)
 
-        // Without app_theme_name: current_theme_name, and its default is Classic Light
-        ThemeManager.applySaved(FakePrefs(mutableMapOf()))
-        assertEquals("Classic Light", ThemeManager.getCurrentTheme().name)
+        // Without app_theme_name: Classic Light (the old key current_theme_name is not read)
         ThemeManager.applySaved(FakePrefs(mutableMapOf("current_theme_name" to "Classic Dark")))
-        assertEquals("Classic Dark", ThemeManager.getCurrentTheme().name)
+        assertEquals("Classic Light", ThemeManager.getCurrentTheme().name)
     }
 
     @Test

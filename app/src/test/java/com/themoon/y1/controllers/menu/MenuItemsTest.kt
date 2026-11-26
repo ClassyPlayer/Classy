@@ -1,6 +1,6 @@
 package com.themoon.y1.controllers.menu
 
-import com.themoon.y1.migrations.MoveMisplacedPrefsTest.FakePrefs
+import com.themoon.y1.FakePrefs
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -37,12 +37,21 @@ class MenuItemsTest {
     }
 
     @Test
-    fun theMusicMenuHasItsOwnOrderAndHidesAlbumArtistsByDefault() {
+    fun noItemIsHiddenByDefault() {
+        val prefs = FakePrefs(mutableMapOf())
+        assertEquals(defaultOrder, MainMenuItems.shown(prefs).map { it.id })
+        assertEquals(MusicMenuItems.items.map { it.id }, MusicMenuItems.shown(prefs).map { it.id })
+        assertTrue("artists" in MusicMenuItems.items.map { it.id })
+    }
+
+    @Test
+    fun theMusicMenuHasItsOwnOrderAndHiddenItems() {
         val prefs = FakePrefs(mutableMapOf("music_menu_order" to "songs,albums", "hide_music_btn_genres" to true))
         val shown = MusicMenuItems.shown(prefs).map { it.id }
-        assertEquals(listOf("songs", "albums", "coverflow", "playlists", "track_artists", "compilations"), shown.take(6))
-        assertFalse("artists" in shown)
+        assertEquals(listOf("songs", "albums", "coverflow", "playlists", "track_artists", "artists", "compilations"), shown.take(7))
         assertFalse("genres" in shown)
+        MusicMenuItems.setHidden(prefs, "artists", true)
+        assertFalse("artists" in MusicMenuItems.shown(prefs).map { it.id })
         MusicMenuItems.setHidden(prefs, "artists", false)
         assertTrue("artists" in MusicMenuItems.shown(prefs).map { it.id })
         // The main menu order does not change the Music menu
