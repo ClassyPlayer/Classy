@@ -24,7 +24,8 @@ object ClickVolume {
     const val HIGH = 2
     const val DEFAULT = MEDIUM
 
-    val LABELS = arrayOf("Low", "Medium", "High")
+    /** The labels of the levels (translation keys: each language needs the form for "Click Volume"). */
+    val LABELS = arrayOf("Low (Click Volume)", "Medium (Click Volume)", "High (Click Volume)")
     val LEVEL_DB = doubleArrayOf(-26.0, -16.0, -6.0)
 
     const val HEADPHONE_ABOVE_MUSIC_DB = 6.0

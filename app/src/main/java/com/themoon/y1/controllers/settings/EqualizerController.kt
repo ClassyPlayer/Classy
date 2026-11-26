@@ -128,7 +128,7 @@ class EqualizerController(
             }
         })
 
-        var activeName = "Normal"
+        var activeName = localize("Normal")
         if (currentEqProfile.startsWith("preset_")) {
             val pIdx = currentEqProfile.removePrefix("preset_").toIntOrNull() ?: 0
             if (pIdx < eqPresetNames.size) {
@@ -139,18 +139,21 @@ class EqualizerController(
         }
         rows += RowSpec(localize("EQ Profile / Preset"), RowLook.VALUE, value = activeName, opens = true, onClick = { buildProfileSelectorUI() })
 
-        val steps = arrayOf("Off", "Weak", "Normal", "Strong")
-        rows += RowSpec(localize("Bass Boost"), RowLook.VALUE, value = localize(steps[currentBassBoostStep % 4]), onClick = {
+        // Separate keys: in some languages the words agree with the grammatical gender of each effect
+        val bassSteps = arrayOf("Off", "Weak (Bass Boost)", "Normal (Bass Boost)", "Strong (Bass Boost)")
+        val virtualizerSteps = arrayOf("Off", "Weak (Virtualizer)", "Normal (Virtualizer)", "Strong (Virtualizer)")
+        val crossfeedSteps = arrayOf("Off", "Weak (Crossfeed)", "Normal (Crossfeed)", "Strong (Crossfeed)")
+        rows += RowSpec(localize("Bass Boost"), RowLook.VALUE, value = localize(bassSteps[currentBassBoostStep % 4]), onClick = {
             currentBassBoostStep = (currentBassBoostStep + 1) % 4
             AudioEffectManager.getInstance().applyAudioEffects()
             screen.update(settingsSpec())
         })
-        rows += RowSpec(localize("Virtualizer"), RowLook.VALUE, value = localize(steps[currentVirtualizerStep % 4]), onClick = {
+        rows += RowSpec(localize("Virtualizer"), RowLook.VALUE, value = localize(virtualizerSteps[currentVirtualizerStep % 4]), onClick = {
             currentVirtualizerStep = (currentVirtualizerStep + 1) % 4
             AudioEffectManager.getInstance().applyAudioEffects()
             screen.update(settingsSpec())
         })
-        rows += RowSpec(localize("Crossfeed"), RowLook.VALUE, value = localize(steps[currentCrossfeedStep % 4]), onClick = {
+        rows += RowSpec(localize("Crossfeed"), RowLook.VALUE, value = localize(crossfeedSteps[currentCrossfeedStep % 4]), onClick = {
             currentCrossfeedStep = (currentCrossfeedStep + 1) % 4
             AudioPlayerManager.getInstance().crossfeedProcessor.setIntensity(currentCrossfeedStep)
             screen.update(settingsSpec())

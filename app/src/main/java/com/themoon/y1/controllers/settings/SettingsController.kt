@@ -424,7 +424,7 @@ class SettingsController(
         val profile = Prefs.EQ_PROFILE.get(prefs)
         if (!profile.startsWith("preset_")) return profile.replace("custom_", "")
         val index = profile.replace("preset_", "").toIntOrNull() ?: 0
-        return if (index < eqPresetNames.size) localize(eqPresetNames[index]) else "Normal"
+        return if (index < eqPresetNames.size) localize(eqPresetNames[index]) else localize("Normal")
     }
 
     private fun volumeLimitText(): String = Prefs.VOLUME_LIMIT.get(prefs).let { if (it < 0) localize("Off") else it.toString() }

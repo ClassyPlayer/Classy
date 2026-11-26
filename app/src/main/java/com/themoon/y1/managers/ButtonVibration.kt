@@ -9,8 +9,8 @@ object ButtonVibration {
     const val PREF = "vibrate_strength"
     const val DEFAULT = 1
 
-    /** The labels of the levels (translation keys). */
-    val LABELS = arrayOf("Weak", "Normal", "Strong")
+    /** The labels of the levels (translation keys: each language needs the form for "Vibration Strength"). */
+    val LABELS = arrayOf("Weak (Vibration)", "Normal (Vibration)", "Strong (Vibration)")
     private val LENGTH_MS = longArrayOf(15L, 25L, 40L)
 
     fun validLevel(level: Int): Int = if (level in LENGTH_MS.indices) level else DEFAULT

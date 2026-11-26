@@ -23,8 +23,8 @@ object LetterJump {
         HIGH(3, 120L, 1.3);
 
         companion object {
-            /** The labels of the Settings row, in the order of the pref values (the [ordinal]). */
-            val LABELS = arrayOf("Low", "Normal", "High")
+            /** The labels of the Settings row (translation keys), in the order of the pref values (the [ordinal]). */
+            val LABELS = arrayOf("Low (Letter Jump)", "Normal (Letter Jump)", "High (Letter Jump)")
             val DEFAULT = NORMAL
 
             /** The sensitivity of pref value [level]; [DEFAULT] for a value that is not known. */
