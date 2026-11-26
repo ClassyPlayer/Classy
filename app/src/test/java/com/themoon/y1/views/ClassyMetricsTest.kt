@@ -163,4 +163,13 @@ class ClassyMetricsTest {
         val tilt = ClassyMetrics.artTilt(204f)
         assertEquals(tilt.cameraDistancePx * 160f / 72f, ClassyMetrics.cameraDistanceSetting(tilt.cameraDistancePx, 160), 0.001f)
     }
+
+    @Test
+    fun capHeightIsTheHOfNimbusSans() {
+        // "H" of NimbusSans-Regular.otf and -Bold.otf: 729 units of 1000
+        assertEquals(14.58f, ClassyMetrics.capHeight(20f), 0.001f)
+        // A 36 px row, 20 px text, ascent -15: 36 / 2 - 15 + 14.58 / 2 = 10.29
+        val top = ClassyMetrics.capCentredPaddingTop(36f, -15, ClassyMetrics.capHeight(20f))
+        assertEquals(10, top)
+    }
 }
