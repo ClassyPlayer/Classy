@@ -4,6 +4,7 @@ import com.themoon.y1.models.SongItem
 import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -286,5 +287,13 @@ class MediaLibraryCacheTest {
         } finally {
             tempDir.deleteRecursively()
         }
+    }
+
+    @Test
+    fun theStartScansOnlyWithoutALoadedCache() {
+        assertTrue(MediaLibraryManager.needsScanAtStart(cacheLoaded = false, scanning = false))
+        assertFalse(MediaLibraryManager.needsScanAtStart(cacheLoaded = true, scanning = false))
+        assertFalse(MediaLibraryManager.needsScanAtStart(cacheLoaded = false, scanning = true))
+        assertFalse(MediaLibraryManager.needsScanAtStart(cacheLoaded = true, scanning = true))
     }
 }

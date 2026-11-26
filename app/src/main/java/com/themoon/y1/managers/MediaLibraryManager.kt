@@ -878,6 +878,12 @@ class MediaLibraryManager private constructor() {
          */
         internal const val CACHE_VERSION = 4
 
+        /**
+         * True when the start must scan the library: no library cache was loaded (a new install has none) and no scan
+         * runs. The scan makes the cache.
+         */
+        fun needsScanAtStart(cacheLoaded: Boolean, scanning: Boolean): Boolean = !cacheLoaded && !scanning
+
         /** The files whose release type tag the scan reads (v4). An M4B file in Music is music too. */
         private val RELEASE_TYPE_EXTENSIONS = listOf(".mp3", ".flac", ".ogg", ".opus", ".m4a", ".m4b")
 

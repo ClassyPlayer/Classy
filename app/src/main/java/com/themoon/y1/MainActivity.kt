@@ -453,12 +453,14 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
         } else {
             val startLibraryLoad = {
                 runMigrationsAsync {
-                    loadLibraryCache {
+                    loadLibraryCache { cacheLoaded ->
                         if (!playbackRestored) {
                             playbackRestored = AudioPlayerManager.getInstance().restoreLastPlaybackState(this)
                         }
                         val mgr = com.themoon.y1.migrations.MigrationManager.getInstance(applicationContext)
-                        if (mgr.isPendingMediaRescan() && !isCustomScanning) {
+                        if (MediaLibraryManager.needsScanAtStart(cacheLoaded, isCustomScanning) ||
+                            (mgr.isPendingMediaRescan() && !isCustomScanning)
+                        ) {
                             scanVideos()
                             startMediaLibraryScan()
                         }
