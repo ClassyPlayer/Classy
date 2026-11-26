@@ -66,7 +66,6 @@ import com.themoon.y1.controllers.videos.VideoBrowserController
 import com.themoon.y1.controllers.videos.VideoPlayerController
 import com.themoon.y1.controllers.games.GamePlayerController
 import com.themoon.y1.controllers.games.GamesController
-import com.themoon.y1.managers.AssetInstaller
 import com.themoon.y1.managers.AudioPlayerManager
 import com.themoon.y1.managers.BluetoothAvrcpManager
 import com.themoon.y1.managers.BluetoothPairingAgent
@@ -405,7 +404,6 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
         window.setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN)
         setContentView(R.layout.activity_main)
 
-        AssetInstaller.installBundledLanguages(this, prefs)
         LanguageManager.getInstance(this).loadAvailableLanguages()
         // The language of Settings → General → Language: without this, a new process (after a reboot) shows English
         LanguageManager.getInstance(this).applyLanguage(Prefs.LANGUAGE.get(prefs))
@@ -490,7 +488,9 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
                     }
                     runOnUiThread {
                         primaryStorageWait = null
-                        if (!isFinishing && !isDestroyed) startLibraryLoad()
+                        if (isFinishing || isDestroyed) return@runOnUiThread
+                        // A language that a user added is on this storage: show its texts now
+                        if (LanguageManager.getInstance(this).reloadIfNotLoaded()) recreate() else startLibraryLoad()
                     }
                 }, "y1-wait-primary-storage").apply { start() }
             }

@@ -529,11 +529,12 @@ class SettingsController(
     private fun languageList(): ListSpec {
         val langMgr = LanguageManager.getInstance(activity)
         langMgr.loadAvailableLanguages()
-        val files = listOf("English (Default)") + langMgr.availableLangFiles.map { it.name }
+        val files = listOf(LanguageManager.DEFAULT) + langMgr.builtInLanguages().filterNot { LanguageManager.isEnglish(it) } +
+            langMgr.availableLangFiles.map { it.name }
         return rows.valueList(localize("Language"), files.map { name ->
             SettingValue(name.replace(".json", ""), langMgr.currentLangFileName == name) {
                 Prefs.LANGUAGE.set(prefs, name)
-                langMgr.applyLanguage(name)
+                langMgr.applyLanguage(name, reload = true)
                 activity.recreate()
             }
         }, focus = Focus.FIRST)

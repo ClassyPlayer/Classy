@@ -54,7 +54,7 @@ internal object SettingsBackupUi {
             return
         }
         val prefs = activity.getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
-        LanguageManager.getInstance(activity).applyLanguage(Prefs.LANGUAGE.get(prefs))
+        LanguageManager.getInstance(activity).applyLanguage(Prefs.LANGUAGE.get(prefs), reload = true)
         try {
             AudioEffectManager.getInstance().applySoundCheck()
             AudioEffectManager.getInstance().applyEqProfile()

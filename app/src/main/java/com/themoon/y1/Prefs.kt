@@ -253,7 +253,6 @@ object Prefs {
     val ALBUM_ART = add(PrefFamily("album_art_", PrefGroup.DATA, inBackup = false))
     val LASTFM_USERNAME = add(PrefKey("lastfm_username", PrefGroup.ACCOUNT, inBackup = false))
     val LASTFM_PASSWORD = add(PrefKey("lastfm_password", PrefGroup.ACCOUNT, inBackup = false))
-    val LAST_LANG_VERSION = add(PrefKey("last_lang_version", PrefGroup.INSTALL, inBackup = false))
     /**
      * Update Channel chosen in Settings ([UpdateChannel]); it holds only for the builds in [UPDATE_CHANNEL_BUILDS].
      * Not in the backup: a backup of another player must not move this one to another channel.
@@ -266,6 +265,8 @@ object Prefs {
     /** Old theme keys (before the two themes were in the code). No code reads them. */
     val THEME_INDEX = add(PrefKey("app_theme_index", PrefGroup.LEGACY))
     val LAST_THEME_VERSION = add(PrefKey("last_installed_theme_version", PrefGroup.LEGACY, inBackup = false))
+    /** The version of the language files that an earlier version copied to internal storage. No code reads it. */
+    val LAST_LANG_VERSION = add(PrefKey("last_lang_version", PrefGroup.LEGACY, inBackup = false))
 
     /** All keys, in the order above. */
     val ALL: List<PrefKey> get() = keys
