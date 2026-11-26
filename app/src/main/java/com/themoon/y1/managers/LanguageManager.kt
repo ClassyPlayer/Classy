@@ -9,7 +9,7 @@ import java.io.InputStream
 
 /**
  * The translations. The built-in languages (assets/languages in the app) always load from the app, so that an
- * update of the app also updates them. The Languages folder on the storage (Y1_Languages) is only for the language
+ * update of the app also updates them. The Languages folder on the storage is only for the language
  * files that a user adds: a file there with the name of a built-in language is not used.
  */
 class LanguageManager private constructor(context: Context) {

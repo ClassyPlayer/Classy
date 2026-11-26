@@ -503,7 +503,7 @@ class StoragePathsParityTest {
         assertEquals(".y1_thumbs_cache", StoragePaths.getThumbsCacheDir().name)
         assertEquals(primaryRoot, StoragePaths.getThumbsCacheDir().parentFile)
 
-        assertEquals("Y1_Languages", StoragePaths.getLanguagesDir().name)
+        assertEquals("Languages", StoragePaths.getLanguagesDir().name)
         assertEquals(primaryRoot, StoragePaths.getLanguagesDir().parentFile)
 
         assertEquals("Playlists", StoragePaths.getPlaylistsDir().name)
