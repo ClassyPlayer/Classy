@@ -407,6 +407,8 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
 
         AssetInstaller.installBundledLanguages(this, prefs)
         LanguageManager.getInstance(this).loadAvailableLanguages()
+        // The language of Settings → General → Language: without this, a new process (after a reboot) shows English
+        LanguageManager.getInstance(this).applyLanguage(Prefs.LANGUAGE.get(prefs))
 
         ThemeManager.init(this, prefs)
         com.themoon.y1.managers.AutoThemeManager.applyAtStart(prefs)
