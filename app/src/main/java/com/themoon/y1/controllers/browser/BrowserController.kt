@@ -258,7 +258,7 @@ class BrowserController(
                 rows += RowSpec(localize(item.label), key = item.id, onClick = { openMusicMenuItem(item.id) })
             }
         } else {
-            rows += RowSpec(localize("Continue"), onClick = { continueAudiobook() })
+            rows += RowSpec(localize("Continue (Audiobook)"), onClick = { continueAudiobook() })
             if (Prefs.AUDIOBOOK_SERIES_COVER_FLOW.get(AppPrefs.get(activity))) {
                 rows += RowSpec(localize("Series Cover Flow"), key = "audiobook_series_cover_flow",
                     onClick = { onNavigateToScreen(ScreenState.AudiobookCoverFlow()) })
