@@ -128,7 +128,7 @@ class InputRouter private constructor() {
         if (!isCentreButton(event)) return false
         return when (event.action) {
             KeyEvent.ACTION_DOWN ->
-                if (event.repeatCount == 0) centreBounce.onPress(event.keyCode, event.downTime) else centreBounce.onRepeat()
+                if (event.repeatCount == 0) centreBounce.onPress(event.keyCode, event.downTime) else centreBounce.onRepeat(event.keyCode)
             KeyEvent.ACTION_UP -> centreBounce.onRelease(event.keyCode, event.eventTime)
             else -> false
         }

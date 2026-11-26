@@ -51,7 +51,7 @@ class KeyBounceTest {
         b.onPress(ENTER, 1_000)
         b.onRelease(ENTER, 1_020)
         assertTrue(b.onPress(ENTER, 1_050))
-        assertTrue(b.onRepeat())
+        assertTrue(b.onRepeat(ENTER))
         assertTrue(b.onRelease(ENTER, 3_500))
     }
 
@@ -59,7 +59,7 @@ class KeyBounceTest {
     fun repeatsOfARealPressAreKept() {
         val b = KeyBounce(bounceMs = 60)
         b.onPress(ENTER, 1_000)
-        assertFalse(b.onRepeat())
+        assertFalse(b.onRepeat(ENTER))
         assertFalse(b.onRelease(ENTER, 2_000))
     }
 
@@ -83,7 +83,7 @@ class KeyBounceTest {
         b.onPress(ENTER, 1_000)
         b.onRelease(ENTER, 1_020)
         assertTrue(b.isBounce(ENTER, 1_040))
-        assertFalse(b.onRepeat())
+        assertFalse(b.onRepeat(ENTER))
         assertTrue(b.onPress(ENTER, 1_040))
     }
 
@@ -103,5 +103,27 @@ class KeyBounceTest {
         b.onPress(ENTER, 1_000)
         b.onRelease(ENTER, 1_100)
         assertFalse(b.onPress(DPAD_CENTER, 1_120))
+    }
+
+    @Test
+    fun eachKeyKeepsItsOwnReleaseTime() {
+        // Enter released at 1020, the D-pad centre at 1030: an Enter press at 1040 is still a bounce of Enter
+        val b = KeyBounce(bounceMs = 60)
+        b.onPress(ENTER, 1_000)
+        b.onRelease(ENTER, 1_020)
+        b.onPress(DPAD_CENTER, 1_005)
+        b.onRelease(DPAD_CENTER, 1_030)
+        assertTrue(b.onPress(ENTER, 1_040))
+    }
+
+    @Test
+    fun pressOfAnotherKeyKeepsADroppedPressDropped() {
+        val b = KeyBounce(bounceMs = 60)
+        b.onPress(ENTER, 1_000)
+        b.onRelease(ENTER, 1_020)
+        assertTrue(b.onPress(ENTER, 1_040))
+        assertFalse(b.onPress(DPAD_CENTER, 1_050))
+        assertTrue(b.onRepeat(ENTER))
+        assertTrue(b.onRelease(ENTER, 1_600))
     }
 }
