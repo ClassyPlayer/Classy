@@ -9,6 +9,7 @@ import com.themoon.y1.views.Notice
 import com.themoon.y1.managers.AudioPlayerManager
 import com.themoon.y1.managers.LibrarySongs
 import com.themoon.y1.managers.M4bChapterParser
+import com.themoon.y1.managers.Plurals
 import com.themoon.y1.managers.SleepTimer
 import com.themoon.y1.models.ArtistNames
 import com.themoon.y1.models.SongItem
@@ -82,8 +83,8 @@ object NowPlayingContextMenu {
     private fun speedIndex(speed: Float): Int =
         SettingsController.SPEED_VALUES.indexOfFirst { Math.abs(it - speed) < 0.01f }.coerceAtLeast(0)
 
-    /** "45 minutes", with the translated unit. */
-    private fun minutesText(main: MainActivity, minutes: Int): String = "$minutes" + main.t(" minutes")
+    /** "45 minutes", translated. */
+    private fun minutesText(main: MainActivity, minutes: Int): String = Plurals.format(main::t, "%d minutes", minutes)
 
     /** The rows of an audiobook: the speed, the chapters and the sleep timer. [changed]: redraws them after a change. */
     private fun audiobookRows(main: MainActivity, songFile: File, changed: () -> Unit): List<ActionScreens.Action> {

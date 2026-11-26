@@ -27,6 +27,7 @@ import com.themoon.y1.lists.RowLook
 import com.themoon.y1.lists.RowSpec
 import com.themoon.y1.managers.AudioPlayerManager
 import com.themoon.y1.managers.FmRadioManager
+import com.themoon.y1.managers.Plurals
 import com.themoon.y1.navigation.NavigationManager
 import com.themoon.y1.navigation.ScreenState
 import com.themoon.y1.navigation.WheelKind
@@ -331,8 +332,8 @@ class FmRadioController(
 
                     Notice.show(
                         activity,
-                        localize("Scan Complete!\nFound") + " ${savedRadioStations.size} " +
-                                localize("channels.\nTuning to") + " " + String.format(Locale.US, "%.1f MHz", first),
+                        Plurals.format(localize, "Scan Complete!\nFound %1\$d channels.\nTuning to %2\$s", savedRadioStations.size,
+                            String.format(Locale.US, "%.1f MHz", first)),
                         long = true
                     )
                 } else {

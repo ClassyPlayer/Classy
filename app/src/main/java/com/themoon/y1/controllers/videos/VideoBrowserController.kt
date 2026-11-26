@@ -20,6 +20,7 @@ import com.themoon.y1.lists.ListSpec
 import com.themoon.y1.lists.Pane
 import com.themoon.y1.lists.RowLook
 import com.themoon.y1.lists.RowSpec
+import com.themoon.y1.managers.Plurals
 import com.themoon.y1.models.VideoItem
 import com.themoon.y1.models.TvSeries
 import com.themoon.y1.navigation.ScreenState
@@ -123,9 +124,8 @@ class VideoBrowserController(
 
     private fun buildTvShowsListUI() {
         val rows = tvSeriesProvider().map { series ->
-            val seasonWord = if (series.seasons.size == 1) localize("Season") else localize("Seasons")
-            val epWord = if (series.totalEpisodes == 1) localize("Episode") else localize("Episodes")
-            RowSpec(series.name, RowLook.ART, value = "${series.seasons.size} $seasonWord • ${series.totalEpisodes} $epWord",
+            val seasons = Plurals.format(localize, "%d Seasons", series.seasons.size)
+            RowSpec(series.name, RowLook.ART, value = seasons + " • " + Plurals.format(localize, "%d Episodes", series.totalEpisodes),
                 image = { iv ->
                     iv.setImageResource(R.drawable.video_circle)
                     if (series.posterFile != null && series.posterFile.exists()) {
@@ -143,8 +143,7 @@ class VideoBrowserController(
     private fun buildTvSeasonsListUI(seriesName: String) {
         val series = tvSeriesProvider().firstOrNull { it.name.equals(seriesName, ignoreCase = true) }
         val rows = (series?.seasons ?: emptyList()).map { season ->
-            val epWord = if (season.episodes.size == 1) localize("Episode") else localize("Episodes")
-            RowSpec(season.seasonTitle, RowLook.ART, value = "${season.episodes.size} $epWord",
+            RowSpec(season.seasonTitle, RowLook.ART, value = Plurals.format(localize, "%d Episodes", season.episodes.size),
                 onClick = { onNavigateToMode(VideoMode.TvEpisodes(seriesName, season.seasonNumber)) })
         }
         screen.show(ListSpec(seriesName, rows, empty = localize("No TV series found.")))
