@@ -32,13 +32,13 @@ class MediaLibraryManager private constructor() {
 
     val isScanning: Boolean get() = scans.isRunning
 
-    /** Sends the progress and the completion to all listeners of the running scan ([ScanListeners]). */
-    private val scanListeners = object : ScanProgressListener {
+    /** Sends the progress and the completion of scan [id] to all listeners of that scan ([ScanListeners]). */
+    private fun listenersOf(id: Int) = object : ScanProgressListener {
         override fun onProgress(scanned: Int, total: Int) {
             for (l in scans.current()) l.onProgress(scanned, total)
         }
         override fun onComplete(musicCount: Int, booksCount: Int) {
-            for (l in scans.finish()) l.onComplete(musicCount, booksCount)
+            for (l in scans.finish(id)) l.onComplete(musicCount, booksCount)
         }
     }
 
@@ -92,7 +92,8 @@ class MediaLibraryManager private constructor() {
         listener: ScanProgressListener? = null
     ) {
         // A request while a scan runs joins that scan
-        if (!scans.join(listener)) return
+        val scanId = scans.join(listener) ?: return
+        val scanListeners = listenersOf(scanId)
         // The scan goes on with the screen off
         val wakeLock = ScanWakeLock.forScan(context).also { it.acquire() }
 
@@ -169,14 +170,14 @@ class MediaLibraryManager private constructor() {
             } catch (t: Throwable) {
                 Log.e(tag, "Scan error: ${t.message}", t)
             } finally {
-                scans.finish()
+                scans.finish(scanId)
                 wakeLock.release()
             }
         }, "y1-media-scanner")
         try {
             scanner.start()
         } catch (t: Throwable) {
-            scans.finish()
+            scans.finish(scanId)
             wakeLock.release()
             throw t
         }
