@@ -2,13 +2,10 @@ package com.themoon.y1.migrations
 
 import android.content.SharedPreferences
 import com.themoon.y1.Prefs
-import com.themoon.y1.StoragePaths
-import java.io.File
 
 /**
- * The steps of a migration for a new main menu item (008 Play On, 012 Games, 015 Books, 016 Photos). A saved order
- * (Settings → Menus → Main Menu Items) puts an item that it does not have at the end: the migration puts it after its
- * neighbour once. An item for a folder starts hidden when the folder is not there.
+ * The step of a migration for a new main menu item (008 Play On). A saved order (Settings → Menus → Main Menu Items)
+ * puts an item that it does not have at the end: the migration puts it after its neighbour once.
  */
 internal object NewMenuItem {
     /** Puts [item] after [after] in the saved main menu order of [prefs] ([insertAfter]). */
@@ -26,20 +23,4 @@ internal object NewMenuItem {
         if (i >= 0) ids.add(i + 1, item) else ids.add(item)
         return ids.joinToString(",")
     }
-
-    /** Hides [item] when none of its [folders] is there ([startsHidden]). A saved value (the user's choice) stays. */
-    fun hideWithoutFolder(prefs: SharedPreferences, item: String, folders: () -> List<File>) {
-        val hiddenKey = Prefs.MAIN_MENU_HIDDEN.key(item)
-        if (prefs.contains(hiddenKey)) return
-        val hasFolder = folders().any { it.isDirectory }
-        if (startsHidden(hasFolder, StoragePaths.hasSecondaryStorage())) {
-            prefs.edit().putBoolean(hiddenKey, true).apply()
-        }
-    }
-
-    /**
-     * Hide the item when no folder was found. When the microSD card is not mounted yet, the folder can be on it: the
-     * row stays (the empty list says where to put the files).
-     */
-    fun startsHidden(hasFolder: Boolean, isSdCardMounted: Boolean): Boolean = !hasFolder && isSdCardMounted
 }

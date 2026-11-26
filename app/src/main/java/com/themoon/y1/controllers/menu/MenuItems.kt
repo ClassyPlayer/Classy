@@ -12,14 +12,13 @@ class MenuItem(val id: String, val label: String, val action: String = id)
  * The saved order and the hide keys use the item ids: do not change them.
  * - [order]: the ids, comma-separated. Ids that the menu does not have are ignored; items that are not in the order go
  *   after the ordered items, in the default order.
- * - [hidden]: "<prefix><id>" = true hides the item. With no key, the items of [hiddenByDefault] are hidden.
+ * - [hidden]: "<prefix><id>" = true hides the item. With no key, the item shows: no item is hidden by default.
  */
 open class MenuItems(
     /** In the default order. */
     val items: List<MenuItem>,
     private val order: StringPref,
-    private val hidden: PrefFamily,
-    private val hiddenByDefault: Set<String> = emptySet()
+    private val hidden: PrefFamily
 ) {
     /** All items in the saved order. */
     fun ordered(prefs: SharedPreferences): List<MenuItem> = ordered(order.get(prefs))
@@ -34,9 +33,7 @@ open class MenuItems(
         order.set(prefs, ids.joinToString(","))
     }
 
-    fun isHiddenByDefault(id: String): Boolean = id in hiddenByDefault
-
-    fun isHidden(prefs: SharedPreferences, id: String): Boolean = prefs.getBoolean(hidden.key(id), isHiddenByDefault(id))
+    fun isHidden(prefs: SharedPreferences, id: String): Boolean = prefs.getBoolean(hidden.key(id), false)
 
     fun setHidden(prefs: SharedPreferences, id: String, hide: Boolean) {
         prefs.edit().putBoolean(hidden.key(id), hide).commit()

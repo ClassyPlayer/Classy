@@ -42,16 +42,15 @@ open class MigrationManager {
         registerMigration(Migration009RemoveBackgroundPath())
         registerMigration(Migration010UsbDrive())
         registerMigration(Migration011BootScreen())
-        registerMigration(Migration012GamesMenuItem())
         registerMigration(Migration013FillTrackLengths())
         registerMigration(Migration014MovePlaylistsFolder())
-        registerMigration(Migration015BooksMenuItem())
-        registerMigration(Migration016PhotosMenuItem())
+        // 012, 015 and 016 (Games, Books, Photos in the main menu) are removed: do not use their versions or ids again.
         registerMigration(Migration017RemoveThemeFolders())
         registerMigration(Migration018MoodTags())
         registerMigration(Migration019Mp3Years())
         registerMigration(Migration020ReleaseTypes())
         registerMigration(Migration021PreviousRestartsSong())
+        registerMigration(Migration022ShowMenuItems())
     }
 
     /**

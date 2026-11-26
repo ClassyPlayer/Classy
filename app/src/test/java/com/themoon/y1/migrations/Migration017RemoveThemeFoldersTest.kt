@@ -31,10 +31,10 @@ class Migration017RemoveThemeFoldersTest {
     }
 
     @Test
-    fun runsAfterMigration16() {
+    fun runsAfterMigration14() {
         val manager = MigrationManager(null, MoveMisplacedPrefsTest.FakePrefs())
         manager.registerMigration(Migration017RemoveThemeFolders())
-        manager.registerMigration(Migration016PhotosMenuItem())
-        assertEquals(listOf(16, 17), manager.getRegisteredMigrations().map { it.version })
+        manager.registerMigration(Migration014MovePlaylistsFolder())
+        assertEquals(listOf(14, 17), manager.getRegisteredMigrations().map { it.version })
     }
 }

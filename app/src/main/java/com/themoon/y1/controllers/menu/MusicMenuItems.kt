@@ -2,10 +2,7 @@ package com.themoon.y1.controllers.menu
 
 import com.themoon.y1.Prefs
 
-/**
- * The Music menu items (BrowserController.openMusicMenuItem opens each id). Album Artists is hidden until the user
- * shows it: like the iPod, the Music menu has Artists and Compilations.
- */
+/** The Music menu items (BrowserController.openMusicMenuItem opens each id). */
 object MusicMenuItems : MenuItems(
     listOf(
         MenuItem("coverflow", "Cover Flow"),
@@ -25,5 +22,5 @@ object MusicMenuItems : MenuItems(
         MenuItem("folders", "Folders"),
         MenuItem("search", "Search")
     ),
-    Prefs.MUSIC_MENU_ORDER, Prefs.MUSIC_MENU_HIDDEN, hiddenByDefault = setOf("artists")
+    Prefs.MUSIC_MENU_ORDER, Prefs.MUSIC_MENU_HIDDEN
 )
