@@ -186,7 +186,7 @@ object StoragePaths {
 
     fun getThumbsCacheDir(): File = ensureDir(File(getPrimaryRoot(), ".y1_thumbs_cache"))
 
-    fun getLanguagesDir(): File = ensureDir(File(getPrimaryRoot(), "Y1_Languages"))
+    fun getLanguagesDir(): File = ensureDir(File(getPrimaryRoot(), "Languages"))
 
     /**
      * Where new playlists go: Playlists on the microSD card (a computer can reach it as a USB drive), else Playlists

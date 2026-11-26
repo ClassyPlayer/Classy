@@ -29,6 +29,6 @@ class ButtonVibrationTest {
 
     @Test
     fun labelsHaveNoRawKey() {
-        assertEquals(listOf("Weak", "Normal", "Strong"), ButtonVibration.LABELS.toList())
+        assertEquals(listOf("Weak (Vibration)", "Normal (Vibration)", "Strong (Vibration)"), ButtonVibration.LABELS.toList())
     }
 }

@@ -24,6 +24,7 @@ import com.themoon.y1.lists.RowTexts
 import com.themoon.y1.managers.AlbumCoverManager
 import com.themoon.y1.managers.AudioPlayerManager
 import com.themoon.y1.managers.LibrarySongs
+import com.themoon.y1.managers.Plurals
 import com.themoon.y1.models.AlbumKey
 import com.themoon.y1.models.AlbumTrackOrder
 import com.themoon.y1.models.AlbumYear
@@ -186,9 +187,9 @@ class CategoryListAdapter(
 
         val allCount = cachedAllSongsCount
         art.bind(if (isAudiobook) main.t("All Audiobooks") else main.t("All Songs"), if (isAudiobook) {
-            if (allCount == 1) t1File() else "$allCount ${tFiles()}"
+            files(allCount)
         } else {
-            if (allCount == 1) t1Song() else "$allCount ${tSongs()}"
+            songs(allCount)
         })
         val row = art.view
 
@@ -258,11 +259,11 @@ class CategoryListAdapter(
         val songCount = albumSongCounts?.get(lookupKey) ?: albumSongCounts?.get(name) ?: 0
         val artist = (albumArtist ?: albumArtistsMap?.get(name))?.let { com.themoon.y1.models.ArtistNames.display(it) }
         art.bind(displayName, if (isAudiobook) {
-            if (songCount == 1) t1File() else "$songCount ${tFiles()}"
+            files(songCount)
         } else if (showAlbumArtist && !artist.isNullOrBlank() && !artist.equals("Unknown Artist", ignoreCase = true)) {
-            "$artist • " + (if (songCount == 1) t1Song() else "$songCount ${tSongs()}")
+            "$artist • " + songs(songCount)
         } else {
-            if (songCount == 1) t1Song() else "$songCount ${tSongs()}"
+            songs(songCount)
         })
 
         val cached = coverCache?.get(lookupKey)
@@ -411,13 +412,11 @@ class CategoryListAdapter(
         return row
     }
 
-    private fun t1Song(): String = "1 " + (MainActivity.instance?.t("Song") ?: "Song")
+    private fun localize(key: String): String = MainActivity.instance?.t(key) ?: key
 
-    private fun tSongs(): String = MainActivity.instance?.t("Songs") ?: "Songs"
+    private fun songs(n: Int): String = Plurals.format(::localize, "%d Songs", n)
 
-    private fun t1File(): String = "1 " + (MainActivity.instance?.t("File") ?: "File")
-
-    private fun tFiles(): String = MainActivity.instance?.t("Files") ?: "Files"
+    private fun files(n: Int): String = Plurals.format(::localize, "%d Files", n)
 
     companion object {
         private const val SIMPLE_ROW = "simple_row"

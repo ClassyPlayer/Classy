@@ -16,8 +16,8 @@ object UsbDrive {
     const val ALWAYS = 1
     const val NEVER = 2
 
-    /** English labels of the values (the app translates them). */
-    val LABELS = arrayOf("Ask", "Always", "Never")
+    /** The labels of the values (translation keys; "Never" alone is the text of "Last Synced: Never"). */
+    val LABELS = arrayOf("Ask", "Always", "Never (USB Drive)")
 
     fun normalize(value: Int): Int = if (value in LABELS.indices) value else ASK
 

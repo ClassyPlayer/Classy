@@ -7,6 +7,8 @@ Checks:
   Check B: Language JSON dictionaries (assets/languages/*.json) are consistent with english.json
            (no extra keys, and missing keys do not exceed the baseline).
   Check C: Informational warning about orphan keys in english.json not detected in static code.
+  Check D: Count texts (Plurals.format(..., "key", n)) have one form for each plural category of each language
+           ("form|form|..."; the "Language code" key of each file gives its rule) and the placeholders of english.json.
 
 Exit code 0 on success, non-zero on failure.
 """
@@ -32,8 +34,15 @@ def unescape_kotlin_str(s: str) -> str:
     return re.sub(r'\\(u[0-9a-fA-F]{4}|[ntrb"\'\\$])', decode, s)
 
 
-def find_code_keys(java_dir: Path) -> dict[str, list[tuple[str, int]]]:
-    """Scan Kotlin/Java source files for localize("...") and t("...") calls."""
+PLURAL_PATTERN = re.compile(r'\bPlurals\.format\([^"]*?,\s*"((?:[^"\\]|\\.)*)"')
+TEXT_PATTERN = re.compile(r'\bTexts\.format\([^"]*?,\s*"((?:[^"\\]|\\.)*)"')
+
+
+def find_code_keys(java_dir: Path, plural_keys: set[str] | None = None) -> dict[str, list[tuple[str, int]]]:
+    """Scan Kotlin/Java source files for localize("..."), t("..."), Plurals.format(..., "...") and Texts.format(..., "...") calls.
+
+    The keys of Plurals.format() calls are also added to [plural_keys] when it is given.
+    """
     pattern = re.compile(
         r'(?:\bmain\.t|\bcontext\.t|\bctx\.t|\bMainActivity\.instance\?\.t|\blocalize|\bt)\s*\(\s*"((?:[^"\\]|\\.)*)"'
     )
@@ -52,10 +61,50 @@ def find_code_keys(java_dir: Path) -> dict[str, list[tuple[str, int]]]:
                             unescaped = unescape_kotlin_str(raw_str)
                             rel_path = str(path)
                             code_keys[unescaped].append((rel_path, line_no))
+                        for match in PLURAL_PATTERN.finditer(line):
+                            unescaped = unescape_kotlin_str(match.group(1))
+                            code_keys[unescaped].append((str(path), line_no))
+                            if plural_keys is not None:
+                                plural_keys.add(unescaped)
+                        for match in TEXT_PATTERN.finditer(line):
+                            code_keys[unescape_kotlin_str(match.group(1))].append((str(path), line_no))
             except Exception as e:
                 print(f"Warning: Failed to read {path}: {e}", file=sys.stderr)
 
     return code_keys
+
+
+# Languages without plural forms, and languages with three forms for whole numbers: as Plurals.rule() in the app.
+ONE_FORM_LANGUAGES = {"zh", "ja", "ko", "vi", "th", "id", "ms", "lo", "my", "km"}
+THREE_FORM_LANGUAGES = {"ru", "uk", "be", "pl", "cs", "sk"}
+PLACEHOLDER = re.compile(r'%(?:(\d+)\$)?[-#+ 0,(]*\d*(?:\.\d+)?([a-zA-Z%])')
+
+
+def plural_form_count(code: str) -> int:
+    """The number of forms that a count text needs in the language with the code `code` ("en", "pt-BR"...)."""
+    base = re.split(r"[-_]", code.strip().lower())[0]
+    if base in ONE_FORM_LANGUAGES:
+        return 1
+    if base in THREE_FORM_LANGUAGES:
+        return 3
+    return 2
+
+
+def placeholders(text: str) -> set[tuple[int, str]]:
+    """The format placeholders of `text` as (argument index, conversion); "%d" and "%1$d" are the same."""
+    found = set()
+    sequence = 0
+    for m in PLACEHOLDER.finditer(text):
+        conversion = m.group(2)
+        if conversion in "%n":
+            continue
+        if m.group(1):
+            index = int(m.group(1))
+        else:
+            sequence += 1
+            index = sequence
+        found.add((index, conversion.lower()))
+    return found
 
 
 def load_language_files(languages_dir: Path) -> tuple[dict[str, str], dict[str, dict[str, str]]]:
@@ -161,6 +210,7 @@ def main() -> int:
     github_summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
 
     has_errors = False
+    plural_keys: set[str] = set()
     markdown_lines = []
     markdown_lines.append("# Translation Consistency Check Report\n")
 
@@ -173,7 +223,7 @@ def main() -> int:
     # -------------------------------------------------------------
     if not args.no_check_code:
         print("\n[Check A] Verifying that code string keys exist in english.json...")
-        code_keys_map = find_code_keys(java_dir)
+        code_keys_map = find_code_keys(java_dir, plural_keys)
         total_unique_code_keys = len(code_keys_map)
         missing_from_english = set(code_keys_map.keys()) - english_keys
 
@@ -290,6 +340,41 @@ def main() -> int:
             if args.fail_on_orphans:
                 has_errors = True
                 print("❌ Check C FAILED: --fail-on-orphans was set.")
+
+    # -------------------------------------------------------------
+    # Check D: Plural forms of the count texts
+    # -------------------------------------------------------------
+    if not args.no_check_code and not args.no_check_languages:
+        print("\n[Check D] Verifying the plural forms of the count texts (Plurals.format)...")
+        plural_errors = []
+        all_languages = {"english.json": english_dict, **other_languages}
+        for key in sorted(plural_keys):
+            english_text = english_dict.get(key)
+            if english_text is None:
+                continue  # Check A reports it
+            wanted = placeholders(english_text.split("|")[-1])
+            for lang_name, lang_dict in sorted(all_languages.items()):
+                text = lang_dict.get(key)
+                if text is None:
+                    continue  # Check B reports it
+                code = lang_dict.get("Language code", "en")
+                forms = text.split("|")
+                need = plural_form_count(code)
+                if len(forms) != need:
+                    plural_errors.append(f"{lang_name}: {key!r} has {len(forms)} form(s); language code {code!r} needs {need}")
+                for form in forms:
+                    if placeholders(form) != wanted:
+                        plural_errors.append(f"{lang_name}: {key!r}: the placeholders of {form!r} are not those of english.json")
+        if plural_errors:
+            has_errors = True
+            print(f"❌ Check D FAILED: {len(plural_errors)} problem(s):")
+            for e in plural_errors:
+                print(f"  • {e}")
+            markdown_lines.append("### ❌ Check D: Plural forms\n\n" + "\n".join(f"- {e}" for e in plural_errors) + "\n")
+        else:
+            msg = f"All {len(plural_keys)} count texts have the plural forms of each language."
+            print(f"✅ Check D PASSED: {msg}")
+            markdown_lines.append(f"### ✅ Check D: Plural forms\n\n{msg}\n")
 
     # Write GITHUB_STEP_SUMMARY if available
     if github_summary_path:

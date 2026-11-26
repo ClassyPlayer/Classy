@@ -31,6 +31,7 @@ import com.themoon.y1.managers.ClickVolume
 import com.themoon.y1.managers.PowerBacklightManager
 import com.themoon.y1.managers.VolumeSteps
 import com.themoon.y1.managers.LanguageManager
+import com.themoon.y1.managers.LanguageNames
 import com.themoon.y1.managers.LastFmScrobbler
 import com.themoon.y1.managers.PowerMenu
 import com.themoon.y1.managers.RadioSwitch
@@ -287,7 +288,7 @@ class SettingsController(
         ), direct = true),
         SettingsGroup("General", listOf(
             action("About") { onNavigateToScreen(MainActivity.STATE_STORAGE) },
-            action("Language", { LanguageManager.getInstance(activity).currentLangFileName.replace(".json", "") }, opens = true) { openPage("Language") },
+            action("Language", { LanguageNames.of(LanguageManager.getInstance(activity).currentLangFileName) }, opens = true) { openPage("Language") },
             action("System Update", { "v" + versionName() }, opens = true) { openPage("Update") },
             action("Legal") { openPage("Legal") },
             action("Export Settings") { SettingsBackupUi.exportSettings(activity, localize) },
@@ -423,7 +424,7 @@ class SettingsController(
         val profile = Prefs.EQ_PROFILE.get(prefs)
         if (!profile.startsWith("preset_")) return profile.replace("custom_", "")
         val index = profile.replace("preset_", "").toIntOrNull() ?: 0
-        return if (index < eqPresetNames.size) localize(eqPresetNames[index]) else "Normal"
+        return if (index < eqPresetNames.size) localize(eqPresetNames[index]) else localize("Normal")
     }
 
     private fun volumeLimitText(): String = Prefs.VOLUME_LIMIT.get(prefs).let { if (it < 0) localize("Off") else it.toString() }
@@ -529,11 +530,11 @@ class SettingsController(
     private fun languageList(): ListSpec {
         val langMgr = LanguageManager.getInstance(activity)
         langMgr.loadAvailableLanguages()
-        val files = listOf("English (Default)") + langMgr.availableLangFiles.map { it.name }
+        val files = LanguageNames.rows(langMgr.builtInLanguages() + langMgr.availableLangFiles.map { it.name })
         return rows.valueList(localize("Language"), files.map { name ->
-            SettingValue(name.replace(".json", ""), langMgr.currentLangFileName == name) {
+            SettingValue(LanguageNames.of(name), LanguageNames.isCurrent(name, langMgr.currentLangFileName)) {
                 Prefs.LANGUAGE.set(prefs, name)
-                langMgr.applyLanguage(name)
+                langMgr.applyLanguage(name, reload = true)
                 activity.recreate()
             }
         }, focus = Focus.FIRST)

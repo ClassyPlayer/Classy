@@ -1,6 +1,7 @@
 package com.themoon.y1
 
 import com.themoon.y1.managers.MediaLibraryManager
+import com.themoon.y1.managers.Texts
 import com.themoon.y1.models.TvSeason
 import com.themoon.y1.models.TvSeries
 import com.themoon.y1.models.VideoItem
@@ -304,7 +305,7 @@ internal fun MainActivity.scanVideosInternal() {
                 if (ep1 != ep2 && ep1 > 0 && ep2 > 0) ep1.compareTo(ep2)
                 else e1.title.compareTo(e2.title, ignoreCase = true)
             }
-            val seasonTitle = "${t("Season")} $sNum"
+            val seasonTitle = Texts.format({ t(it) }, "Season %d", sNum)
             builtSeasons.add(TvSeason(seriesName = sName, seasonNumber = sNum, seasonTitle = seasonTitle, episodes = episodes))
         }
         builtSeriesList.add(TvSeries(name = sName, seasons = builtSeasons, posterFile = seriesPosterMap[sName]))

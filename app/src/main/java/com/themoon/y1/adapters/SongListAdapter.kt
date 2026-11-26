@@ -17,6 +17,7 @@ import com.themoon.y1.lists.RowTexts
 import com.themoon.y1.managers.AlbumCoverManager
 import com.themoon.y1.managers.AudioPlayerManager
 import com.themoon.y1.managers.MediaLibraryManager
+import com.themoon.y1.managers.Plurals
 import com.themoon.y1.models.ArtistNames
 import com.themoon.y1.models.SongItem
 import com.themoon.y1.podcasts.PodcastDownloadManager
@@ -294,7 +295,7 @@ class SongListAdapter(
         } else {
             items.size
         }
-        art.bind(main.t("Shuffle"), if (count == 1) "1 " + main.t("Song") else "$count " + main.t("Songs"))
+        art.bind(main.t("Shuffle"), Plurals.format(main::t, "%d Songs", count))
 
         row.setOnClickListener {
             main.clickFeedback()

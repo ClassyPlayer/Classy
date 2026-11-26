@@ -29,6 +29,7 @@ import com.themoon.y1.lists.RowSpec
 import com.themoon.y1.managers.AlbumCoverManager
 import com.themoon.y1.managers.AudioPlayerManager
 import com.themoon.y1.managers.MediaLibraryManager
+import com.themoon.y1.managers.Texts
 import com.themoon.y1.models.SongItem
 import com.themoon.y1.navigation.ScreenState
 import com.themoon.y1.quiz.MusicQuizEngine
@@ -207,9 +208,9 @@ class MusicQuizController(
         val question = engine.nextQuestion { type, song ->
             val title = "“${song.title}”"
             when (type) {
-                MusicQuizEngine.TYPE_ARTIST -> "${localize("Which artist released")} $title?"
-                MusicQuizEngine.TYPE_ALBUM -> "${localize("Which album is")} $title ${localize("from?")}"
-                MusicQuizEngine.TYPE_YEAR -> "${localize("What year was")} $title ${localize("released?")}"
+                MusicQuizEngine.TYPE_ARTIST -> Texts.format(localize, "Which artist released %s?", title)
+                MusicQuizEngine.TYPE_ALBUM -> Texts.format(localize, "Which album is %s from?", title)
+                MusicQuizEngine.TYPE_YEAR -> Texts.format(localize, "What year was %s released?", title)
                 MusicQuizEngine.TYPE_ALBUM_COVER -> localize("Which cover matches this song's album?")
                 else -> localize("What song is playing?")
             }
@@ -387,7 +388,7 @@ class MusicQuizController(
             "\n★ " + localize("Perfect Round! +1 Life")
         } else ""
 
-        tvQuizPrompt?.text = "${localize("Round ")}$completedRound ${localize("Complete!")}$bonusNotice"
+        tvQuizPrompt?.text = Texts.format(localize, "Round %d Complete!", completedRound) + bonusNotice
         updateScoreLivesUI()
         tvQuizRound?.text = completedRound.toString()
 
@@ -432,7 +433,7 @@ class MusicQuizController(
 
         val title = localize("Game Over!")
         val scoreStr = String.format(Locale.US, "$%,d", engine.score)
-        val roundStr = "${localize("Round ")}${engine.roundNumber}"
+        val roundStr = Texts.format(localize, "Round %d", engine.roundNumber)
         val highScoreNotice = if (lastGameNewHighScore) "🏆 " + localize("New High Score!") else "${localize("Best")}: ${String.format(Locale.US, "$%,d", highScore)}"
 
         tvQuizPrompt?.text = "$title\n$scoreStr ($roundStr)\n$highScoreNotice"
