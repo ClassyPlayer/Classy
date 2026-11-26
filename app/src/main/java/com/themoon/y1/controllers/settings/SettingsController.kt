@@ -31,6 +31,7 @@ import com.themoon.y1.managers.ClickVolume
 import com.themoon.y1.managers.PowerBacklightManager
 import com.themoon.y1.managers.VolumeSteps
 import com.themoon.y1.managers.LanguageManager
+import com.themoon.y1.managers.LanguageNames
 import com.themoon.y1.managers.LastFmScrobbler
 import com.themoon.y1.managers.PowerMenu
 import com.themoon.y1.managers.RadioSwitch
@@ -287,7 +288,7 @@ class SettingsController(
         ), direct = true),
         SettingsGroup("General", listOf(
             action("About") { onNavigateToScreen(MainActivity.STATE_STORAGE) },
-            action("Language", { LanguageManager.getInstance(activity).currentLangFileName.replace(".json", "") }, opens = true) { openPage("Language") },
+            action("Language", { LanguageNames.of(LanguageManager.getInstance(activity).currentLangFileName) }, opens = true) { openPage("Language") },
             action("System Update", { "v" + versionName() }, opens = true) { openPage("Update") },
             action("Legal") { openPage("Legal") },
             action("Export Settings") { SettingsBackupUi.exportSettings(activity, localize) },
@@ -529,10 +530,9 @@ class SettingsController(
     private fun languageList(): ListSpec {
         val langMgr = LanguageManager.getInstance(activity)
         langMgr.loadAvailableLanguages()
-        val files = listOf(LanguageManager.DEFAULT) + langMgr.builtInLanguages().filterNot { LanguageManager.isEnglish(it) } +
-            langMgr.availableLangFiles.map { it.name }
+        val files = LanguageNames.rows(langMgr.builtInLanguages() + langMgr.availableLangFiles.map { it.name })
         return rows.valueList(localize("Language"), files.map { name ->
-            SettingValue(name.replace(".json", ""), langMgr.currentLangFileName == name) {
+            SettingValue(LanguageNames.of(name), LanguageNames.isCurrent(name, langMgr.currentLangFileName)) {
                 Prefs.LANGUAGE.set(prefs, name)
                 langMgr.applyLanguage(name, reload = true)
                 activity.recreate()
