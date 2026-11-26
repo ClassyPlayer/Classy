@@ -217,7 +217,7 @@ class StoragePathsParityTest {
     }
 
     // -------------------------------------------------------------------------
-    // 5. isAudiobooksRoot, isVideosRoot, isAnyStorageRoot (String & File)
+    // 5. isAudiobooksRoot, isAnyStorageRoot (String & File)
     // -------------------------------------------------------------------------
 
     @Test
@@ -240,28 +240,6 @@ class StoragePathsParityTest {
         assertFalse(StoragePaths.isAnyStorageRoot(File("/storage/sdcard1/Videos")))
         assertFalse(StoragePaths.isAnyStorageRoot("/data/local/tmp"))
         assertFalse(StoragePaths.isAnyStorageRoot(File("/data/local/tmp")))
-    }
-
-    @Test
-    fun isVideosRoot_stringAndFile() {
-        assertFalse(StoragePaths.isVideosRoot(null as String?))
-        assertFalse(StoragePaths.isVideosRoot(null as File?))
-        assertFalse(StoragePaths.isVideosRoot(""))
-
-        assertTrue(StoragePaths.isVideosRoot("${StoragePaths.PRIMARY_PATH}/Videos"))
-        assertTrue(StoragePaths.isVideosRoot(File("${StoragePaths.PRIMARY_PATH}/Videos")))
-        assertTrue(StoragePaths.isVideosRoot("${StoragePaths.SECONDARY_PATH}/Videos"))
-        assertTrue(StoragePaths.isVideosRoot(File("${StoragePaths.SECONDARY_PATH}/Videos")))
-        assertTrue(StoragePaths.isVideosRoot(File(StoragePaths.getPrimaryRoot(), "Videos").absolutePath))
-        assertTrue(StoragePaths.isVideosRoot(File(StoragePaths.getPrimaryRoot(), "Videos")))
-
-        // Subdirectories or roots themselves are not VideosRoot
-        assertFalse(StoragePaths.isVideosRoot("/storage/sdcard0"))
-        assertFalse(StoragePaths.isVideosRoot(File("/storage/sdcard0")))
-        assertFalse(StoragePaths.isVideosRoot("/storage/sdcard0/Videos/Action"))
-        assertFalse(StoragePaths.isVideosRoot(File("/storage/sdcard0/Videos/Action")))
-        assertFalse(StoragePaths.isVideosRoot("/storage/sdcard0/Music"))
-        assertFalse(StoragePaths.isVideosRoot(File("/storage/sdcard0/Music")))
     }
 
     @Test

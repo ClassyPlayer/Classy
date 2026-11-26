@@ -834,7 +834,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
             override fun putInt(key: String, value: Int) {
                 prefs.edit().putInt(key, value).apply()
             }
-        }).also { it.migrate() }
+        })
     }
 
     /** The output of the current volume step; null before the first [restoreVolumeForOutput]. */

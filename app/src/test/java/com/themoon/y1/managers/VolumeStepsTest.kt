@@ -135,32 +135,10 @@ class VolumeStepsTest {
 
     @Test
     fun savedStepIsClampedToTheLimit() {
-        val store = MapStore(mutableMapOf(VolumeSteps.PREF_VERSION to 2, VolumeSteps.PREF_LIMIT to 20))
+        val store = MapStore(mutableMapOf(VolumeSteps.PREF_LIMIT to 20))
         val memory = VolumeMemory(store)
         memory.save(AudioOutput.A2DP, 28)
         assertEquals(20, memory.stepFor(AudioOutput.A2DP) { 15 })
-    }
-
-    @Test
-    fun migratesTheOldIndexLimitToAStep() {
-        val store = MapStore(mutableMapOf(VolumeSteps.PREF_LIMIT to 10)) // index 10 = -11 dB
-        val memory = VolumeMemory(store)
-        memory.migrate()
-        assertEquals(24, store.map[VolumeSteps.PREF_LIMIT]) // -12 dB
-        assertEquals(VolumeSteps.VERSION, store.map[VolumeSteps.PREF_VERSION])
-        memory.migrate() // only once
-        assertEquals(24, store.map[VolumeSteps.PREF_LIMIT])
-    }
-
-    @Test
-    fun migrationKeepsNoLimit() {
-        val store = MapStore(mutableMapOf(VolumeSteps.PREF_LIMIT to -1))
-        VolumeMemory(store).migrate()
-        assertEquals(-1, store.map[VolumeSteps.PREF_LIMIT])
-        val empty = MapStore()
-        VolumeMemory(empty).migrate()
-        assertFalse(empty.contains(VolumeSteps.PREF_LIMIT))
-        assertEquals(VolumeSteps.VERSION, empty.map[VolumeSteps.PREF_VERSION])
     }
 
     @Test

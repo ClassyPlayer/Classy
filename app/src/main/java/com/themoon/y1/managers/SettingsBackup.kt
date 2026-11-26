@@ -26,7 +26,7 @@ object SettingsBackup {
     const val LEGACY_DIR_NAME = "Inniclassic"
 
     /** Preference files in the backup. Y1_LASTFM, Y1_RECENTLY_PLAYED and Y1_MIGRATIONS are not in it. */
-    val FILES = listOf(AppPrefs.NAME, "y1_settings", "Y1_SETTINGS", "Y1_AUDIOBOOK_BOOKMARKS", "Y1_JELLYFIN")
+    val FILES = listOf(AppPrefs.NAME, "Y1_SETTINGS", "Y1_JELLYFIN")
 
     private val SECRET_WORDS = listOf("password", "token", "session", "secret", "api_key")
 

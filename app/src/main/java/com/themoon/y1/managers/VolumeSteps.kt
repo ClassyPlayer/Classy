@@ -113,12 +113,8 @@ object VolumeSteps {
     const val TOP_DB = 0.0
     const val STEP_DB = 2.0
 
-    /** Pref with the Volume Limit as a step (1..30); -1 or missing = no limit. Before version 2 it was an Android index. */
+    /** Pref with the Volume Limit as a step (1..30); -1 or missing = no limit. */
     const val PREF_LIMIT = "volume_limit_max"
-
-    /** Pref with the version of the volume prefs. 2 = steps of 2 dB, a step per output. */
-    const val PREF_VERSION = "volume_prefs_version"
-    const val VERSION = 2
 
     /**
      * The Y2 kernel (CS43131 driver) ignores a volume decrease of more than one index when it comes less than
@@ -252,21 +248,8 @@ interface VolumeStore {
     fun putInt(key: String, value: Int)
 }
 
-/** The step of each output, and the migration of the old prefs. */
+/** The step of each output. */
 class VolumeMemory(private val store: VolumeStore) {
-
-    /**
-     * Converts the old prefs once. Version 1 had one volume for all outputs (in memory, from the Android index)
-     * and the Volume Limit as an Android index (1..15). Version 2 keeps the limit as a step.
-     */
-    fun migrate() {
-        if (store.getInt(VolumeSteps.PREF_VERSION, 1) >= VolumeSteps.VERSION) return
-        val oldLimit = store.getInt(VolumeSteps.PREF_LIMIT, -1)
-        if (oldLimit > 0) {
-            store.putInt(VolumeSteps.PREF_LIMIT, VolumeSteps.stepForIndex(oldLimit, VolumeCurves.A2DP).coerceAtLeast(1))
-        }
-        store.putInt(VolumeSteps.PREF_VERSION, VolumeSteps.VERSION)
-    }
 
     fun limitStep(): Int = store.getInt(VolumeSteps.PREF_LIMIT, -1)
 

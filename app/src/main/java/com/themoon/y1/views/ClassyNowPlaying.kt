@@ -1,5 +1,6 @@
 package com.themoon.y1.views
 
+import com.themoon.y1.AppPrefs
 import com.themoon.y1.Prefs
 import android.content.Context
 import android.content.SharedPreferences
@@ -46,8 +47,7 @@ object ClassyNowPlaying {
     private var repeatIcon: WeakReference<ImageView>? = null
     private val listenedPrefs = ArrayList<SharedPreferences>()
 
-    // Repeat One and Repeat All have different icons. The mode is stored in AppPrefs; older
-    // Now Playing code also writes it to y1_settings, so both are watched.
+    // Repeat One and Repeat All have different icons. The mode is stored in AppPrefs.
     private val repeatListener = SharedPreferences.OnSharedPreferenceChangeListener { prefs, key ->
         if (key == Prefs.REPEAT_MODE.key) {
             repeatIcon?.get()?.let {
@@ -221,11 +221,9 @@ object ClassyNowPlaying {
         setModeIcon(repeat, repeatGlyph(Prefs.REPEAT_MODE.get(main.prefs)), d)
         repeatIcon = WeakReference(repeat)
         if (listenedPrefs.isEmpty()) {
-            for (name in arrayOf("AppPrefs", "y1_settings")) {
-                val prefs = main.getSharedPreferences(name, Context.MODE_PRIVATE)
-                prefs.registerOnSharedPreferenceChangeListener(repeatListener)
-                listenedPrefs.add(prefs)
-            }
+            val prefs = main.getSharedPreferences(AppPrefs.NAME, Context.MODE_PRIVATE)
+            prefs.registerOnSharedPreferenceChangeListener(repeatListener)
+            listenedPrefs.add(prefs)
         }
     }
 
