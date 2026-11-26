@@ -28,9 +28,19 @@ class MediaLibraryManager private constructor() {
     val trackNumberMap = Collections.synchronizedMap(HashMap<String, Int>())
     val uniqueAlbumList = Collections.synchronizedList(ArrayList<SongItem>())
 
-    @Volatile
-    var isScanning: Boolean = false
-        private set
+    private val scans = ScanListeners()
+
+    val isScanning: Boolean get() = scans.isRunning
+
+    /** Sends the progress and the completion to all listeners of the running scan ([ScanListeners]). */
+    private val scanListeners = object : ScanProgressListener {
+        override fun onProgress(scanned: Int, total: Int) {
+            for (l in scans.current()) l.onProgress(scanned, total)
+        }
+        override fun onComplete(musicCount: Int, booksCount: Int) {
+            for (l in scans.finish()) l.onComplete(musicCount, booksCount)
+        }
+    }
 
     interface ScanProgressListener {
         fun onProgress(scanned: Int, total: Int)
@@ -81,8 +91,8 @@ class MediaLibraryManager private constructor() {
         blacklist: Set<String> = emptySet(),
         listener: ScanProgressListener? = null
     ) {
-        if (isScanning) return
-        isScanning = true
+        // A request while a scan runs joins that scan
+        if (!scans.join(listener)) return
         // The scan goes on with the screen off
         val wakeLock = ScanWakeLock.forScan(context).also { it.acquire() }
 
@@ -139,10 +149,10 @@ class MediaLibraryManager private constructor() {
 
                 var scanned = 0
                 for (musicDir in StoragePaths.getMusicDirs()) {
-                    scanned = scanDirectory(musicDir, musicLibrary, existingMusic, blacklist, scanned, total, isAudiobook = false, listener)
+                    scanned = scanDirectory(musicDir, musicLibrary, existingMusic, blacklist, scanned, total, isAudiobook = false, scanListeners)
                 }
                 for (bookDir in bookDirs) {
-                    scanned = scanDirectory(bookDir, audiobookLibrary, existingBooks, blacklist, scanned, total, isAudiobook = true, listener)
+                    scanned = scanDirectory(bookDir, audiobookLibrary, existingBooks, blacklist, scanned, total, isAudiobook = true, scanListeners)
                 }
 
                 deduplicateLibrary(musicLibrary)
@@ -155,18 +165,18 @@ class MediaLibraryManager private constructor() {
                     com.themoon.y1.migrations.MigrationManager.getInstance(context).clearPendingMediaRescan()
                 } catch (_: Throwable) {}
 
-                listener?.onComplete(musicLibrary.size, audiobookLibrary.size)
+                scanListeners.onComplete(musicLibrary.size, audiobookLibrary.size)
             } catch (t: Throwable) {
                 Log.e(tag, "Scan error: ${t.message}", t)
             } finally {
-                isScanning = false
+                scans.finish()
                 wakeLock.release()
             }
         }, "y1-media-scanner")
         try {
             scanner.start()
         } catch (t: Throwable) {
-            isScanning = false
+            scans.finish()
             wakeLock.release()
             throw t
         }
