@@ -85,6 +85,24 @@ class BackSelectionTest {
     }
 
     @Test
+    fun backToAnEntryCanSelectAnotherRowAtTheHeightOfTheOldRow() {
+        nav.navigateTo(ScreenState.MainMenu)
+        nav.navigateTo(ScreenState.Playlists)
+        playlists.row = RowKey("Rock", 4, 148)
+        val holdMenu = ScreenState.Settings(SettingsSubMode.Action(1))
+        nav.navigateTo(holdMenu)
+        settings.row = RowKey("Rename Playlist", 0, 0)
+        nav.navigateTo(ScreenState.WifiKeyboard(KeyboardTarget.PlaylistName(java.io.File("/Playlists/Rock.m3u"))))
+
+        // A renamed playlist: the hold menu goes too, and Playlists selects the new row
+        assertTrue(nav.popBackStackTo(RowKey("Zydeco", 9)) { it == ScreenState.Playlists })
+        assertEquals(ScreenState.Playlists, nav.currentState)
+        assertEquals(listOf(RowKey("Zydeco", 9, 148)), playlists.selected)
+        assertTrue(settings.selected.isEmpty())
+        assertEquals(ScreenState.MainMenu, nav.previousState())
+    }
+
+    @Test
     fun eachMusicLevelIsAnEntryThatBackBuildsAgainFromItsKey() {
         val genres = music(BrowserMode.Genres)
         val fado = music(BrowserMode.GenreArtists("Fado"))

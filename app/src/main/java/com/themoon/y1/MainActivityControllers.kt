@@ -511,6 +511,7 @@ internal fun MainActivity.initControllers() {
             WebDavSyncProvider.getInstance(this).password = password
             NavigationManager.getInstance().popBackStack()
         },
+        onSubmitPlaylistName = { m3uFile, name -> playlistController.renamePlaylist(m3uFile, name) },
         onConnectWifi = { ssid, password, isOpen ->
             val wm = getSystemService(Context.WIFI_SERVICE) as? WifiManager
             if (wm != null) {
@@ -540,6 +541,7 @@ internal fun MainActivity.initControllers() {
                 KeyboardTarget.WebDavUrl -> WebDavSyncProvider.getInstance(this).url
                 KeyboardTarget.WebDavUser -> WebDavSyncProvider.getInstance(this).user
                 is KeyboardTarget.WebDavPassword -> "" // the keyboard does not mask: the saved password is not shown
+                is KeyboardTarget.PlaylistName -> target.m3uFile.nameWithoutExtension
                 else -> ""
             }
         },

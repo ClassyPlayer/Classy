@@ -914,5 +914,13 @@
   "Weak (Crossfeed)": "약함",
   "Normal (Crossfeed)": "보통",
   "Strong (Crossfeed)": "강함",
-  "Never (USB Drive)": "안 함"
+  "Never (USB Drive)": "안 함",
+  "Rename Playlist": "재생목록 이름 변경",
+  "Enter playlist name...": "재생목록 이름 입력...",
+  "Please enter a name.": "이름을 입력하세요.",
+  "A playlist name cannot start with a dot.": "재생목록 이름은 점으로 시작할 수 없습니다.",
+  "A name cannot have these characters: / \\ : * ? \" < > |": "이름에 다음 문자를 사용할 수 없습니다: / \\ : * ? \" < > |",
+  "A playlist with this name already exists.": "같은 이름의 재생목록이 이미 있습니다.",
+  "Playlist renamed.": "재생목록 이름이 변경되었습니다.",
+  "Failed to rename playlist.": "재생목록 이름 변경에 실패했습니다."
 }

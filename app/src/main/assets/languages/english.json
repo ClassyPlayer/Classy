@@ -914,5 +914,13 @@
   "Weak (Crossfeed)": "Weak",
   "Normal (Crossfeed)": "Normal",
   "Strong (Crossfeed)": "Strong",
-  "Never (USB Drive)": "Never"
+  "Never (USB Drive)": "Never",
+  "Rename Playlist": "Rename Playlist",
+  "Enter playlist name...": "Enter playlist name...",
+  "Please enter a name.": "Please enter a name.",
+  "A playlist name cannot start with a dot.": "A playlist name cannot start with a dot.",
+  "A name cannot have these characters: / \\ : * ? \" < > |": "A name cannot have these characters: / \\ : * ? \" < > |",
+  "A playlist with this name already exists.": "A playlist with this name already exists.",
+  "Playlist renamed.": "Playlist renamed.",
+  "Failed to rename playlist.": "Failed to rename playlist."
 }

@@ -914,5 +914,13 @@
   "Weak (Crossfeed)": "弱",
   "Normal (Crossfeed)": "標準",
   "Strong (Crossfeed)": "強",
-  "Never (USB Drive)": "しない"
+  "Never (USB Drive)": "しない",
+  "Rename Playlist": "プレイリスト名を変更",
+  "Enter playlist name...": "プレイリスト名を入力...",
+  "Please enter a name.": "名前を入力してください。",
+  "A playlist name cannot start with a dot.": "プレイリスト名をドットで始めることはできません。",
+  "A name cannot have these characters: / \\ : * ? \" < > |": "名前に次の文字は使用できません: / \\ : * ? \" < > |",
+  "A playlist with this name already exists.": "同じ名前のプレイリストが既にあります。",
+  "Playlist renamed.": "プレイリスト名を変更しました。",
+  "Failed to rename playlist.": "プレイリスト名の変更に失敗しました。"
 }

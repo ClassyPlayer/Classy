@@ -20,6 +20,9 @@ import com.themoon.y1.managers.Texts
 import com.themoon.y1.models.M3uEdit
 import com.themoon.y1.models.SongItem
 import com.themoon.y1.navigation.BrowserMode
+import com.themoon.y1.navigation.KeyboardTarget
+import com.themoon.y1.navigation.NavigationManager
+import com.themoon.y1.navigation.RowKey
 import com.themoon.y1.navigation.ScreenState
 import com.themoon.y1.views.Notice
 import java.io.BufferedReader
@@ -36,7 +39,7 @@ import java.util.ArrayList
  * Controller for M3U playlist browsing, song listing, creation, and editing:
  * - Lists M3U / M3U8 playlists in the `Playlists` folders (microSD card, internal storage; [StoragePaths.getPlaylistsDirs])
  * - Parses playlist track sequences without losing custom ordering
- * - Displays smart popup dialogs for "Add to Playlist" and "Delete Playlist"
+ * - Displays smart popup dialogs for "Add to Playlist", and the hold menu of a playlist ("Rename Playlist", "Delete Playlist")
  * - Handles track deletion from individual M3U playlists
  */
 class PlaylistController(
@@ -77,20 +80,11 @@ class PlaylistController(
     }
 
     override fun onThemeChanged() {
-        com.themoon.y1.navigation.NavigationManager.getInstance().currentState?.let { onEnter(it) }
+        NavigationManager.getInstance().currentState?.let { onEnter(it) }
     }
 
-    /** The M3U files of each Playlists folder, A to Z. */
-    private fun playlistFiles(): List<File> {
-        val files = ArrayList<File>()
-        for (dir in StoragePaths.getPlaylistsDirs()) {
-            for (f in dir.listFiles() ?: emptyArray()) {
-                val name = f.name.lowercase()
-                if (f.isFile && (name.endsWith(".m3u") || name.endsWith(".m3u8"))) files.add(f)
-            }
-        }
-        return files.sortedWith { f1, f2 -> f1.name.compareTo(f2.name, ignoreCase = true) }
-    }
+    /** The M3U files of each Playlists folder, A to Z, without hidden files ([PlaylistPaths.playlistsIn]). */
+    private fun playlistFiles(): List<File> = PlaylistPaths.playlistsIn(StoragePaths.getPlaylistsDirs())
 
     /** The smart playlists, then the M3U files of the Playlists folders (A to Z). Opens at the last opened playlist. */
     fun buildPlaylistsUI() {
@@ -105,7 +99,7 @@ class PlaylistController(
         }
         val labels = PlaylistPaths.labels(m3uFiles, ::storageName)
         for ((i, m3u) in m3uFiles.withIndex()) {
-            rows += RowSpec(labels[i], onClick = { onPlaylistSelected(m3u) }, onHold = { showDeletePlaylistDialog(m3u) })
+            rows += RowSpec(labels[i], onClick = { onPlaylistSelected(m3u) }, onHold = { showPlaylistMenu(m3u, labels[i]) })
         }
         if (m3uFiles.isEmpty()) rows += RowSpec(localize("No .m3u files found in Playlists"), color = ThemeManager.getTextColorSecondary())
         screen.show(ListSpec(localize("Playlists"), rows, focus = Focus.LAST))
@@ -143,7 +137,7 @@ class PlaylistController(
         // Empty until the list comes from the worker thread (a few ms)
         screen.show(ListSpec(smartPlaylistTitle(state.kind)))
         PlayHistoryManager.getInstance(activity).loadSongs(state.kind) { files ->
-            val nav = com.themoon.y1.navigation.NavigationManager.getInstance()
+            val nav = NavigationManager.getInstance()
             if (nav.currentState == state) showSmartPlaylistSongs(state, files)
         }
     }
@@ -232,19 +226,97 @@ class PlaylistController(
     private fun songsToAdd(m3uFile: File, songFiles: List<File>): List<File> =
         if (noDuplicates()) M3uEdit.newSongs(songFiles, if (m3uFile.exists()) songKeysIn(m3uFile) else emptySet()) else songFiles
 
+    /**
+     * The hold menu of a playlist row ([label]): Rename Playlist and Delete Playlist. The On-The-Go playlist has no
+     * Rename Playlist: Add to Playlist makes it again, and the renamed file would be a plain playlist.
+     */
+    private fun showPlaylistMenu(m3uFile: File, label: String) {
+        val actions = ArrayList<ActionScreens.Action>()
+        if (!isOnTheGo(m3uFile)) {
+            actions += ActionScreens.Action(localize("Rename Playlist"), opensList = true) {
+                (activity as? com.themoon.y1.MainActivity)?.changeScreen(ScreenState.WifiKeyboard(KeyboardTarget.PlaylistName(m3uFile)))
+            }
+        }
+        actions += ActionScreens.Action(localize("Delete Playlist"), opensList = true) { showDeletePlaylistDialog(m3uFile) }
+        ActionScreens.open(ActionScreens.Spec(label, actions = actions))
+    }
+
+    /** True for the On-The-Go file of [StoragePaths.getPlaylistsDir] (the one that Add to Playlist adds to). */
+    private fun isOnTheGo(m3uFile: File): Boolean =
+        m3uFile.absolutePath.equals(File(StoragePaths.getPlaylistsDir(), PlaylistNames.ON_THE_GO_FILE).absolutePath, ignoreCase = true)
+
+    /** Asks, then deletes [m3uFile] and goes back to Playlists (from the hold menu of the playlist). */
     fun showDeletePlaylistDialog(m3uFile: File) {
         ActionScreens.open(ActionScreens.Spec(
             localize("Delete Playlist"),
             listOf(m3uFile.nameWithoutExtension, localize("Are you sure you want to delete this playlist?")),
-            listOf(ActionScreens.Action(localize("Delete")) {
-                if (m3uFile.exists() && m3uFile.delete()) {
+            listOf(ActionScreens.Action(localize("Delete"), closes = false) {
+                val deleted = m3uFile.exists() && m3uFile.delete()
+                // Playlists shows the files again; the row at the place of the deleted playlist is selected
+                backToPlaylists(null)
+                if (deleted) {
                     Notice.show(activity, localize("Playlist deleted."))
-                    buildPlaylistsUI()
                 } else {
                     Notice.error(activity, localize("Failed to delete playlist."))
                 }
             })
         ))
+    }
+
+    /**
+     * Rename Playlist (Save on the keyboard): gives [m3uFile] the name [typed] (the extension stays), then goes back
+     * to Playlists with the renamed playlist selected. A name that cannot be used, or a rename that fails, shows a
+     * message, and the keyboard stays open. Nothing keeps the playlist by its path (the play queue keeps the songs).
+     */
+    fun renamePlaylist(m3uFile: File, typed: String) {
+        val dir = m3uFile.parentFile ?: return
+        if (typed.trim() == m3uFile.nameWithoutExtension) {
+            backToPlaylists(m3uFile) // the same name: nothing to change
+            return
+        }
+        val others = PlaylistPaths.playlistsIn(listOf(dir)).filter { it.absolutePath != m3uFile.absolutePath }.map { it.nameWithoutExtension }
+        when (val result = PlaylistNames.newFileName(typed, m3uFile.name, others)) {
+            is PlaylistNames.Result.Refused -> Notice.show(activity, localize(result.message))
+            is PlaylistNames.Result.Ok -> {
+                val renamed = File(dir, result.fileName)
+                if (renameFile(m3uFile, renamed)) {
+                    backToPlaylists(renamed)
+                    Notice.show(activity, localize("Playlist renamed."))
+                } else {
+                    Notice.error(activity, localize("Failed to rename playlist."))
+                }
+            }
+        }
+    }
+
+    /**
+     * Renames [from] to [to]; false when [to] is another file that exists or the rename fails. A change of case only
+     * goes through a temporary name: FAT does not see the case, so a direct rename would keep the old name.
+     */
+    private fun renameFile(from: File, to: File): Boolean {
+        if (!from.isFile) return false
+        if (!from.name.equals(to.name, ignoreCase = true)) return !to.exists() && from.renameTo(to)
+        val tmp = File(from.parentFile, from.name + ".rename.tmp")
+        if (tmp.exists() || !from.renameTo(tmp)) return false
+        if (tmp.renameTo(to)) return true
+        // Put the old name back. If that also fails, the file keeps the temporary name, which the list does not show.
+        if (!tmp.renameTo(from)) android.util.Log.e("PlaylistController", "Rename failed; playlist left as ${tmp.path}")
+        return false
+    }
+
+    /**
+     * Back to Playlists from its hold menu and the screens over it. [selected]: the playlist whose row to select (its
+     * label and place can be new); null: the row at the place of the row that opened the hold menu.
+     */
+    private fun backToPlaylists(selected: File?) {
+        var row: RowKey? = null
+        if (selected != null) {
+            val files = playlistFiles()
+            val i = files.indexOfFirst { it.absolutePath == selected.absolutePath }
+            // The smart playlists are the first rows
+            if (i >= 0) row = RowKey(PlaylistPaths.labels(files, ::storageName)[i], PlayHistoryManager.Kind.values().size + i)
+        }
+        NavigationManager.getInstance().popBackStackTo(row) { it == ScreenState.Playlists }
     }
 
     /** Asks, then removes the [occurrence]-th (0 = first) entry of [audioFile] from [m3uFile] and shows the playlist again. */
@@ -272,7 +344,7 @@ class PlaylistController(
             playlistDir.mkdirs()
         }
 
-        val onTheGoFile = File(playlistDir, "On-The-Go.m3u8")
+        val onTheGoFile = File(playlistDir, PlaylistNames.ON_THE_GO_FILE)
         if (!onTheGoFile.exists()) {
             try {
                 val bw = BufferedWriter(OutputStreamWriter(FileOutputStream(onTheGoFile), "UTF-8"))
@@ -328,7 +400,7 @@ class PlaylistController(
         if (!playlistDir.exists()) {
             playlistDir.mkdirs()
         }
-        val onTheGoFile = File(playlistDir, "On-The-Go.m3u8")
+        val onTheGoFile = File(playlistDir, PlaylistNames.ON_THE_GO_FILE)
         if (!onTheGoFile.exists()) {
             try {
                 val bw = BufferedWriter(OutputStreamWriter(FileOutputStream(onTheGoFile), "UTF-8"))

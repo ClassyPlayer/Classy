@@ -914,5 +914,13 @@
   "Weak (Crossfeed)": "Słaby",
   "Normal (Crossfeed)": "Normalny",
   "Strong (Crossfeed)": "Silny",
-  "Never (USB Drive)": "Nigdy"
+  "Never (USB Drive)": "Nigdy",
+  "Rename Playlist": "Zmień nazwę playlisty",
+  "Enter playlist name...": "Wpisz nazwę playlisty...",
+  "Please enter a name.": "Wprowadź nazwę.",
+  "A playlist name cannot start with a dot.": "Nazwa playlisty nie może zaczynać się od kropki.",
+  "A name cannot have these characters: / \\ : * ? \" < > |": "Nazwa nie może zawierać znaków: / \\ : * ? \" < > |",
+  "A playlist with this name already exists.": "Playlista o tej nazwie już istnieje.",
+  "Playlist renamed.": "Zmieniono nazwę playlisty.",
+  "Failed to rename playlist.": "Nie udało się zmienić nazwy playlisty."
 }
