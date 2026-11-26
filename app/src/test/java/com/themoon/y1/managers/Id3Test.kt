@@ -370,6 +370,11 @@ class Id3Test {
         assertEquals(listOf("Indie"), Id3Genres.names("(17)(13)Indie"))
         assertEquals(listOf("Remix", "Rock"), Id3Genres.names("(RX)(17)"))
         assertEquals(listOf("(Live) Rock"), Id3Genres.names("((Live) Rock"))
+        // After a reference the rest is free text, also when it looks like a number or a keyword
+        assertEquals(listOf("13"), Id3Genres.names("(17)13"))
+        assertEquals(listOf("RX"), Id3Genres.names("(17)RX"))
+        assertEquals(listOf("Pop"), Id3Genres.names("13"))
+        assertEquals(listOf("Remix"), Id3Genres.names("RX"))
         assertEquals(emptyList<String>(), Id3Genres.names(" "))
         assertEquals("Remix", Id3Genres.name("(RX)"))
         assertEquals("Cover", Id3Genres.name("CR"))

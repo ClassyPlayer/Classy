@@ -48,7 +48,10 @@ object Id3Genres {
             rest = rest.substring(m.value.length)
         }
         val refinement = (if (rest.startsWith("((")) rest.substring(1) else rest).trim()
-        if (refinement.isNotEmpty()) return listOf(token(refinement) ?: refinement)
+        // Text after a reference is free text ("(17)13" is "13"); a value with no reference can be a v2.4 number
+        if (refinement.isNotEmpty()) {
+            return listOf(if (references.isEmpty()) token(refinement) ?: refinement else refinement)
+        }
         return references
     }
 
