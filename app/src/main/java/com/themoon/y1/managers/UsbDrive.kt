@@ -7,11 +7,8 @@ package com.themoon.y1.managers
  * at once, [NEVER] does nothing.
  */
 object UsbDrive {
-    /** AppPrefs key. Migration 010 moves the toggle Ask on USB Connect ([OLD_TOGGLE]) and [OLD_CHOICE] into it. */
+    /** AppPrefs key. */
     const val PREF = "usb_drive"
-    const val OLD_TOGGLE = "usb_storage_prompt"
-    /** The key of the first version of this setting (0 Ask, 1 Media Device, 2 Disk Mode), in test builds only. */
-    const val OLD_CHOICE = "usb_connection"
     const val ASK = 0
     const val ALWAYS = 1
     const val NEVER = 2
@@ -20,17 +17,6 @@ object UsbDrive {
     val LABELS = arrayOf("Ask", "Always", "Never (USB Drive)")
 
     fun normalize(value: Int): Int = if (value in LABELS.indices) value else ASK
-
-    /** The value for the old toggle Ask on USB Connect: On → [ASK], Off → [NEVER]. */
-    fun fromOldToggle(ask: Boolean): Int = if (ask) ASK else NEVER
-
-    /** The value for [OLD_CHOICE]: Ask → [ASK], Media Device → [NEVER], Disk Mode → [ALWAYS]; null for an unknown value. */
-    fun fromOldChoice(value: Int): Int? = when (value) {
-        0 -> ASK
-        1 -> NEVER
-        2 -> ALWAYS
-        else -> null
-    }
 
     enum class OnPlug { NOTHING, ASK, LEND }
 

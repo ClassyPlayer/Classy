@@ -112,44 +112,6 @@ class MigrationManagerTest {
     }
 
     @Test
-    fun testMigration001RestoreDeduplicatedSongsRegistersAndRequestsRescan() {
-        val m1 = Migration001RestoreDeduplicatedSongs()
-        assertEquals(1, m1.version)
-        assertEquals("001_restore_deduplicated_songs", m1.id)
-
-        val context = MigrationContext(null, mockPrefs, mockPrefs, 0)
-        assertFalse(context.isMediaRescanRequested)
-        m1.migrate(context)
-        assertTrue(context.isMediaRescanRequested)
-    }
-
-    @Test
-    fun testMigration002PurgeOemDemoMediaRegistersAndRequestsRescan() {
-        val m2 = Migration002PurgeOemDemoMedia()
-        assertEquals(2, m2.version)
-        assertEquals("002_purge_oem_demo_media", m2.id)
-
-        val context = MigrationContext(null, mockPrefs, mockPrefs, 0)
-        assertFalse(context.isMediaRescanRequested)
-        m2.migrate(context)
-        assertTrue(context.isMediaRescanRequested)
-    }
-
-    @Test
-    fun testMigration006PopulateTrackTimestampsRegistersAndRequestsRescan() {
-        val m6 = Migration006PopulateTrackTimestamps()
-        assertEquals(6, m6.version)
-        assertEquals("006_populate_track_timestamps", m6.id)
-
-        val context = MigrationContext(null, mockPrefs, mockPrefs, 0)
-        assertFalse(context.isMediaRescanRequested)
-        assertFalse(mockPrefs.getBoolean(MigrationManager.KEY_PENDING_MEDIA_RESCAN, false))
-        m6.migrate(context)
-        assertTrue(context.isMediaRescanRequested)
-        assertTrue(mockPrefs.getBoolean(MigrationManager.KEY_PENDING_MEDIA_RESCAN, false))
-    }
-
-    @Test
     fun testPendingMediaRescanFlagCanBeSetAndCleared() {
         val manager = MigrationManager(null, mockPrefs)
         assertFalse(manager.isPendingMediaRescan())

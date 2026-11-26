@@ -1,6 +1,5 @@
 package com.themoon.y1
 
-import com.themoon.y1.migrations.MoveMisplacedPrefsTest.FakePrefs
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull

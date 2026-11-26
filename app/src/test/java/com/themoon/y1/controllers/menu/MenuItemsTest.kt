@@ -1,6 +1,6 @@
 package com.themoon.y1.controllers.menu
 
-import com.themoon.y1.migrations.MoveMisplacedPrefsTest.FakePrefs
+import com.themoon.y1.FakePrefs
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

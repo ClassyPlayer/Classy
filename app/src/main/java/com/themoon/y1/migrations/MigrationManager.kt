@@ -6,10 +6,18 @@ import android.util.Log
 import com.themoon.y1.AppPrefs
 
 /**
- * Universal migration engine that manages versioned migrations across app updates.
+ * Runs the migrations in ascending [Migration.version]. The state is in the preferences file "Y1_MIGRATIONS", so a
+ * reset of the settings does not run a migration again.
  *
- * State is persisted in a dedicated SharedPreferences file "Y1_MIGRATIONS" to prevent
- * user preference resets or cache clearing from accidentally re-running one-way migrations.
+ * - A migration is for one of two changes. (1) A change outside the APK that an app update cannot deliver: System
+ *   Update (OTA) installs only the APK. Examples: files in /system, the boot screen, framework resources. (2) A move of
+ *   app or user files, when without it users cannot get to their data (for example playlists in an old folder).
+ * - Never write a migration for a default of a setting, the order or visibility of menu items, or a library rescan.
+ *   Change the default in the code. Users change settings and menus in Settings. The code discards an old library
+ *   cache and scans again.
+ * - A migration must be idempotent, and safe on a player with a freshly flashed ROM (it can have the change already,
+ *   and it has no old folders).
+ * - Do not use the version or the id of a removed migration again (see [registerDefaultMigrations]).
  */
 open class MigrationManager {
 
@@ -32,26 +40,10 @@ open class MigrationManager {
     }
 
     private fun registerDefaultMigrations() {
-        registerMigration(Migration001RestoreDeduplicatedSongs())
-        registerMigration(Migration002PurgeOemDemoMedia())
+        // Versions 1, 2, 4 to 10, 12, 13 and 15 to 21 were used before: do not use them again.
         registerMigration(Migration003MigrateVideoDirectories())
-        registerMigration(Migration004MoveMisplacedPrefs())
-        registerMigration(Migration005MergeAudiobookBookmarks())
-        registerMigration(Migration006PopulateTrackTimestamps())
-        registerMigration(Migration008PlayOnMenuItem())
-        registerMigration(Migration009RemoveBackgroundPath())
-        registerMigration(Migration010UsbDrive())
         registerMigration(Migration011BootScreen())
-        registerMigration(Migration012GamesMenuItem())
-        registerMigration(Migration013FillTrackLengths())
         registerMigration(Migration014MovePlaylistsFolder())
-        registerMigration(Migration015BooksMenuItem())
-        registerMigration(Migration016PhotosMenuItem())
-        registerMigration(Migration017RemoveThemeFolders())
-        registerMigration(Migration018MoodTags())
-        registerMigration(Migration019Mp3Years())
-        registerMigration(Migration020ReleaseTypes())
-        registerMigration(Migration021PreviousRestartsSong())
     }
 
     /**
@@ -140,14 +132,6 @@ open class MigrationManager {
         setPendingMediaRescan(false)
     }
 
-    /** True until the worker of [Migration013FillTrackLengths] has read the length of each cached track. */
-    fun isPendingLengthFill(): Boolean =
-        prefs.getBoolean(KEY_PENDING_LENGTH_FILL, false)
-
-    fun clearPendingLengthFill() {
-        prefs.edit().putBoolean(KEY_PENDING_LENGTH_FILL, false).commit()
-    }
-
     companion object {
         private const val TAG = "MigrationManager"
         const val PREFS_NAME: String = "Y1_MIGRATIONS"
@@ -155,7 +139,6 @@ open class MigrationManager {
         const val PREFIX_APPLIED: String = "applied_"
         const val PREFIX_APPLIED_TIME: String = "applied_time_"
         const val KEY_PENDING_MEDIA_RESCAN: String = "pending_media_rescan"
-        const val KEY_PENDING_LENGTH_FILL: String = "pending_length_fill"
 
         @Volatile
         private var instance: MigrationManager? = null

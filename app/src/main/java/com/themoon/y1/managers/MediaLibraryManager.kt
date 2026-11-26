@@ -32,8 +32,6 @@ class MediaLibraryManager private constructor() {
     var isScanning: Boolean = false
         private set
 
-    private val isFillingLengths = java.util.concurrent.atomic.AtomicBoolean(false)
-
     interface ScanProgressListener {
         fun onProgress(scanned: Int, total: Int)
         fun onComplete(musicCount: Int, booksCount: Int)
@@ -529,77 +527,7 @@ class MediaLibraryManager private constructor() {
         return scanned
     }
 
-    /**
-     * Reads the length of each song that has none (a library cache from before the scan kept the length) on a
-     * low-priority worker, and saves the cache. [onDone] runs on the worker when no song in the lists is left
-     * to read. Only one fill runs at a time.
-     */
-    fun fillMissingLengths(onDone: () -> Unit) {
-        if (!isFillingLengths.compareAndSet(false, true)) return
-        val worker = Thread({
-            try {
-                android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND)
-                val songs = ArrayList<SongItem>()
-                synchronized(musicLibrary) { musicLibrary.filterTo(songs) { it.durationMs <= 0L } }
-                synchronized(audiobookLibrary) { audiobookLibrary.filterTo(songs) { it.durationMs <= 0L } }
-                // Each path read, with its length (0: not known)
-                val read = HashMap<String, Long>()
-                var filled = 0
-                for (song in songs) {
-                    if (song.durationMs > 0L) continue
-                    val ms = readLengthMs(song.file)
-                    read[song.file.absolutePath] = ms
-                    if (ms <= 0L) continue
-                    song.durationMs = ms
-                    filled++
-                    if (filled % 500 == 0) saveLibraryCache()
-                }
-                // A cache load during the fill puts new song objects into the lists: give them the lengths too
-                var missed = false
-                for (list in listOf(musicLibrary, audiobookLibrary)) synchronized(list) {
-                    for (song in list) {
-                        if (song.durationMs > 0L) continue
-                        val ms = read[song.file.absolutePath]
-                        if (ms == null) missed = true else if (ms > 0L) song.durationMs = ms
-                    }
-                }
-                val saved = filled == 0 || saveLibraryCache()
-                // A cache load between the last pass and the save puts new song objects without the lengths into
-                // the lists (and the save then wrote them): look again after the save
-                val lost = hasMissingLengths(read)
-                Log.i(tag, "Track lengths: filled $filled of ${songs.size}, saved $saved, lost $lost")
-                // A song that came into the lists during the fill, a cache that was not saved, or lengths that a cache
-                // load replaced: the next cache load continues
-                if (!missed && saved && !lost) onDone()
-            } catch (t: Throwable) {
-                Log.e(tag, "Track length fill error: ${t.message}", t)
-            } finally {
-                isFillingLengths.set(false)
-            }
-        }, "y1-length-fill")
-        try {
-            worker.start()
-        } catch (t: Throwable) {
-            isFillingLengths.set(false)
-        }
-    }
-
-    /**
-     * True when a song in the lists has no length but the fill read one for its path ([read]), or was not read at
-     * all: a cache load replaced the song objects after the fill gave them their lengths.
-     */
-    internal fun hasMissingLengths(read: Map<String, Long>): Boolean {
-        for (list in listOf(musicLibrary, audiobookLibrary)) synchronized(list) {
-            for (song in list) {
-                if (song.durationMs > 0L) continue
-                val ms = read[song.file.absolutePath] ?: return true
-                if (ms > 0L) return true
-            }
-        }
-        return false
-    }
-
-    /** The scan and the length fill can both save the cache: one at a time, as they write the same temp file. */
+    /** One save at a time: each save writes the same temp file. */
     @Synchronized
     fun saveLibraryCache(): Boolean {
         val cacheFile = StoragePaths.primaryFile(".y1_library_cache.json")

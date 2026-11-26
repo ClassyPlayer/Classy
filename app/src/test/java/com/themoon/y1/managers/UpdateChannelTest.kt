@@ -4,7 +4,7 @@ import com.themoon.y1.Prefs
 import com.themoon.y1.managers.UpdateChannel.BETA
 import com.themoon.y1.managers.UpdateChannel.Outcome
 import com.themoon.y1.managers.UpdateChannel.STABLE
-import com.themoon.y1.migrations.MoveMisplacedPrefsTest.FakePrefs
+import com.themoon.y1.FakePrefs
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
