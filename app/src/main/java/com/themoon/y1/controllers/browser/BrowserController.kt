@@ -21,6 +21,7 @@ import com.themoon.y1.lists.ListSpec
 import com.themoon.y1.lists.Pane
 import com.themoon.y1.lists.RowLook
 import com.themoon.y1.lists.RowSpec
+import com.themoon.y1.managers.Aiff
 import com.themoon.y1.managers.AudioPlayerManager
 import com.themoon.y1.managers.AudiobookManager
 import com.themoon.y1.Prefs
@@ -823,7 +824,7 @@ class BrowserController(
         val name = f.name.lowercase()
         return name.endsWith(".mp3") || name.endsWith(".flac") || name.endsWith(".wav") || name.endsWith(".ogg") ||
             name.endsWith(".m4a") || name.endsWith(".aac") || name.endsWith(".ape") || name.endsWith(".wma") ||
-            name.endsWith(".opus") || name.endsWith(".m4b")
+            name.endsWith(".opus") || name.endsWith(".m4b") || Aiff.isAiffName(name)
     }
 
     private fun isApkFile(f: File?): Boolean = f != null && f.isFile && f.name.lowercase().endsWith(".apk")

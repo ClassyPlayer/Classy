@@ -100,6 +100,13 @@ class AudioLengthTest {
     }
 
     @Test
+    fun aiffLengthIsFramesOverSampleRate() {
+        val file = File(dir, "song.aiff")
+        file.writeBytes(AiffBytes.form(false, AiffBytes.comm(2, 88_200, 16, 44_100), AiffBytes.ssnd(ByteArray(8))))
+        assertEquals(2_000L, AudioLength.fromHeaders(file))
+    }
+
+    @Test
     fun otherTypesHaveNoHeaderReader() {
         assertNull(AudioLength.fromHeaders(File(dir, "song.mp3")))
         assertNull(AudioLength.fromHeaders(File(dir, "song.wav")))

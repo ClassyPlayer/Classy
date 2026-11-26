@@ -612,7 +612,7 @@ class AudioPlayerManager private constructor() {
         return lower.endsWith(".mp3") || lower.endsWith(".flac") || lower.endsWith(".wav") ||
                 lower.endsWith(".ogg") || lower.endsWith(".m4a") || lower.endsWith(".aac") ||
                 lower.endsWith(".ape") || lower.endsWith(".wma") || lower.endsWith(".opus") ||
-                lower.endsWith(".m4b")
+                lower.endsWith(".m4b") || Aiff.isAiffName(lower)
     }
 
     fun playOrPauseMusic() {
@@ -1075,6 +1075,7 @@ class AudioPlayerManager private constructor() {
             name.endsWith(".flac") -> extractFlacMetadata(track, includeArt)
             name.endsWith(".m4a") || name.endsWith(".alac") -> extractAlacMetadata(track, includeArt)
             name.endsWith(".ogg") -> extractOggVorbisMetadata(track, includeArt)
+            Aiff.isAiffName(name) -> Aiff.readTags(track, includeArt)
             else -> null
         }
     }
@@ -2244,10 +2245,11 @@ class AudioPlayerManager private constructor() {
 
         /**
          * The extractors of local files, also for the gapless queue: the FLAC frames go into the buffer, not PCM
-         * ([withCoreFlacExtractor]), and an MP3 file with no seek data seeks at a constant bitrate.
+         * ([withCoreFlacExtractor]), an MP3 file with no seek data seeks at a constant bitrate, and AIFF files play
+         * ([withAiffExtractor]).
          */
         private fun audioExtractorsFactory(): ExtractorsFactory =
-            withCoreFlacExtractor(DefaultExtractorsFactory().setConstantBitrateSeekingEnabled(true))
+            withAiffExtractor(withCoreFlacExtractor(DefaultExtractorsFactory().setConstantBitrateSeekingEnabled(true)))
 
         /**
          * The audio renderers of the app's ExoPlayer: 16-bit PCM, the [effects] processors, then a resample to
@@ -2382,6 +2384,20 @@ class AudioPlayerManager private constructor() {
                 if (extractors[i] is com.google.android.exoplayer2.ext.flac.FlacExtractor) FlacExtractor() else extractors[i]
             }
 
+        /**
+         * [base] with the [AiffExtractor] first: ExoPlayer has none for AIFF. Its check reads 12 bytes, and first it
+         * also keeps the other extractors (MP3 looks for frame headers in the first 32 KB) away from AIFF samples.
+         */
+        internal fun withAiffExtractor(base: ExtractorsFactory): ExtractorsFactory = object : ExtractorsFactory {
+            override fun createExtractors(): Array<Extractor> = withAiffExtractor(base.createExtractors())
+
+            override fun createExtractors(uri: Uri, responseHeaders: Map<String, List<String>>): Array<Extractor> =
+                withAiffExtractor(base.createExtractors(uri, responseHeaders))
+        }
+
+        internal fun withAiffExtractor(extractors: Array<Extractor>): Array<Extractor> =
+            arrayOf<Extractor>(AiffExtractor()) + extractors
+
         /** [jumpTo] plays only an entry of the queue: [index] in 0 until [queueSize]. */
         internal fun canJumpTo(index: Int, queueSize: Int): Boolean = index in 0 until queueSize
 
@@ -2499,5 +2515,5 @@ internal fun appendMood(tags: Array<Any?>, comment: String) {
  */
 internal fun retrieverReadsArt(fileName: String): Boolean {
     val name = fileName.lowercase(Locale.US)
-    return !name.endsWith(".opus") && !name.endsWith(".flac")
+    return !name.endsWith(".opus") && !name.endsWith(".flac") && !Aiff.isAiffName(name)
 }

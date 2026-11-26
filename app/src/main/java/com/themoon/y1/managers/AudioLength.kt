@@ -163,6 +163,7 @@ object AudioLength {
             name.endsWith(".flac") -> flacMs(file)
             name.endsWith(".ogg") || name.endsWith(".opus") -> oggMs(file)
             name.endsWith(".m4a") || name.endsWith(".m4b") || name.endsWith(".alac") -> mp4Ms(file)
+            Aiff.isAiffName(name) -> Aiff.durationMs(file)
             else -> null
         }
     }

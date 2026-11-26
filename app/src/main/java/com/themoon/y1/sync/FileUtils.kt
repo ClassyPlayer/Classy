@@ -21,7 +21,7 @@ object FileUtils {
     }
 
     val VIDEO_EXTENSIONS: Set<String> = setOf("mp4", "mkv", "avi", "mov", "m4v", "webm", "3gp", "ts", "wmv")
-    val AUDIO_EXTENSIONS: Set<String> = setOf("mp3", "flac", "m4a", "aac", "ogg", "opus", "wav", "wma", "ape", "m4b")
+    val AUDIO_EXTENSIONS: Set<String> = setOf("mp3", "flac", "m4a", "aac", "ogg", "opus", "wav", "wma", "ape", "m4b", "aif", "aiff", "aifc")
 
     /**
      * Finds an existing file in `dir` matching `baseName` with one of the allowed extensions,

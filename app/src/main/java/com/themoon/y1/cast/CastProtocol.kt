@@ -289,6 +289,7 @@ object CastProtocol {
         "ogg", "oga" -> "audio/ogg"
         "opus" -> "audio/ogg"
         "wav" -> "audio/wav"
+        "aif", "aiff", "aifc" -> "audio/aiff"
         "jpg", "jpeg" -> "image/jpeg"
         "png" -> "image/png"
         else -> "application/octet-stream"

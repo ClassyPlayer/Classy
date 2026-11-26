@@ -259,7 +259,7 @@ class ManagerUtilitiesParityTest {
     @Test
     fun testAudiobookManager_isAudioFileSupportedFormats() {
         val supportedExtensions = listOf(
-            "mp3", "m4a", "m4b", "aac", "flac", "ogg", "wav", "opus", "ape", "wma", "alac"
+            "mp3", "m4a", "m4b", "aac", "flac", "ogg", "wav", "opus", "ape", "wma", "alac", "aif", "aiff", "aifc"
         )
 
         for (ext in supportedExtensions) {
@@ -281,7 +281,8 @@ class ManagerUtilitiesParityTest {
             File("Narrative.OPUS"),
             File("Record.APE"),
             File("Media.WMA"),
-            File("Sound.ALAC")
+            File("Sound.ALAC"),
+            File("Chapter.AIFF")
         )
 
         for (file in testFiles) {

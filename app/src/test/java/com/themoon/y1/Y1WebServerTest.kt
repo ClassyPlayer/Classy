@@ -126,4 +126,21 @@ class Y1WebServerTest {
             card.deleteRecursively()
         }
     }
+
+    @Test
+    fun aiffIsServedAsAiffAndPlaysInThePageOnlyWhereTheBrowserCan() {
+        val internal = Files.createTempDirectory("inni-server-aiff").toFile()
+        val server = startServer(WebRoots(internal) { null })
+        try {
+            assertTrue(ok(request(server, "POST /api/upload?dir=Music&name=song.aiff HTTP/1.1\r\nContent-Length: 4\r\n\r\nFORM")))
+            assertTrue(request(server, "GET /api/file?path=Music%2Fsong.aiff HTTP/1.1\r\n\r\n").contains("Content-Type: audio/aiff\r\n"))
+            // Chrome and Firefox cannot play AIFF in the page: there the row keeps only its Download button
+            val page = body(request(server, "GET / HTTP/1.1\r\n\r\n"))
+            assertTrue(page.contains("const canPlayAiff = !!document.createElement('audio').canPlayType('audio/aiff');"))
+            assertTrue(page.contains("(canPlayAiff && ['aif','aiff','aifc'].includes(ext))) row.onclick=()=>playAudio(path,f.name);"))
+        } finally {
+            stopServer(server)
+            internal.deleteRecursively()
+        }
+    }
 }

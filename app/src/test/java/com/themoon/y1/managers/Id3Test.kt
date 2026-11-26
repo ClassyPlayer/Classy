@@ -2,6 +2,8 @@ package com.themoon.y1.managers
 
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.FileNotFoundException
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -252,5 +254,146 @@ class Id3Test {
         assertEquals(listOf("é"), Id3.strings(byteArrayOf(2, 0xFE.toByte(), 0xFF.toByte(), 0, 0xE9.toByte())))
         assertEquals(emptyList<String>(), Id3.strings(ByteArray(0)))
         assertEquals(emptyList<String>(), Id3.strings(byteArrayOf(1)))
+    }
+
+    // AIFF: the tag is in the "ID3 " chunk, after or before the samples
+
+    private fun aiff(tag: ByteArray, tagFirst: Boolean = false): File {
+        val comm = AiffBytes.comm(2, 4, 16, 44_100)
+        val ssnd = AiffBytes.ssnd(ByteArray(16))
+        val id3 = AiffBytes.chunk("ID3 ", tag)
+        return AiffBytes.file(if (tagFirst) AiffBytes.form(false, comm, id3, ssnd) else AiffBytes.form(false, comm, ssnd, id3))
+    }
+
+    @Test fun aiffTagAfterTheSamples() {
+        val f = aiff(AiffBytes.id3v23(AiffBytes.text("TYER", "1987"), AiffBytes.v3frame("TXXX", byteArrayOf(3) + "RELEASETYPE\u0000ep".toByteArray()),
+            AiffBytes.v3frame("USLT", uslt(3, byteArrayOf(0), "Sung words".toByteArray()))))
+        assertEquals("1987", Id3.year(f))
+        assertEquals("ep", Id3.scanTags(f).releaseType)
+        assertEquals("Sung words", Id3.lyrics(f))
+    }
+
+    @Test fun aiffTagBeforeTheSamplesAndLowerCaseChunkId() {
+        assertEquals("1987", Id3.year(aiff(AiffBytes.id3v23(AiffBytes.text("TYER", "1987")), tagFirst = true)))
+        val lower = AiffBytes.form(false, AiffBytes.comm(1, 0, 16, 8_000), AiffBytes.chunk("id3 ", AiffBytes.id3v23(AiffBytes.text("TYER", "2001"))))
+        assertEquals("2001", Id3.year(AiffBytes.file(lower)))
+    }
+
+    @Test fun aiffWithoutATag() {
+        val f = AiffBytes.file(AiffBytes.form(false, AiffBytes.comm(1, 0, 16, 8_000), AiffBytes.ssnd(ByteArray(4))))
+        assertNull(Id3.year(f))
+        assertNull(Id3.readTags(f, includeArt = true)[0])
+    }
+
+    @Test fun readTagsFillsTheSlotsOfTheOtherReaders() {
+        val front = byteArrayOf(1, 2, 3)
+        val back = byteArrayOf(9, 9)
+        fun apic(type: Int, data: ByteArray) = AiffBytes.v3frame("APIC", byteArrayOf(0) + "image/jpeg".toByteArray() + byteArrayOf(0, type.toByte()) + "desc".toByteArray() + byteArrayOf(0) + data)
+        val f = aiff(AiffBytes.id3v23(
+            AiffBytes.text("TIT2", "Title"), AiffBytes.text("TPE1", "Artist"), AiffBytes.text("TALB", "Album"),
+            AiffBytes.text("TYER", "1999"), AiffBytes.text("TCON", "(17)"), AiffBytes.text("TRCK", "3/12"),
+            AiffBytes.v3frame("USLT", uslt(3, byteArrayOf(0), "La la".toByteArray())), AiffBytes.text("TPE2", "Album Artist"),
+            AiffBytes.text("TCOM", "Composer"), AiffBytes.text("TCMP", "1"), AiffBytes.text("TMOO", "Calm"),
+            AiffBytes.v3frame("TXXX", byteArrayOf(3) + "MOOD\u0000Happy".toByteArray()),
+            AiffBytes.v3frame("TXXX", byteArrayOf(3) + "MusicBrainz Album Type\u0000single".toByteArray()),
+            apic(4, back), apic(3, front), apic(0, byteArrayOf(7))
+        ))
+        val tags = Id3.readTags(f, includeArt = true)
+        assertEquals(14, tags.size)
+        assertEquals("Title", tags[0])
+        assertEquals("Artist", tags[1])
+        assertEquals("Album", tags[2])
+        assertEquals("1999", tags[3])
+        assertEquals("Rock", tags[4])
+        assertArrayEquals(front, tags[5] as ByteArray) // the front cover wins over the back cover before it
+        assertEquals("3/12", tags[6])
+        assertEquals("La la", tags[7])
+        assertEquals("Album Artist", tags[8])
+        assertEquals("Composer", tags[9])
+        assertEquals("1", tags[10])
+        assertNull(tags[11])
+        assertEquals("Calm; Happy", tags[12])
+        assertEquals("single", tags[13])
+        // Without the cover, the cover is not read
+        assertNull(Id3.readTags(f, includeArt = false)[5])
+    }
+
+    @Test fun readTagsTakesTheFirstPictureWithoutAFrontCover() {
+        val f = aiff(AiffBytes.id3v23(AiffBytes.v3frame("APIC", byteArrayOf(1) + "image/png".toByteArray() + byteArrayOf(0, 0) +
+            byteArrayOf(0xFF.toByte(), 0xFE.toByte(), 0x41, 0, 0, 0) + byteArrayOf(5, 6))))
+        assertArrayEquals(byteArrayOf(5, 6), Id3.readTags(f, includeArt = true)[5] as ByteArray)
+    }
+
+    @Test fun readTagsOfAFileThatCannotBeReadThrowsForTheCover() {
+        val missing = File("/does/not/exist.aif")
+        try {
+            Id3.readTags(missing, includeArt = true)
+            throw AssertionError("a read error must not look like no cover")
+        } catch (_: FileNotFoundException) {
+        }
+        assertNull(Id3.readTags(missing, includeArt = false)[0])
+    }
+
+    @Test fun v22FramesOfITunes() {
+        fun v2frame(id: String, body: ByteArray) = id.toByteArray() + byteArrayOf((body.size shr 16).toByte(), (body.size shr 8).toByte(), body.size.toByte()) + body
+        fun v2text(id: String, value: String) = v2frame(id, byteArrayOf(0) + value.toByteArray(Charsets.ISO_8859_1))
+        val pic = v2frame("PIC", byteArrayOf(0) + "JPG".toByteArray() + byteArrayOf(3) + "c".toByteArray() + byteArrayOf(0) + byteArrayOf(4, 5, 6))
+        val frames = v2text("TT2", "Old Song") + v2text("TP1", "Old Artist") + v2text("TAL", "Old Album") + v2text("TYE", "1984") +
+            v2text("TCO", "(13)") + v2text("TRK", "7/9") + v2text("TCP", "1") + v2text("XYZ", "unknown") + pic + ByteArray(16)
+        val tag = "ID3".toByteArray() + byteArrayOf(2, 0, 0) + syncsafe(frames.size) + frames
+        val f = aiff(tag)
+        val tags = Id3.readTags(f, includeArt = true)
+        assertEquals("Old Song", tags[0])
+        assertEquals("Old Artist", tags[1])
+        assertEquals("Old Album", tags[2])
+        assertEquals("1984", tags[3])
+        assertEquals("Pop", tags[4])
+        assertArrayEquals(byteArrayOf(4, 5, 6), tags[5] as ByteArray)
+        assertEquals("7/9", tags[6])
+        assertEquals("1", tags[10])
+        assertEquals("1984", Id3.year(f))
+        // A v2.2 tag at the start of an MP3 too
+        assertEquals("1984", Id3.year(file(tag)))
+    }
+
+    @Test fun v22CompressedTagIsSkipped() {
+        val frames = "TYE".toByteArray() + byteArrayOf(0, 0, 5, 0) + "1984".toByteArray()
+        assertNull(Id3.year(file("ID3".toByteArray() + byteArrayOf(2, 0, 0x40) + syncsafe(frames.size) + frames)))
+    }
+
+    @Test fun genreNumbersBecomeNames() {
+        assertEquals("Rock", Id3Genres.name("(17)"))
+        assertEquals("Rock", Id3Genres.name("17"))
+        assertEquals("Indie Rock", Id3Genres.name("(17)Indie Rock"))
+        assertEquals(listOf("Rock", "Pop"), Id3Genres.names("(17)(13)"))
+        assertEquals("Techno-Industrial; Noise", Id3Genres.name("(51)(39)"))
+        assertEquals(listOf("Indie"), Id3Genres.names("(17)(13)Indie"))
+        assertEquals(listOf("Remix", "Rock"), Id3Genres.names("(RX)(17)"))
+        assertEquals(listOf("(Live) Rock"), Id3Genres.names("((Live) Rock"))
+        // After a reference the rest is free text, also when it looks like a number or a keyword
+        assertEquals(listOf("13"), Id3Genres.names("(17)13"))
+        assertEquals(listOf("RX"), Id3Genres.names("(17)RX"))
+        assertEquals(listOf("Pop"), Id3Genres.names("13"))
+        assertEquals(listOf("Remix"), Id3Genres.names("RX"))
+        assertEquals(emptyList<String>(), Id3Genres.names(" "))
+        assertEquals("Remix", Id3Genres.name("(RX)"))
+        assertEquals("Cover", Id3Genres.name("CR"))
+        assertEquals("Shoegaze", Id3Genres.name("Shoegaze"))
+        assertEquals("(250)", Id3Genres.name("(250)"))
+        assertEquals("1999", Id3Genres.name("1999"))
+        assertEquals(192, Id3Genres.NAMES.size)
+        assertEquals("Folk", Id3Genres.NAMES[80])
+        assertEquals("Psybient", Id3Genres.NAMES[191])
+    }
+
+    @Test fun v24GenreValuesAreJoined() {
+        // v2.3 gives several numbers in one value
+        val v23 = AiffBytes.id3v23(AiffBytes.text("TCON", "(51)(39)"))
+        assertEquals("Techno-Industrial; Noise", Id3.readTags(aiff(v23), includeArt = false)[4])
+        // v2.4 separates values with NULs; numbers become names and repeats go
+        val body = byteArrayOf(3) + "17\u0000Jazz\u000017".toByteArray()
+        val frame = rawFrame("TCON", byteArrayOf(0, 0), body)
+        val tag = "ID3".toByteArray() + byteArrayOf(4, 0, 0) + syncsafe(frame.size) + frame
+        assertEquals("Rock; Jazz", Id3.readTags(aiff(tag), includeArt = false)[4])
     }
 }

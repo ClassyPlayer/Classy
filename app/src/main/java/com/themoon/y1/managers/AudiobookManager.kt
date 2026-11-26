@@ -82,7 +82,7 @@ class AudiobookManager private constructor(context: Context) {
             return name.endsWith(".mp3") || name.endsWith(".m4a") || name.endsWith(".m4b") ||
                     name.endsWith(".aac") || name.endsWith(".flac") || name.endsWith(".ogg") ||
                     name.endsWith(".wav") || name.endsWith(".ape") || name.endsWith(".wma") ||
-                    name.endsWith(".opus") || name.endsWith(".alac")
+                    name.endsWith(".opus") || name.endsWith(".alac") || Aiff.isAiffName(name)
         }
     }
 }
