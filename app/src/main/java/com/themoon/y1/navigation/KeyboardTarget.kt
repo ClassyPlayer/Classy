@@ -1,6 +1,8 @@
 package com.themoon.y1.navigation
 
+import com.themoon.y1.controllers.playlists.PlaylistNames
 import com.themoon.y1.sync.webdav.serverUri
+import java.io.File
 
 /**
  * What the on-screen keyboard is open for. Each opening gives one, in [ScreenState.WifiKeyboard],
@@ -22,6 +24,8 @@ sealed interface KeyboardTarget {
     data object WebDavUrl : KeyboardTarget
     data object WebDavUser : KeyboardTarget
     data class WebDavPassword(val username: String) : KeyboardTarget
+    /** Rename Playlist: the new name of the playlist file [m3uFile]. */
+    data class PlaylistName(val m3uFile: File) : KeyboardTarget
 }
 
 /** Result of the submit key for a [KeyboardTarget]. */
@@ -50,6 +54,7 @@ object KeyboardTargets {
         KeyboardTarget.WebDavUrl -> localize("WebDAV URL")
         KeyboardTarget.WebDavUser -> localize("Username")
         is KeyboardTarget.WebDavPassword -> localize("Password") + ": " + target.username
+        is KeyboardTarget.PlaylistName -> localize("Rename Playlist")
     }
 
     /** Grey text in the empty input field. */
@@ -67,6 +72,7 @@ object KeyboardTargets {
         KeyboardTarget.WebDavUrl -> "https://..."
         KeyboardTarget.WebDavUser -> localize("Username")
         is KeyboardTarget.WebDavPassword -> localize("Password")
+        is KeyboardTarget.PlaylistName -> localize("Enter playlist name...")
     }
 
     /** Label of the QWERTY submit key. */
@@ -76,7 +82,7 @@ object KeyboardTargets {
         KeyboardTarget.LastFmUsername, KeyboardTarget.JellyfinUsername, KeyboardTarget.WebDavUser -> localize("Next")
         is KeyboardTarget.LastFmPassword, is KeyboardTarget.JellyfinPassword, KeyboardTarget.JellyfinToken,
         is KeyboardTarget.WebDavPassword -> localize("Login")
-        KeyboardTarget.JellyfinServerUrl, KeyboardTarget.WebDavUrl -> localize("Save")
+        KeyboardTarget.JellyfinServerUrl, KeyboardTarget.WebDavUrl, is KeyboardTarget.PlaylistName -> localize("Save")
     }
 
     /** What the submit key does with [text]. Passwords are not trimmed. */
@@ -100,6 +106,10 @@ object KeyboardTargets {
         }
         KeyboardTarget.WebDavUser ->
             required(text.trim(), "Please enter a username.") { KeyboardSubmit.Accepted(it, KeyboardTarget.WebDavPassword(it)) }
+        // The names of the other playlists are checked when the playlist is renamed (PlaylistController.renamePlaylist)
+        is KeyboardTarget.PlaylistName -> text.trim().let { name ->
+            PlaylistNames.problem(name)?.let { KeyboardSubmit.Rejected(it) } ?: KeyboardSubmit.Accepted(name)
+        }
     }
 
     private inline fun required(value: String, message: String, accept: (String) -> KeyboardSubmit): KeyboardSubmit =

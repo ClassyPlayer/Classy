@@ -19,7 +19,8 @@ class KeyboardTargetsTest {
         KeyboardTarget.JellyfinToken,
         KeyboardTarget.WebDavUrl,
         KeyboardTarget.WebDavUser,
-        KeyboardTarget.WebDavPassword("eve")
+        KeyboardTarget.WebDavPassword("eve"),
+        KeyboardTarget.PlaylistName(java.io.File("/storage/sdcard1/Playlists/Rock.m3u8"))
     )
 
     @Test
@@ -34,6 +35,17 @@ class KeyboardTargetsTest {
         assertEquals(KeyboardSubmit.Accepted("eve", KeyboardTarget.WebDavPassword("eve")), KeyboardTargets.submit(KeyboardTarget.WebDavUser, " eve "))
         assertEquals(KeyboardSubmit.Accepted(" p w "), KeyboardTargets.submit(KeyboardTarget.WebDavPassword("eve"), " p w "))
         assertEquals("Login", KeyboardTargets.actionLabel(KeyboardTarget.WebDavPassword("eve"), localize))
+    }
+
+    @Test
+    fun playlistName_isTrimmed_andMustBeAFileName() {
+        val t = KeyboardTarget.PlaylistName(java.io.File("/storage/sdcard1/Playlists/Rock.m3u8"))
+        assertEquals("Rename Playlist", KeyboardTargets.title(t, localize))
+        assertEquals("Enter playlist name...", KeyboardTargets.hint(t, localize))
+        assertEquals(KeyboardSubmit.Accepted("Road Trip"), KeyboardTargets.submit(t, " Road Trip "))
+        assertEquals(KeyboardSubmit.Rejected("Please enter a name."), KeyboardTargets.submit(t, "  "))
+        assertEquals(KeyboardSubmit.Rejected("A playlist name cannot start with a dot."), KeyboardTargets.submit(t, ".Rock"))
+        assertEquals(KeyboardSubmit.Rejected("A name cannot have these characters: / \\ : * ? \" < > |"), KeyboardTargets.submit(t, "AC/DC"))
     }
 
     @Test
@@ -79,7 +91,7 @@ class KeyboardTargetsTest {
 
     @Test
     fun actionLabels() {
-        val expected = listOf("Connect", "Search", "Search", "Next", "Login", "Save", "Next", "Login", "Login", "Save", "Next", "Login")
+        val expected = listOf("Connect", "Search", "Search", "Next", "Login", "Save", "Next", "Login", "Login", "Save", "Next", "Login", "Save")
         assertEquals(expected, all.map { KeyboardTargets.actionLabel(it, localize) })
     }
 

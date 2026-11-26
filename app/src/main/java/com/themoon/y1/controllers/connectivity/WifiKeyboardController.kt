@@ -21,10 +21,11 @@ import com.themoon.y1.navigation.ScreenState
 import com.themoon.y1.navigation.WheelKind
 import com.themoon.y1.views.Notice
 import com.themoon.y1.views.QwertyKeyboardView
+import java.io.File
 
 /**
  * Controller for the click-wheel driven QWERTY On-Screen Keyboard, for
- * Wi-Fi passwords, Podcast searches, Last.fm credentials, library searches, and Jellyfin setup.
+ * Wi-Fi passwords, Podcast searches, Last.fm credentials, library searches, Jellyfin setup and playlist names.
  * Each opening gives a [KeyboardTarget] in [ScreenState.WifiKeyboard]; the title, hint, submit label
  * and submit action come from it.
  */
@@ -44,6 +45,8 @@ class WifiKeyboardController(
     private val onSubmitWebDavUrl: (url: String) -> Unit,
     private val onSubmitWebDavUser: (user: String) -> Unit,
     private val onSubmitWebDavPassword: (password: String) -> Unit,
+    /** Rename Playlist: the keyboard stays open when the name cannot be used (the callback tells why). */
+    private val onSubmitPlaylistName: (m3uFile: File, name: String) -> Unit,
     private val onConnectWifi: (ssid: String, password: String, isOpen: Boolean) -> Unit,
     /** Text already in the field when the keyboard opens (the saved value, for the Jellyfin settings). */
     private val initialText: (KeyboardTarget) -> String,
@@ -182,6 +185,7 @@ class WifiKeyboardController(
                     KeyboardTarget.WebDavUrl -> onSubmitWebDavUrl(value)
                     KeyboardTarget.WebDavUser -> onSubmitWebDavUser(value)
                     is KeyboardTarget.WebDavPassword -> onSubmitWebDavPassword(value)
+                    is KeyboardTarget.PlaylistName -> onSubmitPlaylistName(current.m3uFile, value)
                 }
             }
         }

@@ -145,9 +145,17 @@ class NavigationManager private constructor() {
     /** True when an entry of the back stack is accepted by [where]. */
     fun backStackHas(where: (ScreenState) -> Boolean): Boolean = backStack.any { where(it.state) }
 
-    /** Back to the nearest entry that [where] accepts; the entries above it go. Without one: to the main menu. */
-    fun popBackStackTo(where: (ScreenState) -> Boolean): Boolean {
+    /**
+     * Back to the nearest entry that [where] accepts; the entries above it go. Without one: to the main menu.
+     * [row] not null: the row to select there in place of the row that opened the deeper screen (for example a
+     * renamed playlist, which has a new text and a new place), at the height of that row.
+     */
+    fun popBackStackTo(row: RowKey? = null, where: (ScreenState) -> Boolean): Boolean {
         while (backStack.isNotEmpty() && !where(backStack.peek().state)) backStack.pop()
+        if (row != null && backStack.isNotEmpty()) {
+            val entry = backStack.pop()
+            backStack.push(BackEntry(entry.state, row.copy(top = entry.row?.top ?: row.top)))
+        }
         return popBackStack()
     }
 

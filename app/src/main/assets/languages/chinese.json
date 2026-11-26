@@ -914,5 +914,13 @@
   "Weak (Crossfeed)": "弱",
   "Normal (Crossfeed)": "标准",
   "Strong (Crossfeed)": "强",
-  "Never (USB Drive)": "从不"
+  "Never (USB Drive)": "从不",
+  "Rename Playlist": "重命名播放列表",
+  "Enter playlist name...": "输入播放列表名称...",
+  "Please enter a name.": "请输入名称。",
+  "A playlist name cannot start with a dot.": "播放列表名称不能以点开头。",
+  "A name cannot have these characters: / \\ : * ? \" < > |": "名称不能包含这些字符：/ \\ : * ? \" < > |",
+  "A playlist with this name already exists.": "已存在同名播放列表。",
+  "Playlist renamed.": "播放列表已重命名。",
+  "Failed to rename playlist.": "重命名播放列表失败。"
 }

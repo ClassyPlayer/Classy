@@ -914,5 +914,13 @@
   "Weak (Crossfeed)": "Слабый",
   "Normal (Crossfeed)": "Обычный",
   "Strong (Crossfeed)": "Сильный",
-  "Never (USB Drive)": "Никогда"
+  "Never (USB Drive)": "Никогда",
+  "Rename Playlist": "Переименовать плейлист",
+  "Enter playlist name...": "Введите название плейлиста...",
+  "Please enter a name.": "Пожалуйста, введите название.",
+  "A playlist name cannot start with a dot.": "Название плейлиста не может начинаться с точки.",
+  "A name cannot have these characters: / \\ : * ? \" < > |": "Название не может содержать символы: / \\ : * ? \" < > |",
+  "A playlist with this name already exists.": "Плейлист с таким названием уже существует.",
+  "Playlist renamed.": "Плейлист переименован.",
+  "Failed to rename playlist.": "Не удалось переименовать плейлист."
 }
