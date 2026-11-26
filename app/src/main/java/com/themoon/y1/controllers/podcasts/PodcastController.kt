@@ -15,6 +15,7 @@ import com.themoon.y1.lists.ListSpec
 import com.themoon.y1.lists.RowLook
 import com.themoon.y1.lists.RowSpec
 import com.themoon.y1.managers.AudioPlayerManager
+import com.themoon.y1.managers.Texts
 import com.themoon.y1.models.SongItem
 import com.themoon.y1.navigation.BrowserMode
 import com.themoon.y1.navigation.NavigationManager
@@ -201,7 +202,7 @@ class PodcastController(
     private fun showDeleteConfirmDialog(channelName: String, rssUrl: String) {
         ActionScreens.open(confirmScreen(
             localize("Delete Channel"),
-            "${localize("Do you want to delete '")}$channelName'?",
+            Texts.format(localize, "Do you want to delete '%s'?", channelName),
             localize("Delete")
         ) {
             repository.removeSubscription(channelName, rssUrl)

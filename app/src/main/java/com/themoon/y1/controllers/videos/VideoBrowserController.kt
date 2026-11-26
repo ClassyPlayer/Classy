@@ -21,6 +21,7 @@ import com.themoon.y1.lists.Pane
 import com.themoon.y1.lists.RowLook
 import com.themoon.y1.lists.RowSpec
 import com.themoon.y1.managers.Plurals
+import com.themoon.y1.managers.Texts
 import com.themoon.y1.models.VideoItem
 import com.themoon.y1.models.TvSeries
 import com.themoon.y1.navigation.ScreenState
@@ -152,7 +153,7 @@ class VideoBrowserController(
     private fun buildTvEpisodesListUI(seriesName: String, seasonNumber: Int) {
         val series = tvSeriesProvider().firstOrNull { it.name.equals(seriesName, ignoreCase = true) }
         val season = series?.seasons?.firstOrNull { it.seasonNumber == seasonNumber }
-        screen.show(ListSpec("$seriesName - ${localize("Season")} $seasonNumber", (season?.episodes ?: emptyList()).map { videoRow(it) },
+        screen.show(ListSpec("$seriesName - " + Texts.format(localize, "Season %d", seasonNumber), (season?.episodes ?: emptyList()).map { videoRow(it) },
             empty = localize("No TV series found.")))
     }
 

@@ -35,10 +35,11 @@ def unescape_kotlin_str(s: str) -> str:
 
 
 PLURAL_PATTERN = re.compile(r'\bPlurals\.format\([^"]*?,\s*"((?:[^"\\]|\\.)*)"')
+TEXT_PATTERN = re.compile(r'\bTexts\.format\([^"]*?,\s*"((?:[^"\\]|\\.)*)"')
 
 
 def find_code_keys(java_dir: Path, plural_keys: set[str] | None = None) -> dict[str, list[tuple[str, int]]]:
-    """Scan Kotlin/Java source files for localize("..."), t("...") and Plurals.format(..., "...") calls.
+    """Scan Kotlin/Java source files for localize("..."), t("..."), Plurals.format(..., "...") and Texts.format(..., "...") calls.
 
     The keys of Plurals.format() calls are also added to [plural_keys] when it is given.
     """
@@ -65,6 +66,8 @@ def find_code_keys(java_dir: Path, plural_keys: set[str] | None = None) -> dict[
                             code_keys[unescaped].append((str(path), line_no))
                             if plural_keys is not None:
                                 plural_keys.add(unescaped)
+                        for match in TEXT_PATTERN.finditer(line):
+                            code_keys[unescape_kotlin_str(match.group(1))].append((str(path), line_no))
             except Exception as e:
                 print(f"Warning: Failed to read {path}: {e}", file=sys.stderr)
 

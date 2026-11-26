@@ -16,6 +16,7 @@ import com.themoon.y1.lists.ListScreen
 import com.themoon.y1.lists.ListSpec
 import com.themoon.y1.lists.RowSpec
 import com.themoon.y1.managers.PlayHistoryManager
+import com.themoon.y1.managers.Texts
 import com.themoon.y1.models.M3uEdit
 import com.themoon.y1.models.SongItem
 import com.themoon.y1.navigation.BrowserMode
@@ -299,7 +300,7 @@ class PlaylistController(
             if (writeSongsToM3uFile(newPlaylistFile, songsToAdd(newPlaylistFile, songFiles), false)) {
                 Notice.show(
                     activity,
-                    localize("Created Playlist ") + (count - 1) + " " + localize("successfully!")
+                    Texts.format(localize, "Created Playlist %d successfully!", count - 1)
                 )
             } else {
                 Notice.error(activity, localize("Failed to save."))

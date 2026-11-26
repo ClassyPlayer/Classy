@@ -19,6 +19,7 @@ import com.themoon.y1.lists.ListSpec
 import com.themoon.y1.lists.Pane
 import com.themoon.y1.lists.RowLook
 import com.themoon.y1.lists.RowSpec
+import com.themoon.y1.managers.Texts
 import com.themoon.y1.navigation.InputRouter
 import com.themoon.y1.navigation.NavigationManager
 import com.themoon.y1.navigation.PhotosLevel
@@ -263,7 +264,10 @@ class PhotosController(
     private fun setName(set: String): String {
         if (set == PhotoIndex.ALL) return localize("All Photos")
         if (set == PhotoIndex.RECENT) return localize("Recently Added")
-        PhotoIndex.parseMonth(set)?.let { (y, m) -> return localize(MONTHS[(m - 1).coerceIn(0, 11)]) + " " + y }
+        PhotoIndex.parseMonth(set)?.let { (y, m) ->
+            val month = m.coerceIn(1, 12)
+            return Texts.format(localize, "%1\$s %2\$d (month and year)", localize(MONTHS[month - 1]), y, month)
+        }
         PhotoIndex.folderOf(set)?.let { return it.substringAfterLast('/') }
         return localize("Photos")
     }
