@@ -26,6 +26,14 @@ class SystemBloatManagerTest {
     }
 
     @Test
+    fun lists_keepTheKeyguardPackageForMtp() {
+        // Without it, Android 4.4 counts the device as locked with a PIN, and MTP shows no storage
+        assertFalse("com.android.keyguard" in SystemBloatManager.DISABLED)
+        assertTrue("com.android.keyguard" in SystemBloatManager.ENABLED)
+        assertTrue(SystemBloatManager.SETTINGS.any { it.name == "lockscreen.disabled" && it.value == "1" })
+    }
+
+    @Test
     fun lists_turnOffTheSdDefaultPathDialogWithoutForceStoppingAndroid() {
         assertTrue("android/com.mediatek.storage.StorageDefaultPathDialog" in SystemBloatManager.DISABLED_DONT_KILL)
         // pm disable force-stops the package: for "android" that cancels the system's own alarms
