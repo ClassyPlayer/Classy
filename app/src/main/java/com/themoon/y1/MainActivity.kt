@@ -769,7 +769,9 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
         // A key during a menu slide ends the slide at once, then acts on the new screen as normal. Not the repeats of
         // a held key: a held centre opens a screen (Now Playing menu, Add to Playlist), and its repeats must not stop
         // the slide of that screen.
-        if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) menuSlide?.finishNow()
+        // Not a centre bounce either: InputRouter drops it, and the slide of the screen that the push opened goes on.
+        if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0 &&
+            !InputRouter.getInstance().isCentreBounce(event)) menuSlide?.finishNow()
         return InputRouter.getInstance().dispatchKeyEvent(
             event = event,
             context = this,

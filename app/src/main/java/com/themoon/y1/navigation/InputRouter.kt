@@ -6,6 +6,7 @@ import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
 import android.os.SystemClock
+import android.view.KeyCharacterMap
 import android.view.KeyEvent
 import android.view.View
 import android.widget.AbsListView
@@ -110,6 +111,29 @@ class InputRouter private constructor() {
     private fun isCentreKey(keyCode: Int): Boolean =
         keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER
 
+    // Extra contacts of one centre push (see KeyBounce)
+    private val centreBounce = KeyBounce()
+
+    /** A centre event from a button: keys from `adb shell input` and other software do not bounce. */
+    private fun isCentreButton(event: KeyEvent): Boolean =
+        isCentreKey(event.keyCode) && event.deviceId != KeyCharacterMap.VIRTUAL_KEYBOARD
+
+    /** True: [event] is the press of a centre bounce (see KeyBounce). Does not change the state. */
+    fun isCentreBounce(event: KeyEvent): Boolean =
+        isCentreButton(event) && event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0 &&
+            centreBounce.isBounce(event.keyCode, event.downTime)
+
+    /** Gives each centre button event to [centreBounce]. True: the event belongs to a bounce, drop it. */
+    private fun dropsCentreBounce(event: KeyEvent): Boolean {
+        if (!isCentreButton(event)) return false
+        return when (event.action) {
+            KeyEvent.ACTION_DOWN ->
+                if (event.repeatCount == 0) centreBounce.onPress(event.keyCode, event.downTime) else centreBounce.onRepeat(event.keyCode)
+            KeyEvent.ACTION_UP -> centreBounce.onRelease(event.keyCode, event.eventTime)
+            else -> false
+        }
+    }
+
     /**
      * A dropped release: the view that had the press does not get it (or did not use it). Stop its pending
      * long press and its pressed state; Android 4.4 cancels them only in the view's own key-up of a click.
@@ -133,6 +157,8 @@ class InputRouter private constructor() {
         onAdjustVolume: VolumeAdjuster,
         activeController: ScreenController?
     ): Boolean {
+        // The extra contacts of one centre push do nothing (see KeyBounce)
+        if (dropsCentreBounce(event)) return true
         val keyCode = event.keyCode
         val action = event.action
         // A press kept below (wake, USB storage screen) must not pair with its release
