@@ -108,6 +108,16 @@ object ClassyMetrics {
     fun capCentredPaddingTop(boxHeight: Float, ascent: Int, capHeight: Float): Int =
         (boxHeight / 2f + ascent + capHeight / 2f).roundToInt()
 
+    /**
+     * Height of the capital letters of the app font, per pixel of text size. Nimbus Sans (Regular and Bold, the only
+     * fonts of the app, ThemeManager) has an "H" of 729 units in 1000 (`head.unitsPerEm`, glyph bounds; also the
+     * `hhea` ascent). A fixed value: it does not depend on how an Android version reads the outlines of the font.
+     */
+    const val CAP_HEIGHT_PER_PX = 0.729f
+
+    /** Height of the capital letters of the app font at [textSizePx]. */
+    fun capHeight(textSizePx: Float): Float = CAP_HEIGHT_PER_PX * textSizePx
+
     /** Top of a single-line text box (includeFontPadding = false) whose baseline is at [baseline]. */
     fun textTopForBaseline(baseline: Int, ascent: Int): Int = baseline + ascent
 
