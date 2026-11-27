@@ -11,7 +11,7 @@ import com.themoon.y1.AppPrefs
 import com.themoon.y1.DeviceModel
 
 /**
- * Turns off Android parts that the Y2 does not use: the status bar, the lockscreen, the keyboard,
+ * Turns off Android parts that the Y2 does not use: the status bar, the lockscreen (setting), the keyboard,
  * the window animations and some MediaTek daemons. It runs in its own thread at each app start, so the library
  * does not wait for it.
  *
@@ -35,6 +35,11 @@ import com.themoon.y1.DeviceModel
  * mount goes on. It is an activity of package `android`, so it goes off with DONT_KILL_APP ([DISABLED_DONT_KILL]):
  * `pm disable` would force-stop `android`, which cancels the system's own alarms (the time tick).
  *
+ * The lockscreen goes off with the setting `lockscreen.disabled` only, not with the `com.android.keyguard` package
+ * (version 4 disabled it). Without the package, the window manager counts the device as locked with a PIN, and the
+ * MTP service then shows no storage to the computer. The window manager connects to the package only at boot, so MTP
+ * comes back after the next restart.
+ *
  * The keyboard: Android keeps it as the input method after `pm disable`, and each window focus of the app then throws
  * "Unknown id" (a crash at each start until a reboot). So `ime disable` removes it first, while it is still enabled
  * ([keyboardImes]); on a device where version 3 disabled it already, the keyboard is enabled again for that step.
@@ -47,19 +52,18 @@ object SystemBloatManager {
      * Raise it when [ENABLED], [DISABLED], [DISABLED_DONT_KILL] or [SETTINGS] change, so that devices apply the new
      * list once.
      */
-    internal const val VERSION = 4
+    internal const val VERSION = 5
     private const val KEY_APPLIED_VERSION = "system_bloat_applied_version"
 
     /** The keyboard package (LatinIME). */
     internal const val KEYBOARD = "com.android.inputmethod.latin"
 
-    /** Version 1 disabled the whole SystemUI package (see the class comment). */
-    internal val ENABLED = listOf("com.android.systemui")
+    /** Version 1 disabled the whole SystemUI package, version 4 the keyguard package (see the class comment). */
+    internal val ENABLED = listOf("com.android.systemui", "com.android.keyguard")
 
     /** Packages, or components as `package/class`. */
     internal val DISABLED = listOf(
         "com.android.systemui/com.android.systemui.SystemUIService",
-        "com.android.keyguard",
         KEYBOARD,
         "com.android.providers.userdictionary",
     )
