@@ -1,12 +1,7 @@
 *.iml
 .gradle
 /local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
+/.idea/
 .DS_Store
 /build
 /captures
@@ -22,3 +17,8 @@ tools/rom_assets/
 classy-boot-screen/
 *.jks
 .env
+__pycache__/
+*.pyc
+*.logcat
+/app/release/
+/test*.java
