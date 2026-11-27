@@ -44,14 +44,16 @@ If `adb devices -l` lists a player, test the change on it, not only with unit te
   restart it. An update with the same `versionCode` as the system copy is dropped at reboot.
 - Menus: `adb shell input keyevent 21` / `22` turn the wheel and `23` is the centre button. The app times the Back
   presses itself, so `input keyevent 4` does not work as Back. Send the top button as a real press:
-  `sendevent /dev/input/event3 1 158 1`, `sendevent /dev/input/event3 0 0 0`, about 150 ms later the same with `0` in
-  place of the last `1` of the first line.
+  `adb shell sendevent /dev/input/event3 1 158 1` and `adb shell sendevent /dev/input/event3 0 0 0`, then about
+  150 ms later the same two with `0` in place of the last `1` of the first.
 - Check which row has focus (a screenshot) before a scripted centre press or hold. A hold on Now Playing changes
   My Favorites.
 - Injected wheel steps do not reach the games. Ask a person to try the real wheel there.
-- Screenshots: `adb shell screencap -p /data/local/tmp/s.png`, then `adb pull`. Wake the screen first
-  (`input keyevent 26`), else the picture is black. Copy files off the player with `adb pull`, not
-  `adb shell cat > file`: the adb shell of Android 4.4 turns LF into CRLF.
+- Screenshots: `adb shell screencap -p /data/local/tmp/s.png`, then `adb pull`. A sleeping screen gives a black
+  picture: if `adb shell dumpsys power | grep mScreenOn` shows `false`, wake it with `adb shell input keyevent 26`
+  first. On a screen that is on, the power key turns it off.
+- Copy files off the player with `adb pull`, not `adb shell cat > file`: the adb shell of Android 4.4 turns LF into
+  CRLF.
 - The app's `Log` lines do not show in `adb logcat` on the Y2. Check the result in the device state instead: shared
   preferences, `getprop`, `settings get`, files on the card. `adb shell am broadcast -a com.themoon.y1.RESCAN_LIBRARY`
   starts a library scan.
