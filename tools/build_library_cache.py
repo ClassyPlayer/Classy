@@ -37,7 +37,7 @@ except ImportError:
     sys.exit(1)
 
 # Same value as MediaLibraryManager.CACHE_VERSION in the app.
-CACHE_VERSION = 4
+CACHE_VERSION = 5
 
 # Keep this in sync with isAudioFile() in MainActivity.java
 AUDIO_EXTENSIONS = {".mp3", ".flac", ".wav", ".ogg", ".m4a", ".aac", ".ape", ".wma", ".opus", ".m4b"}

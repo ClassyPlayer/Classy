@@ -1906,6 +1906,8 @@ class AudioPlayerManager private constructor() {
 
     fun extractAlacMetadata(file: File, includeArt: Boolean): Array<Any?> {
         val tags = arrayOfNulls<Any>(14)
+        // The genre as a number (gnre): only when the file has no text genre (©gen)
+        var numberGenre: String? = null
         var opened: java.io.Closeable? = null // closed also after a read error
         try {
             val raf = RandomAccessFile(file, "r").also { opened = it }
@@ -1948,7 +1950,7 @@ class AudioPlayerManager private constructor() {
                 if (type == "\u00A9nam" || type == "\u00A9ART" || type == "\u00A9alb" ||
                     type == "\u00A9day" || type == "\u00A9gen" || (includeArt && type == "covr") ||
                     type == "trkn" || type == "\u00A9lyr" || type == "aART" || type == "\u00A9wrt" ||
-                    type == "cpil"
+                    type == "cpil" || type == "gnre"
                 ) {
                     raf.seek(pos + 8)
                     val dataSize = raf.readInt()
@@ -1985,6 +1987,7 @@ class AudioPlayerManager private constructor() {
                                 "aART" -> tags[8] = String(data, Charsets.UTF_8)
                                 "\u00A9wrt" -> tags[9] = String(data, Charsets.UTF_8)
                                 "cpil" -> tags[10] = if (data[0].toInt() != 0) "1" else "0"
+                                "gnre" -> numberGenre = mp4GnreGenre(data)
                             }
                         }
                     }
@@ -1996,6 +1999,7 @@ class AudioPlayerManager private constructor() {
         } finally {
             try { opened?.close() } catch (ignored: Exception) {}
         }
+        if ((tags[4] as? String).isNullOrBlank() && numberGenre != null) tags[4] = numberGenre
         return tags
     }
 
@@ -2454,6 +2458,16 @@ internal fun <T> shuffleWithFirst(list: MutableList<T>, first: T) {
     list.remove(first)
     Collections.shuffle(list)
     list.add(0, first)
+}
+
+/**
+ * The genre name of the value of an MP4 "gnre" atom: iTunes writes a standard genre as a 16-bit number, the ID3v1
+ * genre number + 1 (14 = Pop), and other genres as text (©gen). Null for 0, a number with no genre, or short data.
+ */
+internal fun mp4GnreGenre(data: ByteArray): String? {
+    if (data.size < 2) return null
+    val n = ((data[0].toInt() and 0xFF) shl 8) or (data[1].toInt() and 0xFF)
+    return Id3Genres.NAMES.getOrNull(n - 1)
 }
 
 /** The largest MP4 freeform ("----") atom that the tag reader reads; the ones with a release type are small. */

@@ -800,8 +800,9 @@ class MediaLibraryManager private constructor() {
          * at the same value.
          * 1: no `"v"` key. 2: MOOD tags of FLAC, Ogg and Opus files. 3: year of MP3 files from ID3v2.3/2.4 (Id3.year).
          * 4: release type of MP3, FLAC, Ogg, Opus and M4A files (`"releaseType"`, ReleaseTypes).
+         * 5: genre of M4A files that give it as a number (gnre, iTunes Store files).
          */
-        internal const val CACHE_VERSION = 4
+        internal const val CACHE_VERSION = 5
 
         /**
          * True when the start must scan the library: no library cache was loaded (a new install has none) and no scan
