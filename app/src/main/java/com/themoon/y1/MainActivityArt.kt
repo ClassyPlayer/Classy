@@ -173,6 +173,17 @@ internal fun MainActivity.queryStatusBarBluetooth() {
     } catch (_: Exception) {}
 }
 
+/** The moon while a sleep timer runs (Power screen → Sleep Timer). */
+internal fun MainActivity.updateStatusBarSleepTimer() {
+    val iv = ivStatusSleep ?: return
+    if (com.themoon.y1.managers.SleepTimer.isActive()) {
+        setStatusBarIcon(iv, com.themoon.y1.views.StatusIcons.Icon.MOON, true)
+        iv.visibility = android.view.View.VISIBLE
+    } else {
+        iv.visibility = android.view.View.GONE
+    }
+}
+
 internal fun MainActivity.updateStatusBarHeadphone() {
     setStatusBarIcon(ivStatusHeadphone ?: return, com.themoon.y1.views.StatusIcons.Icon.HEADPHONES, true)
 }
@@ -326,6 +337,7 @@ internal fun MainActivity.applyThemeInternal() {
 
         updateStatusBarBluetooth()
         updateStatusBarHeadphone()
+        updateStatusBarSleepTimer()
         // Also the Wi-Fi icon
         updateStatusBarPlayOn()
 

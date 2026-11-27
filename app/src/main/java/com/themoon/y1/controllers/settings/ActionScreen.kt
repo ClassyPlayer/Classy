@@ -157,7 +157,7 @@ object ActionScreens {
             val onClick = { choose(action, close) }
             val checked = action.checked
             val key = action.key ?: action.label
-            if (action.value != null) RowSpec(action.label, RowLook.VALUE, value = action.value, key = key, onClick = onClick)
+            if (action.value != null) RowSpec(action.label, RowLook.VALUE, value = action.value, opens = action.opensList, key = key, onClick = onClick)
             else if (checked == null) RowSpec(action.label, RowLook.VALUE, opens = action.opensList, key = key, onClick = onClick)
             else RowSpec(action.label, RowLook.CHOICE, checked = checked, key = key, onClick = onClick)
         },

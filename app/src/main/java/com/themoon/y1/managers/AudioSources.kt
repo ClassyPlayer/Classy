@@ -101,6 +101,13 @@ class AudioSources internal constructor(
         }
     }
 
+    /** Pauses the radio when it plays, as a Play/Pause press does (the sleep timer). */
+    fun pauseRadio() {
+        if (!radioOn()) return
+        radio.toggle()
+        if (!radioOn()) radioPausedAtMs = nowMs()
+    }
+
     /** A short Next ([next]) or Previous press. Paused radio plays again at the new station. */
     fun skipKey(next: Boolean) {
         if (!radioHasButtons) {

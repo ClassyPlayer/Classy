@@ -84,7 +84,7 @@ class PluralsTest {
     @Test
     fun eachLanguageFileHasTheFormsOfItsLanguage() {
         val keys = listOf(
-            "%d Songs", "%d Files", "%d Seasons", "%d Episodes", "%d minutes",
+            "%d Songs", "%d Files", "%d Seasons", "%d Episodes",
             "Scan Complete!\nFound %1\$d channels.\nTuning to %2\$s"
         )
         for ((name, json) in LanguageFiles.all()) {

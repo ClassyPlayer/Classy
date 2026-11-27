@@ -1,5 +1,8 @@
 package com.themoon.y1.core
 
+import android.annotation.SuppressLint
+import android.app.AlarmManager
+import android.app.PendingIntent
 import android.os.Build
 import android.os.StatFs
 import android.view.View
@@ -26,6 +29,15 @@ object ApiCompat {
     fun availableBytes(stat: StatFs): Long =
         if (Build.VERSION.SDK_INT >= 18) stat.availableBlocksLong * stat.blockSizeLong
         else stat.availableBlocks.toLong() * stat.blockSize.toLong()
+
+    /**
+     * An alarm at [triggerAt] exactly: [AlarmManager.set] is inexact from API 19 on, setExact came in API 19.
+     * The exact-alarm permission is from API 31 on; the players run API 17 and 19.
+     */
+    @SuppressLint("MissingPermission")
+    fun setExactAlarm(am: AlarmManager, type: Int, triggerAt: Long, operation: PendingIntent) {
+        if (Build.VERSION.SDK_INT >= 19) am.setExact(type, triggerAt, operation) else am.set(type, triggerAt, operation)
+    }
 }
 
 /**

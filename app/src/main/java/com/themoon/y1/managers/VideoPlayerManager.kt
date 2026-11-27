@@ -47,7 +47,7 @@ class VideoPlayerManager private constructor() {
             val vlc = LibVLC(context.applicationContext, options)
             libVLC = vlc
             mediaPlayer = MediaPlayer(vlc)
-            currentMasterVolume = VirtualVolumeManager.getInstance().getMasterGain()
+            currentMasterVolume = VirtualVolumeManager.getInstance().getOutputGain()
             applyMasterVolume()
         }
     }

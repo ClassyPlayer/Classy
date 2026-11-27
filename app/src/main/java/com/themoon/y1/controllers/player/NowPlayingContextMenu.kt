@@ -9,8 +9,6 @@ import com.themoon.y1.views.Notice
 import com.themoon.y1.managers.AudioPlayerManager
 import com.themoon.y1.managers.LibrarySongs
 import com.themoon.y1.managers.M4bChapterParser
-import com.themoon.y1.managers.Plurals
-import com.themoon.y1.managers.SleepTimer
 import com.themoon.y1.models.ArtistNames
 import com.themoon.y1.models.SongItem
 import com.themoon.y1.navigation.NavigationManager
@@ -25,7 +23,7 @@ import java.io.File
  * - Add to On-The-Go playlist
  * - Add to Playlist
  * - Browse Album / Browse Artist
- * - Audiobook Speed, Chapters and Sleep Timer (audiobooks only, at the top; music is not changed)
+ * - Audiobook Speed and Chapters (audiobooks only, at the top; music is not changed)
  * - Play On (the speaker list; with the speaker name while a speaker plays)
  * Only actions on the current song and Play On: the display options (Spectrum, Total Time) are in Settings.
  * A row closes the menu, then does its action (ActionScreens.choose), so Browse Album goes from Now Playing.
@@ -47,8 +45,8 @@ object NowPlayingContextMenu {
         var menuKey = -1
         fun spec(): ActionScreens.Spec {
             val rows = ArrayList<ActionScreens.Action>()
-            // Audiobooks: Speed, Chapters and Sleep Timer first, then the rows of every song (Queue, Play On...).
-            // A new speed or timer shows in its row at once (Back comes back to this menu).
+            // Audiobooks: Speed and Chapters first, then the rows of every song (Queue, Play On...).
+            // A new speed shows in its row at once (Back comes back to this menu). The sleep timer is on the Power screen.
             if (main != null && StoragePaths.isUnderAudiobooks(songFile.absolutePath)) {
                 rows += audiobookRows(main, songFile) { if (menuKey >= 0) ActionScreens.replace(menuKey, spec()) }
             }
@@ -83,21 +81,14 @@ object NowPlayingContextMenu {
     private fun speedIndex(speed: Float): Int =
         SettingsController.SPEED_VALUES.indexOfFirst { Math.abs(it - speed) < 0.01f }.coerceAtLeast(0)
 
-    /** "45 minutes", translated. */
-    private fun minutesText(main: MainActivity, minutes: Int): String = Plurals.format(main::t, "%d minutes", minutes)
-
-    /** The rows of an audiobook: the speed, the chapters and the sleep timer. [changed]: redraws them after a change. */
+    /** The rows of an audiobook: the speed and the chapters. [changed]: redraws them after a change. */
     private fun audiobookRows(main: MainActivity, songFile: File, changed: () -> Unit): List<ActionScreens.Action> {
         val label = SettingsController.SPEED_LABELS[speedIndex(AudioPlayerManager.getInstance().audiobookSpeed())]
-        val sleep = if (SleepTimer.isActive()) minutesText(main, SleepTimer.minutesLeft()) else main.t("Off")
         return listOf(
             ActionScreens.Action(main.t("Audiobook Speed") + ": " + main.t(label), opensList = true, key = "audiobook_speed") {
                 showAudiobookSpeed(main, changed)
             },
-            ActionScreens.Action(main.t("Chapters"), opensList = true) { showChapters(main, songFile) },
-            ActionScreens.Action(main.t("Sleep Timer") + ": " + sleep, opensList = true, key = "sleep_timer") {
-                showSleepTimer(main, changed)
-            }
+            ActionScreens.Action(main.t("Chapters"), opensList = true) { showChapters(main, songFile) }
         )
     }
 
@@ -143,28 +134,6 @@ object NowPlayingContextMenu {
             ActionScreens.Spec(main.t("Chapters"), info = if (rows.isEmpty()) listOf(main.t("No chapters found")) else emptyList(),
                 actions = rows, focusChecked = true)
         )
-    }
-
-    /** The sleep timer: the time left on top, 5 minutes to 2 hours, and Stop Sleep Timer below while one runs. */
-    private fun showSleepTimer(main: MainActivity, changed: () -> Unit) {
-        val rows = ArrayList<ActionScreens.Action>()
-        for (minutes in SleepTimer.CHOICES) {
-            rows += ActionScreens.Action(minutesText(main, minutes)) {
-                SleepTimer.start(main, minutes)
-                changed()
-                Notice.show(main, main.t("Sleep timer set for ") + minutesText(main, minutes))
-            }
-        }
-        val info = ArrayList<String>()
-        if (SleepTimer.isActive()) {
-            info += main.t("Time left") + ": " + minutesText(main, SleepTimer.minutesLeft())
-            rows += ActionScreens.Action(main.t("Stop Sleep Timer")) {
-                SleepTimer.cancel()
-                changed()
-                Notice.show(main, main.t("Sleep timer cancelled"))
-            }
-        }
-        ActionScreens.open(ActionScreens.Spec(main.t("Sleep Timer"), info = info, actions = rows))
     }
 
     /** The speeds of the audiobooks; the one that is set has the check mark, and a row sets it and goes back. */

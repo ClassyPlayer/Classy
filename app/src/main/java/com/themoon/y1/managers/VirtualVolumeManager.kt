@@ -18,6 +18,8 @@ import java.util.ArrayList
 class VirtualVolumeManager private constructor() {
 
     private var currentMasterGain = 1.0f
+    /** The sleep timer's fade-out (1 = none): multiplies the gain the engines get, the user's volume stays. */
+    private var fadeFactor = 1.0f
     private val registeredMediaPlayers = ArrayList<WeakReference<MediaPlayer>>()
     private val gainListeners = ArrayList<(Float) -> Unit>()
 
@@ -35,33 +37,49 @@ class VirtualVolumeManager private constructor() {
         applyMasterGain()
     }
 
+    /** Sets the fade-out factor (0..1) of the sleep timer ([SleepTimer]) and applies it; 1 ends the fade. */
+    @Synchronized
+    fun setFadeFactor(factor: Float) {
+        val f = Math.max(0.0f, Math.min(1.0f, factor))
+        if (f == fadeFactor) return
+        fadeFactor = f
+        applyMasterGain()
+    }
+
+    /** The gain the engines play at: the user's volume times the fade-out. A player that starts takes this one. */
+    @Synchronized
+    fun getOutputGain(): Float = outputGain()
+
+    private fun outputGain(): Float = currentMasterGain * fadeFactor
+
     /**
      * Applies the current master gain to all known playback engines and registered MediaPlayers.
      */
     @Synchronized
     fun applyMasterGain() {
+        val gain = outputGain()
         // 1. AudioPlayerManager (Music, Podcasts, Audiobooks)
         try {
             val apm = AudioPlayerManager.getInstance()
-            apm?.setMasterVolume(currentMasterGain)
+            apm?.setMasterVolume(gain)
         } catch (ignored: Throwable) {}
 
         // 2. VideoPlayerManager (Movies / Videos)
         try {
             val vpm = VideoPlayerManager.getInstance()
-            vpm?.setMasterVolume(currentMasterGain)
+            vpm?.setMasterVolume(gain)
         } catch (ignored: Throwable) {}
 
         // 3. FmRadioManager (Radio)
         try {
             val fm = FmRadioManager.getInstance()
-            fm?.setMasterVolume(currentMasterGain)
+            fm?.setMasterVolume(gain)
         } catch (ignored: Throwable) {}
 
         // 4. Gain listeners (the Music Quiz clip player)
         for (listener in ArrayList(gainListeners)) {
             try {
-                listener(currentMasterGain)
+                listener(gain)
             } catch (ignored: Throwable) {}
         }
 
@@ -73,7 +91,7 @@ class VirtualVolumeManager private constructor() {
                 playerIt.remove()
             } else {
                 try {
-                    mp.setVolume(currentMasterGain, currentMasterGain)
+                    mp.setVolume(gain, gain)
                 } catch (ignored: Throwable) {}
             }
         }
@@ -84,7 +102,7 @@ class VirtualVolumeManager private constructor() {
     fun addGainListener(listener: (Float) -> Unit) {
         if (listener !in gainListeners) gainListeners.add(listener)
         try {
-            listener(currentMasterGain)
+            listener(outputGain())
         } catch (ignored: Throwable) {}
     }
 
@@ -106,7 +124,7 @@ class VirtualVolumeManager private constructor() {
         }
         registeredMediaPlayers.add(WeakReference(player))
         try {
-            player.setVolume(currentMasterGain, currentMasterGain)
+            player.setVolume(outputGain(), outputGain())
         } catch (ignored: Throwable) {}
     }
 

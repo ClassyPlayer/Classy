@@ -576,6 +576,12 @@ internal fun MainActivity.initControllers() {
         clickFeedback = { clickFeedback() }
     )
 
+    sleepTimerController = com.themoon.y1.controllers.settings.SleepTimerController(
+        main = this,
+        rootView = layoutSleepTimerMode as ViewGroup,
+        clickFeedback = { clickFeedback() }
+    )
+
     jellyfinUiController = JellyfinUiController(
         activity = this,
         rootView = layoutSettingsMode as ViewGroup,
@@ -697,6 +703,7 @@ internal fun MainActivity.initControllers() {
         registerController(ScreenState.Wifi::class.java, wifiController)
         registerController(ScreenState.WifiKeyboard::class.java, wifiKeyboardController)
         registerController(ScreenState.Brightness::class.java, brightnessController)
+        registerController(ScreenState.SleepTimer::class.java, sleepTimerController)
         registerController(ScreenState.Storage::class.java, storageController)
         registerController(ScreenState.WebServer::class.java, webServerController)
         registerController(ScreenState.MusicQuiz::class.java, musicQuizController)

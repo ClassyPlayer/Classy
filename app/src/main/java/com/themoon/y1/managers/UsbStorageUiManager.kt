@@ -116,23 +116,7 @@ class UsbStorageUiManager(
     }
 
     private fun pauseAllPlaybackForUsb() {
-        try {
-            val am = AudioPlayerManager.getInstance()
-            if (am.isPlaying()) {
-                am.playOrPauseMusic()
-            }
-        } catch (_: Exception) {}
-        try {
-            val vm = VideoPlayerManager.getInstance()
-            if (vm.isPlaying()) {
-                vm.togglePlayPause()
-            }
-        } catch (_: Exception) {}
-        try {
-            if (isFmRadioActive()) {
-                stopFmRadio()
-            }
-        } catch (_: Exception) {}
+        PlaybackPause.all { if (isFmRadioActive()) stopFmRadio() }
     }
 
     fun startUsbStorage() {
