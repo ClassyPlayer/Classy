@@ -340,6 +340,12 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
         if (::gamesController.isInitialized) gamesController.forget()
     }
 
+    /** The sleep timer ended: the sounds that [com.themoon.y1.managers.PlaybackPause] does not pause stop too. */
+    fun pauseOwnSoundsForSleepTimer() {
+        if (::gamePlayerController.isInitialized) gamePlayerController.pauseForSleepTimer()
+        if (::musicQuizController.isInitialized) musicQuizController.stopClipForSleepTimer()
+    }
+
     /** Before the card is shared over USB: the game on the screen ends (its save then runs on the game worker). */
     fun endGameForUsbShare() {
         if (::gamePlayerController.isInitialized) gamePlayerController.endForUsbShare()
@@ -783,6 +789,8 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
         }
         if (event.action == KeyEvent.ACTION_DOWN && com.themoon.y1.managers.SleepTimer.onUserKey()) {
             sleepTimerKey = event.keyCode
+            // The screen may have timed out during the fade: the key also wakes it, so the notice shows
+            if (isFakeScreenOff) wakeFromFakeScreenOff() else powerBacklightManager?.resetTimer()
             Notice.show(this, t("Sleep timer cancelled"))
             return true
         }
@@ -1583,7 +1591,6 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
         pairingAgent = BluetoothPairingAgent(this, ::t).also { it.register() }
     }
 
-    /** A new level of the voltage model (it can come without a battery broadcast): show it in the status bar. */
     /** The sleep timer started, ticked a minute, stopped or ended: the moon and the Power screen show it. */
     private val sleepTimerListener: () -> Unit = {
         updateStatusBarSleepTimer()
@@ -1593,6 +1600,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     /** The key that stopped the sleep timer's fade: its key up (and repeats) do nothing either. */
     private var sleepTimerKey = -1
 
+    /** A new level of the voltage model (it can come without a battery broadcast): show it in the status bar. */
     private val batteryGuardListener = object : com.themoon.y1.battery.BatteryGuard.Listener {
         override fun onLevelChanged() {
             registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))?.let { systemStatusReceiver.onReceive(this@MainActivity, it) }

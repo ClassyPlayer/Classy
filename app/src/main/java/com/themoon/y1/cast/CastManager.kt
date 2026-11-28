@@ -296,6 +296,32 @@ object CastManager {
         return true
     }
 
+    /** The speaker volume when the sleep timer's fade started; null = no fade. */
+    @Volatile private var fadeBase: Int? = null
+
+    /**
+     * The sleep timer's fade (1 = none, main thread): the speaker volume follows it down from its volume at the start
+     * of the fade, and 1 sets that volume again.
+     */
+    fun setFade(factor: Float) {
+        if (factor >= 1f) {
+            val base = fadeBase ?: return
+            fadeBase = null
+            if (isActive) sendVolumeNow(base)
+            return
+        }
+        if (!isActive) return
+        val base = fadeBase ?: (volumeTarget ?: volume ?: return).also { fadeBase = it }
+        sendVolumeNow(Math.round(base * factor.coerceIn(0f, 1f)))
+    }
+
+    private fun sendVolumeNow(target: Int) {
+        volumeTarget = target
+        val w = workerHandler()
+        w.removeCallbacks(sendVolume)
+        w.post(sendVolume)
+    }
+
     private val sendVolume = Runnable {
         val t = volumeTarget ?: return@Runnable
         try {

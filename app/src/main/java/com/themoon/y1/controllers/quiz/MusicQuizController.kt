@@ -160,6 +160,11 @@ class MusicQuizController(
     /** A grey row that the wheel skips. */
     private fun disabled(label: String) = RowSpec(label, RowLook.MENU, enabled = false)
 
+    /** The sleep timer ended: the clip stops (the quiz has its own gain, which the pause of the music does not reach). */
+    fun stopClipForSleepTimer() {
+        engine.stopPreview()
+    }
+
     fun showStartHub() {
         currentScreenMode = MODE_HUB
         cancelTimer()

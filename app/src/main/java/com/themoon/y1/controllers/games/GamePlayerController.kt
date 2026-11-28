@@ -158,6 +158,11 @@ class GamePlayerController(
         if (rootView.visibility == View.VISIBLE) onExitRequested()
     }
 
+    /** The sleep timer ended: the game pauses behind its menu (its music stops). */
+    fun pauseForSleepTimer() {
+        if (bridge != null && !isMenuOpen) openMenu(dropRelease = false)
+    }
+
     /** MainActivity went to the background (screen off, another app): pause the game behind its menu. */
     fun onActivityPause() {
         isInBackground = true

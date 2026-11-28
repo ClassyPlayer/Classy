@@ -16,6 +16,7 @@ import android.util.Log
 import com.themoon.y1.AppPrefs
 import com.themoon.y1.MainActivity
 import com.themoon.y1.Prefs
+import com.themoon.y1.cast.CastManager
 import com.themoon.y1.core.ApiCompat
 import com.themoon.y1.views.Notice
 
@@ -26,6 +27,8 @@ import com.themoon.y1.views.Notice
  *
  * No wake lock while it runs: an exact [AlarmManager.ELAPSED_REALTIME_WAKEUP] alarm wakes the player at the start
  * of the fade, also when nothing plays and the CPU sleeps; a wake lock holds it awake only for the fade.
+ * The fade also turns down a Play On speaker. At the end everything pauses at the faded volume, and the volume comes
+ * back [RESTORE_MS] later (libVLC and a speaker pause a moment after the call), or at the next key.
  * The timer lives in memory: a restart ends it. Everything runs on the main thread.
  */
 object SleepTimer {
@@ -34,6 +37,8 @@ object SleepTimer {
     private const val FADE_TICK_MS = 250L
     /** The fade's wake lock lasts this much past the fade (a slow power off or screen off). */
     private const val LOCK_EXTRA_MS = 15_000L
+    /** After the end, the volume comes back this much later: after the Play On sync (1 s) and libVLC paused. */
+    private const val RESTORE_MS = 3_000L
 
     private val handler = Handler(Looper.getMainLooper())
     private val listeners = ArrayList<() -> Unit>()
@@ -41,6 +46,8 @@ object SleepTimer {
     /** End time ([SystemClock.elapsedRealtime]); 0 = no timer. */
     private var endAt = 0L
     private var fading = false
+    /** The end paused everything and the volume is still at 0: [restoreGain] brings it back. */
+    private var restorePending = false
     // The application context (start() takes it), not an activity: nothing to leak
     @SuppressLint("StaticFieldLeak")
     private var app: Context? = null
@@ -85,6 +92,12 @@ object SleepTimer {
      * true then, and the key does nothing else.
      */
     fun onUserKey(): Boolean {
+        if (restorePending) {
+            // After the end: the volume comes back now, and the key acts as normal (for example Play)
+            handler.removeCallbacks(restoreGain)
+            restoreGain.run()
+            return false
+        }
         if (!fading) return false
         Log.w(TAG, "Key during the fade: timer stopped")
         cancel()
@@ -96,8 +109,10 @@ object SleepTimer {
         handler.removeCallbacks(fadeTick)
         app?.let { cancelAlarm(it) }
         unregister()
-        if (fading) VirtualVolumeManager.getInstance().setFadeFactor(1f)
+        handler.removeCallbacks(restoreGain)
+        if (fading || restorePending) setFade(1f)
         fading = false
+        restorePending = false
         endAt = 0L
         releaseLock()
     }
@@ -143,19 +158,37 @@ object SleepTimer {
         override fun run() {
             if (!fading) return
             val left = endAt - SystemClock.elapsedRealtime()
-            VirtualVolumeManager.getInstance().setFadeFactor(SleepTimerMath.fadeFactor(left))
+            setFade(SleepTimerMath.fadeFactor(left))
             if (left <= 0) finish() else handler.postDelayed(this, minOf(FADE_TICK_MS, left))
         }
     }
 
-    /** The end: everything pauses at the faded volume, the volume comes back for the next play, then the end action. */
+    /** The fade-out of the app's players and of a Play On speaker (1 = none). */
+    private fun setFade(factor: Float) {
+        VirtualVolumeManager.getInstance().setFadeFactor(factor)
+        CastManager.setFade(factor)
+    }
+
+    private val restoreGain = Runnable {
+        restorePending = false
+        setFade(1f)
+    }
+
+    /**
+     * The end: everything pauses at the faded volume (also the Music Quiz clip and a game), the volume comes back
+     * [RESTORE_MS] later for the next play, then the end action.
+     */
     private fun finish() {
         val c = app ?: return
         // The wake lock stays until the end action is done
         val lock = wakeLock.also { wakeLock = null }
+        // Not faded any more for stop(), so that it does not bring the volume back before the pause
+        fading = false
         stop()
         PlaybackPause.all()
-        VirtualVolumeManager.getInstance().setFadeFactor(1f)
+        MainActivity.instance?.pauseOwnSoundsForSleepTimer()
+        restorePending = true
+        handler.postDelayed(restoreGain, RESTORE_MS)
         changed()
         val release = { try { lock?.takeIf { it.isHeld }?.release() } catch (_: RuntimeException) {} }
         if (Prefs.SLEEP_TIMER_END.get(AppPrefs.get(c)) == Prefs.SLEEP_END_POWER_OFF) {

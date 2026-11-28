@@ -115,10 +115,16 @@ class SleepTimerController(
         main.settingsController.closeSleepTimerList()
     }
 
+    /** "Ends at" changes with the clock: it is shown again at each new minute while the screen is open. */
+    private val refreshEnds = Runnable { if (rootView.isShown) show() }
+
     private fun show() {
         tvValue.text = SleepTimerText.duration(minutes, main::t)
-        val endsAt = Date(System.currentTimeMillis() + minutes * 60_000L)
+        val now = System.currentTimeMillis()
+        val endsAt = Date(now + minutes * 60_000L)
         tvEnds.text = String.format(main.t("Ends at %s"), ClockSettings.formatStatusBarTime(endsAt, main.is24HourFormat))
+        rootView.removeCallbacks(refreshEnds)
+        rootView.postDelayed(refreshEnds, 60_000L - now % 60_000L + 50L)
         tvValue.setTextColor(ThemeManager.getTextColorPrimary())
         tvEnds.setTextColor(ThemeManager.getTextColorSecondary())
         tvValue.typeface = ThemeManager.getCustomFontBold()
