@@ -82,6 +82,11 @@ pre code { background: none; padding: 0; font: inherit; }
 .y2-icon .ig { fill: var(--ic-glass); }
 .y2-icon .iw { fill: var(--ic-wheel); stroke: var(--ic-line); stroke-width: 14; }
 .y2-icon .ic { fill: var(--ic-body); stroke: var(--ic-line); stroke-width: 12; }
+/* The pages of the site: this one and docs.html */
+.nav-pages { display: flex; align-items: center; gap: 16px; padding-left: 16px; border-left: 1px solid var(--line); height: 20px; font-size: 14px; }
+.nav-pages a { color: var(--muted); }
+.nav-pages a:hover { color: var(--text); text-decoration: none; }
+.nav-pages a[aria-current="page"] { color: var(--text); font-weight: 600; }
 .nav-r { margin-left: auto; display: flex; align-items: center; gap: 14px; font-size: 14px; }
 .nav-r a.plain { color: var(--muted); }
 .nav-r a.plain:hover { color: var(--text); text-decoration: none; }
@@ -90,7 +95,8 @@ pre code { background: none; padding: 0; font: inherit; }
 .theme-btn { border: 1px solid var(--line); background: transparent; color: var(--muted); border-radius: 999px; width: 32px; height: 32px; display: grid; place-items: center; cursor: pointer; padding: 0; }
 .theme-btn:hover { color: var(--text); }
 .theme-btn svg { width: 16px; height: 16px; }
-@media (max-width: 560px) { .nav-in { padding: 0 16px; gap: 10px; } .nav-r a.plain { display: none; } }
+@media (max-width: 560px) { .nav-in { padding: 0 16px; gap: 10px; } .nav-r a.plain { display: none; } .nav-pages { gap: 12px; padding-left: 10px; } }
+@media (max-width: 380px) { .brand .wordmark { display: none; } }
 
 /* Layout: iPod-menu sidebar + content */
 .layout { max-width: 1360px; margin: 0 auto; display: grid; grid-template-columns: 236px minmax(0, 1fr); gap: 48px; padding: 0 24px; }
@@ -221,12 +227,16 @@ footer .credits { margin: 10px 0; font-size: 13px; gap: 6px 32px; }
 </head>
 <body>
 
-<nav class="nav">
+<nav class="nav" aria-label="Site">
   <div class="nav-in">
     <a class="brand" href="#top" aria-label="Top of the page">
       <svg class="y2-icon" viewBox="-8 -8 426 683" aria-hidden="true"><rect class="ib" x="0" y="0" width="410" height="667" rx="55"/><rect class="ig" x="30" y="29" width="348" height="269" rx="20"/><circle class="iw" cx="205" cy="477" r="126"/><circle class="ic" cx="205" cy="477" r="46"/></svg>
       <span class="wordmark" data-name></span>
     </a>
+    <div class="nav-pages">
+      <a href="#top" aria-current="page">Features</a>
+      <a href="docs.html">Docs</a>
+    </div>
     <div class="nav-r">
       <a class="plain" data-link="repo" href="#">GitHub</a>
       <a class="pill" href="#install">Download</a>
@@ -289,7 +299,7 @@ footer .credits { margin: 10px 0; font-size: 13px; gap: 6px 32px; }
         <a class="card" href="#lyrics"><h3>Synced lyrics</h3><p>The lyrics follow the song, from <code>.lrc</code> files or from the tags. With pinyin or romaji if you want.</p></a>
         <a class="card" href="#coverflow"><h3>Cover Flow that keeps up</h3><p>The iPod order and layout, smooth on a fast spin, and a letter jump in every list.</p></a>
         <a class="card" href="#themes"><h3>Tuned like the iPod</h3><p>Classic Light and Classic Dark. Each screen is tuned to look and move like the iPod classic.</p></a>
-        <a class="card" href="#wifi"><h3>Wi-Fi that does something</h3><p>Jellyfin sync, podcasts, upload from a browser, and the correct time from the internet.</p></a>
+        <a class="card" href="#wifi"><h3>Wi-Fi that does something</h3><p>Jellyfin and WebDAV sync, podcasts, upload from a browser, and the correct time from the internet.</p></a>
         <a class="card" href="#radio"><h3>FM radio</h3><p>The tuner of the Y2, with saved stations, from any screen and with the screen off.</p></a>
       </div>
     </header>
@@ -424,7 +434,7 @@ footer .credits { margin: 10px 0; font-size: 13px; gap: 6px 32px; }
   <h2>Wi-Fi that does something.</h2>
   <p class="sub">The Y2 has Wi-Fi. Here it plays, syncs and downloads, all from the wheel.</p>
   <div class="cards">
-    <div class="card"><h3>Jellyfin sync</h3><p>Sign in with QuickConnect, then sync music and audiobooks from your own server.</p></div>
+    <div class="card"><h3>Jellyfin and WebDAV sync</h3><p>Jellyfin: sign in with QuickConnect, then sync music and audiobooks from your own server. WebDAV: copy music folders from a NAS. Set-up: <a href="docs.html#webdav">WebDAV Sync</a>.</p></div>
     <div class="card"><h3>Podcasts</h3><p>Subscribe to feeds, stream an episode, or download it for later.</p></div>
     <div class="card"><h3>Upload from a browser</h3><p>Turn on the web server and drag files into a page on your computer. No cable.</p></div>
     <div class="card"><h3>Correct time</h3><p><em>Sync Time Now</em> sets the clock from the internet, in your time zone.</p></div>
@@ -460,7 +470,7 @@ footer .credits { margin: 10px 0; font-size: 13px; gap: 6px 32px; }
   <ul class="points">
     <li>MP3, FLAC, WAV, OGG Vorbis, Opus, ALAC and AAC, on the internal storage and the microSD card. The folders: <a href="#files">Files and limits</a>.</li>
     <li>A play counts after half the song (or 4 minutes), for Top 25 and for <code>.scrobbler.log</code> (Last.fm, ListenBrainz).</li>
-    <li>Audiobooks with a bookmark for each book, and videos.</li>
+    <li>Audiobooks with a bookmark for each book, and videos. Books in series folders can have their own Cover Flow: <a href="docs.html#audiobooks">Audiobook Series Cover Flow</a>.</li>
   </ul>
 </section>
 

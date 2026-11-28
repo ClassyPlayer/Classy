@@ -1,0 +1,530 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Documentation</title>
+<meta name="description" content="Guides for the iPod classic-style player on the Innioasis Y2: WebDAV Sync from a NAS, and the Audiobook Series Cover Flow.">
+<link rel="icon" href="media/y2-icon.svg" type="image/svg+xml">
+<link rel="alternate icon" href="media/favicon-32.png" type="image/png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@500&display=swap">
+<script>
+  /* The product name and the links: the same as in index.html. */
+  const SITE = {
+    name: "Classy",
+    repo: "https://github.com/ClassyPlayer/Classy",
+    download: "https://github.com/ClassyPlayer/Classy/releases/latest",
+  };
+  document.title = SITE.name + " — " + document.title;
+  try {
+    const t = localStorage.getItem("theme");
+    if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
+  } catch (e) {}
+</script>
+<style>
+/* The tokens, top bar, sidebar and sections of index.html: change them in both pages. */
+:root {
+  --ic-body: #d5d8dd; --ic-line: #55585e; --ic-glass: #1d1d1f; --ic-wheel: #ffffff;
+  --bg: #f5f5f7; --bg-alt: #ffffff; --text: #1d1d1f; --muted: #6e6e73; --line: #d2d2d7;
+  --accent: #2f8ede; --accent-hi: #5ab0f1; --accent-text: #1a6fc0;
+  --card: #ffffff; --shadow: 0 1px 2px rgba(0,0,0,.06), 0 8px 28px rgba(0,0,0,.10);
+  --code-bg: #ebebef; --radius: 16px;
+  --side-bg: #ffffff; --side-head-top: #f4f4f6; --side-head-bot: #d6d7dc; --side-text: #1d1d1f;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #000; --bg-alt: #111113; --text: #f5f5f7; --muted: #a1a1a6; --line: #2c2c2e; --accent-text: #5ab0f1;
+    --card: #1c1c1e; --shadow: 0 1px 2px rgba(0,0,0,.5), 0 8px 28px rgba(0,0,0,.6); --code-bg: #1c1c1e;
+    --side-bg: #0b0b0c; --side-head-top: #3a3a3d; --side-head-bot: #1f1f21; --side-text: #f5f5f7; --badge: #ffb340; --ic-body: #55585e; --ic-line: #c7c9ce; --ic-glass: #000; --ic-wheel: #1d1d1f;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #000; --bg-alt: #111113; --text: #f5f5f7; --muted: #a1a1a6; --line: #2c2c2e; --accent-text: #5ab0f1;
+  --card: #1c1c1e; --shadow: 0 1px 2px rgba(0,0,0,.5), 0 8px 28px rgba(0,0,0,.6); --code-bg: #1c1c1e;
+  --side-bg: #0b0b0c; --side-head-top: #3a3a3d; --side-head-bot: #1f1f21; --side-text: #f5f5f7; --badge: #ffb340; --ic-body: #55585e; --ic-line: #c7c9ce; --ic-glass: #000; --ic-wheel: #1d1d1f;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; scroll-padding-top: 72px; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 17px/1.5 "Helvetica Neue", Helvetica, Arial, system-ui, sans-serif; -webkit-font-smoothing: antialiased; overflow-x: hidden; overflow-wrap: break-word; }
+a { color: var(--accent-text); text-decoration: none; }
+a:hover { text-decoration: underline; }
+code { font: .88em/1.4 ui-monospace, "SF Mono", Menlo, monospace; background: var(--code-bg); padding: .1em .35em; border-radius: 5px; }
+pre { max-width: 100%; background: var(--code-bg); padding: 14px 16px; border-radius: 12px; overflow-x: auto; overflow-wrap: normal; font: 14px/1.5 ui-monospace, "SF Mono", Menlo, monospace; margin: 12px 0 16px; }
+pre code { background: none; padding: 0; font: inherit; }
+
+/* Top bar */
+.nav { position: sticky; top: 0; z-index: 20; height: 52px; background: var(--bg); background: color-mix(in srgb, var(--bg) 80%, transparent);
+  backdrop-filter: saturate(180%) blur(16px); -webkit-backdrop-filter: saturate(180%) blur(16px); border-bottom: 1px solid var(--line); }
+.nav-in { display: flex; align-items: center; gap: 16px; height: 100%; padding: 0 24px; max-width: 1360px; margin: 0 auto; }
+.brand { font-weight: 700; font-size: 19px; color: var(--text); display: flex; align-items: center; gap: 8px; letter-spacing: -.01em; }
+.brand:hover { text-decoration: none; }
+.y2-icon { height: 28px; width: auto; flex: none; }
+.y2-icon .ib { fill: var(--ic-body); stroke: var(--ic-line); stroke-width: 18; }
+.y2-icon .ig { fill: var(--ic-glass); }
+.y2-icon .iw { fill: var(--ic-wheel); stroke: var(--ic-line); stroke-width: 14; }
+.y2-icon .ic { fill: var(--ic-body); stroke: var(--ic-line); stroke-width: 12; }
+.nav-pages { display: flex; align-items: center; gap: 16px; padding-left: 16px; border-left: 1px solid var(--line); height: 20px; font-size: 14px; }
+.nav-pages a { color: var(--muted); }
+.nav-pages a:hover { color: var(--text); text-decoration: none; }
+.nav-pages a[aria-current="page"] { color: var(--text); font-weight: 600; }
+.nav-r { margin-left: auto; display: flex; align-items: center; gap: 14px; font-size: 14px; }
+.nav-r a.plain { color: var(--muted); }
+.nav-r a.plain:hover { color: var(--text); text-decoration: none; }
+.pill { padding: 6px 14px; border-radius: 999px; color: #fff !important; font-weight: 600; background: linear-gradient(var(--accent-hi), var(--accent)); }
+.pill:hover { text-decoration: none; filter: brightness(1.06); }
+.theme-btn { border: 1px solid var(--line); background: transparent; color: var(--muted); border-radius: 999px; width: 32px; height: 32px; display: grid; place-items: center; cursor: pointer; padding: 0; }
+.theme-btn:hover { color: var(--text); }
+.theme-btn svg { width: 16px; height: 16px; }
+@media (max-width: 560px) { .nav-in { padding: 0 16px; gap: 10px; } .nav-r a.plain { display: none; } .nav-pages { gap: 12px; padding-left: 10px; } }
+@media (max-width: 380px) { .brand .wordmark { display: none; } }
+
+/* Layout: iPod-menu sidebar + content */
+.layout { max-width: 1360px; margin: 0 auto; display: grid; grid-template-columns: 236px minmax(0, 1fr); gap: 48px; padding: 0 24px; }
+.side { position: sticky; top: 76px; align-self: start; margin-top: 24px; }
+.side-box { background: var(--side-bg); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; box-shadow: var(--shadow); }
+.side-head { display: flex; justify-content: space-between; align-items: center; height: 26px; padding: 0 10px; font-size: 13px; font-weight: 700; color: var(--side-text);
+  background: linear-gradient(var(--side-head-top), var(--side-head-bot)); border-bottom: 1px solid var(--line); }
+.side-head .bat { width: 22px; height: 11px; border: 1.5px solid currentColor; border-radius: 2px; position: relative; opacity: .8; }
+.side-head .bat::before { content: ""; position: absolute; inset: 1.5px; right: 35%; background: #34c759; border-radius: 1px; }
+.side-head .bat::after { content: ""; position: absolute; right: -4px; top: 2.5px; width: 2px; height: 4px; background: currentColor; border-radius: 0 1px 1px 0; }
+.side ol { list-style: none; margin: 0; padding: 4px 0; }
+.side a { display: flex; align-items: center; justify-content: space-between; height: 30px; padding: 0 10px; color: var(--side-text); font-size: 15px; font-weight: 700; letter-spacing: -.005em; white-space: nowrap; }
+.side a:hover { text-decoration: none; background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.side a .chev { width: 7px; height: 11px; opacity: 0; }
+.side a.on { color: #fff; background: linear-gradient(#5ab0f1, #409de7 45%, #2f8ede 55%, #2a83d2); }
+.side a.on .chev { opacity: 1; }
+/* The parts of a guide: one step in, as the rows of an iPod sub-menu */
+.side a.toc-sub { padding-left: 24px; font-size: 14px; font-weight: 500; height: 28px; }
+main { min-width: 0; }
+@media (max-width: 1080px) {
+  .layout { grid-template-columns: minmax(0, 1fr); gap: 0; padding: 0; }
+  .side { position: sticky; top: 52px; z-index: 15; margin: 0; }
+  .side-box { border-radius: 0; border-width: 0 0 1px; box-shadow: none; background: var(--bg); background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
+  .side-head { display: none; }
+  .side ol { display: flex; gap: 6px; overflow-x: auto; padding: 8px 16px; scrollbar-width: none; }
+  .side ol::-webkit-scrollbar { display: none; }
+  .side a { height: 30px; border-radius: 999px; padding: 0 12px; font-size: 14px; border: 1px solid var(--line); background: var(--bg-alt); }
+  .side a.toc-sub { height: 30px; padding: 0 12px; }
+  .side a .chev { display: none; }
+  .side a.on { border-color: transparent; }
+  main { padding: 0 24px; }
+  html { scroll-padding-top: 116px; }
+}
+@media (max-width: 600px) { main { padding: 0 16px; } }
+
+/* Head of the page */
+.doc-head { padding: 56px 0 64px; }
+@media (max-width: 900px) { .doc-head { padding: 36px 0 48px; } }
+.eyebrow { font-size: 15px; font-weight: 600; color: var(--accent-text); margin: 0 0 10px; }
+h1 { font-size: clamp(40px, 5.6vw, 64px); line-height: 1.04; letter-spacing: -.03em; margin: 0 0 18px; }
+/* The name as in the Classy icon: EB Garamond 500 at 85 % width (see index.html) */
+.wordmark { display: inline-block; font-family: "EB Garamond", Garamond, "Times New Roman", serif; font-weight: 500; letter-spacing: 0; transform: scaleX(.85); transform-origin: left center; margin-right: -.15em; }
+.brand .wordmark { font-size: 1.3em; font-weight: 500; }
+.lead { font-size: clamp(19px, 2vw, 22px); line-height: 1.42; color: var(--muted); margin: 0; max-width: 32em; }
+
+/* Sections */
+section { padding: 72px 0; border-top: 1px solid var(--line); }
+@media (max-width: 600px) { section { padding: 52px 0; } }
+.kicker { font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--accent-text); margin: 0 0 8px; }
+h2 { font-size: clamp(30px, 4.2vw, 46px); line-height: 1.08; letter-spacing: -.025em; margin: 0 0 16px; }
+h3 { font-size: 20px; line-height: 1.25; margin: 0 0 6px; letter-spacing: -.01em; }
+.sub { color: var(--muted); font-size: clamp(17px, 1.8vw, 20px); max-width: 42em; margin: 0 0 32px; }
+ul.points { list-style: none; padding: 0; margin: 12px 0 18px; display: grid; gap: 10px; max-width: 46em; }
+ul.points li { padding-left: 26px; position: relative; }
+ul.points li::before { content: ""; position: absolute; left: 4px; top: .55em; width: 9px; height: 9px; border-radius: 50%; background: linear-gradient(var(--accent-hi), var(--accent)); }
+
+/* The text of a guide */
+.part { font-size: 24px; margin: 52px 0 12px; }
+h4 { font-size: 17px; line-height: 1.3; margin: 28px 0 6px; }
+.prose p { margin: 0 0 14px; max-width: 46em; }
+.prose ol { padding-left: 24px; margin: 8px 0 18px; max-width: 46em; }
+.prose ol li { margin: 8px 0; padding-left: 4px; }
+.path { font-size: 15px; color: var(--muted); }
+.table-wrap { overflow-x: auto; margin: 8px 0 18px; max-width: 52em; }
+table.ref { width: 100%; border-collapse: collapse; font-size: 15px; line-height: 1.45; }
+table.ref th, table.ref td { text-align: left; vertical-align: top; padding: 10px 12px 10px 0; border-bottom: 1px solid var(--line); }
+table.ref th { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; padding-top: 0; }
+table.ref td:first-child { font-weight: 600; width: 34%; min-width: 120px; }
+table.ref td:first-child code { font-weight: 400; }
+.tip, .warn { margin: 16px 0 18px; padding: 12px 14px; border-radius: 10px; font-size: 15px; max-width: 46em; }
+.tip { background: color-mix(in srgb, var(--accent) 10%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); }
+.warn { background: color-mix(in srgb, #ff9f0a 14%, transparent); border: 1px solid color-mix(in srgb, #ff9f0a 45%, transparent); }
+
+/* Cards */
+.cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-top: 36px; max-width: 900px; }
+@media (max-width: 600px) { .cards { grid-template-columns: minmax(0, 1fr); } }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px; }
+.card p { margin: 0; color: var(--muted); font-size: 16px; }
+a.card { color: inherit; display: block; transition: transform .15s, box-shadow .15s; }
+a.card:hover { text-decoration: none; transform: translateY(-2px); box-shadow: var(--shadow); }
+a.card h3::after { content: " ›"; color: var(--accent-text); }
+/* For developers: a card under the guide, in smaller text */
+.card.dev { margin-top: 52px; font-size: 15px; }
+.card.dev .part { margin: 0 0 4px; font-size: 20px; }
+.card.dev > p { color: var(--muted); margin: 0 0 12px; }
+.card.dev ul { padding-left: 20px; margin: 0; }
+.card.dev li { margin: 8px 0; }
+.card.dev code { background: color-mix(in srgb, var(--text) 7%, transparent); }
+
+footer { border-top: 1px solid var(--line); padding: 36px 0 56px; color: var(--muted); font-size: 14px; }
+footer p { margin: 6px 0; max-width: 62em; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } a.card { transition: none; } }
+</style>
+</head>
+<body>
+
+<nav class="nav" aria-label="Site">
+  <div class="nav-in">
+    <a class="brand" href="index.html" aria-label="Main page">
+      <svg class="y2-icon" viewBox="-8 -8 426 683" aria-hidden="true"><rect class="ib" x="0" y="0" width="410" height="667" rx="55"/><rect class="ig" x="30" y="29" width="348" height="269" rx="20"/><circle class="iw" cx="205" cy="477" r="126"/><circle class="ic" cx="205" cy="477" r="46"/></svg>
+      <span class="wordmark" data-name></span>
+    </a>
+    <div class="nav-pages">
+      <a href="index.html">Features</a>
+      <a href="docs.html" aria-current="page">Docs</a>
+    </div>
+    <div class="nav-r">
+      <a class="plain" data-link="repo" href="#">GitHub</a>
+      <a class="pill" href="index.html#install">Download</a>
+      <button class="theme-btn" id="theme" type="button" aria-label="Change light or dark mode" title="Light or dark">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.5a6.5 6.5 0 0 1 0 13z" fill="currentColor"/></svg>
+      </button>
+    </div>
+  </div>
+</nav>
+
+<div class="layout">
+  <aside class="side" aria-label="Guides">
+    <div class="side-box">
+      <div class="side-head"><span>Docs</span><span class="bat" aria-hidden="true"></span></div>
+      <ol id="toc">
+        <li><a href="#top">Overview<svg class="chev" viewBox="0 0 7 11" aria-hidden="true"><path d="M1 1l4.5 4.5L1 10" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></a></li>
+        <li><a href="#webdav">WebDAV Sync<svg class="chev" viewBox="0 0 7 11" aria-hidden="true"><path d="M1 1l4.5 4.5L1 10" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></a></li>
+        <li><a class="toc-sub" href="#webdav-setup">Set it up<svg class="chev" viewBox="0 0 7 11" aria-hidden="true"><path d="M1 1l4.5 4.5L1 10" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></a></li>
+        <li><a class="toc-sub" href="#webdav-cert">Certificates<svg class="chev" viewBox="0 0 7 11" aria-hidden="true"><path d="M1 1l4.5 4.5L1 10" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></a></li>
+        <li><a class="toc-sub" href="#webdav-folders">Folders<svg class="chev" viewBox="0 0 7 11" aria-hidden="true"><path d="M1 1l4.5 4.5L1 10" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></a></li>
+        <li><a class="toc-sub" href="#webdav-sync">Sync<svg class="chev" viewBox="0 0 7 11" aria-hidden="true"><path d="M1 1l4.5 4.5L1 10" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></a></li>
+        <li><a class="toc-sub" href="#webdav-auto">Auto Sync<svg class="chev" viewBox="0 0 7 11" aria-hidden="true"><path d="M1 1l4.5 4.5L1 10" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></a></li>
+        <li><a class="toc-sub" href="#webdav-deleted">Deleted on NAS<svg class="chev" viewBox="0 0 7 11" aria-hidden="true"><path d="M1 1l4.5 4.5L1 10" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></a></li>
+        <li><a class="toc-sub" href="#webdav-reset">Log Out / Reset<svg class="chev" viewBox="0 0 7 11" aria-hidden="true"><path d="M1 1l4.5 4.5L1 10" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></a></li>
+        <li><a class="toc-sub" href="#webdav-problems">Problems<svg class="chev" viewBox="0 0 7 11" aria-hidden="true"><path d="M1 1l4.5 4.5L1 10" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></a></li>
+        <li><a class="toc-sub" href="#webdav-limits">Limits<svg class="chev" viewBox="0 0 7 11" aria-hidden="true"><path d="M1 1l4.5 4.5L1 10" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></a></li>
+        <li><a class="toc-sub" href="#webdav-dev">For developers<svg class="chev" viewBox="0 0 7 11" aria-hidden="true"><path d="M1 1l4.5 4.5L1 10" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></a></li>
+        <li><a href="#audiobooks">Audiobook Series<svg class="chev" viewBox="0 0 7 11" aria-hidden="true"><path d="M1 1l4.5 4.5L1 10" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></a></li>
+        <li><a class="toc-sub" href="#ab-on">Turn it on<svg class="chev" viewBox="0 0 7 11" aria-hidden="true"><path d="M1 1l4.5 4.5L1 10" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></a></li>
+        <li><a class="toc-sub" href="#ab-folders">Books and series<svg class="chev" viewBox="0 0 7 11" aria-hidden="true"><path d="M1 1l4.5 4.5L1 10" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></a></li>
+        <li><a class="toc-sub" href="#ab-order">Sort order<svg class="chev" viewBox="0 0 7 11" aria-hidden="true"><path d="M1 1l4.5 4.5L1 10" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></a></li>
+        <li><a class="toc-sub" href="#ab-play">Playback<svg class="chev" viewBox="0 0 7 11" aria-hidden="true"><path d="M1 1l4.5 4.5L1 10" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></a></li>
+        <li><a class="toc-sub" href="#ab-menu">Speed and timer<svg class="chev" viewBox="0 0 7 11" aria-hidden="true"><path d="M1 1l4.5 4.5L1 10" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></a></li>
+        <li><a class="toc-sub" href="#ab-dev">For developers<svg class="chev" viewBox="0 0 7 11" aria-hidden="true"><path d="M1 1l4.5 4.5L1 10" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></a></li>
+      </ol>
+    </div>
+  </aside>
+
+  <main>
+    <header id="top" class="doc-head">
+      <p class="eyebrow">Guides</p>
+      <h1>Documentation</h1>
+      <p class="lead">How to set up and use the features that need more than one screen. Each guide tells what the feature does, how to set it up, and its limits.</p>
+      <div class="cards">
+        <a class="card" href="#webdav"><h3>WebDAV Sync</h3><p>Copy music from a NAS or another WebDAV server to the player, over Wi-Fi.</p></a>
+        <a class="card" href="#audiobooks"><h3>Audiobook Series Cover Flow</h3><p>One cover for each series of audiobooks, made from your folders.</p></a>
+      </div>
+    </header>
+
+<section id="webdav" class="prose">
+  <p class="kicker">Wi-Fi</p>
+  <h2>WebDAV Sync</h2>
+  <p class="sub">Copies music from a WebDAV server (a Synology NAS, Nextcloud, or any other server that speaks WebDAV) to the player, so you can listen without a cable. The copy goes one way: from the server to the player. Classy never uploads, renames or deletes anything on the server.</p>
+  <p class="path">Open it: <em>Main menu → Settings → Library → WebDAV Sync</em>. The row shows <em>@</em> and the username, or <em>Not Configured</em>.</p>
+
+  <h3 class="part" id="webdav-setup">Set it up</h3>
+  <ol>
+    <li><strong>Server URL</strong>: the address of the folder that holds your music, for example <code>https://192.168.1.10:5006/music</code>. Everything below that folder can be synced. The address must start with <code>http://</code> or <code>https://</code> and have a host. An address with <code>user:password@</code> in it is refused: put the login in the next two rows.</li>
+    <li><strong>Username</strong> and <strong>Password</strong>: type them with the keyboard screen.</li>
+    <li><strong>Test Connection</strong> checks the address and the login. It shows <em>Connected</em>, or why it could not connect.</li>
+  </ol>
+  <p>Test Connection and Sync Now need Wi-Fi. When Wi-Fi is not connected, they open the Wi-Fi screen.</p>
+
+  <h4>Set it up with a file</h4>
+  <p>Typing a long address with the wheel is slow. Instead, put a file named <code>classy_webdav.json</code> in the top folder of the internal storage (the folder that holds <code>Music</code>), then open WebDAV Sync:</p>
+<pre><code>{ "url": "https://192.168.1.10:5006/music", "user": "name", "password": "secret" }</code></pre>
+  <div class="table-wrap"><table class="ref">
+    <thead><tr><th>Field</th><th>Value</th></tr></thead>
+    <tbody>
+      <tr><td><code>url</code></td><td>The Server URL: <code>http://</code> or <code>https://</code> with a host.</td></tr>
+      <tr><td><code>user</code></td><td>The username. It must not be empty.</td></tr>
+      <tr><td><code>password</code></td><td>The password. It must not be empty.</td></tr>
+    </tbody>
+  </table></div>
+  <ul class="points">
+    <li>WebDAV Sync reads the file, saves the settings and then <strong>deletes the file</strong>, so the password does not stay on the storage in plain text.</li>
+    <li>A file that is not valid is not imported and <strong>stays</strong>. The screen shows <em>classy_webdav.json: invalid</em>. Correct the file, or delete it by hand.</li>
+    <li>A valid file that Classy cannot delete is not imported either. The screen shows <em>classy_webdav.json: cannot delete it, delete it by hand</em>.</li>
+    <li>While a sync runs, the file stays. Classy imports it the next time you open WebDAV Sync.</li>
+    <li>A file with another address is a new Server URL: see <a href="#webdav-reset">Log Out / Reset</a>.</li>
+  </ul>
+
+  <h3 class="part" id="webdav-cert">A self-signed certificate (https)</h3>
+  <p>A certificate that Android trusts (from a known authority, for the name in the Server URL) works with no step, also after it is renewed.</p>
+  <p>A NAS at home usually has a certificate that no authority signed. The first time you connect, Classy shows <em>Certificate not trusted</em>, and the WebDAV Sync screen gets a <em>Certificate</em> part: the SHA-256 fingerprint of the server certificate, in four lines of hex.</p>
+  <ol>
+    <li>Find the SHA-256 fingerprint of the certificate on your NAS, for example in the certificate details of a web browser.</li>
+    <li>Compare all four lines with the lines on the player.</li>
+    <li>If they are the same, choose <strong>Trust Certificate</strong>.</li>
+  </ol>
+  <ul class="points">
+    <li>Classy then accepts that one certificate, with any host name (also a NAS that you reach by its IP address).</li>
+    <li>If the certificate changes (for example a renewal), the connection stops until you trust the new one. Compare the fingerprint again: the step looks the same as the first time.</li>
+    <li>Android 4.4 does not know some newer authorities, for example Let's Encrypt. Such a certificate also needs Trust Certificate, and again after each renewal.</li>
+    <li>A public certificate for another name also shows the Trust step.</li>
+    <li>A new Server URL forgets the trusted certificate.</li>
+  </ul>
+  <p class="warn"><code>http://</code> works too, but has no protection: the password goes in clear text with every request, also from Auto Sync on any Wi-Fi network that the player joins. Use <code>https://</code> where the server has it.</p>
+
+  <h3 class="part" id="webdav-folders">Choose the folders</h3>
+  <p><strong>Folders</strong> shows how many folders you ticked. Open it to see the folders of the Server URL. The top row reminds you of the keys: <em>Center: open · Hold: select</em>.</p>
+  <ul class="points">
+    <li><strong>Center</strong> opens a folder.</li>
+    <li><strong>Hold</strong> Center ticks or unticks a folder. A tick shows at the left.</li>
+    <li><strong>This Folder</strong>, the first row, ticks the folder that is open (push Center). Use it for a folder with only files, for example the folder of the Server URL itself.</li>
+    <li>The files of a folder show below its folders. You cannot tick one file.</li>
+    <li>Ticking a folder takes everything inside it. The folders inside show ticked, and you cannot untick them one by one. To leave one out, untick the parent and tick the folders that you want.</li>
+    <li>Ticking a parent replaces the ticks of the folders inside it.</li>
+    <li>Each time you open a folder, Classy lists it again, so changes on the server show.</li>
+  </ul>
+  <p>The folders you tick are what the player keeps. The files of a folder that you untick are removed from the player at the next sync.</p>
+
+  <h3 class="part" id="webdav-sync">Sync</h3>
+  <p><strong>Sync Now</strong> lists the ticked folders, downloads the new and changed files, and deletes the files of the folders that you unticked. A screen shows the folder that it lists, then the files in progress, the percent and the speed. Back cancels the sync.</p>
+  <ul class="points">
+    <li>Every file in a ticked folder is copied, not only the audio files: covers and <code>.lrc</code> lyrics come too.</li>
+    <li>The files go to the <code>Music</code> folder of <strong>Save To</strong>, with the folder tree that they have below the Server URL. For example, <code>…/music/Artist/Album/01.flac</code> becomes <code>Music/Artist/Album/01.flac</code>.</li>
+    <li>A file is changed when its ETag on the server changed. If the server gives no ETag, Classy compares the size and the date.</li>
+    <li>Before it downloads, the sync checks the free space. If the files do not fit, it stops with <em>Not enough space</em>, the space it needs and the free space.</li>
+    <li>When a sync downloaded or deleted files, the library scans again, so the songs show up. This also occurs after a sync that failed or that you cancelled.</li>
+    <li><strong>Parallel Downloads</strong> (1 to 4; Center goes to the next value): the files that download at the same time. 1 is the gentlest for a weak Wi-Fi or NAS, and it is the default.</li>
+    <li><strong>Last Synced</strong> shows the time of the last sync that worked, or <em>Never</em>. After a sync that failed (also an Auto Sync), <em>Last sync failed</em> shows its error below it, until a sync works.</li>
+    <li>A song that is playing is never replaced or deleted. It waits for the next sync.</li>
+    <li>A sync never writes over a file that it did not make (your own files, or those of Jellyfin Sync). If such a file has the size of the server file, the sync takes it as that file and does not download it again (for example after Log Out / Reset). Else the server file is skipped, and your file stays as it is.</li>
+    <li>A download that fails or that you cancel leaves the old file as it was. It writes to a hidden <code>.partial-….part</code> file first; the next sync deletes such files that a stopped run left.</li>
+    <li>If no folder is ticked, Sync Now asks before it deletes all the files that it synced (<em>No folder selected: the synced files will be deleted.</em>). If it synced nothing yet, it shows <em>Select folders first</em>.</li>
+  </ul>
+
+  <h4>Save To: Internal or SD Card</h4>
+  <ul class="points">
+    <li><strong>Save To</strong> sets the storage: <em>Internal</em> or <em>SD Card</em>. SD Card needs a microSD card in the player (else <em>SD card not found</em>). You cannot change it while a sync runs.</li>
+    <li>After a change, <strong>Move Synced Files</strong> shows the number of synced files on the other storage. It asks, then moves them; nothing is downloaded again.</li>
+    <li>Until you move them, a sync leaves them where they are. Only a file that changed on the server downloads to the new place, and its old copy is deleted.</li>
+    <li>A move copies each file, checks it, and then deletes the old copy, so a failure or a cancel never loses a file. A file that is playing stays where it is: move again later. A file that is already at the new place is never written over; if it has the same bytes, only the old copy is deleted.</li>
+    <li>On the SD card (FAT), the characters <code>&lt; &gt; : " | ? * \</code> in a name become <code>_</code>, and a name does not end with a dot or a space. Two names that become the same share one file.</li>
+  </ul>
+
+  <h3 class="part" id="webdav-auto">Auto Sync</h3>
+  <p>With <strong>Auto Sync</strong> On, the player syncs by itself when it is on <strong>Wi-Fi and charging</strong>, at most once an hour.</p>
+  <ul class="points">
+    <li>It starts when Wi-Fi connects or when you connect the charger. If the hour is not over yet, it tries again when the hour ends, while the player stays on Wi-Fi and charging.</li>
+    <li>A try that failed also counts for the hour, so a server that is off is not tried again and again.</li>
+    <li>It downloads, and deletes the files of unticked folders, as Sync Now does. When no folder is ticked, it never deletes all the synced files.</li>
+    <li>It has no progress screen, and you cannot cancel it. Its errors show under Last Synced.</li>
+    <li>It works only while the Classy app runs.</li>
+  </ul>
+
+  <h3 class="part" id="webdav-deleted">Files you deleted on the server</h3>
+  <p>When a synced file is gone from the server, Classy does not delete your copy. It lists the file under <strong>Deleted on NAS</strong>, with the name of its folder, and you choose:</p>
+  <ul class="points">
+    <li>Push Center on a file to delete it, or choose <strong>Delete All</strong> (when the list has two files or more). Each delete asks first.</li>
+    <li>Your copy stays until you delete it. A file that comes back on the server leaves the list.</li>
+    <li>When a ticked folder is gone from the server, its files go to this list too. A listing that fails for another reason never marks files as deleted: the sync stops.</li>
+  </ul>
+
+  <h3 class="part" id="webdav-reset">Log Out / Reset, or a new server</h3>
+  <p><strong>Log Out / Reset</strong> forgets all the WebDAV Sync settings: the address, the login, the certificate, the ticked folders, Auto Sync, Parallel Downloads, Save To and Last Synced.</p>
+  <ul class="points">
+    <li>The songs stay on the player. Classy forgets that it synced them, so no later sync deletes them. If you do not want them, delete them with a file manager.</li>
+    <li>If you set it up again and tick the same folders, a sync takes back each copy that has the server's size. From then on it is a synced file again (an untick deletes it).</li>
+    <li>A new <strong>Server URL</strong> does the same to the server settings: no ticked folders, no certificate, no Last Synced. The songs of the old address stay.</li>
+    <li>The local paths come from the folder of the address. A sync never writes over an old copy at such a path: it takes the copy back if it has the server's size, and else skips that file. Old copies that no new file takes back stay; delete them by hand.</li>
+    <li>Only the same address in another spelling (for example with a <code>/</code> at the end) keeps everything.</li>
+    <li>Both are refused while a sync runs (<em>Syncing...</em>). If the sync record cannot be saved, nothing changes and the screen shows <em>Cannot save the sync record</em>.</li>
+  </ul>
+
+  <h3 class="part" id="webdav-problems">If something goes wrong</h3>
+  <div class="table-wrap"><table class="ref">
+    <thead><tr><th>Message</th><th>What to do</th></tr></thead>
+    <tbody>
+      <tr><td>Server unreachable</td><td>Is the player on the correct Wi-Fi? Is the address correct, and the NAS on?</td></tr>
+      <tr><td>Check username/password</td><td>The server refused the login (HTTP 401 or 403).</td></tr>
+      <tr><td>Certificate not trusted</td><td>Compare the fingerprint, then Trust Certificate (<a href="#webdav-cert">Certificates</a>).</td></tr>
+      <tr><td>Not enough space</td><td>The message shows the space the sync needs and the free space. Free some space, or tick fewer folders.</td></tr>
+      <tr><td>HTTP 404 on a folder</td><td>The folder is gone from the server. In a sync, its files go to Deleted on NAS.</td></tr>
+      <tr><td>HTTP 301 (or another 3xx)</td><td>The server sends Classy to another address. Classy does not follow it, so that the password goes to no other server. Use the final address as the Server URL.</td></tr>
+      <tr><td>SD card not found</td><td>Save To is SD Card, but there is no microSD card. Put the card in, or set Save To to Internal.</td></tr>
+      <tr><td>Cannot save the sync record</td><td>The record of the synced files (<code>webdav_ledger.json</code>) could not be written, for example on a full storage. Nothing changed.</td></tr>
+      <tr><td>Too many folders (a loop on the server?)</td><td>A ticked folder has more than 20,000 folders below it, or the server links back to a folder above.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3 class="part" id="webdav-limits">Limits</h3>
+  <ul class="points">
+    <li>One way only: no upload, and no two-way merge.</li>
+    <li>The check for a changed file uses the ETag and the date of the server, not a hash of the content.</li>
+    <li>Basic authentication only. The password is stored in plain text in the app's private settings (<code>adb backup</code> can copy them; the app allows backups). Clear Data or Log Out / Reset removes it.</li>
+    <li>All files go to the <code>Music</code> folder. To sync audiobooks, use Jellyfin Sync.</li>
+    <li>No partial resume: a cancelled download starts again.</li>
+    <li>A file that the sync skips (your own file at its place, with another size) shows only in the log, not on the screen.</li>
+    <li>A download has no total time limit: a very slow server keeps a sync running (you can cancel Sync Now, but not Auto Sync). The number of files has no limit; a ticked folder can have at most 20,000 folders.</li>
+    <li>The sync record is not flushed to the disk before its rename. After a power loss it can be lost: nothing is deleted then, but the synced files are no longer tracked.</li>
+    <li>Auto Sync works only while the app runs: a background job would need Android 5 (API 21), and the Y2 has Android 4.4.</li>
+  </ul>
+
+  <div class="card dev">
+    <h3 class="part" id="webdav-dev">For developers</h3>
+    <p>The code is in <code>app/src/main/java/com/themoon/y1/sync/webdav/</code> and <code>controllers/sync/WebDavUiController.kt</code>.</p>
+    <ul>
+      <li><strong>Files.</strong> <code>WebDavSyncProvider</code>: settings, ticked folders, one-time import of <code>classy_webdav.json</code> (<code>WebDavConfigFile</code>). <code>WebDavClient</code>: PROPFIND (Depth 1) and GET with OkHttp. <code>CertPin</code>: the trust manager. <code>SyncPlan</code>: pure functions for what to download, mark or delete, and the path mapping (no I/O except <code>pruneEmptyDirs</code>). <code>WebDavSync</code>: runs a sync or a move on one background thread and owns the ledger. <code>AutoSyncGate</code>, <code>WebDavAutoSyncReceiver</code>: when Auto Sync may start. <code>WebDavErrors</code>: <code>errorText</code>, the one-line message of an error.</li>
+      <li><strong>Shared with Jellyfin Sync:</strong> the <code>MediaSyncProvider</code> interface, the <code>SyncLedger</code> file format, <code>SyncLocks</code>, the playing-file rule and the list model (Center opens, Hold ticks). The engine is its own (not <code>SyncManager</code>, which makes paths from Jellyfin metadata): WebDAV Sync copies the folder tree of the server as it is, keyed by path.</li>
+      <li><strong>Prefs</strong> <code>webdav_sync</code>: <code>url</code>, <code>user</code>, <code>password</code>, <code>pin</code>, <code>dest_sd</code>, <code>auto_sync</code>, <code>parallel</code>, <code>ticked</code> (a set of hrefs), <code>last_sync</code>, <code>last_auto_attempt</code>, <code>last_error</code> (empty after a sync that worked).</li>
+      <li><strong>Ledger</strong> <code>webdav_ledger.json</code> in the primary storage root, one item for each synced file, keyed by its percent-encoded href. <code>LedgerItem</code> keeps the Jellyfin names: <code>jellyfinId</code> = href, <code>libraryId</code> = the ticked folder it was found under (can go stale: coverage is by path, <code>isUnder</code>), <code>localPath</code>, <code>fileSize</code>, <code>serverDateModified</code> = <code>"&lt;etag&gt;|&lt;lastModified&gt;"</code>, <code>orphaned</code>. Item type <code>music</code>.</li>
+      <li><strong>Listing.</strong> Sub-folders are walked breadth first, one PROPFIND each, with a visited set and <code>MAX_FOLDERS</code> = 20,000. An answer is read into memory (at most 8 MB, checked before each write; at most 120 s for a listing; cancellable) and refused if its bytes have <code>&lt;!DOCTYPE</code> (Android's parser ignores <code>disallow-doctype-decl</code>). A root that is not <code>DAV:multistatus</code> is an error, not an empty folder. A failed status inside the 207 is an error: <code>DavHttpException</code> for the folder itself (404 = gone), <code>DavEntryRefused</code> for an entry (the sync stops, nothing is marked deleted). Properties come only from 2xx <code>propstat</code> blocks. A 404 on a ticked folder is an empty list; on a sub-folder it skips that sub-folder; another error stops the sync.</li>
+      <li><strong>Requests.</strong> Basic auth on every request. <code>urlFor</code> refuses an absolute href of another host; redirects are not followed (a 3xx is an error). A relative href must start with <code>/</code>; an absolute href of this server becomes its path. hrefs compare percent-encoded; <code>decodeHref</code> decodes each segment as UTF-8 (<code>+</code> stays <code>+</code>). Timeouts: 10 s connect, 30 s read.</li>
+      <li><strong>Download.</strong> GET with <code>Accept-Encoding: identity</code> into a new <code>.partial-*.part</code> file (exclusive create) next to the target. Never more bytes than the listing or the <code>Content-Length</code> gave; with no size, it stops 64 MB before the storage is full. Then <code>mayReplace</code> (no while the target plays: <code>TargetBusy</code>) and <code>replaceFile</code>, one rename. On FAT the old file moves aside to <code>&lt;name&gt;.old</code> (<code>.old1</code>, …) first, and back if the new one cannot move in.</li>
+      <li><strong>Certificates.</strong> <code>PinningTrustManager(pin, systemTrustManager, host)</code>: the pinned leaf (SHA-256) passes with any host name; else a chain that Android trusts passes if its leaf names the host (<code>OkHostnameVerifier</code>); else <code>CertNotTrusted(fingerprint)</code>. The host check is in the trust manager, so the client's <code>HostnameVerifier</code> accepts all. <code>WebDavSyncProvider.changeUrl</code> clears the pin.</li>
+      <li><strong>Plan</strong> (<code>SyncPlan.build</code>): <code>downloads</code> (with <code>replaces</code> for a recorded copy at another path), <code>adopt</code> and <code>conflicts</code> (a file at the target that the ledger does not record), <code>orphan</code>, <code>unorphan</code> and <code>remove</code> (not covered by a ticked folder, unless the file is also a target). <code>remove</code> runs only with a ticked folder or the user's confirmation (<code>removeAllUnticked</code>; Auto Sync never sets it). Downloads run on a pool of <code>parallel</code> threads; the first error stops the others. The ledger is saved every 20 files and in a <code>finally</code>.</li>
+      <li><strong>Deletes.</strong> <code>deleteTracked</code> and the delete of a replaced copy touch only files below the Music folders (canonical paths), skip a playing file, remove only the record when another record keeps the same file, and then call <code>pruneEmptyDirs</code> up to the <code>Music</code> roots.</li>
+      <li><strong>One run at a time:</strong> <code>isRunning</code>, a single-thread executor and <code>launch</code>. <code>forgetAll</code> (Log Out / Reset, another server) takes the same lock and saves an empty ledger before it changes the settings; if the save fails (<code>LedgerNotSaved</code>), nothing changes. <code>SyncLocks.hold</code> keeps a partial wake lock and a Wi-Fi lock (<code>Classy:WebDavSync</code>), with a 6-hour cap.</li>
+      <li><strong>Auto Sync.</strong> <code>AutoSyncGate.shouldRun</code> is a pure function; <code>lastCounted</code> ignores a stored time after now (the clock was set back). The recheck at the end of the hour is a <code>Handler.postDelayed</code>. <code>ClassyApplication.onCreate</code> registers the receiver in code for <code>CONNECTIVITY_ACTION</code> and <code>ACTION_POWER_CONNECTED</code>. It is not in the manifest: on Android 4.4 a manifest receiver for a connectivity change starts a second process of the app, and <code>stopStaleProcesses</code> then stopped the running launcher.</li>
+      <li><strong>UI.</strong> <code>WebDavLevel</code>: <code>Root</code>, <code>Folders(href)</code>, <code>Orphans</code>. Folder rows are <code>RowLook.CHOICE</code> (<code>onClick</code> opens, <code>onHold</code> ticks). The progress screen updates at most 4 times a second and smooths the speed. A new text needs all seven language packs (<code>scripts/check_translations.py --strict</code>).</li>
+      <li><strong>Tests</strong> in <code>app/src/test/java/com/themoon/y1/sync/webdav/</code>: <code>SyncPlanTest</code>, <code>WebDavClientTest</code>, <code>AutoSyncGateTest</code>, <code>CertPinTest</code>, <code>WebDavConfigFileTest</code>, <code>WebDavErrorsTest</code>.</li>
+    </ul>
+  </div>
+</section>
+
+<section id="audiobooks" class="prose">
+  <p class="kicker">Audiobooks</p>
+  <h2>Audiobook Series Cover Flow</h2>
+  <p class="sub">An optional Cover Flow for audiobooks, made from your folders: one cover for each series, and one cover for each book in it.</p>
+
+  <h3 class="part" id="ab-on">Turn it on</h3>
+  <ol>
+    <li><em>Main menu → Settings → Library → Audiobook Series Cover Flow</em> (first row of Library): push Center to set it to On.</li>
+    <li><em>Main menu → Audiobooks → Series Cover Flow</em> (second row, below Continue) opens it.</li>
+  </ol>
+  <ul class="points">
+    <li>The setting is Off by default. When it is Off, the Audiobooks menu has no Series Cover Flow row, and Continue groups a book by its album tag.</li>
+    <li><em>Settings → Menus → Main Menu Items</em> can hide the Audiobooks item of the main menu.</li>
+    <li>The status bar shows <em>Audiobook Series</em> at the top level, and the name of the series inside a series. Below the cover of a book in a series, the name of the series shows.</li>
+    <li>Speed, chapters, the sleep timer and the no-shuffle rule (below) apply to all audiobooks, with the setting On or Off.</li>
+  </ul>
+
+  <h3 class="part" id="ab-folders">How folders become books and series</h3>
+  <p>Classy reads the <code>Audiobooks</code> folder on the internal storage and on the microSD card.</p>
+  <ul class="points">
+    <li>An audio file directly in <code>Audiobooks</code> (also an <code>.m4b</code> file) is one book.</li>
+    <li>A folder with no sub-folders and at most one <code>.m4b</code> file is one book. A book never shows its single audio files.</li>
+    <li>A folder with two books or more is a <strong>series</strong>. In it, each sub-folder is a book, each <code>.m4b</code> file is a book, and the other audio files directly in the folder are together one book, <em>Other</em>.</li>
+    <li>A folder with one book only shows as that book, not as a series of one.</li>
+    <li>A folder that holds only one folder of books is skipped: <code>Audiobooks/Jellyfin/Author/Book</code> (the folders of Jellyfin Sync) shows the series <em>Author</em>. A folder whose only sub-folder holds only files stays one book: <code>Saga/Only Book</code> is the book <em>Only Book</em>.</li>
+  </ul>
+<pre><code>Audiobooks/
+  Long Walk.m4b               a book
+  Sea Stories/                a book (files only)
+    01.mp3  02.mp3  …
+  The Saga/                   a series of three books
+    1 First Book/             a book
+    2 Second Book/            a book
+    Extra.m4b                 a book</code></pre>
+  <p class="tip">The Cover Flow uses the scanned library. After you add or move books, scan again: <em>Main menu → Audiobooks → Scan Media Library</em> (last row).</p>
+
+  <h3 class="part" id="ab-order">Sort order</h3>
+  <ul class="points">
+    <li><strong>Top level:</strong> the series that you played last comes first. Then all books and series in alphabetical order (upper and lower case are the same).</li>
+    <li><strong>In a series:</strong> the book that you played last comes first. Then the books by the first number in their name (up to 4 digits: <em>Book 2</em> before <em>Book 10</em>), then alphabetically. Names without a number come after the names with one.</li>
+    <li>The Cover Flow opens on the book or series that you played last.</li>
+    <li>The cover of a series is the cover of its first book (by number, then name), from the first file of that book.</li>
+    <li><strong>In a book:</strong> the files play in folder order (Disc 1 before Disc 2), then in natural file-name order (2 before 10, 09 before 10). Track tags do not change the order.</li>
+  </ul>
+
+  <h3 class="part" id="ab-play">Playback and resume</h3>
+  <ul class="points">
+    <li>Center on a series opens its books. Center on a book puts all its files in the queue and plays from its saved file and place.</li>
+    <li>Each book remembers its own current file, so it resumes at its chapter also after you played other books. A series remembers the last book that you played in it.</li>
+    <li>A saved place that is not one of the book's files starts the book at its first file.</li>
+    <li><strong>Continue</strong> (<em>Main menu → Audiobooks → Continue</em>, first row) plays the last audiobook from its saved place. It uses only files of the <code>Audiobooks</code> folders, so music that you play later never replaces the last audiobook. With the setting On, Continue queues the files of the book (its folder or <code>.m4b</code>), as the Cover Flow does.</li>
+    <li>Shuffle is never used for audiobooks: a book always plays in order.</li>
+  </ul>
+
+  <h3 class="part" id="ab-menu">Speed, chapters and sleep timer</h3>
+  <p>While an audiobook plays, hold the centre button on Now Playing. For an audiobook, the menu shows three rows at the top, above the rows of every song (Queue, Play On and the others). The menu of music does not change.</p>
+  <div class="table-wrap"><table class="ref">
+    <thead><tr><th>Row</th><th>What it does</th></tr></thead>
+    <tbody>
+      <tr><td>Audiobook Speed</td><td>1.0x (Normal), 1.2x (Fast), 1.5x (Faster) or 2.0x (Very Fast). The speed is saved and applies to all audiobooks. Music and podcasts keep <em>Settings → Playback → Playback Speed</em>.</td></tr>
+      <tr><td>Chapters</td><td>The chapters in the <code>.m4b</code> file that plays: a row goes to that chapter. For a book of many files, the files: a row plays that file from its start.</td></tr>
+      <tr><td>Sleep Timer</td><td>5, 10, 15, 30, 45, 60, 90 or 120 minutes. At the end, the book pauses, the place is saved, and the player powers off. While it runs, the row shows the time left, and <em>Stop Sleep Timer</em> cancels it.</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="card dev">
+    <h3 class="part" id="ab-dev">For developers</h3>
+    <ul>
+      <li>The setting is <code>Prefs.AUDIOBOOK_SERIES_COVER_FLOW</code> (<code>audiobook_series_cover_flow</code>, default off).</li>
+      <li>The index is <code>controllers/coverflow/AudiobookSeriesIndex.kt</code>: <code>rootEntries</code>, <code>bookEntries</code>, <code>bookFilesOf</code> (Continue), <code>seriesFolderForFile</code> and <code>orderedFiles</code>. It is made from the paths of the scanned library in one pass (it never lists folders on the card) and makes each sort key one time. The screen is <code>ScreenState.AudiobookCoverFlow(seriesDirectory)</code>; <code>MainActivityControllers.prepareAudiobookCoverFlow</code> keeps the built indexes for Back and refresh.</li>
+      <li>Saved places in the app prefs: <code>book_pos_&lt;path&gt;</code> (position in a file), <code>audiobook_last_in_&lt;folder&gt;</code> (current file of each folder above it), <code>audiobook_series_last_book_&lt;series&gt;</code>, <code>audiobook_series_last_played</code>, <code>last_played_audiobook_path</code> and <code>audiobook_speed</code>.</li>
+      <li>Tests: <code>app/src/test/java/com/themoon/y1/controllers/AudiobookSeriesIndexTest.kt</code>.</li>
+    </ul>
+  </div>
+</section>
+
+    <footer>
+      <p><a data-link="repo" href="#"><strong data-name></strong></a> by Jonasz Potoniec and Henrique Ferrolho. Free for personal and educational use; see the licence in the repository.</p>
+      <p>All features and screens: the <a href="index.html">main page</a>.</p>
+      <p>Not affiliated with Apple or Innioasis. iPod and Cover Flow are trademarks of Apple Inc.</p>
+    </footer>
+  </main>
+</div>
+
+<script>
+  document.querySelectorAll("[data-name]").forEach(el => { el.textContent = SITE.name; });
+  document.querySelectorAll("[data-link]").forEach(el => { el.href = SITE[el.dataset.link]; });
+
+  // The same theme switch as index.html, with the same stored choice
+  const root = document.documentElement;
+  const sysDark = matchMedia("(prefers-color-scheme: dark)");
+  document.getElementById("theme").addEventListener("click", () => {
+    const dark = root.dataset.theme ? root.dataset.theme === "dark" : sysDark.matches;
+    root.dataset.theme = dark ? "light" : "dark";
+    try { localStorage.setItem("theme", root.dataset.theme); } catch (e) {}
+  });
+
+  // Scroll-spy: mark the part that is in the upper third of the window.
+  const links = [...document.querySelectorAll("#toc a")];
+  const byId = new Map(links.map(a => [a.getAttribute("href").slice(1), a]));
+  const targets = [...byId.keys()].map(id => document.getElementById(id)).filter(Boolean);
+  const strip = document.getElementById("toc");
+  let current = null;
+  function mark(id) {
+    if (id === current) return;
+    current = id;
+    links.forEach(a => { const on = a === byId.get(id); a.classList.toggle("on", on); if (on) a.setAttribute("aria-current", "true"); else a.removeAttribute("aria-current"); });
+    const a = byId.get(id);
+    if (a && strip.scrollWidth > strip.clientWidth) strip.scrollLeft = a.offsetLeft - 16;
+  }
+  function spy() {
+    const y = innerHeight * 0.35;
+    let id = targets[0].id;
+    for (const t of targets) { if (t.getBoundingClientRect().top <= y) id = t.id; }
+    if (innerHeight + scrollY >= document.documentElement.scrollHeight - 4) id = targets[targets.length - 1].id;
+    mark(id);
+  }
+  let ticking = false;
+  addEventListener("scroll", () => { if (!ticking) { ticking = true; requestAnimationFrame(() => { ticking = false; spy(); }); } }, { passive: true });
+  addEventListener("resize", spy);
+  spy();
+</script>
+</body>
+</html>
