@@ -229,177 +229,159 @@ footer p { margin: 6px 0; max-width: 62em; }
     <header id="top" class="doc-head">
       <p class="eyebrow">Guides</p>
       <h1>Documentation</h1>
-      <p class="lead">How to set up and use the features that need more than one screen. Each guide tells what the feature does, how to set it up, and its limits.</p>
+      <p class="lead">Set-up and use of the features that need more than one screen.</p>
       <div class="cards">
-        <a class="card" href="#webdav"><h3>WebDAV Sync</h3><p>Copy music from a NAS or another WebDAV server to the player, over Wi-Fi.</p></a>
-        <a class="card" href="#audiobooks"><h3>Audiobook Series Cover Flow</h3><p>One cover for each series of audiobooks, made from your folders.</p></a>
+        <a class="card" href="#webdav"><h3>WebDAV Sync</h3><p>Copy music from a NAS to the player over Wi-Fi.</p></a>
+        <a class="card" href="#audiobooks"><h3>Audiobook Series Cover Flow</h3><p>One cover for each audiobook series, made from your folders.</p></a>
       </div>
     </header>
 
 <section id="webdav" class="prose">
   <p class="kicker">Wi-Fi</p>
   <h2>WebDAV Sync</h2>
-  <p class="sub">Copies music from a WebDAV server (a Synology NAS, Nextcloud, or any other server that speaks WebDAV) to the player, so you can listen without a cable. The copy goes one way: from the server to the player. Classy never uploads, renames or deletes anything on the server.</p>
-  <p class="path">Open it: <em>Main menu → Settings → Library → WebDAV Sync</em>. The row shows <em>@</em> and the username, or <em>Not Configured</em>.</p>
+  <p class="sub">Copies music from a WebDAV server (for example a Synology NAS or Nextcloud) to the player over Wi-Fi. The copy goes in one direction only. Classy does not change the files on the server.</p>
+  <p class="path">Open: <em>Main menu → Settings → Library → WebDAV Sync</em>. The row shows <em>@</em> and the username, or <em>Not Configured</em>.</p>
 
   <h3 class="part" id="webdav-setup">Set it up</h3>
   <ol>
-    <li><strong>Server URL</strong>: the address of the folder that holds your music, for example <code>https://192.168.1.10:5006/music</code>. Everything below that folder can be synced. The address must start with <code>http://</code> or <code>https://</code> and have a host. An address with <code>user:password@</code> in it is refused: put the login in the next two rows.</li>
-    <li><strong>Username</strong> and <strong>Password</strong>: type them with the keyboard screen.</li>
-    <li><strong>Test Connection</strong> checks the address and the login. It shows <em>Connected</em>, or why it could not connect.</li>
+    <li>Select <strong>Server URL</strong>. Type the address of your music folder, for example <code>https://192.168.1.10:5006/music</code>.</li>
+    <li>Select <strong>Username</strong> and type the username.</li>
+    <li>Select <strong>Password</strong> and type the password.</li>
+    <li>Select <strong>Test Connection</strong>. The screen shows <em>Connected</em>, or an error (<a href="#webdav-problems">Problems</a>).</li>
   </ol>
-  <p>Test Connection and Sync Now need Wi-Fi. When Wi-Fi is not connected, they open the Wi-Fi screen.</p>
+  <ul class="points">
+    <li>The address must start with <code>http://</code> or <code>https://</code> and have a host. Classy refuses an address with <code>user:password@</code>.</li>
+    <li>You can sync only the folders below the Server URL.</li>
+    <li>Test Connection and Sync Now need Wi-Fi. Without Wi-Fi, they open the Wi-Fi screen.</li>
+  </ul>
 
   <h4>Set it up with a file</h4>
-  <p>Typing a long address with the wheel is slow. Instead, put a file named <code>classy_webdav.json</code> in the top folder of the internal storage (the folder that holds <code>Music</code>), then open WebDAV Sync:</p>
-<pre><code>{ "url": "https://192.168.1.10:5006/music", "user": "name", "password": "secret" }</code></pre>
-  <div class="table-wrap"><table class="ref">
-    <thead><tr><th>Field</th><th>Value</th></tr></thead>
-    <tbody>
-      <tr><td><code>url</code></td><td>The Server URL: <code>http://</code> or <code>https://</code> with a host.</td></tr>
-      <tr><td><code>user</code></td><td>The username. It must not be empty.</td></tr>
-      <tr><td><code>password</code></td><td>The password. It must not be empty.</td></tr>
-    </tbody>
-  </table></div>
-  <ul class="points">
-    <li>WebDAV Sync reads the file, saves the settings and then <strong>deletes the file</strong>, so the password does not stay on the storage in plain text.</li>
-    <li>A file that is not valid is not imported and <strong>stays</strong>. The screen shows <em>classy_webdav.json: invalid</em>. Correct the file, or delete it by hand.</li>
-    <li>A valid file that Classy cannot delete is not imported either. The screen shows <em>classy_webdav.json: cannot delete it, delete it by hand</em>.</li>
-    <li>While a sync runs, the file stays. Classy imports it the next time you open WebDAV Sync.</li>
-    <li>A file with another address is a new Server URL: see <a href="#webdav-reset">Log Out / Reset</a>.</li>
-  </ul>
-
-  <h3 class="part" id="webdav-cert">A self-signed certificate (https)</h3>
-  <p>A certificate that Android trusts (from a known authority, for the name in the Server URL) works with no step, also after it is renewed.</p>
-  <p>A NAS at home usually has a certificate that no authority signed. The first time you connect, Classy shows <em>Certificate not trusted</em>, and the WebDAV Sync screen gets a <em>Certificate</em> part: the SHA-256 fingerprint of the server certificate, in four lines of hex.</p>
   <ol>
-    <li>Find the SHA-256 fingerprint of the certificate on your NAS, for example in the certificate details of a web browser.</li>
-    <li>Compare all four lines with the lines on the player.</li>
-    <li>If they are the same, choose <strong>Trust Certificate</strong>.</li>
+    <li>Put a file <code>classy_webdav.json</code> in the top folder of the internal storage (the folder that holds <code>Music</code>). All three fields must have a value.
+<pre><code>{ "url": "https://192.168.1.10:5006/music", "user": "name", "password": "secret" }</code></pre></li>
+    <li>Open WebDAV Sync. Classy saves the settings and <strong>deletes the file</strong>.</li>
   </ol>
   <ul class="points">
-    <li>Classy then accepts that one certificate, with any host name (also a NAS that you reach by its IP address).</li>
-    <li>If the certificate changes (for example a renewal), the connection stops until you trust the new one. Compare the fingerprint again: the step looks the same as the first time.</li>
-    <li>Android 4.4 does not know some newer authorities, for example Let's Encrypt. Such a certificate also needs Trust Certificate, and again after each renewal.</li>
-    <li>A public certificate for another name also shows the Trust step.</li>
-    <li>A new Server URL forgets the trusted certificate.</li>
+    <li>A file that is not valid stays. The screen shows <em>classy_webdav.json: invalid</em>.</li>
+    <li>If Classy cannot delete the file, it does not use it. The screen shows <em>classy_webdav.json: cannot delete it, delete it by hand</em>.</li>
+    <li>During a sync, Classy does not read the file. Open WebDAV Sync again after the sync.</li>
+    <li>A different <code>url</code> is a new Server URL (<a href="#webdav-reset">Log Out / Reset</a>).</li>
   </ul>
-  <p class="warn"><code>http://</code> works too, but has no protection: the password goes in clear text with every request, also from Auto Sync on any Wi-Fi network that the player joins. Use <code>https://</code> where the server has it.</p>
 
-  <h3 class="part" id="webdav-folders">Choose the folders</h3>
-  <p><strong>Folders</strong> shows how many folders you ticked. Open it to see the folders of the Server URL. The top row reminds you of the keys: <em>Center: open · Hold: select</em>.</p>
+  <h3 class="part" id="webdav-cert">Certificates</h3>
+  <p>A certificate that Android trusts needs no step. Android 4.4 does not trust some newer authorities, for example Let's Encrypt. For such a certificate, a self-signed certificate, or a certificate for a different name, do these steps:</p>
+  <ol>
+    <li>Select Test Connection. The screen shows <em>Check the certificate fingerprint, then Trust Certificate.</em></li>
+    <li>Find the SHA-256 fingerprint of the server certificate, for example in the certificate details of a web browser.</li>
+    <li>Compare it with the four lines below <strong>Certificate</strong> on the player.</li>
+    <li>If they are the same, select <strong>Trust Certificate</strong>.</li>
+  </ol>
   <ul class="points">
-    <li><strong>Center</strong> opens a folder.</li>
-    <li><strong>Hold</strong> Center ticks or unticks a folder. A tick shows at the left.</li>
-    <li><strong>This Folder</strong>, the first row, ticks the folder that is open (push Center). Use it for a folder with only files, for example the folder of the Server URL itself.</li>
-    <li>The files of a folder show below its folders. You cannot tick one file.</li>
-    <li>Ticking a folder takes everything inside it. The folders inside show ticked, and you cannot untick them one by one. To leave one out, untick the parent and tick the folders that you want.</li>
-    <li>Ticking a parent replaces the ticks of the folders inside it.</li>
-    <li>Each time you open a folder, Classy lists it again, so changes on the server show.</li>
+    <li>Classy then accepts this certificate with all host names, also an IP address.</li>
+    <li>When the certificate changes (for example after a renewal), do the steps again.</li>
+    <li>A new Server URL removes the trusted certificate.</li>
   </ul>
-  <p>The folders you tick are what the player keeps. The files of a folder that you untick are removed from the player at the next sync.</p>
+  <p class="warn"><code>http://</code> has no protection: each request sends the password in clear text, also from Auto Sync. Use <code>https://</code> if the server has it.</p>
+
+  <h3 class="part" id="webdav-folders">Folders</h3>
+  <p>Select <strong>Folders</strong> to see the folders of the Server URL. The row shows the number of ticked folders.</p>
+  <ul class="points">
+    <li>Push <strong>Center</strong> to open a folder. <strong>Hold</strong> Center to tick or untick it.</li>
+    <li>Push Center on <strong>This Folder</strong> (first row) to tick the open folder. Use it for a folder with only files.</li>
+    <li>A ticked folder includes all its sub-folders. To leave out one sub-folder, untick the parent and tick the other sub-folders.</li>
+    <li>You cannot tick one file.</li>
+    <li>At the next sync, Classy deletes the files of an unticked folder from the player.</li>
+  </ul>
 
   <h3 class="part" id="webdav-sync">Sync</h3>
-  <p><strong>Sync Now</strong> lists the ticked folders, downloads the new and changed files, and deletes the files of the folders that you unticked. A screen shows the folder that it lists, then the files in progress, the percent and the speed. Back cancels the sync.</p>
+  <p>Select <strong>Sync Now</strong>. The screen shows the progress. Push Back to cancel.</p>
   <ul class="points">
-    <li>Every file in a ticked folder is copied, not only the audio files: covers and <code>.lrc</code> lyrics come too.</li>
-    <li>The files go to the <code>Music</code> folder of <strong>Save To</strong>, with the folder tree that they have below the Server URL. For example, <code>…/music/Artist/Album/01.flac</code> becomes <code>Music/Artist/Album/01.flac</code>.</li>
-    <li>A file is changed when its ETag on the server changed. If the server gives no ETag, Classy compares the size and the date.</li>
-    <li>Before it downloads, the sync checks the free space. If the files do not fit, it stops with <em>Not enough space</em>, the space it needs and the free space.</li>
-    <li>When a sync downloaded or deleted files, the library scans again, so the songs show up. This also occurs after a sync that failed or that you cancelled.</li>
-    <li><strong>Parallel Downloads</strong> (1 to 4; Center goes to the next value): the files that download at the same time. 1 is the gentlest for a weak Wi-Fi or NAS, and it is the default.</li>
-    <li><strong>Last Synced</strong> shows the time of the last sync that worked, or <em>Never</em>. After a sync that failed (also an Auto Sync), <em>Last sync failed</em> shows its error below it, until a sync works.</li>
-    <li>A song that is playing is never replaced or deleted. It waits for the next sync.</li>
-    <li>A sync never writes over a file that it did not make (your own files, or those of Jellyfin Sync). If such a file has the size of the server file, the sync takes it as that file and does not download it again (for example after Log Out / Reset). Else the server file is skipped, and your file stays as it is.</li>
-    <li>A download that fails or that you cancel leaves the old file as it was. It writes to a hidden <code>.partial-….part</code> file first; the next sync deletes such files that a stopped run left.</li>
-    <li>If no folder is ticked, Sync Now asks before it deletes all the files that it synced (<em>No folder selected: the synced files will be deleted.</em>). If it synced nothing yet, it shows <em>Select folders first</em>.</li>
+    <li>The sync downloads the new and changed files of the ticked folders. It deletes the files of unticked folders.</li>
+    <li>It copies all files, also covers and <code>.lrc</code> lyrics.</li>
+    <li>The files go to the <code>Music</code> folder of <strong>Save To</strong>, in the same folder tree. For example, <code>…/music/Artist/Album/01.flac</code> becomes <code>Music/Artist/Album/01.flac</code>.</li>
+    <li>A file is changed when its ETag changed. With no ETag, Classy compares the size and the date.</li>
+    <li>If the files do not fit, the sync stops before it downloads (<em>Not enough space</em>).</li>
+    <li>When files changed, the library scans again. This also occurs after a failed or cancelled sync.</li>
+    <li><strong>Parallel Downloads</strong>: 1 to 4 files at the same time. The default, 1, is best for a weak Wi-Fi or NAS.</li>
+    <li><strong>Last Synced</strong> shows the time of the last good sync, or <em>Never</em>. After a failed sync, <em>Last sync failed</em> and the error show below it.</li>
+    <li>Classy does not replace or delete the song that plays. The next sync does it.</li>
+    <li>Classy does not write over a file that it did not sync (for example from Jellyfin Sync). If that file has the size of the server file, Classy uses it as the synced copy. If not, Classy skips the server file.</li>
+    <li>A failed or cancelled download does not change the old file.</li>
+    <li>With no ticked folder, Sync Now asks before it deletes all synced files. If there are no synced files, it shows <em>Select folders first</em>.</li>
   </ul>
 
-  <h4>Save To: Internal or SD Card</h4>
+  <h4>Save To</h4>
   <ul class="points">
-    <li><strong>Save To</strong> sets the storage: <em>Internal</em> or <em>SD Card</em>. SD Card needs a microSD card in the player (else <em>SD card not found</em>). You cannot change it while a sync runs.</li>
-    <li>After a change, <strong>Move Synced Files</strong> shows the number of synced files on the other storage. It asks, then moves them; nothing is downloaded again.</li>
-    <li>Until you move them, a sync leaves them where they are. Only a file that changed on the server downloads to the new place, and its old copy is deleted.</li>
-    <li>A move copies each file, checks it, and then deletes the old copy, so a failure or a cancel never loses a file. A file that is playing stays where it is: move again later. A file that is already at the new place is never written over; if it has the same bytes, only the old copy is deleted.</li>
-    <li>On the SD card (FAT), the characters <code>&lt; &gt; : " | ? * \</code> in a name become <code>_</code>, and a name does not end with a dot or a space. Two names that become the same share one file.</li>
+    <li><strong>Save To</strong>: <em>Internal</em> or <em>SD Card</em>. You cannot change it during a sync.</li>
+    <li>After a change, <strong>Move Synced Files</strong> shows the number of files on the other storage. Select it to move them. Classy does not download them again.</li>
+    <li>If you do not move them, they stay. Only a file that changed on the server goes to the new storage.</li>
+    <li>A move copies and checks each file, then deletes the old copy. The song that plays does not move: move again later.</li>
+    <li>On the SD card, Classy changes <code>&lt; &gt; : " | ? * \</code> in names to <code>_</code>. It removes a dot or space at the end of a name. Two names that become the same use one file.</li>
   </ul>
 
   <h3 class="part" id="webdav-auto">Auto Sync</h3>
-  <p>With <strong>Auto Sync</strong> On, the player syncs by itself when it is on <strong>Wi-Fi and charging</strong>, at most once an hour.</p>
+  <p>With <strong>Auto Sync</strong> On, the player syncs when it is on <strong>Wi-Fi and charging</strong>, at most one time each hour.</p>
   <ul class="points">
-    <li>It starts when Wi-Fi connects or when you connect the charger. If the hour is not over yet, it tries again when the hour ends, while the player stays on Wi-Fi and charging.</li>
-    <li>A try that failed also counts for the hour, so a server that is off is not tried again and again.</li>
-    <li>It downloads, and deletes the files of unticked folders, as Sync Now does. When no folder is ticked, it never deletes all the synced files.</li>
-    <li>It has no progress screen, and you cannot cancel it. Its errors show under Last Synced.</li>
+    <li>It starts when Wi-Fi connects or when you connect the charger. If the hour is not complete, it starts at the end of the hour.</li>
+    <li>A failed sync also counts for the hour.</li>
+    <li>It downloads and deletes as Sync Now does. With no ticked folder, it does not delete the synced files.</li>
+    <li>It shows no progress, and you cannot cancel it. Its errors show below Last Synced.</li>
     <li>It works only while the Classy app runs.</li>
   </ul>
 
-  <h3 class="part" id="webdav-deleted">Files you deleted on the server</h3>
-  <p>When a synced file is gone from the server, Classy does not delete your copy. It lists the file under <strong>Deleted on NAS</strong>, with the name of its folder, and you choose:</p>
+  <h3 class="part" id="webdav-deleted">Deleted on NAS</h3>
+  <p>When a synced file is not on the server, Classy keeps your copy and shows it in <strong>Deleted on NAS</strong>.</p>
   <ul class="points">
-    <li>Push Center on a file to delete it, or choose <strong>Delete All</strong> (when the list has two files or more). Each delete asks first.</li>
-    <li>Your copy stays until you delete it. A file that comes back on the server leaves the list.</li>
-    <li>When a ticked folder is gone from the server, its files go to this list too. A listing that fails for another reason never marks files as deleted: the sync stops.</li>
+    <li>Push Center on a file to delete it. With two or more files, <strong>Delete All</strong> deletes all. Classy asks before each delete.</li>
+    <li>A file that comes back on the server goes off the list.</li>
+    <li>When a ticked folder is not on the server, its files also go on this list.</li>
+    <li>If a folder listing fails for a different reason, the sync stops. No file goes on the list.</li>
   </ul>
 
-  <h3 class="part" id="webdav-reset">Log Out / Reset, or a new server</h3>
-  <p><strong>Log Out / Reset</strong> forgets all the WebDAV Sync settings: the address, the login, the certificate, the ticked folders, Auto Sync, Parallel Downloads, Save To and Last Synced.</p>
+  <h3 class="part" id="webdav-reset">Log Out / Reset</h3>
+  <p><strong>Log Out / Reset</strong> removes all WebDAV Sync settings: address, login, certificate, ticked folders, Auto Sync, Parallel Downloads, Save To and Last Synced.</p>
   <ul class="points">
-    <li>The songs stay on the player. Classy forgets that it synced them, so no later sync deletes them. If you do not want them, delete them with a file manager.</li>
-    <li>If you set it up again and tick the same folders, a sync takes back each copy that has the server's size. From then on it is a synced file again (an untick deletes it).</li>
-    <li>A new <strong>Server URL</strong> does the same to the server settings: no ticked folders, no certificate, no Last Synced. The songs of the old address stay.</li>
-    <li>The local paths come from the folder of the address. A sync never writes over an old copy at such a path: it takes the copy back if it has the server's size, and else skips that file. Old copies that no new file takes back stay; delete them by hand.</li>
-    <li>Only the same address in another spelling (for example with a <code>/</code> at the end) keeps everything.</li>
-    <li>Both are refused while a sync runs (<em>Syncing...</em>). If the sync record cannot be saved, nothing changes and the screen shows <em>Cannot save the sync record</em>.</li>
+    <li>The songs stay on the player. Classy does not track them, so no sync deletes them. To remove them, use a file manager.</li>
+    <li>A new <strong>Server URL</strong> removes the server settings: ticked folders, certificate and Last Synced. The songs stay.</li>
+    <li>The same address in a different spelling (for example with a <code>/</code> at the end) keeps all settings.</li>
+    <li>After a reset, a sync uses an old copy again if it has the path and size of the server file. Else it skips that server file. Delete unwanted old copies by hand.</li>
+    <li>You cannot do a reset or change the Server URL during a sync (<em>Syncing...</em>).</li>
   </ul>
 
-  <h3 class="part" id="webdav-problems">If something goes wrong</h3>
+  <h3 class="part" id="webdav-problems">Problems</h3>
   <div class="table-wrap"><table class="ref">
     <thead><tr><th>Message</th><th>What to do</th></tr></thead>
     <tbody>
-      <tr><td>Server unreachable</td><td>Is the player on the correct Wi-Fi? Is the address correct, and the NAS on?</td></tr>
-      <tr><td>Check username/password</td><td>The server refused the login (HTTP 401 or 403).</td></tr>
-      <tr><td>Certificate not trusted</td><td>Compare the fingerprint, then Trust Certificate (<a href="#webdav-cert">Certificates</a>).</td></tr>
-      <tr><td>Not enough space</td><td>The message shows the space the sync needs and the free space. Free some space, or tick fewer folders.</td></tr>
-      <tr><td>HTTP 404 on a folder</td><td>The folder is gone from the server. In a sync, its files go to Deleted on NAS.</td></tr>
-      <tr><td>HTTP 301 (or another 3xx)</td><td>The server sends Classy to another address. Classy does not follow it, so that the password goes to no other server. Use the final address as the Server URL.</td></tr>
-      <tr><td>SD card not found</td><td>Save To is SD Card, but there is no microSD card. Put the card in, or set Save To to Internal.</td></tr>
-      <tr><td>Cannot save the sync record</td><td>The record of the synced files (<code>webdav_ledger.json</code>) could not be written, for example on a full storage. Nothing changed.</td></tr>
-      <tr><td>Too many folders (a loop on the server?)</td><td>A ticked folder has more than 20,000 folders below it, or the server links back to a folder above.</td></tr>
+      <tr><td>Server unreachable</td><td>Check the Wi-Fi, the Server URL and the NAS.</td></tr>
+      <tr><td>Check username/password</td><td>The server refused the login (HTTP 401 or 403). Check the Username and the Password.</td></tr>
+      <tr><td>Certificate not trusted</td><td>Do the steps in <a href="#webdav-cert">Certificates</a>.</td></tr>
+      <tr><td>Not enough space</td><td>The message shows the necessary and the free space. Free some space, or tick fewer folders.</td></tr>
+      <tr><td>HTTP 404 on a folder</td><td>The folder is not on the server. A sync puts its files on <a href="#webdav-deleted">Deleted on NAS</a>.</td></tr>
+      <tr><td>HTTP 301 (or another 3xx)</td><td>The server sends Classy to a different address. Classy does not follow it, to keep the password safe. Use the final address as the Server URL.</td></tr>
+      <tr><td>SD card not found</td><td>Put in a microSD card, or set Save To to Internal.</td></tr>
+      <tr><td>Cannot save the sync record</td><td>Classy cannot write <code>webdav_ledger.json</code> (for example, the storage is full). Nothing changed.</td></tr>
+      <tr><td>Too many folders (a loop on the server?)</td><td>A ticked folder has more than 20,000 folders below it, or the server links back to a folder above it.</td></tr>
     </tbody>
   </table></div>
 
   <h3 class="part" id="webdav-limits">Limits</h3>
   <ul class="points">
-    <li>One way only: no upload, and no two-way merge.</li>
-    <li>The check for a changed file uses the ETag and the date of the server, not a hash of the content.</li>
-    <li>Basic authentication only. The password is stored in plain text in the app's private settings (<code>adb backup</code> can copy them; the app allows backups). Clear Data or Log Out / Reset removes it.</li>
-    <li>All files go to the <code>Music</code> folder. To sync audiobooks, use Jellyfin Sync.</li>
-    <li>No partial resume: a cancelled download starts again.</li>
-    <li>A file that the sync skips (your own file at its place, with another size) shows only in the log, not on the screen.</li>
-    <li>A download has no total time limit: a very slow server keeps a sync running (you can cancel Sync Now, but not Auto Sync). The number of files has no limit; a ticked folder can have at most 20,000 folders.</li>
-    <li>The sync record is not flushed to the disk before its rename. After a power loss it can be lost: nothing is deleted then, but the synced files are no longer tracked.</li>
-    <li>Auto Sync works only while the app runs: a background job would need Android 5 (API 21), and the Y2 has Android 4.4.</li>
+    <li>Basic authentication only. The app settings keep the password in plain text, and <code>adb backup</code> can copy it. Log Out / Reset or Clear Data removes it.</li>
+    <li>All files go to the <code>Music</code> folder. For audiobooks, use Jellyfin Sync.</li>
+    <li>A cancelled download starts again from the beginning.</li>
+    <li>A skipped file shows only in the log.</li>
+    <li>A download has no time limit. A very slow server can keep Auto Sync running.</li>
+    <li>A power loss can remove the sync record. Then Classy deletes nothing, but it does not track the synced files.</li>
   </ul>
 
   <div class="card dev">
     <h3 class="part" id="webdav-dev">For developers</h3>
-    <p>The code is in <code>app/src/main/java/com/themoon/y1/sync/webdav/</code> and <code>controllers/sync/WebDavUiController.kt</code>.</p>
     <ul>
-      <li><strong>Files.</strong> <code>WebDavSyncProvider</code>: settings, ticked folders, one-time import of <code>classy_webdav.json</code> (<code>WebDavConfigFile</code>). <code>WebDavClient</code>: PROPFIND (Depth 1) and GET with OkHttp. <code>CertPin</code>: the trust manager. <code>SyncPlan</code>: pure functions for what to download, mark or delete, and the path mapping (no I/O except <code>pruneEmptyDirs</code>). <code>WebDavSync</code>: runs a sync or a move on one background thread and owns the ledger. <code>AutoSyncGate</code>, <code>WebDavAutoSyncReceiver</code>: when Auto Sync may start. <code>WebDavErrors</code>: <code>errorText</code>, the one-line message of an error.</li>
-      <li><strong>Shared with Jellyfin Sync:</strong> the <code>MediaSyncProvider</code> interface, the <code>SyncLedger</code> file format, <code>SyncLocks</code>, the playing-file rule and the list model (Center opens, Hold ticks). The engine is its own (not <code>SyncManager</code>, which makes paths from Jellyfin metadata): WebDAV Sync copies the folder tree of the server as it is, keyed by path.</li>
-      <li><strong>Prefs</strong> <code>webdav_sync</code>: <code>url</code>, <code>user</code>, <code>password</code>, <code>pin</code>, <code>dest_sd</code>, <code>auto_sync</code>, <code>parallel</code>, <code>ticked</code> (a set of hrefs), <code>last_sync</code>, <code>last_auto_attempt</code>, <code>last_error</code> (empty after a sync that worked).</li>
-      <li><strong>Ledger</strong> <code>webdav_ledger.json</code> in the primary storage root, one item for each synced file, keyed by its percent-encoded href. <code>LedgerItem</code> keeps the Jellyfin names: <code>jellyfinId</code> = href, <code>libraryId</code> = the ticked folder it was found under (can go stale: coverage is by path, <code>isUnder</code>), <code>localPath</code>, <code>fileSize</code>, <code>serverDateModified</code> = <code>"&lt;etag&gt;|&lt;lastModified&gt;"</code>, <code>orphaned</code>. Item type <code>music</code>.</li>
-      <li><strong>Listing.</strong> Sub-folders are walked breadth first, one PROPFIND each, with a visited set and <code>MAX_FOLDERS</code> = 20,000. An answer is read into memory (at most 8 MB, checked before each write; at most 120 s for a listing; cancellable) and refused if its bytes have <code>&lt;!DOCTYPE</code> (Android's parser ignores <code>disallow-doctype-decl</code>). A root that is not <code>DAV:multistatus</code> is an error, not an empty folder. A failed status inside the 207 is an error: <code>DavHttpException</code> for the folder itself (404 = gone), <code>DavEntryRefused</code> for an entry (the sync stops, nothing is marked deleted). Properties come only from 2xx <code>propstat</code> blocks. A 404 on a ticked folder is an empty list; on a sub-folder it skips that sub-folder; another error stops the sync.</li>
-      <li><strong>Requests.</strong> Basic auth on every request. <code>urlFor</code> refuses an absolute href of another host; redirects are not followed (a 3xx is an error). A relative href must start with <code>/</code>; an absolute href of this server becomes its path. hrefs compare percent-encoded; <code>decodeHref</code> decodes each segment as UTF-8 (<code>+</code> stays <code>+</code>). Timeouts: 10 s connect, 30 s read.</li>
-      <li><strong>Download.</strong> GET with <code>Accept-Encoding: identity</code> into a new <code>.partial-*.part</code> file (exclusive create) next to the target. Never more bytes than the listing or the <code>Content-Length</code> gave; with no size, it stops 64 MB before the storage is full. Then <code>mayReplace</code> (no while the target plays: <code>TargetBusy</code>) and <code>replaceFile</code>, one rename. On FAT the old file moves aside to <code>&lt;name&gt;.old</code> (<code>.old1</code>, …) first, and back if the new one cannot move in.</li>
-      <li><strong>Certificates.</strong> <code>PinningTrustManager(pin, systemTrustManager, host)</code>: the pinned leaf (SHA-256) passes with any host name; else a chain that Android trusts passes if its leaf names the host (<code>OkHostnameVerifier</code>); else <code>CertNotTrusted(fingerprint)</code>. The host check is in the trust manager, so the client's <code>HostnameVerifier</code> accepts all. <code>WebDavSyncProvider.changeUrl</code> clears the pin.</li>
-      <li><strong>Plan</strong> (<code>SyncPlan.build</code>): <code>downloads</code> (with <code>replaces</code> for a recorded copy at another path), <code>adopt</code> and <code>conflicts</code> (a file at the target that the ledger does not record), <code>orphan</code>, <code>unorphan</code> and <code>remove</code> (not covered by a ticked folder, unless the file is also a target). <code>remove</code> runs only with a ticked folder or the user's confirmation (<code>removeAllUnticked</code>; Auto Sync never sets it). Downloads run on a pool of <code>parallel</code> threads; the first error stops the others. The ledger is saved every 20 files and in a <code>finally</code>.</li>
-      <li><strong>Deletes.</strong> <code>deleteTracked</code> and the delete of a replaced copy touch only files below the Music folders (canonical paths), skip a playing file, remove only the record when another record keeps the same file, and then call <code>pruneEmptyDirs</code> up to the <code>Music</code> roots.</li>
-      <li><strong>One run at a time:</strong> <code>isRunning</code>, a single-thread executor and <code>launch</code>. <code>forgetAll</code> (Log Out / Reset, another server) takes the same lock and saves an empty ledger before it changes the settings; if the save fails (<code>LedgerNotSaved</code>), nothing changes. <code>SyncLocks.hold</code> keeps a partial wake lock and a Wi-Fi lock (<code>Classy:WebDavSync</code>), with a 6-hour cap.</li>
-      <li><strong>Auto Sync.</strong> <code>AutoSyncGate.shouldRun</code> is a pure function; <code>lastCounted</code> ignores a stored time after now (the clock was set back). The recheck at the end of the hour is a <code>Handler.postDelayed</code>. <code>ClassyApplication.onCreate</code> registers the receiver in code for <code>CONNECTIVITY_ACTION</code> and <code>ACTION_POWER_CONNECTED</code>. It is not in the manifest: on Android 4.4 a manifest receiver for a connectivity change starts a second process of the app, and <code>stopStaleProcesses</code> then stopped the running launcher.</li>
-      <li><strong>UI.</strong> <code>WebDavLevel</code>: <code>Root</code>, <code>Folders(href)</code>, <code>Orphans</code>. Folder rows are <code>RowLook.CHOICE</code> (<code>onClick</code> opens, <code>onHold</code> ticks). The progress screen updates at most 4 times a second and smooths the speed. A new text needs all seven language packs (<code>scripts/check_translations.py --strict</code>).</li>
-      <li><strong>Tests</strong> in <code>app/src/test/java/com/themoon/y1/sync/webdav/</code>: <code>SyncPlanTest</code>, <code>WebDavClientTest</code>, <code>AutoSyncGateTest</code>, <code>CertPinTest</code>, <code>WebDavConfigFileTest</code>, <code>WebDavErrorsTest</code>.</li>
+      <li><strong>Code:</strong> <code>app/src/main/java/com/themoon/y1/sync/webdav/</code> and <code>controllers/sync/WebDavUiController.kt</code>. <code>SyncPlan</code> holds the pure sync rules; <code>WebDavSync</code> runs a sync and owns the ledger.</li>
+      <li><strong>Shared with Jellyfin Sync:</strong> <code>MediaSyncProvider</code>, the <code>SyncLedger</code> format and <code>SyncLocks</code>. The engine is its own and keys each file by its href.</li>
+      <li><strong>Data:</strong> prefs <code>webdav_sync</code>; ledger <code>webdav_ledger.json</code> in the primary storage root.</li>
+      <li><strong>Auto Sync:</strong> <code>ClassyApplication.onCreate</code> registers the receiver in code. A manifest receiver starts a second app process on Android 4.4.</li>
+      <li>A new text needs all seven language packs (<code>scripts/check_translations.py --strict</code>). Tests: <code>app/src/test/java/com/themoon/y1/sync/webdav/</code>.</li>
     </ul>
   </div>
 </section>
@@ -407,28 +389,28 @@ footer p { margin: 6px 0; max-width: 62em; }
 <section id="audiobooks" class="prose">
   <p class="kicker">Audiobooks</p>
   <h2>Audiobook Series Cover Flow</h2>
-  <p class="sub">An optional Cover Flow for audiobooks, made from your folders: one cover for each series, and one cover for each book in it.</p>
+  <p class="sub">An optional Cover Flow for audiobooks: one cover for each series, and one cover for each book in a series. Classy makes it from your folders.</p>
 
   <h3 class="part" id="ab-on">Turn it on</h3>
   <ol>
-    <li><em>Main menu → Settings → Library → Audiobook Series Cover Flow</em> (first row of Library): push Center to set it to On.</li>
-    <li><em>Main menu → Audiobooks → Series Cover Flow</em> (second row, below Continue) opens it.</li>
+    <li>Go to <em>Main menu → Settings → Library → Audiobook Series Cover Flow</em> (first row).</li>
+    <li>Push Center to set it to On.</li>
+    <li>Go to <em>Main menu → Audiobooks → Series Cover Flow</em> (second row). The status bar shows <em>Audiobook Series</em>.</li>
   </ol>
   <ul class="points">
-    <li>The setting is Off by default. When it is Off, the Audiobooks menu has no Series Cover Flow row, and Continue groups a book by its album tag.</li>
-    <li><em>Settings → Menus → Main Menu Items</em> can hide the Audiobooks item of the main menu.</li>
-    <li>The status bar shows <em>Audiobook Series</em> at the top level, and the name of the series inside a series. Below the cover of a book in a series, the name of the series shows.</li>
-    <li>Speed, chapters, the sleep timer and the no-shuffle rule (below) apply to all audiobooks, with the setting On or Off.</li>
+    <li>The setting is Off by default. When it is Off, the Series Cover Flow row does not show.</li>
+    <li><em>Main menu → Settings → Menus → Main Menu Items</em> can hide Audiobooks.</li>
   </ul>
 
-  <h3 class="part" id="ab-folders">How folders become books and series</h3>
+  <h3 class="part" id="ab-folders">Books and series</h3>
   <p>Classy reads the <code>Audiobooks</code> folder on the internal storage and on the microSD card.</p>
   <ul class="points">
-    <li>An audio file directly in <code>Audiobooks</code> (also an <code>.m4b</code> file) is one book.</li>
-    <li>A folder with no sub-folders and at most one <code>.m4b</code> file is one book. A book never shows its single audio files.</li>
-    <li>A folder with two books or more is a <strong>series</strong>. In it, each sub-folder is a book, each <code>.m4b</code> file is a book, and the other audio files directly in the folder are together one book, <em>Other</em>.</li>
-    <li>A folder with one book only shows as that book, not as a series of one.</li>
-    <li>A folder that holds only one folder of books is skipped: <code>Audiobooks/Jellyfin/Author/Book</code> (the folders of Jellyfin Sync) shows the series <em>Author</em>. A folder whose only sub-folder holds only files stays one book: <code>Saga/Only Book</code> is the book <em>Only Book</em>.</li>
+    <li>Each audio file directly in <code>Audiobooks</code> (also an <code>.m4b</code> file) is a book.</li>
+    <li>A folder with no sub-folders and not more than one <code>.m4b</code> file is a book.</li>
+    <li>A folder with two or more books is a <strong>series</strong>. In a series, each sub-folder and each <code>.m4b</code> file is a book. The other audio files are one book, <em>Other</em>.</li>
+    <li>A folder with only one book shows as that book.</li>
+    <li>Classy skips a folder that holds only one folder of books. Thus <code>Audiobooks/Jellyfin/Author/Book</code> (from Jellyfin Sync) shows as the series <em>Author</em>.</li>
+    <li>A folder whose only sub-folder holds only files is one book: <code>Saga/Only Book</code> is the book <em>Only Book</em>.</li>
   </ul>
 <pre><code>Audiobooks/
   Long Walk.m4b               a book
@@ -438,44 +420,50 @@ footer p { margin: 6px 0; max-width: 62em; }
     1 First Book/             a book
     2 Second Book/            a book
     Extra.m4b                 a book</code></pre>
-  <p class="tip">The Cover Flow uses the scanned library. After you add or move books, scan again: <em>Main menu → Audiobooks → Scan Media Library</em> (last row).</p>
+  <p class="tip">After you add or move books, scan again: <em>Main menu → Audiobooks → Scan Media Library</em> (last row).</p>
 
   <h3 class="part" id="ab-order">Sort order</h3>
+  <div class="table-wrap"><table class="ref">
+    <thead><tr><th>Level</th><th>Order</th></tr></thead>
+    <tbody>
+      <tr><td>Top level</td><td>The series that you played last. Then all books and series A–Z (upper and lower case are the same).</td></tr>
+      <tr><td>In a series</td><td>The book that you played last. Then by the first number in the name (up to 4 digits: <em>Book 2</em> before <em>Book 10</em>), then A–Z. Names with no number come last.</td></tr>
+      <tr><td>In a book</td><td>By folder (Disc 1 before Disc 2), then by file name (2 before 10). Track tags do not change the order.</td></tr>
+    </tbody>
+  </table></div>
   <ul class="points">
-    <li><strong>Top level:</strong> the series that you played last comes first. Then all books and series in alphabetical order (upper and lower case are the same).</li>
-    <li><strong>In a series:</strong> the book that you played last comes first. Then the books by the first number in their name (up to 4 digits: <em>Book 2</em> before <em>Book 10</em>), then alphabetically. Names without a number come after the names with one.</li>
     <li>The Cover Flow opens on the book or series that you played last.</li>
-    <li>The cover of a series is the cover of its first book (by number, then name), from the first file of that book.</li>
-    <li><strong>In a book:</strong> the files play in folder order (Disc 1 before Disc 2), then in natural file-name order (2 before 10, 09 before 10). Track tags do not change the order.</li>
+    <li>The cover of a series is the cover of its first book (by number, then name).</li>
   </ul>
 
-  <h3 class="part" id="ab-play">Playback and resume</h3>
+  <h3 class="part" id="ab-play">Playback</h3>
   <ul class="points">
-    <li>Center on a series opens its books. Center on a book puts all its files in the queue and plays from its saved file and place.</li>
-    <li>Each book remembers its own current file, so it resumes at its chapter also after you played other books. A series remembers the last book that you played in it.</li>
-    <li>A saved place that is not one of the book's files starts the book at its first file.</li>
-    <li><strong>Continue</strong> (<em>Main menu → Audiobooks → Continue</em>, first row) plays the last audiobook from its saved place. It uses only files of the <code>Audiobooks</code> folders, so music that you play later never replaces the last audiobook. With the setting On, Continue queues the files of the book (its folder or <code>.m4b</code>), as the Cover Flow does.</li>
-    <li>Shuffle is never used for audiobooks: a book always plays in order.</li>
+    <li>Push Center on a series to open it. Push Center on a book to play it from its saved place.</li>
+    <li>Each book keeps its own file and place. Each series keeps the last book that you played in it.</li>
+    <li>If the saved file is not in the book, the book starts at its first file.</li>
+    <li><strong>Continue</strong> (<em>Main menu → Audiobooks → Continue</em>, first row) plays the last audiobook from its saved place. Music does not change the last audiobook.</li>
+    <li>With the setting On, Continue plays all files of the book (its folder or <code>.m4b</code>). With the setting Off, it uses the album tag.</li>
+    <li>Audiobooks never shuffle.</li>
   </ul>
 
   <h3 class="part" id="ab-menu">Speed, chapters and sleep timer</h3>
-  <p>While an audiobook plays, hold the centre button on Now Playing. For an audiobook, the menu shows three rows at the top, above the rows of every song (Queue, Play On and the others). The menu of music does not change.</p>
+  <p>While an audiobook plays, hold Center on Now Playing. The menu shows these three rows at the top, also with the setting Off.</p>
   <div class="table-wrap"><table class="ref">
     <thead><tr><th>Row</th><th>What it does</th></tr></thead>
     <tbody>
-      <tr><td>Audiobook Speed</td><td>1.0x (Normal), 1.2x (Fast), 1.5x (Faster) or 2.0x (Very Fast). The speed is saved and applies to all audiobooks. Music and podcasts keep <em>Settings → Playback → Playback Speed</em>.</td></tr>
-      <tr><td>Chapters</td><td>The chapters in the <code>.m4b</code> file that plays: a row goes to that chapter. For a book of many files, the files: a row plays that file from its start.</td></tr>
-      <tr><td>Sleep Timer</td><td>5, 10, 15, 30, 45, 60, 90 or 120 minutes. At the end, the book pauses, the place is saved, and the player powers off. While it runs, the row shows the time left, and <em>Stop Sleep Timer</em> cancels it.</td></tr>
+      <tr><td>Audiobook Speed</td><td>1.0x (Normal), 1.2x (Fast), 1.5x (Faster) or 2.0x (Very Fast), for all audiobooks. Music and podcasts use <em>Main menu → Settings → Playback → Playback Speed</em>.</td></tr>
+      <tr><td>Chapters</td><td>The chapters of the <code>.m4b</code> file: a row goes to that chapter. For a book of many files, a row plays that file from its start.</td></tr>
+      <tr><td>Sleep Timer</td><td>5, 10, 15, 30, 45, 60, 90 or 120 minutes. At the end, the book pauses, Classy saves the place and the player powers off. <em>Stop Sleep Timer</em> cancels it.</td></tr>
     </tbody>
   </table></div>
 
   <div class="card dev">
     <h3 class="part" id="ab-dev">For developers</h3>
     <ul>
-      <li>The setting is <code>Prefs.AUDIOBOOK_SERIES_COVER_FLOW</code> (<code>audiobook_series_cover_flow</code>, default off).</li>
-      <li>The index is <code>controllers/coverflow/AudiobookSeriesIndex.kt</code>: <code>rootEntries</code>, <code>bookEntries</code>, <code>bookFilesOf</code> (Continue), <code>seriesFolderForFile</code> and <code>orderedFiles</code>. It is made from the paths of the scanned library in one pass (it never lists folders on the card) and makes each sort key one time. The screen is <code>ScreenState.AudiobookCoverFlow(seriesDirectory)</code>; <code>MainActivityControllers.prepareAudiobookCoverFlow</code> keeps the built indexes for Back and refresh.</li>
-      <li>Saved places in the app prefs: <code>book_pos_&lt;path&gt;</code> (position in a file), <code>audiobook_last_in_&lt;folder&gt;</code> (current file of each folder above it), <code>audiobook_series_last_book_&lt;series&gt;</code>, <code>audiobook_series_last_played</code>, <code>last_played_audiobook_path</code> and <code>audiobook_speed</code>.</li>
-      <li>Tests: <code>app/src/test/java/com/themoon/y1/controllers/AudiobookSeriesIndexTest.kt</code>.</li>
+      <li><strong>Setting:</strong> <code>Prefs.AUDIOBOOK_SERIES_COVER_FLOW</code> (<code>audiobook_series_cover_flow</code>, default off).</li>
+      <li><strong>Index:</strong> <code>controllers/coverflow/AudiobookSeriesIndex.kt</code>, made in one pass from the paths of the scanned library. Screen: <code>ScreenState.AudiobookCoverFlow(seriesDirectory)</code>.</li>
+      <li><strong>Saved places</strong> (app prefs): <code>book_pos_&lt;path&gt;</code>, <code>audiobook_last_in_&lt;folder&gt;</code>, <code>audiobook_series_last_book_&lt;series&gt;</code>, <code>audiobook_series_last_played</code>, <code>last_played_audiobook_path</code>, <code>audiobook_speed</code>.</li>
+      <li><strong>Tests:</strong> <code>app/src/test/java/com/themoon/y1/controllers/AudiobookSeriesIndexTest.kt</code>.</li>
     </ul>
   </div>
 </section>
