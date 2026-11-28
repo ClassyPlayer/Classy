@@ -10,6 +10,7 @@ import android.content.IntentFilter
 import android.content.SharedPreferences
 import android.os.Build
 import com.themoon.y1.MainActivity
+import com.themoon.y1.Prefs
 import com.themoon.y1.ThemeManager
 import com.themoon.y1.changeTheme
 import java.util.TimeZone
@@ -44,7 +45,21 @@ object AutoThemeManager {
 
     private var receiver: BroadcastReceiver? = null
 
-    fun isEnabled(prefs: SharedPreferences): Boolean = prefs.getBoolean(PREF_KEY, DEFAULT_ENABLED)
+    /**
+     * The stored Auto setting. With none stored, Auto is on (the default) only when no theme is saved: a player who
+     * chose a theme before Auto was the default, or a settings import without this key, keeps that theme.
+     */
+    fun isEnabled(prefs: SharedPreferences): Boolean =
+        if (prefs.contains(PREF_KEY)) prefs.getBoolean(PREF_KEY, DEFAULT_ENABLED)
+        else !prefs.contains(Prefs.THEME_NAME.key)
+
+    /**
+     * Stores the value of [isEnabled] when none is stored, before Auto saves its own theme: that saved theme must not
+     * read as a theme the player chose at the next start.
+     */
+    internal fun storeWhenMissing(prefs: SharedPreferences) {
+        if (!prefs.contains(PREF_KEY)) setEnabled(prefs, isEnabled(prefs))
+    }
 
     fun setEnabled(prefs: SharedPreferences, enabled: Boolean) {
         prefs.edit().putBoolean(PREF_KEY, enabled).commit()
@@ -59,6 +74,7 @@ object AutoThemeManager {
 
     /** App start, before the views are made: select the theme for the time now. */
     fun applyAtStart(prefs: SharedPreferences) {
+        storeWhenMissing(prefs)
         if (isEnabled(prefs)) ThemeManager.selectTheme(prefs, resolvedThemeName())
     }
 
