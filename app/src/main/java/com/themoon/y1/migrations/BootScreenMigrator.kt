@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Build
 import android.util.Log
 import com.themoon.y1.DeviceModel
+import com.themoon.y1.managers.RootFileInstall
 import java.io.DataOutputStream
 import java.io.File
 import java.util.zip.ZipFile
@@ -121,22 +122,12 @@ object BootScreenMigrator {
             os.writeBytes("mount -o remount,rw /system 2>/dev/null || mount -o remount,rw /system\n")
 
             if (!policyPatched && tempJar.exists()) {
-                val p = tempJar.absolutePath
-                val stagedJar = "$TARGET_POLICY_JAR.classy_tmp"
-                os.writeBytes("cp $p $stagedJar\n")
-                os.writeBytes("chmod 644 $stagedJar\n")
-                os.writeBytes("chown root:root $stagedJar\n")
-                os.writeBytes("mv $stagedJar $TARGET_POLICY_JAR\n")
+                RootFileInstall.lines(tempJar.absolutePath, TARGET_POLICY_JAR).forEach { os.writeBytes("$it\n") }
                 os.writeBytes("rm -f $TARGET_POLICY_ODEX\n")
             }
 
             if (apkNeedsWrite && tempApk.exists()) {
-                val p = tempApk.absolutePath
-                val stagedApk = "$TARGET_FRAMEWORK_RES.classy_tmp"
-                os.writeBytes("cp $p $stagedApk\n")
-                os.writeBytes("chmod 644 $stagedApk\n")
-                os.writeBytes("chown root:root $stagedApk\n")
-                os.writeBytes("mv $stagedApk $TARGET_FRAMEWORK_RES\n")
+                RootFileInstall.lines(tempApk.absolutePath, TARGET_FRAMEWORK_RES).forEach { os.writeBytes("$it\n") }
             }
 
             os.writeBytes("trap - EXIT\n")

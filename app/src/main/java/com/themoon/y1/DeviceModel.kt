@@ -4,4 +4,7 @@ package com.themoon.y1
 object DeviceModel {
     /** True on the Y2 ([model] is `Build.MODEL`). */
     fun isY2(model: String?): Boolean = model?.trim() == "Y2"
+
+    /** True on the Y1 ([model] is `Build.MODEL`). */
+    fun isY1(model: String?): Boolean = model?.trim() == "Y1"
 }
