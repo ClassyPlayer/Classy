@@ -1636,8 +1636,25 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     }
 
     class MediaBtnReceiver : BroadcastReceiver() {
+        companion object {
+            /** The media key that stopped the sleep timer's fade: its key up does nothing either. */
+            private var sleepTimerMediaKey = -1
+        }
+
         override fun onReceive(context: Context, intent: Intent) {
             val event = intent.getParcelableExtra<KeyEvent>(Intent.EXTRA_KEY_EVENT) ?: return
+            // A media key (Bluetooth, wired headset) while the sleep timer fades stops the timer and does nothing
+            // else, as a key of the player does. Also a key that Screen-Off Control would ignore: someone is awake.
+            if (event.keyCode == sleepTimerMediaKey) {
+                if (event.action == KeyEvent.ACTION_UP) sleepTimerMediaKey = -1
+                return
+            }
+            if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0 &&
+                com.themoon.y1.managers.SleepTimer.onUserKey()) {
+                sleepTimerMediaKey = event.keyCode
+                instance?.let { Notice.show(it, it.t("Sleep timer cancelled")) }
+                return
+            }
             val router = com.themoon.y1.navigation.InputRouter.getInstance()
             val isSkip = router.isSkipKey(event.keyCode)
 

@@ -9,7 +9,7 @@ object PlaybackPause {
     fun all(radio: () -> Unit = { AudioSources.app.pauseRadio() }) {
         try {
             val am = AudioPlayerManager.getInstance()
-            if (am.isPlaying()) am.playOrPauseMusic()
+            if (am.isPlaying()) am.pauseMusic()
         } catch (_: Exception) {}
         try {
             val vm = VideoPlayerManager.getInstance()

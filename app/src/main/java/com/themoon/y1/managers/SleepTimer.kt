@@ -34,6 +34,9 @@ import com.themoon.y1.views.Notice
 object SleepTimer {
     private const val TAG = "SleepTimer"
     private const val ACTION_FADE = "com.themoon.y1.SLEEP_TIMER_FADE"
+    private const val EXTRA_TOKEN = "token"
+    /** An alarm may come a little early: the fade starts if the alarm comes at most this much before its time. */
+    private const val EARLY_MS = 2_000L
     private const val FADE_TICK_MS = 250L
     /** The fade's wake lock lasts this much past the fade (a slow power off or screen off). */
     private const val LOCK_EXTRA_MS = 15_000L
@@ -46,6 +49,8 @@ object SleepTimer {
     /** End time ([SystemClock.elapsedRealtime]); 0 = no timer. */
     private var endAt = 0L
     private var fading = false
+    /** A new random number for each timer: the alarm brings it, a broadcast from another app cannot know it. */
+    private var token = 0L
     /** The end paused everything and the volume is still at 0: [restoreGain] brings it back. */
     private var restorePending = false
     // The application context (start() takes it), not an activity: nothing to leak
@@ -74,6 +79,7 @@ object SleepTimer {
         val c = context.applicationContext
         app = c
         endAt = SystemClock.elapsedRealtime() + SleepTimerMath.clamp(minutes) * 60_000L
+        token = java.security.SecureRandom().nextLong()
         register(c)
         setAlarm(c, endAt - SleepTimerMath.FADE_MS)
         scheduleTick()
@@ -204,15 +210,17 @@ object SleepTimer {
         }
     }
 
-    // The broadcast of the alarm: only this app gets it (setPackage), and a broadcast from elsewhere can only start
-    // the fade of a timer that runs. The players run API 17 and 19, which have no receiver flags.
+    // The broadcast of the alarm: only this app gets it (setPackage). Android 4.2 and 4.4 have no receiver flags, so
+    // another app can send the action too: the fade starts only with this timer's token and at its time.
     @SuppressLint("UnspecifiedRegisterReceiverFlag")
     private fun register(c: Context) {
         if (receiver != null) return
         val r = object : BroadcastReceiver() {
             // Main thread. The fade's wake lock comes here: after onReceive the CPU may sleep again
             override fun onReceive(context: Context, intent: Intent) {
-                if (isActive()) startFade()
+                if (!isActive() || intent.getLongExtra(EXTRA_TOKEN, 0L) != token) return
+                if (SystemClock.elapsedRealtime() < endAt - SleepTimerMath.FADE_MS - EARLY_MS) return
+                startFade()
             }
         }
         c.registerReceiver(r, IntentFilter(ACTION_FADE))
@@ -226,7 +234,7 @@ object SleepTimer {
     }
 
     private fun alarmIntent(c: Context): PendingIntent {
-        val intent = Intent(ACTION_FADE).setPackage(c.packageName)
+        val intent = Intent(ACTION_FADE).setPackage(c.packageName).putExtra(EXTRA_TOKEN, token)
         var flags = PendingIntent.FLAG_UPDATE_CURRENT
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) flags = flags or PendingIntent.FLAG_IMMUTABLE
         return PendingIntent.getBroadcast(c, 0, intent, flags)

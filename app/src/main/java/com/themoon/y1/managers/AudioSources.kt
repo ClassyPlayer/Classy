@@ -29,8 +29,6 @@ class AudioSources internal constructor(
     interface Radio {
         /** Turns the radio on (at its station) or off, as the Radio screen's centre button. */
         fun toggle()
-        /** Turns the radio off with no click or vibration (the end of the sleep timer). */
-        fun pause() = toggle()
         fun tuneSaved(next: Boolean)
 
         companion object {
@@ -103,10 +101,13 @@ class AudioSources internal constructor(
         }
     }
 
-    /** Pauses the radio when it plays, as a Play/Pause press does (the sleep timer). */
+    /**
+     * Pauses the radio when it plays, as a Play/Pause press does (the sleep timer): with [stopRadio], so with no
+     * click and also when the activity is closed.
+     */
     fun pauseRadio() {
         if (!radioOn()) return
-        radio.pause()
+        stopRadio()
         if (!radioOn()) radioPausedAtMs = nowMs()
     }
 
@@ -142,10 +143,6 @@ class AudioSources internal constructor(
             radio = object : Radio {
                 override fun toggle() {
                     MainActivity.instance?.let { it.fmRadioController.toggleRadioPower() }
-                }
-
-                override fun pause() {
-                    MainActivity.instance?.let { it.fmRadioController.toggleRadioPower(feedback = false) }
                 }
 
                 override fun tuneSaved(next: Boolean) {
