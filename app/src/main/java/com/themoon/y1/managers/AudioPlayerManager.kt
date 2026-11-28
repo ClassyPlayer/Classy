@@ -638,7 +638,8 @@ class AudioPlayerManager private constructor() {
 
     /**
      * Pauses and saves the place, also in the seconds after a Bluetooth reconnect when [playOrPauseMusic] ignores a
-     * pause (the car's own Play): for the pauses that the app itself asks for (sleep timer, Power screen, USB share).
+     * pause (the car's own Play): for the pauses that the app itself asks for (sleep timer, Power screen, USB share,
+     * a video, the radio or a Music Quiz that starts, Play On, an output loss). The play/pause keys keep the guard.
      */
     fun pauseMusic() {
         val player = exoPlayer ?: return

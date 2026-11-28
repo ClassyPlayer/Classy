@@ -139,7 +139,7 @@ class AudioSources internal constructor(
                 }
             },
             musicPlaying = { AudioPlayerManager.getInstance().isPlaying() },
-            pauseMusic = { onMain { AudioPlayerManager.getInstance().let { if (it.isPlaying()) it.playOrPauseMusic() } } },
+            pauseMusic = { onMain { AudioPlayerManager.getInstance().let { if (it.isPlaying()) it.pauseMusic() } } },
             radio = object : Radio {
                 override fun toggle() {
                     MainActivity.instance?.let { it.fmRadioController.toggleRadioPower() }

@@ -191,7 +191,7 @@ class MusicQuizController(
         currentScreenMode = MODE_GAME
         wasPlayingBeforeStart = AudioPlayerManager.getInstance().isPlaying()
         if (wasPlayingBeforeStart) {
-            AudioPlayerManager.getInstance().playOrPauseMusic()
+            AudioPlayerManager.getInstance().pauseMusic()
         }
 
         engine.coverArtPredicate = { hasCoverArt(it) }

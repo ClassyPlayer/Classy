@@ -456,7 +456,7 @@ object CastManager {
     private fun pauseLocal(): Boolean {
         val apm = AudioPlayerManager.getInstance()
         if (!apm.isPlaying()) return false
-        apm.playOrPauseMusic()
+        apm.pauseMusic()
         return true
     }
 
