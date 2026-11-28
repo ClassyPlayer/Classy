@@ -38,23 +38,28 @@ If `adb devices -l` lists a player, test the change on it, not only with unit te
 
 - The app is a system app. On a player with an official firmware it is signed with the release key, so a debug build
   fails with `INSTALL_PARSE_FAILED_INCONSISTENT_CERTIFICATES`, and `adb uninstall` removes only the update, not the
-  copy in `/system`. Flash a firmware with your debug build once (`scripts/build-rom.sh`, see the README). After that,
-  `adb install -r` installs your next debug builds.
+  copy in `/system`. A firmware with your debug build (`scripts/build-rom.sh`, see the README; it needs Linux and
+  `sudo`) lets `adb install -r` install your next debug builds. Flash it only when the owner of the player agrees:
+  after it, the release updates (System Update) fail with the same certificate error until an official firmware is
+  flashed again.
 - After `adb install -r`, run `adb shell am force-stop com.themoon.y1`: HOME starts the new build. Do not reboot to
   restart it. An update with the same `versionCode` as the system copy is dropped at reboot.
-- Menus: `adb shell input keyevent 21` / `22` turn the wheel and `23` is the centre button. The app times the Back
-  presses itself, so `input keyevent 4` does not work as Back. Send the top button as a real press:
-  `adb shell sendevent /dev/input/event3 1 158 1` and `adb shell sendevent /dev/input/event3 0 0 0`, then about
-  150 ms later the same two with `0` in place of the last `1` of the first.
-- Check which row has focus (a screenshot) before a scripted centre press or hold. A hold on Now Playing changes
-  My Favorites.
+- Menus: `adb shell input keyevent 21` / `22` turn the wheel, `23` is the centre button and `4` is Back. If Back does
+  not act, send the top button as a real press. Find its device with `adb shell getevent -pl` (the one with
+  `KEY_BACK`; the number is not the same on all players), then `adb shell sendevent /dev/input/eventN 1 158 1` and
+  `adb shell sendevent /dev/input/eventN 0 0 0`, then about 150 ms later the same two with `0` in place of the last
+  `1` of the first.
+- Check which row has focus (a screenshot) before a scripted centre press or hold. On Now Playing, a hold opens the
+  options, and two presses less than 300 ms apart change My Favorites (*Double-Click to Favorite*, On by default).
+- Keep at least 130 ms between scripted wheel steps: 4 steps less than 100 ms apart start the letter jump in A–Z
+  lists and Cover Flow, and the row counts are then wrong.
 - Injected wheel steps do not reach the games. Ask a person to try the real wheel there.
-- Screenshots: `adb shell screencap -p /data/local/tmp/s.png`, then `adb pull`. A sleeping screen gives a black
-  picture: if `adb shell dumpsys power | grep mScreenOn` shows `false`, wake it with `adb shell input keyevent 26`
-  first. On a screen that is on, the power key turns it off.
+- Screenshots: `adb shell screencap -p /data/local/tmp/s.png`, then `adb pull /data/local/tmp/s.png`. A sleeping
+  screen gives a black picture: if `adb shell dumpsys power | grep mScreenOn` shows `false`, wake it with
+  `adb shell input keyevent 26` first. On a screen that is on, the power key turns it off.
 - Copy files off the player with `adb pull`, not `adb shell cat > file`: the adb shell of Android 4.4 turns LF into
   CRLF.
-- The app's `Log` lines do not show in `adb logcat` on the Y2. Check the result in the device state instead: shared
+- If a `Log` line of the app does not show in `adb logcat`, check the result in the device state instead: shared
   preferences, `getprop`, `settings get`, files on the card. `adb shell am broadcast -a com.themoon.y1.RESCAN_LIBRARY`
   starts a library scan.
 - Do not write to `/system` (remount, push to `priv-app` or `/system/lib`) without asking the owner of the player.
