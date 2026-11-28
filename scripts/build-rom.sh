@@ -595,9 +595,9 @@ sudo rm -f "$MOUNT_SYS/xbin/preloadfiles.sh"
 
 # The Y1 bases show the Rockbox animation after the boot logo: the Classy one shows the boot logo until the UI starts
 if [ "$TYPE" != "y2" ]; then
-    echo "==> Installing the Classy boot animation (tools/rom_assets/bootanimation_classy.zip)"
-    verify_sha256 "$REPO_ROOT/tools/rom_assets/bootanimation_classy.zip" "$BOOT_ANIMATION_SHA256"
-    sudo cp -f "$REPO_ROOT/tools/rom_assets/bootanimation_classy.zip" "$MOUNT_SYS/media/bootanimation.zip"
+    echo "==> Installing the Classy boot animation (app/src/y1/assets/boot/bootanimation.zip)"
+    verify_sha256 "$REPO_ROOT/app/src/y1/assets/boot/bootanimation.zip" "$BOOT_ANIMATION_SHA256"
+    sudo cp -f "$REPO_ROOT/app/src/y1/assets/boot/bootanimation.zip" "$MOUNT_SYS/media/bootanimation.zip"
     sudo chmod 644 "$MOUNT_SYS/media/bootanimation.zip"
     sudo chown root:root "$MOUNT_SYS/media/bootanimation.zip"
 fi

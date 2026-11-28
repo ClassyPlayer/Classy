@@ -24,9 +24,9 @@ The `LOGO` partition (boot splash, 3 MB, `MT6572_Android_scatter.txt` partition 
 
 The `system.img`/`rom.zip` builds through v1.3.2 shipped a **Rockbox**-branded `logo.bin` instead of either of the above — a leftover from the source device the original 12-partition set was captured from (its history: stock firmware → Rockbox → this launcher). It was a valid, correctly-structured `LOGO` partition, so it flashed and displayed fine, just with Rockbox's splash instead of anything InniClassic- or Innioasis-branded.
 
-## `bootanimation_classy.zip` — Y1 boot animation
+## `app/src/y1/assets/boot/bootanimation.zip` — Y1 boot animation
 
-The Y1 bases (type a|b) have the Rockbox animation in `/system/media/bootanimation.zip`: it shows after the boot logo until the UI starts. This zip has one frame, the picture of stream 0 of `logo_classy.bin`, so the Classy boot logo stays until the UI starts. Built by [`tools/build_boot_animation.py`](../build_boot_animation.py) (stored zip, fixed file times; build it again after a change of the logo, and update `BOOT_ANIMATION_SHA256` in `scripts/build-rom.sh`):
+It is an asset of the Y1 app (not in this folder), so the ROM and the app have one copy. The Y1 bases (type a|b) have the Rockbox animation in `/system/media/bootanimation.zip`: it shows after the boot logo until the UI starts. This zip has one frame, the picture of stream 0 of `logo_classy.bin`, so the Classy boot logo stays until the UI starts. Built by [`tools/build_boot_animation.py`](../build_boot_animation.py) (stored zip, fixed file times; build it again after a change of the logo, and update `BOOT_ANIMATION_SHA256` in `scripts/build-rom.sh`):
 
 ```bash
 python3 tools/build_boot_animation.py

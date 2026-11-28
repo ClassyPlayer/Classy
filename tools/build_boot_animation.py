@@ -7,7 +7,7 @@ starts. The zip is stored (not compressed), as the boot animation of Android 4.2
 
 Usage:
   python3 tools/build_boot_animation.py
-  python3 tools/build_boot_animation.py tools/rom_assets/logo_classy.bin tools/rom_assets/bootanimation_classy.zip
+  python3 tools/build_boot_animation.py tools/rom_assets/logo_classy.bin app/src/y1/assets/boot/bootanimation.zip
 """
 import io
 import os
@@ -22,7 +22,7 @@ W, H = 480, 360
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_LOGO_PATH = os.path.join(SCRIPT_DIR, "rom_assets", "logo_classy.bin")
-DEFAULT_OUT_PATH = os.path.join(SCRIPT_DIR, "rom_assets", "bootanimation_classy.zip")
+DEFAULT_OUT_PATH = os.path.normpath(os.path.join(SCRIPT_DIR, "..", "app", "src", "y1", "assets", "boot", "bootanimation.zip"))
 
 # One frame a second, shown again until the system stops the animation
 DESC = f"{W} {H} 1\np 0 0 part0\n"

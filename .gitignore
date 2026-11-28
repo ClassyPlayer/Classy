@@ -15,6 +15,8 @@
 .claude/
 local.properties
 *.zip
+# The Y1 boot animation (an app asset)
+!app/src/y1/assets/boot/bootanimation.zip
 !app/src/main/assets/themes/*.zip
 scratch/
 tasks/
