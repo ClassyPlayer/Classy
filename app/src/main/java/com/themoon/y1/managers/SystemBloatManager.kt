@@ -15,6 +15,12 @@ import com.themoon.y1.DeviceModel
  * the window animations and some MediaTek daemons. It runs in its own thread at each app start, so the library
  * does not wait for it.
  *
+ * On the Y1 (Android 4.2), only the status bar service goes off ([Y1_DISABLED]), for the same reason (not the package).
+ * Its USB storage notification (MediaTek's version) opens Android's "USB mass storage" screen at each connection to a
+ * computer, over the app's own question ([UsbStorageUiManager]). The service also has Android's low-battery dialog (the app has its own warnings) and the
+ * player of notification sounds. With only the screen (`UsbStorageActivity`) disabled, SystemUI stops with an error at
+ * the next connection.
+ *
  * The status bar goes off with its service only (`SystemUIService`), not with the whole SystemUI package: the package also has
  * the only wallpaper service (`ImageWallpaper`). Without a wallpaper window, Android 4.4 enables input only at its 30 s
  * boot timeout, so the click wheel does nothing for about 30 s after each boot.
@@ -67,6 +73,11 @@ object SystemBloatManager {
         KEYBOARD,
         "com.android.providers.userdictionary",
     )
+
+    /** The Y1 list (see the class comment). Raise [Y1_VERSION] when it changes. */
+    internal val Y1_DISABLED = listOf("com.android.systemui/com.android.systemui.SystemUIService")
+    internal const val Y1_VERSION = 1
+    private const val KEY_Y1_APPLIED_VERSION = "system_bloat_y1_applied_version"
 
     /** Components (`package/class`) of packages that must not be force-stopped: disabled with DONT_KILL_APP. */
     internal val DISABLED_DONT_KILL = listOf(
@@ -137,13 +148,35 @@ object SystemBloatManager {
 
     /** Call at app start. */
     fun start(context: Context) {
-        if (!DeviceModel.isY2(Build.MODEL) || started) return
+        val y2 = DeviceModel.isY2(Build.MODEL)
+        if (started || !(y2 || DeviceModel.isY1(Build.MODEL))) return
         started = true
         val appContext = context.applicationContext
         Thread({
-            stopServices()
-            applyOnce(appContext)
+            if (y2) {
+                stopServices()
+                applyOnce(appContext)
+            } else {
+                applyY1Once(appContext)
+            }
         }, "SystemBloat").start()
+    }
+
+    /** Disables [Y1_DISABLED] once for each [Y1_VERSION]; records it only when a check passes. */
+    private fun applyY1Once(appContext: Context) {
+        val prefs = AppPrefs.get(appContext)
+        if (prefs.getInt(KEY_Y1_APPLIED_VERSION, 0) >= Y1_VERSION) return
+        val disable = Y1_DISABLED.filter { !isDisabled(appContext, it) }
+        if (disable.isNotEmpty()) {
+            FmRadioManager.runSuQuiet(applyCommand(emptyList(), disable, emptyList()), timeoutMs = 30_000)
+        }
+        val failed = Y1_DISABLED.filter { !isDisabled(appContext, it) }
+        if (failed.isEmpty()) {
+            prefs.edit().putInt(KEY_Y1_APPLIED_VERSION, Y1_VERSION).apply()
+            Log.i(TAG, "Applied Y1 version $Y1_VERSION (changed: $disable)")
+        } else {
+            Log.w(TAG, "Not applied, tries again at the next start: $failed")
+        }
     }
 
     /** Stops the running [SERVICES] with root. */

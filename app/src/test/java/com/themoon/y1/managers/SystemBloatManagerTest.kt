@@ -26,6 +26,12 @@ class SystemBloatManagerTest {
     }
 
     @Test
+    fun y1List_isOnlyTheStatusBarService() {
+        // Its USB storage notification opens Android's USB screen; the wallpaper (same package) must stay
+        assertEquals(listOf("com.android.systemui/com.android.systemui.SystemUIService"), SystemBloatManager.Y1_DISABLED)
+    }
+
+    @Test
     fun lists_keepTheKeyguardPackageForMtp() {
         // Without it, Android 4.4 counts the device as locked with a PIN, and MTP shows no storage
         assertFalse("com.android.keyguard" in SystemBloatManager.DISABLED)
