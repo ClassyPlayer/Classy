@@ -234,11 +234,9 @@ object ClassyLayout {
 
     /** Top padding for [tv] (gravity TOP, no font padding) that centres its capitals in [boxHeight]. */
     fun capCentredPaddingTop(tv: TextView, boxHeight: Float): Int {
-        val paint = tv.paint
-        // The layout puts the baseline at paddingTop - FontMetricsInt.ascent. The cap height comes from the font
-        // file, not from Android: on the Y1 (Android 4.2) the rows and titles had their text low.
-        return ClassyMetrics.capCentredPaddingTop(boxHeight, paint.fontMetricsInt.ascent, ClassyMetrics.capHeight(paint.textSize))
-            .coerceAtLeast(0)
+        // The layout puts the baseline at paddingTop - ascent, with the ascent of the text layout (TextMetrics)
+        val m = TextMetrics.of(tv.paint)
+        return ClassyMetrics.capCentredPaddingTop(boxHeight, m.ascent, m.capHeight).coerceAtLeast(0)
     }
 
     /**

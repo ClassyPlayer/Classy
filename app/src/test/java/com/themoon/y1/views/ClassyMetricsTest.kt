@@ -165,11 +165,11 @@ class ClassyMetricsTest {
     }
 
     @Test
-    fun capHeightIsTheHOfNimbusSans() {
-        // "H" of NimbusSans-Regular.otf and -Bold.otf: 729 units of 1000
-        assertEquals(14.58f, ClassyMetrics.capHeight(20f), 0.001f)
-        // A 36 px row, 20 px text, ascent -15: 36 / 2 - 15 + 14.58 / 2 = 10.29
-        val top = ClassyMetrics.capCentredPaddingTop(36f, -15, ClassyMetrics.capHeight(20f))
-        assertEquals(10, top)
+    fun capsAreCentredWithTheAscentOfTheTextLayout() {
+        // Y1 (Android 4.2), Nimbus Sans Bold 23 px in a 38 px row: cap height 16.77, the text layout has an ascent of
+        // -21 (the paint says -17). 19 - 21 + 8.38 = 6.38: baseline 6 + 21 = 27, the capitals at 10.2..27 (centre 18.6).
+        assertEquals(6, ClassyMetrics.capCentredPaddingTop(38f, -21, 16.77f))
+        // With the paint ascent: 10, baseline 31, the capitals 4 px low
+        assertEquals(10, ClassyMetrics.capCentredPaddingTop(38f, -17, 16.77f))
     }
 }

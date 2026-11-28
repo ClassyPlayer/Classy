@@ -32,6 +32,7 @@ import com.themoon.y1.navigation.ScreenState
 import com.themoon.y1.navigation.WheelKind
 import com.themoon.y1.views.CoverFlowLayout
 import com.themoon.y1.views.SmoothEdgeImageView
+import com.themoon.y1.views.TextMetrics
 
 /**
  * Controller for the 3D CoverFlow carousel view.
@@ -628,8 +629,8 @@ class CoverFlowController(
         tv.setTextColor(if (bold) ThemeManager.getTextColorPrimary() else ThemeManager.getTextColorSecondary())
         tv.setTextSize(TypedValue.COMPLEX_UNIT_PX, sizePx)
         tv.typeface = if (bold) ThemeManager.getCustomFontBold() else ThemeManager.getCustomFont()
-        // Without font padding, the baseline is -ascent below the top of the view.
-        val top = Math.round(baseline + tv.paint.fontMetricsInt.ascent)
+        // Without font padding, the baseline is -ascent below the top of the view (the ascent of the text layout).
+        val top = Math.round(baseline + TextMetrics.of(tv.paint).ascent)
         val lp = tv.layoutParams as? FrameLayout.LayoutParams ?: return
         if (lp.topMargin != top) {
             lp.topMargin = top

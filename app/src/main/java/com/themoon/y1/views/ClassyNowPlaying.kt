@@ -179,7 +179,7 @@ object ClassyNowPlaying {
         for (i in 0 until column.childCount) {
             val tv = column.getChildAt(i) as? TextView ?: continue
             if (tv.visibility == View.GONE) continue
-            val fm = tv.paint.fontMetricsInt
+            val fm = TextMetrics.of(tv.paint)
             val baseline = when (tv.id) {
                 R.id.tv_player_title -> px(M.NP_TITLE_BASELINE, d)
                 R.id.tv_player_artist -> px(M.NP_ARTIST_BASELINE, d)
@@ -195,7 +195,7 @@ object ClassyNowPlaying {
             }
             lines.add(tv)
             tops.add(M.textTopForBaseline(baseline, fm.ascent))
-            heights.add(fm.descent - fm.ascent)
+            heights.add(fm.lineHeight)
         }
         val margins = M.stackTopMargins(px(M.ART_TOP, d), tops.toIntArray(), heights.toIntArray())
         for (i in lines.indices) L.setMargins(lines[i], top = margins[i])
