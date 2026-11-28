@@ -6,7 +6,6 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.PorterDuff
 import android.graphics.Rect
-import android.graphics.Region
 import android.graphics.drawable.Drawable
 import android.os.Build
 import android.view.View
@@ -28,13 +27,10 @@ import kotlin.math.min
  * The rows have their own look for the focus (background and text colours), so the list draws the moving highlight
  * itself ([RowGlide]): a copy of the focused row's background, with pictures of the focused text of the rows under it,
  * and a picture of the plain look of the new row (taken before the focus moves) around it. The disclosure arrow
- * ([arrowOf]) is not in the pictures of the text: one picture of it moves with the highlight. Region clips need
- * Android 4.3 (API 18) with hardware drawing: not on the Y1 (Android 4.2).
+ * ([arrowOf]) is not in the pictures of the text: one picture of it moves with the highlight.
  */
 object ListGlide {
-    val isSupported: Boolean get() = Build.VERSION.SDK_INT >= 18
-
-    fun isOn(context: Context): Boolean = isSupported && Prefs.LIST_GLIDE.get(AppPrefs.get(context))
+    fun isOn(context: Context): Boolean = Prefs.LIST_GLIDE.get(AppPrefs.get(context))
 
     /**
      * A wheel step will move the focus in [rows] from row [from] to row [to]: the index of the row in a ScrollView
@@ -102,6 +98,34 @@ object ListGlide {
         return if (abs(target - next) < 0.5f) target else next
     }
 
+    /**
+     * The parts of [top]..[bottom] that are not in [aTop]..[aBottom] or in [bTop]..[bBottom]: top, bottom pairs, at
+     * most three parts (above, between and below the two).
+     */
+    fun openBands(top: Int, bottom: Int, aTop: Int, aBottom: Int, bTop: Int, bBottom: Int): IntArray {
+        val out = IntArray(6)
+        var n = 0
+        var y = top
+        val firstTop = min(aTop, bTop)
+        val firstBottom = if (aTop <= bTop) aBottom else bBottom
+        val secondTop = maxOf(aTop, bTop)
+        val secondBottom = if (aTop <= bTop) bBottom else aBottom
+        for ((cutTop, cutBottom) in arrayOf(firstTop to firstBottom, secondTop to secondBottom)) {
+            if (cutBottom <= cutTop) continue
+            val end = min(cutTop, bottom)
+            if (end > y) {
+                out[n++] = y
+                out[n++] = end
+            }
+            y = maxOf(y, cutBottom)
+        }
+        if (bottom > y) {
+            out[n++] = y
+            out[n++] = bottom
+        }
+        return out.copyOf(n)
+    }
+
     /** [value] kept within [maxLag] of [target]. */
     fun limit(value: Float, target: Float, maxLag: Float): Float = value.coerceIn(target - maxLag, target + maxLag)
 
@@ -152,10 +176,17 @@ object ListGlide {
             } catch (_: OutOfMemoryError) {
                 return null
             }
-            b.eraseColor(0)
             canvas.setBitmap(b)
             val bg = if (withBackground) null else v.background
-            bg?.alpha = 0
+            if (bg != null) {
+                // The background draws once at its alpha first (then it is erased): on Android 4.2 (Y1), a
+                // GradientDrawable makes its paint at its first draw after a size change with the alpha of that draw,
+                // and an alpha of 0 stayed (the new row showed blank after the glide)
+                bg.setBounds(0, 0, w, h)
+                bg.draw(canvas)
+                bg.alpha = 0
+            }
+            b.eraseColor(0)
             v.draw(canvas)
             bg?.alpha = 255
             canvas.setBitmap(null)
@@ -442,20 +473,21 @@ internal class RowGlide(private val host: ViewGroup) {
         val barDrawable = bar
         val look = targetLook
 
+        val outerTop = sy + host.paddingTop
+        val outerBottom = sy + host.height - host.paddingBottom
         canvas.save()
-        canvas.clipRect(sx, sy + host.paddingTop, sx + host.width, sy + host.height - host.paddingBottom)
-        canvas.save()
+        canvas.clipRect(sx, outerTop, sx + host.width, outerBottom)
         if (barDrawable != null && look != null) {
-            // The target row and the highlight show from the pictures
-            clip.set(left, tTop, right, tBottom)
-            canvas.clipRect(clip, Region.Op.DIFFERENCE)
-            clip.set(left, barT, right, barB)
-            canvas.clipRect(clip, Region.Op.DIFFERENCE)
+            // The target row and the highlight show from the pictures: the rows show only around them. Android 4.2
+            // (Y1) cannot clip a rectangle out with hardware drawing (Region.Op.DIFFERENCE needs API 18), so the
+            // rows draw in up to three bands above, between and below the two, and in the strips at their sides.
+            val bands = ListGlide.openBands(outerTop, outerBottom, tTop, tBottom, barT, barB)
+            for (i in bands.indices step 2) drawRowsIn(canvas, rows, dy, left, bands[i], right, bands[i + 1], drawRows)
+            drawRowsIn(canvas, rows, dy, sx, outerTop, left, outerBottom, drawRows)
+            drawRowsIn(canvas, rows, dy, right, outerTop, sx + host.width, outerBottom, drawRows)
+        } else {
+            drawRowsIn(canvas, rows, dy, sx, outerTop, sx + host.width, outerBottom, drawRows)
         }
-        canvas.translate(0f, dy.toFloat())
-        drawRows(canvas)
-        if (host is ListView) drawExtraRows(canvas, host, rows)
-        canvas.restore()
         if (barDrawable != null && look != null) {
             // The plain look of the target row above and below the highlight
             if (barT > tTop) drawPart(canvas, look, left, tTop, left, tTop, right, min(barT, tBottom))
@@ -487,6 +519,17 @@ internal class RowGlide(private val host: ViewGroup) {
         }
         canvas.restore()
         host.postInvalidateOnAnimation()
+    }
+
+    /** Draws the rows moved by [dy] in the part ([l], [t], [r], [b]) of the canvas only. */
+    private fun drawRowsIn(canvas: Canvas, rows: List<Row>, dy: Int, l: Int, t: Int, r: Int, b: Int, drawRows: (Canvas) -> Unit) {
+        if (r <= l || b <= t) return
+        canvas.save()
+        canvas.clipRect(l, t, r, b)
+        canvas.translate(0f, dy.toFloat())
+        drawRows(canvas)
+        if (host is ListView) drawExtraRows(canvas, host, rows)
+        canvas.restore()
     }
 
     /** Draws the part ([l], [t], [r], [b]) of [picture], a picture of a row with its top left corner at ([x], [y]). */

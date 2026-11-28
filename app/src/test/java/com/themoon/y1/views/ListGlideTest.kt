@@ -110,4 +110,18 @@ class ListGlideTest {
     fun arrowAlpha_noRowWithAPicture_isZero() {
         assertEquals(0, ListGlide.arrowAlpha(0, 0))
     }
+
+    @Test
+    fun openBands_areAboveBetweenAndBelowTheTwoParts() {
+        // Highlight 100..140 below the target row 60..100 (they touch): above and below only
+        assertTrue(intArrayOf(0, 60, 140, 300).contentEquals(ListGlide.openBands(0, 300, 60, 100, 100, 140)))
+        // Highlight 20..60 above the target row 100..140: three bands
+        assertTrue(intArrayOf(0, 20, 60, 100, 140, 300).contentEquals(ListGlide.openBands(0, 300, 100, 140, 20, 60)))
+        // They overlap
+        assertTrue(intArrayOf(0, 60, 120, 300).contentEquals(ListGlide.openBands(0, 300, 60, 100, 80, 120)))
+        // Partly out of the list: nothing outside top..bottom
+        assertTrue(intArrayOf(10, 280).contentEquals(ListGlide.openBands(10, 300, -30, 10, 280, 320)))
+        // An empty highlight
+        assertTrue(intArrayOf(0, 60, 100, 300).contentEquals(ListGlide.openBands(0, 300, 60, 100, 90, 90)))
+    }
 }
