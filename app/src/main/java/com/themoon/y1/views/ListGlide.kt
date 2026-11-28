@@ -106,11 +106,10 @@ object ListGlide {
         val out = IntArray(6)
         var n = 0
         var y = top
-        val firstTop = min(aTop, bTop)
-        val firstBottom = if (aTop <= bTop) aBottom else bBottom
-        val secondTop = maxOf(aTop, bTop)
-        val secondBottom = if (aTop <= bTop) bBottom else aBottom
-        for ((cutTop, cutBottom) in arrayOf(firstTop to firstBottom, secondTop to secondBottom)) {
+        val aFirst = aTop <= bTop
+        for (k in 0..1) {
+            val cutTop = if (aFirst == (k == 0)) aTop else bTop
+            val cutBottom = if (aFirst == (k == 0)) aBottom else bBottom
             if (cutBottom <= cutTop) continue
             val end = min(cutTop, bottom)
             if (end > y) {
@@ -123,7 +122,7 @@ object ListGlide {
             out[n++] = y
             out[n++] = bottom
         }
-        return out.copyOf(n)
+        return if (n == out.size) out else out.copyOf(n)
     }
 
     /** [value] kept within [maxLag] of [target]. */
@@ -187,9 +186,12 @@ object ListGlide {
                 bg.alpha = 0
             }
             b.eraseColor(0)
-            v.draw(canvas)
-            bg?.alpha = 255
-            canvas.setBitmap(null)
+            try {
+                v.draw(canvas)
+            } finally {
+                bg?.alpha = 255
+                canvas.setBitmap(null)
+            }
             return b
         }
 
