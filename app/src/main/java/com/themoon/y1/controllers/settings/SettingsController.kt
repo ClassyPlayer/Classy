@@ -887,7 +887,7 @@ class SettingsController(
         AudioPlayerManager.getInstance().setRepeatMode(0)
 
         mainActivity?.onClockSettingsChanged()
-        mainActivity?.batteryIconView?.setShowPercentage(false)
+        mainActivity?.batteryIconView?.setShowPercentage(Prefs.BATTERY_PERCENTAGE.get(prefs))
         mainActivity?.setVolumeLimit(-1)
         mainActivity?.let { StatusBarSettings.applyBattery(it) }
 

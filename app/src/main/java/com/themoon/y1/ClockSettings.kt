@@ -11,7 +11,7 @@ object ClockSettings {
     const val DEFAULT_24_HOUR_FORMAT = true
 
     const val KEY_TIME_IN_TITLE = "time_in_title_bar"
-    const val DEFAULT_TIME_IN_TITLE = false
+    const val DEFAULT_TIME_IN_TITLE = true
 
     fun statusBarPattern(is24HourFormat: Boolean): String =
         if (is24HourFormat) "HH:mm" else "h:mm a"
