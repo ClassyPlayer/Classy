@@ -8,8 +8,8 @@ import java.util.WeakHashMap
 
 /**
  * The "Toggle Style" setting: how on/off setting rows show their value.
- * - Text (default): the text "On" or "Off".
- * - Switch: a small switch that [SettingValueView] draws. The row text stays "On"/"Off" (tests, accessibility).
+ * - Text: the text "On" or "Off".
+ * - Switch (default): a small switch that [SettingValueView] draws. The row text stays "On"/"Off" (tests, accessibility).
  *
  * A value is on/off when it comes from `onOff()` (see Localization.kt). A change applies at once to all rows.
  */
@@ -17,6 +17,7 @@ object ToggleStyle {
     const val PREF_KEY = "toggle_style"
     const val TEXT = "text"
     const val SWITCH = "switch"
+    const val DEFAULT = SWITCH
     private const val PREFS_NAME = "AppPrefs"
 
     /** What a setting value shows. */
@@ -38,8 +39,8 @@ object ToggleStyle {
         onOffState(newText)
             ?: if (previous != null && newText?.toString() == shownText?.toString()) previous else null
 
-    /** The stored value is [SWITCH] or [TEXT]; any other value (or none) is Text. */
-    fun isSwitchPref(value: String?): Boolean = value == SWITCH
+    /** The stored value is [SWITCH] or [TEXT]; none is the [DEFAULT], any other value is Text. */
+    fun isSwitchPref(value: String?): Boolean = (value ?: DEFAULT) == SWITCH
 
     fun prefValue(isSwitch: Boolean): String = if (isSwitch) SWITCH else TEXT
 
@@ -168,7 +169,7 @@ object ToggleStyle {
 
     fun isSwitch(context: Context): Boolean =
         switchStyle ?: isSwitchPref(
-            context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getString(PREF_KEY, TEXT)
+            context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getString(PREF_KEY, DEFAULT)
         ).also { switchStyle = it }
 
     /** Saves the setting and applies it at once to all setting rows. */

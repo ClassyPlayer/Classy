@@ -44,7 +44,8 @@ class ToggleStyleTest {
     fun prefValueRoundTripsAndDefaultsToText() {
         assertTrue(ToggleStyle.isSwitchPref(ToggleStyle.prefValue(true)))
         assertFalse(ToggleStyle.isSwitchPref(ToggleStyle.prefValue(false)))
-        assertFalse(ToggleStyle.isSwitchPref(null))
+        // No stored value: the default, Switch
+        assertTrue(ToggleStyle.isSwitchPref(null))
         assertFalse(ToggleStyle.isSwitchPref("something else"))
         assertEquals("switch", ToggleStyle.prefValue(true))
         assertEquals("text", ToggleStyle.prefValue(false))

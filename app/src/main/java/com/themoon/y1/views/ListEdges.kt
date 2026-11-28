@@ -19,8 +19,8 @@ import java.util.WeakHashMap
 
 /**
  * The "List Edges" setting.
- * - Cut (default): the list edge cuts the last visible row.
- * - Fade: a short fade at each list edge that has more rows past it. The fade is 2/3 of a row,
+ * - Cut: the list edge cuts the last visible row.
+ * - Fade (default): a short fade at each list edge that has more rows past it. The fade is 2/3 of a row,
  *   so it only covers the edge row. The focused row is always kept clear of the fades.
  *
  * Lists use [EdgeFadeScrollView] or [EdgeFadeListView]. They turn on Android's vertical fading edges
@@ -30,6 +30,7 @@ import java.util.WeakHashMap
  */
 object ListEdges {
     const val PREF_KEY = "list_edges_fade"
+    const val DEFAULT_FADE = true
     private const val PREFS_NAME = "AppPrefs"
 
     private var fade: Boolean? = null
@@ -38,7 +39,7 @@ object ListEdges {
 
     fun isFade(context: Context): Boolean =
         fade ?: context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .getBoolean(PREF_KEY, false).also { fade = it }
+            .getBoolean(PREF_KEY, DEFAULT_FADE).also { fade = it }
 
     /** Saves the setting and applies it at once to all lists. */
     fun setFade(context: Context, on: Boolean) {

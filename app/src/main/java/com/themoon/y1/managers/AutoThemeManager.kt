@@ -28,9 +28,9 @@ import java.util.TimeZone
 object AutoThemeManager {
 
     const val PREF_KEY = "auto_theme_enabled"
+    const val DEFAULT_ENABLED = true
     const val DAY_THEME = "Classic Light"
     const val NIGHT_THEME = "Classic Dark"
-    const val DEFAULT_THEME = "Classic Light"
 
     private const val ACTION_SWITCH = "com.themoon.y1.AUTO_THEME_SWITCH"
 
@@ -44,7 +44,7 @@ object AutoThemeManager {
 
     private var receiver: BroadcastReceiver? = null
 
-    fun isEnabled(prefs: SharedPreferences): Boolean = prefs.getBoolean(PREF_KEY, false)
+    fun isEnabled(prefs: SharedPreferences): Boolean = prefs.getBoolean(PREF_KEY, DEFAULT_ENABLED)
 
     fun setEnabled(prefs: SharedPreferences, enabled: Boolean) {
         prefs.edit().putBoolean(PREF_KEY, enabled).commit()
@@ -166,10 +166,10 @@ object AutoThemeManager {
         cancelAlarm(activity)
     }
 
-    /** Reset All Settings: turn Auto off and go back to the default theme. */
+    /** Reset All Settings: Auto on (the default) and the theme for the time now. */
     fun reset(activity: Activity, prefs: SharedPreferences) {
-        if (!isEnabled(prefs)) return
-        turnOff(activity, prefs)
-        (activity as? MainActivity)?.changeTheme(DEFAULT_THEME)
+        if (isEnabled(prefs)) return
+        val main = activity as? MainActivity
+        if (main != null) select(main) else setEnabled(prefs, DEFAULT_ENABLED)
     }
 }

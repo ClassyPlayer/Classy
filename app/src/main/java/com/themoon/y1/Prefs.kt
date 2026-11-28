@@ -164,15 +164,15 @@ object Prefs {
     // --- Status Bar ---
     val TIME_IN_TITLE = add(BoolPref(ClockSettings.KEY_TIME_IN_TITLE, ClockSettings.DEFAULT_TIME_IN_TITLE, PrefGroup.STATUS_BAR, resettable = true))
     val SHOW_BATTERY = add(BoolPref(StatusBarSettings.KEY_SHOW_BATTERY, StatusBarSettings.DEFAULT_SHOW_BATTERY, PrefGroup.STATUS_BAR, resettable = true))
-    val BATTERY_PERCENTAGE = add(BoolPref("show_battery_percentage", false, PrefGroup.STATUS_BAR, resettable = true))
+    val BATTERY_PERCENTAGE = add(BoolPref("show_battery_percentage", true, PrefGroup.STATUS_BAR, resettable = true))
 
     // --- Appearance ---
     /** The theme that the user selected; null before the first selection (then Classic Light). */
     val THEME_NAME = add(PrefKey("app_theme_name", PrefGroup.APPEARANCE))
-    /** Reset does not remove it: [AutoThemeManager.reset] turns Auto off and selects the default theme. */
-    val AUTO_THEME = add(BoolPref(AutoThemeManager.PREF_KEY, false, PrefGroup.APPEARANCE))
-    val TOGGLE_STYLE = add(StringPref(ToggleStyle.PREF_KEY, ToggleStyle.TEXT, PrefGroup.APPEARANCE, resettable = true))
-    val LIST_EDGES_FADE = add(BoolPref(ListEdges.PREF_KEY, false, PrefGroup.APPEARANCE, resettable = true))
+    /** Reset does not remove it: [AutoThemeManager.reset] turns Auto on and selects the theme for the time now. */
+    val AUTO_THEME = add(BoolPref(AutoThemeManager.PREF_KEY, AutoThemeManager.DEFAULT_ENABLED, PrefGroup.APPEARANCE))
+    val TOGGLE_STYLE = add(StringPref(ToggleStyle.PREF_KEY, ToggleStyle.DEFAULT, PrefGroup.APPEARANCE, resettable = true))
+    val LIST_EDGES_FADE = add(BoolPref(ListEdges.PREF_KEY, ListEdges.DEFAULT_FADE, PrefGroup.APPEARANCE, resettable = true))
     val MENU_COVER_MOTION = add(BoolPref(CoverPane.PREF, CoverPane.DEFAULT_ON, PrefGroup.APPEARANCE, resettable = true))
     val VIDEO_FILL = add(BoolPref("video_stretch_fill", false, PrefGroup.APPEARANCE, resettable = true))
 
