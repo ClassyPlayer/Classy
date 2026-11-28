@@ -24,6 +24,16 @@ The `LOGO` partition (boot splash, 3 MB, `MT6572_Android_scatter.txt` partition 
 
 The `system.img`/`rom.zip` builds through v1.3.2 shipped a **Rockbox**-branded `logo.bin` instead of either of the above — a leftover from the source device the original 12-partition set was captured from (its history: stock firmware → Rockbox → this launcher). It was a valid, correctly-structured `LOGO` partition, so it flashed and displayed fine, just with Rockbox's splash instead of anything InniClassic- or Innioasis-branded.
 
+## `app/src/y1/assets/boot/bootanimation.zip` — Y1 boot animation
+
+It is an asset of the Y1 app (not in this folder), so the ROM and the app have one copy. The Y1 bases (type a|b) have the Rockbox animation in `/system/media/bootanimation.zip`: it shows after the boot logo until the UI starts. This zip has one frame, the picture of stream 0 of `logo_classy.bin`, so the Classy boot logo stays until the UI starts. Built by [`tools/build_boot_animation.py`](../build_boot_animation.py) (stored zip, fixed file times; build it again after a change of the logo, and update `BOOT_ANIMATION_SHA256` in `scripts/build-rom.sh`):
+
+```bash
+python3 tools/build_boot_animation.py
+```
+
+`scripts/build-rom.sh a|b` checks the hash, installs it as `/system/media/bootanimation.zip` (root:root 644), and the audit fails if it is not there. The Y2 ROM keeps the animation of its base.
+
 ## `Bluetooth.apk` + `Bluetooth.odex` — Y2 Bluetooth service
 
 The Y2 base ROM (`y2-test`) has no `Bluetooth.apk`, so Bluetooth cannot turn on (#21). These are the original `/system/app/Bluetooth.apk` + `Bluetooth.odex` of the same Innioasis build as the base (fingerprint `Y2/Y2/Y2:4.4.2/KOT49H/1779084676:user/test-keys`), taken from `original_system.img` in the y1-community [`y2-ata`](https://github.com/y1-community/y2-ata-rom/releases/tag/y2-ata) ROM (`rom_y2.zip`). They are signed with the same Innioasis key as the stock `MtkBt.apk`, and the odex matches the base framework, so they need no patch or re-signing.

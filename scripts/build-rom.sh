@@ -44,6 +44,8 @@ Y2_BT_APK_PATCHED_SHA256="99d8d244e6dd083266985ef473bbe86fe51026d11ab724f9a78ca6
 
 # Patched /system/framework/android.policy.jar for the Classy boot screen (tools/rom_assets/android.policy.jar).
 BOOT_POLICY_JAR_SHA256="e4a0adb8281e5940220ad810d48bd797ddaf4e961d4cc7ef1a1f9533b4f6880a"
+# Y1 boot animation: the boot logo until the UI starts (tools/build_boot_animation.py)
+BOOT_ANIMATION_SHA256="409d4708d60db5b438cc3a042980e901236328cc118f32f08f933855330000a4"
 
 usage() {
     cat >&2 <<EOF
@@ -370,6 +372,13 @@ audit_rom_contents() {
         errors=$((errors + 1))
     fi
 
+    # The Y1 bases have the Rockbox boot animation
+    if [ "$rom_type" != "y2" ] \
+        && [ "$(sha256_of "$sys_mount/media/bootanimation.zip" 2>/dev/null)" != "$BOOT_ANIMATION_SHA256" ]; then
+        echo "audit fail: /system/media/bootanimation.zip is not the Classy boot animation" >&2
+        errors=$((errors + 1))
+    fi
+
     if [ -f "$sys_mount/xbin/preloadfiles.sh" ]; then
         echo "audit fail: /system/xbin/preloadfiles.sh still present" >&2
         errors=$((errors + 1))
@@ -583,6 +592,15 @@ sudo rm -f "$MOUNT_SYS/etc/init.d/99Y1ButtonScript"
 sudo rm -f "$MOUNT_SYS/etc/init.d/99Y1LauncherInit.sh"
 sudo rm -rf "$MOUNT_SYS/media/custom_media"
 sudo rm -f "$MOUNT_SYS/xbin/preloadfiles.sh"
+
+# The Y1 bases show the Rockbox animation after the boot logo: the Classy one shows the boot logo until the UI starts
+if [ "$TYPE" != "y2" ]; then
+    echo "==> Installing the Classy boot animation (app/src/y1/assets/boot/bootanimation.zip)"
+    verify_sha256 "$REPO_ROOT/app/src/y1/assets/boot/bootanimation.zip" "$BOOT_ANIMATION_SHA256"
+    sudo cp -f "$REPO_ROOT/app/src/y1/assets/boot/bootanimation.zip" "$MOUNT_SYS/media/bootanimation.zip"
+    sudo chmod 644 "$MOUNT_SYS/media/bootanimation.zip"
+    sudo chown root:root "$MOUNT_SYS/media/bootanimation.zip"
+fi
 
 echo "==> Configuring /system/etc/install-recovery.sh for SuperSU and FM radio"
 sudo tee "$MOUNT_SYS/etc/install-recovery.sh" > /dev/null << 'EOF'
