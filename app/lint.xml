@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  minSdk is 19 (Android 4.4 on the Y1 and Y2). A call to a newer API compiles, but on the device it stops the app
-  (NoSuchMethodError). "fatal" makes lintVitalRelease, which assembleRelease already runs, stop the build on it.
-  Check all API issues with: ./gradlew lintDebug
+  minSdk is 17 for the y1 flavor (Android 4.2) and 19 for the y2 flavor (Android 4.4). A call to a newer API compiles,
+  but on the device it stops the app (NoSuchMethodError). "fatal" makes lintVitalRelease, which assembleRelease already
+  runs, stop the build on it. Check all API issues with: ./gradlew lintY1Release
 -->
 <lint>
     <issue id="NewApi" severity="fatal">
