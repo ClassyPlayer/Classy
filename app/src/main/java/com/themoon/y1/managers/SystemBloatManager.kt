@@ -9,21 +9,30 @@ import android.provider.Settings
 import android.util.Log
 import com.themoon.y1.AppPrefs
 import com.themoon.y1.DeviceModel
+import java.io.File
 
 /**
  * Turns off Android parts that the Y2 does not use: the status bar, the lockscreen (setting), the keyboard,
  * the window animations and some MediaTek daemons. It runs in its own thread at each app start, so the library
  * does not wait for it.
  *
- * On the Y1 (Android 4.2), only the status bar service goes off ([Y1_DISABLED]), for the same reason (not the package).
- * Its USB storage notification (MediaTek's version) opens Android's "USB mass storage" screen at each connection to a
- * computer, over the app's own question ([UsbStorageUiManager]). The service also has Android's low-battery dialog (the app has its own warnings) and the
- * player of notification sounds. With only the screen (`UsbStorageActivity`) disabled, SystemUI stops with an error at
- * the next connection.
+ * The status bar goes off with its service only (`SystemUIService`), not with the whole SystemUI package: the package
+ * also has the only wallpaper service (`ImageWallpaper`). Without a wallpaper window, Android 4.4 enables input only at
+ * its 30 s boot timeout, so the click wheel does nothing for about 30 s after each boot.
  *
- * The status bar goes off with its service only (`SystemUIService`), not with the whole SystemUI package: the package also has
- * the only wallpaper service (`ImageWallpaper`). Without a wallpaper window, Android 4.4 enables input only at its 30 s
- * boot timeout, so the click wheel does nothing for about 30 s after each boot.
+ * Each player has its own [Profile]: [Y2] (the lists below) and [Y1]. On the Y1 (Android 4.2), only the status bar
+ * service goes off, for the same reason (not the package). Its USB storage notification (MediaTek's version) opens
+ * Android's "USB mass storage" screen at each connection to a computer, over the app's own question
+ * ([UsbStorageUiManager]). The service also has Android's low-battery dialog (the app has its own warnings) and the
+ * player of notification sounds. With only the screen (`UsbStorageActivity`) disabled, SystemUI stops with an error at
+ * the next connection. A stop of the SystemUI process does not help (Android starts the service again at once), so the
+ * change takes effect at the next restart.
+ *
+ * The Y1 also gets the boot animation of the app ([Y1_FILES]: one frame of the Classy boot logo), in place of the
+ * Rockbox animation of the Y1 ROM. Its boot animation program reads `/data/local/bootanimation.zip` first, then
+ * `/system/media/bootanimation.zip`: the app writes only to `/data/local`, and nothing when the ROM has the same file.
+ * The file is checked at each start (8 KB), not once for each version, so a new asset in an app update replaces the
+ * old copy: else that copy, read first, would also hide a newer animation of the ROM.
  *
  * Packages and settings: Android keeps them (`package-restrictions.xml`, `settings.db`), so they are set once.
  * The step is recorded only when a check of the real state passes; if root fails, the next start tries again.
@@ -55,11 +64,10 @@ object SystemBloatManager {
     private const val TAG = "Y1SystemBloat"
 
     /**
-     * Raise it when [ENABLED], [DISABLED], [DISABLED_DONT_KILL] or [SETTINGS] change, so that devices apply the new
-     * list once.
+     * The version of the [Y2] profile. Raise it when [ENABLED], [DISABLED], [DISABLED_DONT_KILL] or [SETTINGS] change,
+     * so that devices apply the new list once.
      */
     internal const val VERSION = 5
-    private const val KEY_APPLIED_VERSION = "system_bloat_applied_version"
 
     /** The keyboard package (LatinIME). */
     internal const val KEYBOARD = "com.android.inputmethod.latin"
@@ -73,11 +81,6 @@ object SystemBloatManager {
         KEYBOARD,
         "com.android.providers.userdictionary",
     )
-
-    /** The Y1 list (see the class comment). Raise [Y1_VERSION] when it changes. */
-    internal val Y1_DISABLED = listOf("com.android.systemui/com.android.systemui.SystemUIService")
-    internal const val Y1_VERSION = 1
-    private const val KEY_Y1_APPLIED_VERSION = "system_bloat_y1_applied_version"
 
     /** Components (`package/class`) of packages that must not be force-stopped: disabled with DONT_KILL_APP. */
     internal val DISABLED_DONT_KILL = listOf(
@@ -98,6 +101,51 @@ object SystemBloatManager {
 
     /** init service names (not file names) of daemons that the Y2 cannot use: logs, analog TV, OTA, A-GPS, MTK device management. */
     internal val SERVICES = listOf("mobile_log_d", "netdiag", "matv", "agpsd", "fotabinder", "DMAgent", "PPLAgent")
+
+    /**
+     * A file of the app's assets ([asset]) that the system must read: at [target], or at [fallback] when there is no
+     * [target]. When it is not there, root writes it to [target].
+     */
+    internal data class SystemFile(val asset: String, val target: String, val fallback: String? = null)
+
+    /** The Y1 boot animation (see the class comment). The asset is in the y1 variant only. */
+    internal val Y1_FILES = listOf(
+        SystemFile("boot/bootanimation.zip", "/data/local/bootanimation.zip", "/system/media/bootanimation.zip"),
+    )
+
+    /**
+     * What one player turns off and gets, applied once for each [version] (recorded in the preference [key]).
+     * [services] are stopped and [files] are checked at each start.
+     */
+    internal class Profile(
+        val name: String,
+        val key: String,
+        val version: Int,
+        val enabled: List<String> = emptyList(),
+        val disabled: List<String> = emptyList(),
+        val disabledDontKill: List<String> = emptyList(),
+        val settings: List<Setting> = emptyList(),
+        val services: List<String> = emptyList(),
+        val files: List<SystemFile> = emptyList(),
+    )
+
+    internal val Y2 = Profile(
+        "Y2", "system_bloat_applied_version", VERSION, ENABLED, DISABLED, DISABLED_DONT_KILL, SETTINGS, SERVICES
+    )
+
+    /** Raise the version when the Y1 profile changes. */
+    internal val Y1 = Profile(
+        "Y1", "system_bloat_y1_applied_version", 1,
+        disabled = listOf("com.android.systemui/com.android.systemui.SystemUIService"),
+        files = Y1_FILES,
+    )
+
+    /** The profile of the player [model] (`Build.MODEL`), or null on other devices. */
+    internal fun profileFor(model: String?): Profile? = when {
+        DeviceModel.isY2(model) -> Y2
+        DeviceModel.isY1(model) -> Y1
+        else -> null
+    }
 
     @Volatile
     private var started = false
@@ -136,9 +184,9 @@ object SystemBloatManager {
             "i32 ${PackageManager.COMPONENT_ENABLED_STATE_DISABLED} i32 ${PackageManager.DONT_KILL_APP} i32 0"
     }
 
-    /** Root shell command that stops the services, or null if none runs. [state]: value of `init.svc.<name>`. */
-    internal fun stopCommand(state: (String) -> String?): String? {
-        val running = SERVICES.filter { state(it) == "running" || state(it) == "restarting" }
+    /** Root shell command that stops the [services], or null if none runs. [state]: value of `init.svc.<name>`. */
+    internal fun stopCommand(services: List<String>, state: (String) -> String?): String? {
+        val running = services.filter { state(it) == "running" || state(it) == "restarting" }
         return if (running.isEmpty()) null else running.joinToString("; ") { "setprop ctl.stop $it" }
     }
 
@@ -148,40 +196,20 @@ object SystemBloatManager {
 
     /** Call at app start. */
     fun start(context: Context) {
-        val y2 = DeviceModel.isY2(Build.MODEL)
-        if (started || !(y2 || DeviceModel.isY1(Build.MODEL))) return
+        val profile = profileFor(Build.MODEL)
+        if (started || profile == null) return
         started = true
         val appContext = context.applicationContext
         Thread({
-            if (y2) {
-                stopServices()
-                applyOnce(appContext)
-            } else {
-                applyY1Once(appContext)
-            }
+            stopServices(profile.services)
+            installFiles(appContext, profile.files)
+            applyOnce(appContext, profile)
         }, "SystemBloat").start()
     }
 
-    /** Disables [Y1_DISABLED] once for each [Y1_VERSION]; records it only when a check passes. */
-    private fun applyY1Once(appContext: Context) {
-        val prefs = AppPrefs.get(appContext)
-        if (prefs.getInt(KEY_Y1_APPLIED_VERSION, 0) >= Y1_VERSION) return
-        val disable = Y1_DISABLED.filter { !isDisabled(appContext, it) }
-        if (disable.isNotEmpty()) {
-            FmRadioManager.runSuQuiet(applyCommand(emptyList(), disable, emptyList()), timeoutMs = 30_000)
-        }
-        val failed = Y1_DISABLED.filter { !isDisabled(appContext, it) }
-        if (failed.isEmpty()) {
-            prefs.edit().putInt(KEY_Y1_APPLIED_VERSION, Y1_VERSION).apply()
-            Log.i(TAG, "Applied Y1 version $Y1_VERSION (changed: $disable)")
-        } else {
-            Log.w(TAG, "Not applied, tries again at the next start: $failed")
-        }
-    }
-
-    /** Stops the running [SERVICES] with root. */
-    private fun stopServices() {
-        val command = stopCommand(::systemProperty) ?: return
+    /** Stops the running [services] with root. */
+    private fun stopServices(services: List<String>) {
+        val command = stopCommand(services, ::systemProperty) ?: return
         if (FmRadioManager.runSuQuiet(command)) {
             Log.i(TAG, "Stopped: $command")
         } else {
@@ -189,39 +217,82 @@ object SystemBloatManager {
         }
     }
 
-    /** Applies the packages, components and settings once for each [VERSION]; records it only when a check passes. */
-    private fun applyOnce(appContext: Context) {
+    /** Applies [p] once for each version; records it only when a check of the real state passes. */
+    private fun applyOnce(appContext: Context, p: Profile) {
         val prefs = AppPrefs.get(appContext)
-        if (prefs.getInt(KEY_APPLIED_VERSION, 0) >= VERSION) return
+        if (prefs.getInt(p.key, 0) >= p.version) return
 
         // Step 1: the enables, and `ime disable` of the keyboard. `ime disable` needs the keyboard enabled: when it is
-        // disabled already (version 3), it is enabled again for this step.
-        val imes = keyboardImesOn(appContext).orEmpty()
+        // disabled already (Y2 version 3), it is enabled again for this step.
+        val keyboard = KEYBOARD in p.disabled
+        val imes = if (keyboard) keyboardImesOn(appContext).orEmpty() else emptyList()
         val keyboardAgain = imes.isNotEmpty() && isDisabled(appContext, KEYBOARD)
-        val enable = ENABLED.filter { isDisabled(appContext, it) } + if (keyboardAgain) listOf(KEYBOARD) else emptyList()
+        val enable = p.enabled.filter { isDisabled(appContext, it) } + if (keyboardAgain) listOf(KEYBOARD) else emptyList()
         if (enable.isNotEmpty() || imes.isNotEmpty()) {
             FmRadioManager.runSuQuiet(applyCommand(enable, emptyList(), emptyList(), imes), timeoutMs = 30_000)
         }
         // Step 2: the disables and settings. The keyboard only when the settings show that it is no longer an input
         // method (not from the exit code of `ime`); else it stays on and the next start tries again.
-        val keyboardFree = keyboardImesOn(appContext)?.isEmpty() == true
-        val disable = DISABLED.filter { !isDisabled(appContext, it) && (it != KEYBOARD || keyboardFree) }
-        val settings = SETTINGS.filter { !hasValue(appContext, it) }
+        val keyboardFree = keyboard && keyboardImesOn(appContext)?.isEmpty() == true
+        val disable = p.disabled.filter { !isDisabled(appContext, it) && (it != KEYBOARD || keyboardFree) }
+        val settings = p.settings.filter { !hasValue(appContext, it) }
         if (disable.isNotEmpty() || settings.isNotEmpty()) {
             FmRadioManager.runSuQuiet(applyCommand(emptyList(), disable, settings), timeoutMs = 30_000)
         }
-        val disableDontKill = DISABLED_DONT_KILL.filter { !isDisabled(appContext, it) }
+        val disableDontKill = p.disabledDontKill.filter { !isDisabled(appContext, it) }
         disableDontKill.forEach { disableWithoutKill(appContext, it) }
 
-        val failed = ENABLED.filter { isDisabled(appContext, it) } +
-            (DISABLED + DISABLED_DONT_KILL).filter { !isDisabled(appContext, it) } +
-            SETTINGS.filter { !hasValue(appContext, it) }.map { it.name } +
-            (keyboardImesOn(appContext) ?: listOf("input method settings (not readable)"))
+        val failed = p.enabled.filter { isDisabled(appContext, it) } +
+            (p.disabled + p.disabledDontKill).filter { !isDisabled(appContext, it) } +
+            p.settings.filter { !hasValue(appContext, it) }.map { it.name } +
+            (if (keyboard) keyboardImesOn(appContext) ?: listOf("input method settings (not readable)") else emptyList())
         if (failed.isEmpty()) {
-            prefs.edit().putInt(KEY_APPLIED_VERSION, VERSION).apply()
-            Log.i(TAG, "Applied version $VERSION (changed: $enable $disable $disableDontKill ${settings.map { it.name }})")
+            prefs.edit().putInt(p.key, p.version).apply()
+            Log.i(TAG, "Applied ${p.name} version ${p.version} " +
+                "(changed: $enable $disable $disableDontKill ${settings.map { it.name }})")
         } else {
             Log.w(TAG, "Not applied, tries again at the next start: $failed")
+        }
+    }
+
+    /** Writes the [files] that are not in place. */
+    private fun installFiles(appContext: Context, files: List<SystemFile>) {
+        for (file in files.filter { !isInPlace(appContext, it) }) {
+            install(appContext, file)
+            if (isInPlace(appContext, file)) Log.i(TAG, "Wrote ${file.target}")
+            else Log.w(TAG, "Could not write ${file.target}, tries again at the next start")
+        }
+    }
+
+    /** The bytes of [asset], or null when this variant of the app does not have it. */
+    private fun assetBytes(context: Context, asset: String): ByteArray? = try {
+        context.assets.open(asset).use { it.readBytes() }
+    } catch (_: java.io.IOException) {
+        null
+    }
+
+    /** True when the file that the system reads has the bytes of the asset, or when the app has no such asset. */
+    private fun isInPlace(context: Context, file: SystemFile): Boolean {
+        val wanted = assetBytes(context, file.asset) ?: return true
+        val read = File(file.target).takeIf { it.exists() } ?: file.fallback?.let(::File) ?: return false
+        return try {
+            read.readBytes().contentEquals(wanted)
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    /** Writes the asset of [file] to its target with root, through a copy in the app's cache. */
+    private fun install(context: Context, file: SystemFile) {
+        val bytes = assetBytes(context, file.asset) ?: return
+        val temp = File(context.cacheDir, "system_file.tmp")
+        try {
+            temp.writeBytes(bytes)
+            FmRadioManager.runSuQuiet(RootFileInstall.lines(temp.absolutePath, file.target).joinToString(" && "), timeoutMs = 30_000)
+        } catch (e: Exception) {
+            Log.w(TAG, "Could not write ${file.target}", e)
+        } finally {
+            temp.delete()
         }
     }
 

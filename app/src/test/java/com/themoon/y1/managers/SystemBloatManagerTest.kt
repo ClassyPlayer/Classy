@@ -26,9 +26,35 @@ class SystemBloatManagerTest {
     }
 
     @Test
-    fun y1List_isOnlyTheStatusBarService() {
+    fun y1Profile_isOnlyTheStatusBarServiceAndTheBootAnimation() {
+        val y1 = SystemBloatManager.Y1
         // Its USB storage notification opens Android's USB screen; the wallpaper (same package) must stay
-        assertEquals(listOf("com.android.systemui/com.android.systemui.SystemUIService"), SystemBloatManager.Y1_DISABLED)
+        assertEquals(listOf("com.android.systemui/com.android.systemui.SystemUIService"), y1.disabled)
+        assertTrue(y1.enabled.isEmpty() && y1.disabledDontKill.isEmpty() && y1.settings.isEmpty() && y1.services.isEmpty())
+        // Written to /data/local (read first), not to /system
+        assertEquals(
+            listOf(SystemBloatManager.SystemFile("boot/bootanimation.zip", "/data/local/bootanimation.zip", "/system/media/bootanimation.zip")),
+            y1.files
+        )
+        assertTrue(y1.key != SystemBloatManager.Y2.key)
+    }
+
+    @Test
+    fun y2Profile_isTheY2Lists() {
+        val y2 = SystemBloatManager.Y2
+        assertEquals("system_bloat_applied_version", y2.key)
+        assertEquals(SystemBloatManager.VERSION, y2.version)
+        assertEquals(SystemBloatManager.DISABLED, y2.disabled)
+        assertEquals(SystemBloatManager.SERVICES, y2.services)
+        assertTrue(y2.files.isEmpty())
+    }
+
+    @Test
+    fun profileFor_isNullOnOtherDevices() {
+        assertTrue(SystemBloatManager.profileFor("Y2") === SystemBloatManager.Y2)
+        assertTrue(SystemBloatManager.profileFor("Y1") === SystemBloatManager.Y1)
+        assertNull(SystemBloatManager.profileFor("Pixel"))
+        assertNull(SystemBloatManager.profileFor(null))
     }
 
     @Test
@@ -91,13 +117,13 @@ class SystemBloatManagerTest {
     @Test
     fun stopCommand_stopsRunningAndRestartingServicesOnly() {
         val states = mapOf("matv" to "running", "agpsd" to "restarting", "netdiag" to "stopped")
-        assertEquals("setprop ctl.stop matv; setprop ctl.stop agpsd", SystemBloatManager.stopCommand { states[it] })
+        assertEquals("setprop ctl.stop matv; setprop ctl.stop agpsd", SystemBloatManager.stopCommand(SystemBloatManager.SERVICES) { states[it] })
     }
 
     @Test
     fun stopCommand_isNullWhenNothingRuns() {
-        assertNull(SystemBloatManager.stopCommand { "stopped" })
-        assertNull(SystemBloatManager.stopCommand { null })
+        assertNull(SystemBloatManager.stopCommand(SystemBloatManager.SERVICES) { "stopped" })
+        assertNull(SystemBloatManager.stopCommand(SystemBloatManager.SERVICES) { null })
     }
 
     @Test
