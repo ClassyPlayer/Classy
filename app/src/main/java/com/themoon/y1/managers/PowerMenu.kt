@@ -83,7 +83,7 @@ object PowerMenu {
     /** Pauses the music, saves the playback state (as at a shutdown), then restarts or powers off. */
     fun run(context: Context, action: Action, onFailed: () -> Unit) {
         val player = AudioPlayerManager.getInstance()
-        if (player.isPlaying()) player.playOrPauseMusic()
+        if (player.isPlaying()) player.pauseMusic()
         player.savePlaybackState(sync = true)
 
         val sdk = Build.VERSION.SDK_INT

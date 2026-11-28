@@ -19,6 +19,8 @@ sealed interface ScreenState {
     data object Wifi : ScreenState
     data class WifiKeyboard(val target: KeyboardTarget) : ScreenState
     data object Brightness : ScreenState
+    /** Power → Sleep Timer → Custom…: the time set with the wheel. */
+    data object SleepTimer : ScreenState
     data object Storage : ScreenState
     data object WebServer : ScreenState
     data object MusicQuiz : ScreenState

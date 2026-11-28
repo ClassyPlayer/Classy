@@ -55,7 +55,9 @@ class PrefsTest {
             // Settings → Playback → Previous Restarts Song
             "previous_restarts_song",
             // Settings → Library → Audiobook Series Cover Flow
-            "audiobook_series_cover_flow")
+            "audiobook_series_cover_flow",
+            // Settings → Playback → After Sleep Timer, and the last custom time of Power → Sleep Timer
+            "sleep_timer_end", "sleep_timer_custom_minutes")
         assertEquals(before + added, Prefs.RESETTABLE.map { it.key }.toSet())
     }
 

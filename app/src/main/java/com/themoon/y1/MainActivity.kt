@@ -135,6 +135,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
         const val STATE_PHOTOS = 22
         const val STATE_PHOTO_VIEWER = 23
         const val STATE_WEBDAV = 24
+        const val STATE_SLEEP_TIMER = 25
 
         const val VIRTUAL_VOLUME_STEPS = VolumeSteps.STEPS
 
@@ -254,6 +255,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     lateinit var layoutWifiMode: View
     lateinit var layoutWifiKeyboard: View
     lateinit var layoutBrightnessMode: View
+    lateinit var layoutSleepTimerMode: View
     lateinit var layoutStorageMode: View
     lateinit var layoutWebServerMode: View
     lateinit var layoutMusicQuizMode: View
@@ -282,6 +284,8 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     var ivStatusPlayOn: ImageView? = null
     var ivStatusBluetooth: ImageView? = null
     var ivStatusHeadphone: ImageView? = null
+    /** The moon of a running sleep timer. */
+    var ivStatusSleep: ImageView? = null
     var tvStatusTime: TextView? = null
     var tvStatusBattery: TextView? = null
     var batteryIconView: BatteryIconView? = null
@@ -336,6 +340,12 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
         if (::gamesController.isInitialized) gamesController.forget()
     }
 
+    /** The sleep timer ended: the sounds that [com.themoon.y1.managers.PlaybackPause] does not pause stop too. */
+    fun pauseOwnSoundsForSleepTimer() {
+        if (::gamePlayerController.isInitialized) gamePlayerController.pauseForSleepTimer()
+        if (::musicQuizController.isInitialized) musicQuizController.stopClipForSleepTimer()
+    }
+
     /** Before the card is shared over USB: the game on the screen ends (its save then runs on the game worker). */
     fun endGameForUsbShare() {
         if (::gamePlayerController.isInitialized) gamePlayerController.endForUsbShare()
@@ -362,6 +372,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     lateinit var wifiKeyboardController: WifiKeyboardController
     lateinit var settingsController: SettingsController
     lateinit var brightnessController: BrightnessController
+    lateinit var sleepTimerController: com.themoon.y1.controllers.settings.SleepTimerController
     lateinit var storageController: StorageController
     lateinit var jellyfinUiController: JellyfinUiController
     lateinit var webDavUiController: WebDavUiController
@@ -546,6 +557,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
         com.themoon.y1.views.LowBatteryWarningView.install(this)
         registerReceivers()
         com.themoon.y1.battery.BatteryGuard.addListener(batteryGuardListener)
+        com.themoon.y1.managers.SleepTimer.addListener(sleepTimerListener)
         // A long press of the Power button shows our Power screen, not Android's power menu
         powerMenuInterceptor = PowerMenuInterceptor(this) { showPowerMenu() }.also { it.register() }
         com.themoon.y1.managers.CellRadioManager.start(this)
@@ -684,6 +696,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
             STATE_BLUETOOTH -> ScreenState.Bluetooth
             STATE_WIFI -> ScreenState.Wifi
             STATE_BRIGHTNESS -> ScreenState.Brightness
+            STATE_SLEEP_TIMER -> ScreenState.SleepTimer
             STATE_STORAGE -> ScreenState.Storage
             STATE_WEBSERVER -> ScreenState.WebServer
             STATE_QUIZ -> ScreenState.MusicQuiz
@@ -729,6 +742,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
             is ScreenState.Wifi -> STATE_WIFI
             is ScreenState.WifiKeyboard -> STATE_WIFI_KEYBOARD
             is ScreenState.Brightness -> STATE_BRIGHTNESS
+            is ScreenState.SleepTimer -> STATE_SLEEP_TIMER
             is ScreenState.Storage -> STATE_STORAGE
             is ScreenState.WebServer -> STATE_WEBSERVER
             is ScreenState.MusicQuiz -> STATE_QUIZ
@@ -768,6 +782,18 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         // The wheel's own step keys while the pad wheel reads the pads
         if (com.themoon.y1.navigation.PadWheel.filterKey(event)) return true
+        // A key while the sleep timer fades out: the timer stops, the volume comes back, the key does nothing else
+        if (event.keyCode == sleepTimerKey) {
+            if (event.action == KeyEvent.ACTION_UP) sleepTimerKey = -1
+            return true
+        }
+        if (event.action == KeyEvent.ACTION_DOWN && com.themoon.y1.managers.SleepTimer.onUserKey()) {
+            sleepTimerKey = event.keyCode
+            // The screen may have timed out during the fade: the key also wakes it, so the notice shows
+            if (isFakeScreenOff) wakeFromFakeScreenOff() else powerBacklightManager?.resetTimer()
+            Notice.show(this, t("Sleep timer cancelled"))
+            return true
+        }
         // A key during a menu slide ends the slide at once, then acts on the new screen as normal. Not the repeats of
         // a held key: a held centre opens a screen (Now Playing menu, Add to Playlist), and its repeats must not stop
         // the slide of that screen.
@@ -1498,6 +1524,8 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
                     powerBacklightManager?.resetTimer()
                     updateScreenOffFeedback(true)
                     updateStatusBarClock()
+                    // The minute tick of the sleep timer stalls while the player sleeps
+                    sleepTimerListener()
                     com.themoon.y1.cast.CastManager.onScreenOn()
                 }
                 Intent.ACTION_SCREEN_OFF -> {
@@ -1563,6 +1591,15 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
         pairingAgent = BluetoothPairingAgent(this, ::t).also { it.register() }
     }
 
+    /** The sleep timer started, ticked a minute, stopped or ended: the moon and the Power screen show it. */
+    private val sleepTimerListener: () -> Unit = {
+        updateStatusBarSleepTimer()
+        if (::settingsController.isInitialized) settingsController.onSleepTimerChanged()
+    }
+
+    /** The key that stopped the sleep timer's fade: its key up (and repeats) do nothing either. */
+    private var sleepTimerKey = -1
+
     /** A new level of the voltage model (it can come without a battery broadcast): show it in the status bar. */
     private val batteryGuardListener = object : com.themoon.y1.battery.BatteryGuard.Listener {
         override fun onLevelChanged() {
@@ -1573,6 +1610,7 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     override fun onDestroy() {
         com.themoon.y1.navigation.PadWheel.detach(this)
         com.themoon.y1.battery.BatteryGuard.removeListener(batteryGuardListener)
+        com.themoon.y1.managers.SleepTimer.removeListener(sleepTimerListener)
         menuSlide?.let { NavigationManager.getInstance().removeDirectionListener(it) }
         // The overlays of this window: an object must not keep the closed activity
         Notice.release(this)
@@ -1598,8 +1636,25 @@ class MainActivity : Activity(), InputRouter.VolumeAdjuster {
     }
 
     class MediaBtnReceiver : BroadcastReceiver() {
+        companion object {
+            /** The media key that stopped the sleep timer's fade: its key up does nothing either. */
+            private var sleepTimerMediaKey = -1
+        }
+
         override fun onReceive(context: Context, intent: Intent) {
             val event = intent.getParcelableExtra<KeyEvent>(Intent.EXTRA_KEY_EVENT) ?: return
+            // A media key (Bluetooth, wired headset) while the sleep timer fades stops the timer and does nothing
+            // else, as a key of the player does. Also a key that Screen-Off Control would ignore: someone is awake.
+            if (event.keyCode == sleepTimerMediaKey) {
+                if (event.action == KeyEvent.ACTION_UP) sleepTimerMediaKey = -1
+                return
+            }
+            if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0 &&
+                com.themoon.y1.managers.SleepTimer.onUserKey()) {
+                sleepTimerMediaKey = event.keyCode
+                instance?.let { Notice.show(it, it.t("Sleep timer cancelled")) }
+                return
+            }
             val router = com.themoon.y1.navigation.InputRouter.getInstance()
             val isSkip = router.isSkipKey(event.keyCode)
 

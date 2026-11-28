@@ -34,6 +34,8 @@ import com.themoon.y1.managers.LanguageManager
 import com.themoon.y1.managers.LanguageNames
 import com.themoon.y1.managers.LastFmScrobbler
 import com.themoon.y1.managers.PowerMenu
+import com.themoon.y1.managers.SleepTimer
+import com.themoon.y1.managers.SleepTimerMath
 import com.themoon.y1.managers.RadioSwitch
 import com.themoon.y1.managers.UpdateChannel
 import com.themoon.y1.managers.UsbDrive
@@ -171,6 +173,8 @@ class SettingsController(
             toggle("Mono Audio", Prefs.MONO_AUDIO) { AudioEffectManager.getInstance().applyAudioEffects() },
             action("Volume Limit", { volumeLimitText() }, opens = true) { openPage("VolumeLimit") },
             cycle("Playback Speed", { speedIndex() }, { setSpeed(it) }, SPEED_LABELS),
+            // The end of the sleep timer (Power screen → Sleep Timer): pause and screen off, or power off
+            cycle("After Sleep Timer", Prefs.SLEEP_TIMER_END, arrayOf("Pause", "Power Off")),
         )),
         SettingsGroup("Display", listOf(
             action("Brightness") { onNavigateToScreen(MainActivity.STATE_BRIGHTNESS) },
@@ -485,7 +489,10 @@ class SettingsController(
         val brightness = ActionScreens.Action(localize("Brightness"), opensList = true) {
             onNavigateToScreen(MainActivity.STATE_BRIGHTNESS)
         }
-        val spec = ActionScreens.Spec(localize("Power"), actions = radios + brightness + PowerMenu.Action.values().map { action ->
+        val sleep = ActionScreens.Action(localize("Sleep Timer"), opensList = true, key = "sleep_timer",
+            value = if (SleepTimer.isActive()) SleepTimerText.duration(SleepTimer.minutesLeft(), localize) else localize("Off")
+        ) { showSleepTimerList() }
+        val spec = ActionScreens.Spec(localize("Power"), actions = radios + brightness + sleep + PowerMenu.Action.values().map { action ->
             ActionScreens.Action(localize(action.label)) {
                 PowerMenu.run(activity, action) {
                     Notice.error(
@@ -496,6 +503,52 @@ class SettingsController(
             }
         })
         buildActionUI(SettingsSubMode.Power, spec)
+    }
+
+    /** The key of the Sleep Timer list (ActionScreens), -1 = never opened. */
+    private var sleepListKey = -1
+
+    /**
+     * The Sleep Timer list (Power → Sleep Timer): the last custom time (when it is not a preset), the presets, Custom…
+     * (the wheel screen) and, while a timer runs, Stop Sleep Timer with the time left. Not an info row on top: with
+     * List Edges = Fade the list keeps the selected first row clear of the fade and scrolls an info row out of view. A time row starts the timer and goes
+     * back to Power; Custom… opens the wheel screen over this list (Back comes back here).
+     */
+    private fun sleepListSpec(): ActionScreens.Spec {
+        val running = SleepTimer.isActive()
+        val rows = ArrayList<ActionScreens.Action>()
+        for (minutes in SleepTimerMath.listMinutes(Prefs.SLEEP_TIMER_CUSTOM.get(prefs))) {
+            rows += ActionScreens.Action(SleepTimerText.duration(minutes, localize), key = "minutes$minutes") {
+                SleepTimerText.start(activity, minutes, localize)
+            }
+        }
+        rows += ActionScreens.Action(localize("Custom…"), opensList = true, key = "custom") {
+            onNavigateToScreen(MainActivity.STATE_SLEEP_TIMER)
+        }
+        if (running) {
+            val left = SleepTimerText.duration(SleepTimer.minutesLeft(), localize)
+            rows += ActionScreens.Action(localize("Stop Sleep Timer"), value = left, key = "stop") {
+                SleepTimer.cancel()
+                Notice.show(activity, localize("Sleep timer cancelled"))
+            }
+        }
+        return ActionScreens.Spec(localize("Sleep Timer"), actions = rows)
+    }
+
+    private fun showSleepTimerList() {
+        sleepListKey = ActionScreens.open(sleepListSpec())
+    }
+
+    /** The custom screen started the timer and went back to this list: the list closes too, Power shows. */
+    fun closeSleepTimerList() {
+        if (sleepListKey >= 0) ActionScreens.close(sleepListKey)
+        sleepListKey = -1
+    }
+
+    /** The sleep timer started, ticked, stopped or ended (MainActivity): the Power screen and the open list show it. */
+    fun onSleepTimerChanged() {
+        if (actionPage == SettingsSubMode.Power) buildPowerUI()
+        if (sleepListKey >= 0 && ActionScreens.spec(sleepListKey) != null) ActionScreens.replace(sleepListKey, sleepListSpec())
     }
 
     /** A radio starts, stops or fails to (MainActivity: the Wi-Fi and Bluetooth state broadcasts): an open Power screen shows it. */

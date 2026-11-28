@@ -265,7 +265,7 @@ class FmRadioManager private constructor(context: Context) {
 
             player.setAudioStreamType(streamFm)
             // VirtualVolumeManager gives each later gain change through setMasterVolume
-            setMasterVolume(VirtualVolumeManager.getInstance().getMasterGain())
+            setMasterVolume(VirtualVolumeManager.getInstance().getOutputGain())
             player.prepare()
             val start = Runnable {
                 if (fmPlayer !== player || !isPowerUp) return@Runnable

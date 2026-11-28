@@ -112,6 +112,12 @@ object Prefs {
     val REPEAT_MODE = add(IntPref("repeat_mode", 0, PrefGroup.PLAYBACK, resettable = true))
     /** Previous goes back to the start of a song that played a few seconds ([com.themoon.y1.managers.PreviousButton]). */
     val PREVIOUS_RESTARTS = add(BoolPref("previous_restarts_song", true, PrefGroup.PLAYBACK, resettable = true))
+    /** What the sleep timer does at its end ([com.themoon.y1.managers.SleepTimer]): [SLEEP_END_PAUSE] or [SLEEP_END_POWER_OFF]. */
+    val SLEEP_TIMER_END = add(IntPref("sleep_timer_end", 0, PrefGroup.PLAYBACK, resettable = true))
+    const val SLEEP_END_PAUSE = 0
+    const val SLEEP_END_POWER_OFF = 1
+    /** The last time set on the custom Sleep Timer screen, in minutes (0 = none); the list shows it on top. */
+    val SLEEP_TIMER_CUSTOM = add(IntPref("sleep_timer_custom_minutes", 0, PrefGroup.PLAYBACK, resettable = true))
     /** "preset_N" (N = index in the preset list) or "custom_<name>". */
     val EQ_PROFILE = add(StringPref("eq_profile_id", "preset_0", PrefGroup.PLAYBACK, resettable = true))
     val SOFTWARE_EQ = add(BoolPref("software_eq_enabled", false, PrefGroup.PLAYBACK))

@@ -223,7 +223,7 @@ class FmRadioController(
         } else {
             val audioPlayerManager = AudioPlayerManager.getInstance()
             if (audioPlayerManager.isPlaying()) {
-                audioPlayerManager.playOrPauseMusic()
+                audioPlayerManager.pauseMusic()
             }
             try {
                 Thread.sleep(50)
@@ -270,7 +270,7 @@ class FmRadioController(
         if (!fmManager.isPowerUp) {
             val audioPlayerManager = AudioPlayerManager.getInstance()
             if (audioPlayerManager.isPlaying()) {
-                audioPlayerManager.playOrPauseMusic()
+                audioPlayerManager.pauseMusic()
             }
             if (!fmManager.powerUp(fmManager.currentFreq)) {
                 Notice.error(activity, "Radio Error: ${fmManager.lastError}")

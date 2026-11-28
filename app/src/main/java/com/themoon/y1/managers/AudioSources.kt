@@ -101,6 +101,16 @@ class AudioSources internal constructor(
         }
     }
 
+    /**
+     * Pauses the radio when it plays, as a Play/Pause press does (the sleep timer): with [stopRadio], so with no
+     * click and also when the activity is closed.
+     */
+    fun pauseRadio() {
+        if (!radioOn()) return
+        stopRadio()
+        if (!radioOn()) radioPausedAtMs = nowMs()
+    }
+
     /** A short Next ([next]) or Previous press. Paused radio plays again at the new station. */
     fun skipKey(next: Boolean) {
         if (!radioHasButtons) {
@@ -129,7 +139,7 @@ class AudioSources internal constructor(
                 }
             },
             musicPlaying = { AudioPlayerManager.getInstance().isPlaying() },
-            pauseMusic = { onMain { AudioPlayerManager.getInstance().let { if (it.isPlaying()) it.playOrPauseMusic() } } },
+            pauseMusic = { onMain { AudioPlayerManager.getInstance().let { if (it.isPlaying()) it.pauseMusic() } } },
             radio = object : Radio {
                 override fun toggle() {
                     MainActivity.instance?.let { it.fmRadioController.toggleRadioPower() }

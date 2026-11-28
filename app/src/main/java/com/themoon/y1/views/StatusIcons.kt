@@ -35,7 +35,7 @@ import kotlin.math.sqrt
  * so the unit tests can check them.
  */
 object StatusIcons {
-    enum class Icon { HEADPHONES, WIFI, BLUETOOTH, PLAY_ON }
+    enum class Icon { HEADPHONES, WIFI, BLUETOOTH, PLAY_ON, MOON }
 
     // The palette of the iPod play/pause icon.
     const val FILL_TOP = 0xFFA6D6FF.toInt()
@@ -266,6 +266,8 @@ object StatusIcons {
         Icon.HEADPHONES -> heightPx
         Icon.BLUETOOTH -> bluetoothLayout(bitmapHeight(icon, heightPx), connected).width
         Icon.PLAY_ON -> ceil(playOnGeometry(heightPx + PLAY_ON_GROW - 1f).width + 1f).toInt()
+        // A round disc with a bite: as wide as tall
+        Icon.MOON -> heightPx
     }
 
     /**
@@ -313,12 +315,49 @@ object StatusIcons {
             canvas.drawPath(shape, edge)
             if (!active) fill.apply { this.shader = null; xfermode = PorterDuffXfermode(PorterDuff.Mode.CLEAR) }
             canvas.drawPath(shape, fill)
+        } else if (icon == Icon.MOON) {
+            val shape = moon(w.toFloat(), h.toFloat())
+            canvas.drawPath(shape, fill)
+            canvas.drawPath(shape, edge.apply { strokeJoin = Paint.Join.ROUND })
         } else if (icon == Icon.PLAY_ON) {
             drawPlayOn(canvas, w.toFloat(), (h + PLAY_ON_GROW).toFloat(), overshoot(icon, h).toFloat(), fill, edge)
         } else {
             drawWifi(canvas, w.toFloat(), h.toFloat(), active, fill, edge)
         }
         return bmp
+    }
+
+    /** The bite of the moon: its radius and the offset of its centre to the upper right, in parts of the disc radius. */
+    const val MOON_BITE_RADIUS = 0.8f
+    const val MOON_BITE_X = 0.55f
+    const val MOON_BITE_Y = -0.4f
+
+    /**
+     * The sleep timer's crescent (open to the upper right, as the Tabler "moon"): the disc, 0.5 px inside the bitmap
+     * for the edge, less a bite circle. Built from two arcs, not Path.op (it can loop for ever in the Skia of Android 4.4).
+     */
+    private fun moon(w: Float, h: Float): Path {
+        val r = (h - 1f) / 2f
+        val cx = w / 2f
+        val cy = 0.5f + r
+        val r2 = r * MOON_BITE_RADIUS
+        val ox = r * MOON_BITE_X
+        val oy = r * MOON_BITE_Y
+        val d = sqrt(ox * ox + oy * oy)
+        // The two points where the circles meet: a along the line of the centres, the angles from each centre
+        val a = (r * r - r2 * r2 + d * d) / (2f * d)
+        val half = Math.toDegrees(kotlin.math.acos((a / r).toDouble().coerceIn(-1.0, 1.0))).toFloat()
+        val hgt = sqrt(max(0f, r * r - a * a))
+        val half2 = Math.toDegrees(atan2(hgt.toDouble(), (d - a).toDouble())).toFloat()
+        val dir = Math.toDegrees(atan2(oy.toDouble(), ox.toDouble())).toFloat()
+        val bx = cx + ox
+        val by = cy + oy
+        return Path().apply {
+            // The disc the long way round, from one meeting point to the other, then the bite back
+            arcTo(RectF(cx - r, cy - r, cx + r, cy + r), dir + half, 360f - 2f * half, true)
+            arcTo(RectF(bx - r2, by - r2, bx + r2, by + r2), dir + 180f + half2, -2f * half2, false)
+            close()
+        }
     }
 
     /** The rings (round ends) and the triangle of [playOnGeometry]: the fill, then the 1 px edge (as the fan). */

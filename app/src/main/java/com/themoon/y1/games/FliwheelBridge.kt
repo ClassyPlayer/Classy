@@ -245,7 +245,7 @@ class FliwheelBridge {
     }
 
     private fun playSound(pool: SoundPool, id: Int) {
-        val gain = VirtualVolumeManager.getInstance().getMasterGain()
+        val gain = VirtualVolumeManager.getInstance().getOutputGain()
         pool.play(id, gain, gain, 1, 0, 1f)
     }
 

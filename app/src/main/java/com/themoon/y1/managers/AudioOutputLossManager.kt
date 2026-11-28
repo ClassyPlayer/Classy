@@ -106,7 +106,7 @@ object AudioOutputLossManager {
 
     private fun pause() {
         val am = AudioPlayerManager.getInstance()
-        if (am.isPlaying()) am.playOrPauseMusic()
+        if (am.isPlaying()) am.pauseMusic()
         attachPlayer()
     }
 
